@@ -61,7 +61,7 @@ final class SpecToElementorV4 extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		if ( ! get_option( 'stonewright_elementor_v4_atomic', false ) ) {
-			return new \WP_Error( 'feature_disabled', __( 'Elementor V4 atomic renderer is disabled. Toggle stonewright_elementor_v4_atomic to enable.', 'stonewright' ) );
+			return new \WP_Error( 'stonewright_feature_disabled', __( 'Elementor V4 atomic renderer is disabled. Toggle stonewright_elementor_v4_atomic to enable.', 'stonewright' ) );
 		}
 		if ( ! empty( $args['post_id'] ) ) {
 			return Permissions::edit_post( (int) $args['post_id'] );

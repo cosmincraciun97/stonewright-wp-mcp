@@ -1,4 +1,5 @@
 import { assertToolEnabled } from "../writes.js";
+import { assertSecureTransport } from "../wp-rest-client.js";
 import type { DirectToolContext } from "./types.js";
 
 export const PLUGIN_ONLY_CAPABILITIES = [
@@ -13,9 +14,17 @@ export const PLUGIN_ONLY_CAPABILITIES = [
     id: "elementor-engine",
     label: "Elementor engines / schema / DesignSpec render",
     reason:
-      "Full Elementor V3/V4 engines and schema tools require the plugin. Raw _elementor_data edit is available in Direct only on local WP-CLI sites via stonewright-elementor-data-*.",
+      "Typed Elementor V3 engines, schema tools and DesignSpec render require the plugin. Direct reads and writes raw _elementor_data through stonewright-elementor-data-*: over WP-CLI when the alias is the local install, otherwise through core REST when the site exposes the meta. Raw writes are not validated against Elementor schemas.",
     upgrade:
-      "Install the Stonewright plugin for typed Elementor engines; on local sites use stonewright-elementor-status first.",
+      "Install the Stonewright plugin for typed Elementor engines; use stonewright-elementor-status first to see which transport Direct will use.",
+  },
+  {
+    id: "elementor-v4-atomic",
+    label: "Elementor V4 (Atomic) features",
+    reason:
+      "V4 status, atomic element and local style tools require the plugin. Direct sees V4 documents only as raw _elementor_data.",
+    upgrade:
+      "Install the Stonewright plugin to use the elementor-v4-* abilities.",
   },
   {
     id: "design-spec-render",
@@ -46,6 +55,42 @@ export const PLUGIN_ONLY_CAPABILITIES = [
       "WordPress core REST has no registration endpoint; registration needs PHP running on the server every request. No REST-only client can do this. Direct mode DOES fully edit existing models: CPT content via stonewright-content-* (type param), taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-*.",
     upgrade:
       "Install the Stonewright plugin for cpt-register, taxonomy-register, and acf-field-group-save. Do not scaffold ad hoc plugins as a workaround.",
+  },
+  {
+    id: "rescue",
+    label: "Rescue snapshots and restore",
+    reason:
+      "Rescue snapshots, probes and rollback are plugin-only. Direct keeps pre-image and backup files for five whole-document writes and Elementor data, restores them with stonewright-direct-backup-restore, and can check the public page after a page, post or template write; it has no site-wide rollback.",
+    upgrade:
+      "Install the Stonewright plugin for Rescue snapshots and rollback.",
+  },
+  {
+    id: "change-sets",
+    label: "Change sets",
+    reason: "Change sets and their diffs are recorded by the plugin only.",
+    upgrade: "Install the Stonewright plugin to group and review changes.",
+  },
+  {
+    id: "section-reuse",
+    label: "Section reuse",
+    reason:
+      "Finding and extracting existing sections for reuse is a plugin ability.",
+    upgrade:
+      "Install the Stonewright plugin to use section-reuse-find and section-reuse-extract.",
+  },
+  {
+    id: "design-direction",
+    label: "Design Direction",
+    reason: "Design Direction briefs and records live in the plugin.",
+    upgrade:
+      "Install the Stonewright plugin to use the design-direction abilities.",
+  },
+  {
+    id: "site-context",
+    label: "Site Context",
+    reason:
+      "Site Context is stored and served by the plugin; Direct keeps only per-machine local memory.",
+    upgrade: "Install the Stonewright plugin to use site Context.",
   },
   {
     id: "audit-log",
@@ -107,6 +152,8 @@ export async function siteDiscover(ctx: DirectToolContext) {
   try {
     index = await ctx.client.get<WpIndex>("/");
   } catch {
+    // The raw fallback sends the same credential, so it keeps the same transport rule.
+    assertSecureTransport(ctx.site, ctx.env);
     // Some hosts reject bare `/`; fall back via absolute rest root fetch.
     const fetchImpl = ctx.fetchImpl ?? fetch;
     const response = await fetchImpl(ctx.client.restBase.replace(/\/+$/, ""), {
@@ -172,7 +219,7 @@ export async function siteDiscover(ctx: DirectToolContext) {
       return {
         ...cap,
         site_signal:
-          "Elementor REST namespace detected on this site; install Stonewright plugin to edit Elementor data safely.",
+          "Elementor REST namespace detected on this site; install Stonewright plugin for typed, validated Elementor edits.",
       };
     }
     return { ...cap };

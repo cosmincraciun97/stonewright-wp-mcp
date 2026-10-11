@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -78,27 +79,34 @@ final class RemoveElement extends AbilityKernel {
 					return $token_error;
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				$tree        = ElementorData::read( $post_id );
+				// The lease is taken before the snapshot and the read, so no other writer changes the document in between.
+				return PostWriteLock::with_lease(
+					$post_id,
+					'remove-element',
+					function ( string $lock_owner ) use ( $args, $post_id ) {
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+						$tree = ElementorData::read( $post_id );
 
-				$path = ElementorData::find_path( $tree, (string) $args['element_id'] );
-				if ( null === $path ) {
-					return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
-				}
+						$path = ElementorData::find_path( $tree, (string) $args['element_id'] );
+						if ( null === $path ) {
+							return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
+						}
 
-				$tree = ElementorData::set( $tree, $path, null );
-				// Intentional element removal is a confirmed destructive write; size-collapse is expected.
-				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
-					return ElementorData::write_error_for_ability();
-				}
+						$tree = ElementorData::set( $tree, $path, null );
+						// Intentional element removal is a confirmed destructive write; size-collapse is expected.
+						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'lock_owner' => $lock_owner ] ) ) {
+							return ElementorData::write_error_for_ability();
+						}
 
-				return [
-					'post_id'     => $post_id,
-					'snapshot_id' => $snapshot_id,
-				];
+						return [
+							'post_id'     => $post_id,
+							'snapshot_id' => $snapshot_id,
+						];
+					}
+				);
 			}
 		);
 	}

@@ -89,7 +89,11 @@ final class RollbackRecipes {
 	 * @param array<string, mixed> $entry
 	 */
 	public static function available( array $entry ): bool {
-		return 'none' !== self::type( $entry ) || self::provider_detail( $entry ) !== null;
+		if ( 'none' !== self::type( $entry ) ) {
+			return true;
+		}
+		// A snippet recipe is only as long-lived as the provider snapshot it names.
+		return self::provider_snapshot_alive( $entry );
 	}
 
 	/**
@@ -124,10 +128,22 @@ final class RollbackRecipes {
 				__( 'Disable the active copy of sandbox file %s. The draft stays for review.', 'stonewright' ),
 				$ref
 			),
-			default          => null !== self::provider_detail( $entry )
-				? __( 'Restore the snippet from the provider snapshot taken before the change.', 'stonewright' )
-				: __( 'No automatic rollback is available for this change. Undo it by hand, then check the site again.', 'stonewright' ),
+			default          => self::describe_snippet( $entry ),
 		};
+	}
+
+	/**
+	 * One sentence about the rollback of a snippet, which depends on whether its provider snapshot is still there.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function describe_snippet( array $entry ): string {
+		if ( null === self::provider_detail( $entry ) ) {
+			return __( 'No automatic rollback is available for this change. Undo it by hand, then check the site again.', 'stonewright' );
+		}
+		return self::provider_snapshot_alive( $entry )
+			? __( 'Restore the snippet from the provider snapshot taken before the change.', 'stonewright' )
+			: __( 'The provider snapshot taken before the change has expired, so no automatic rollback is available. Undo it by hand, then check the site again.', 'stonewright' );
 	}
 
 	/** One sentence about what a theme-file rollback does, from the kind of reference it holds. */
@@ -498,6 +514,16 @@ final class RollbackRecipes {
 	 */
 	private static function detail( array $entry ): array {
 		return is_array( $entry['recipe_detail'] ?? null ) ? $entry['recipe_detail'] : [];
+	}
+
+	/**
+	 * Whether the entry names a provider snapshot that still exists. The snapshot is kept for a day.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function provider_snapshot_alive( array $entry ): bool {
+		$detail = self::provider_detail( $entry );
+		return null !== $detail && null !== ProviderSupport::load_snapshot( $detail['snapshot_id'] );
 	}
 
 	/**

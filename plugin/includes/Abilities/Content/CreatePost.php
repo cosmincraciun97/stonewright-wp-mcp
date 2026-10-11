@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -40,7 +41,8 @@ final class CreatePost extends AbilityKernel {
 				'content'    => [ 'type' => 'string' ],
 				'excerpt'    => [ 'type' => 'string' ],
 				'status'     => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ], 'default' => 'draft' ],
-				'post_type'  => [ 'type' => 'string', 'default' => 'post' ],
+				'date'       => PostDate::schema(),
+				'post_type'  => [ 'type' => 'string', 'default' => 'post', 'description' => 'A registered content post type. Attachments, revisions, menu items and other internal types are refused.' ],
 				'categories' => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
 				'tags'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'meta'       => [ 'type' => 'object' ],
@@ -69,7 +71,11 @@ final class CreatePost extends AbilityKernel {
 	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
-		$blocked   = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+		$invalid   = PostTypeGuard::error( $post_type );
+		if ( $invalid instanceof \WP_Error ) {
+			return $invalid;
+		}
+		$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
 		if ( $blocked instanceof \WP_Error ) {
 			return $blocked;
 		}
@@ -100,9 +106,19 @@ final class CreatePost extends AbilityKernel {
 			$args,
 			function ( array $args ) {
 				$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
-				$blocked   = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+				$invalid   = PostTypeGuard::error( $post_type );
+				if ( $invalid instanceof \WP_Error ) {
+					return $invalid;
+				}
+				$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
 				if ( $blocked instanceof \WP_Error ) {
 					return $blocked;
+				}
+
+				$status = (string) ( $args['status'] ?? 'draft' );
+				$date   = PostDate::resolve( $args['date'] ?? null, $status );
+				if ( is_wp_error( $date ) ) {
+					return $date;
 				}
 
 				$id = wp_insert_post(
@@ -111,9 +127,9 @@ final class CreatePost extends AbilityKernel {
 							'post_title'   => sanitize_text_field( (string) $args['title'] ),
 							'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
 							'post_excerpt' => sanitize_text_field( (string) ( $args['excerpt'] ?? '' ) ),
-							'post_status'  => (string) ( $args['status'] ?? 'draft' ),
+							'post_status'  => $status,
 							'post_type'    => $post_type,
-						]
+						] + $date
 					),
 					true
 				);
@@ -121,6 +137,7 @@ final class CreatePost extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				if ( ! empty( $args['categories'] ) ) {
 					wp_set_post_categories( (int) $id, array_map( 'absint', (array) $args['categories'] ) );

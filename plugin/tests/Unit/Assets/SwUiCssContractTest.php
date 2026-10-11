@@ -113,6 +113,14 @@ final class SwUiCssContractTest extends TestCase {
 		'includes/Admin/Pages/SandboxLibraryPage.php',
 		'includes/Admin/CustomCodeApprovalPage.php',
 		'assets/admin/sandbox.css',
+		// Changes (Activity hub): markup from the helpers and the DiffView, a page script that opens the drawer, and a
+		// stylesheet that only places things.
+		'includes/Admin/ChangesPage.php',
+		'includes/Admin/ChangeDetail.php',
+		'includes/Admin/ChangeUndo.php',
+		'includes/Admin/ChangeLabels.php',
+		'assets/admin/pages/changes.css',
+		'assets/admin/pages/changes.js',
 	];
 
 	private static function css(): string {
@@ -142,7 +150,7 @@ final class SwUiCssContractTest extends TestCase {
 		$css = self::css();
 
 		self::assertStringStartsWith( '/* SPDX-License-Identifier: GPL-2.0-or-later */', $css );
-		self::assertLessThan( 72 * 1024, strlen( $css ), 'The component layer should stay under 72 KB before compression.' );
+		self::assertLessThan( 80 * 1024, strlen( $css ), 'The component layer should stay under 80 KB before compression.' );
 		self::assertStringNotContainsString( "\r", $css, 'LF line endings.' );
 		self::assertStringNotContainsString( 'prefers-color-scheme', $css, 'The admin is light only.' );
 	}

@@ -43,6 +43,15 @@ final class TransactionRun extends AbilityKernel {
 				[
 					'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
 					'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+					'allow_html_widget'  => [
+						'type'        => 'boolean',
+						'default'     => false,
+						'description' => 'Explicit approval for HTML widgets in a replace_tree tree. Ignored unless the site allows HTML widgets in Stonewright settings.',
+					],
+					'custom_code_grant'  => [
+						'type'        => 'string',
+						'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in a replace_tree tree, bound to the exact candidate code.',
+					],
 					'confirmation_token' => [ 'type' => 'string' ],
 					// Allow envelope nested under "envelope" or flattened at root.
 					'envelope'           => $envelope,
@@ -94,7 +103,8 @@ final class TransactionRun extends AbilityKernel {
 					? $args['envelope']
 					: $args;
 
-				return ElementorTransactionRunner::run( $post_id, $raw, $dry_run );
+				// The runner passes the tree of a replace_tree through the HTML widget policy and the custom code gate with these arguments.
+				return ElementorTransactionRunner::run( $post_id, $raw, $dry_run, $args );
 			}
 		);
 	}

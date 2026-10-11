@@ -1,5 +1,7 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpMenu = {
@@ -85,6 +87,8 @@ export async function menuList(
   const list = Array.isArray(items) ? items : [];
   return {
     items: list.map(compactMenu),
+    // The plugin's key for the same list.
+    menus: list.map((menu) => ({ id: menu.id, name: menu.name ?? "", slug: menu.slug ?? "" })),
     total: list.length,
     page,
     per_page: perPage,
@@ -113,22 +117,25 @@ export async function menuCreate(
     destructive: false,
     tool: "stonewright-menu-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-menu-create",
+    "menus",
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  const body: Record<string, unknown> = {
+    name: input.name,
+    description: input.description,
+    locations: input.locations,
+  };
+  let menu: WpMenu;
   try {
-    const menu = await ctx.client.post<WpMenu>("/wp/v2/menus", {
-      body: {
-        name: input.name,
-        description: input.description,
-        locations: input.locations,
-      },
-    });
-    appendDirectAudit({
-      tool: "stonewright-menu-create",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `menus/${menu.id}`,
-      status: "ok",
-    });
-    return compactMenu(menu);
+    menu = await ctx.client.post<WpMenu>("/wp/v2/menus", { body });
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-menu-create",
@@ -139,6 +146,18 @@ export async function menuCreate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-menu-create",
+    resource: `menus/${menu.id}`,
+    resourceType: "menus",
+    readPath: `/wp/v2/menus/${menu.id}`,
+    expect: "present",
+    sent: body,
+  });
+  return attachVerification({ ...compactMenu(menu), menu_id: menu.id }, verification);
 }
 
 export async function menuUpdate(
@@ -157,22 +176,24 @@ export async function menuUpdate(
     destructive: false,
     tool: "stonewright-menu-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-menu-update",
+    `menus/${input.id}`,
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;
   if (input.description !== undefined) body.description = input.description;
   if (input.locations !== undefined) body.locations = input.locations;
+  let menu: WpMenu;
   try {
-    const menu = await ctx.client.put<WpMenu>(`/wp/v2/menus/${input.id}`, {
-      body,
-    });
-    appendDirectAudit({
-      tool: "stonewright-menu-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `menus/${input.id}`,
-      status: "ok",
-    });
-    return compactMenu(menu);
+    menu = await ctx.client.put<WpMenu>(`/wp/v2/menus/${input.id}`, { body });
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-menu-update",
@@ -183,6 +204,17 @@ export async function menuUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-menu-update",
+    resource: `menus/${input.id}`,
+    resourceType: "menus",
+    readPath: `/wp/v2/menus/${input.id}`,
+    sent: body,
+  });
+  return attachVerification(compactMenu(menu), verification);
 }
 
 export async function menuDelete(
@@ -201,18 +233,11 @@ export async function menuDelete(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-menu-delete",
   });
+  let result: unknown;
   try {
-    const result = await ctx.client.del<unknown>(`/wp/v2/menus/${input.id}`, {
+    result = await ctx.client.del<unknown>(`/wp/v2/menus/${input.id}`, {
       query: { force: input.force !== false },
     });
-    appendDirectAudit({
-      tool: "stonewright-menu-delete",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `menus/${input.id}`,
-      status: "ok",
-    });
-    return { deleted: true, result };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-menu-delete",
@@ -223,6 +248,17 @@ export async function menuDelete(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-menu-delete",
+    resource: `menus/${input.id}`,
+    resourceType: "menus",
+    readPath: `/wp/v2/menus/${input.id}`,
+    expect: "absent",
+  });
+  return attachVerification({ deleted: true, result }, verification);
 }
 
 export async function menuItems(
@@ -277,30 +313,35 @@ export async function menuItems(
       destructive: false,
       tool: "stonewright-menu-items",
     });
+    const refusal = refuseCustomCode(
+      ctx.site,
+      "stonewright-menu-items",
+      "menu-items",
+      scanTextFields({
+        title: input.title,
+        url: input.url,
+      }),
+      ctx.env ?? process.env,
+    );
+    if (refusal) return refusal;
     if (!input.menu_id) throw new Error("menu_id is required for create");
     if (!input.title) throw new Error("title is required for create");
+    const createBody: Record<string, unknown> = {
+      title: input.title,
+      url: input.url,
+      type: input.type ?? "custom",
+      object: input.object,
+      object_id: input.object_id,
+      parent: input.parent,
+      menu_order: input.menu_order,
+      status: input.status ?? "publish",
+      menus: input.menu_id,
+    };
+    let item: WpMenuItem;
     try {
-      const item = await ctx.client.post<WpMenuItem>("/wp/v2/menu-items", {
-        body: {
-          title: input.title,
-          url: input.url,
-          type: input.type ?? "custom",
-          object: input.object,
-          object_id: input.object_id,
-          parent: input.parent,
-          menu_order: input.menu_order,
-          status: input.status ?? "publish",
-          menus: input.menu_id,
-        },
+      item = await ctx.client.post<WpMenuItem>("/wp/v2/menu-items", {
+        body: createBody,
       });
-      appendDirectAudit({
-        tool: "stonewright-menu-items",
-        site: ctx.site.alias,
-        targetIdentity: ctx.site.url,
-        resource: `menu-items/${item.id}`,
-        status: "ok",
-      });
-      return compactMenuItem(item);
     } catch (err) {
       appendDirectAudit({
         tool: "stonewright-menu-items",
@@ -311,6 +352,18 @@ export async function menuItems(
       });
       throw err;
     }
+    const verification = await verifyWrite({
+      client: ctx.client,
+      site: ctx.site,
+      env: ctx.env,
+      tool: "stonewright-menu-items",
+      resource: `menu-items/${item.id}`,
+      resourceType: "menu-items",
+      readPath: `/wp/v2/menu-items/${item.id}`,
+      expect: "present",
+      sent: createBody,
+    });
+    return attachVerification(compactMenuItem(item), verification);
   }
 
   if (action === "update") {
@@ -320,6 +373,17 @@ export async function menuItems(
       destructive: false,
       tool: "stonewright-menu-items",
     });
+    const refusal = refuseCustomCode(
+      ctx.site,
+      "stonewright-menu-items",
+      "menu-items",
+      scanTextFields({
+        title: input.title,
+        url: input.url,
+      }),
+      ctx.env ?? process.env,
+    );
+    if (refusal) return refusal;
     if (!input.id) throw new Error("id is required for update");
     const body: Record<string, unknown> = {};
     if (input.title !== undefined) body.title = input.title;
@@ -331,19 +395,11 @@ export async function menuItems(
     if (input.menu_order !== undefined) body.menu_order = input.menu_order;
     if (input.status !== undefined) body.status = input.status;
     if (input.menu_id !== undefined) body.menus = input.menu_id;
+    let item: WpMenuItem;
     try {
-      const item = await ctx.client.put<WpMenuItem>(
-        `/wp/v2/menu-items/${input.id}`,
-        { body },
-      );
-      appendDirectAudit({
-        tool: "stonewright-menu-items",
-        site: ctx.site.alias,
-        targetIdentity: ctx.site.url,
-        resource: `menu-items/${input.id}`,
-        status: "ok",
+      item = await ctx.client.put<WpMenuItem>(`/wp/v2/menu-items/${input.id}`, {
+        body,
       });
-      return compactMenuItem(item);
     } catch (err) {
       appendDirectAudit({
         tool: "stonewright-menu-items",
@@ -354,6 +410,17 @@ export async function menuItems(
       });
       throw err;
     }
+    const verification = await verifyWrite({
+      client: ctx.client,
+      site: ctx.site,
+      env: ctx.env,
+      tool: "stonewright-menu-items",
+      resource: `menu-items/${input.id}`,
+      resourceType: "menu-items",
+      readPath: `/wp/v2/menu-items/${input.id}`,
+      sent: body,
+    });
+    return attachVerification(compactMenuItem(item), verification);
   }
 
   if (!input.id) throw new Error("id is required for delete");
@@ -364,21 +431,11 @@ export async function menuItems(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-menu-items",
   });
+  let result: unknown;
   try {
-    const result = await ctx.client.del<unknown>(
-      `/wp/v2/menu-items/${input.id}`,
-      {
-        query: { force: input.force !== false },
-      },
-    );
-    appendDirectAudit({
-      tool: "stonewright-menu-items",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `menu-items/${input.id}`,
-      status: "ok",
+    result = await ctx.client.del<unknown>(`/wp/v2/menu-items/${input.id}`, {
+      query: { force: input.force !== false },
     });
-    return { deleted: true, result };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-menu-items",
@@ -389,6 +446,19 @@ export async function menuItems(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-menu-items",
+    resource: `menu-items/${input.id}`,
+    resourceType: "menu-items",
+    readPath: `/wp/v2/menu-items/${input.id}`,
+    ...(input.force !== false
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
+  });
+  return attachVerification({ deleted: true, result }, verification);
 }
 
 export async function menuLocations(ctx: DirectToolContext) {

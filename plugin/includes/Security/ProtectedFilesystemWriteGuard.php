@@ -92,6 +92,26 @@ final class ProtectedFilesystemWriteGuard {
 	}
 
 	/**
+	 * Static inspection for the code installers and updaters, which change plugin, theme and core files
+	 * through WordPress itself. php-execute runs it while DISALLOW_FILE_MODS is set; like the rest of
+	 * this guard it is a best-effort scan of the source, not a runtime barrier.
+	 */
+	public static function inspect_file_mod_apis( string $code ): bool|\WP_Error {
+		if ( 1 !== preg_match( '/\b(?:Plugin_Upgrader|Theme_Upgrader|Core_Upgrader|Language_Pack_Upgrader|WP_Upgrader|WP_Automatic_Updater|delete_plugins|delete_theme|unzip_file|download_url|copy_dir|move_dir)\b/i', $code ) ) {
+			return true;
+		}
+
+		return new \WP_Error(
+			'stonewright_php_file_mods_disabled',
+			__( 'php-execute does not install, update or delete plugin, theme or core files while DISALLOW_FILE_MODS is set in wp-config.php.', 'stonewright' ),
+			[
+				'status'    => 403,
+				'retryable' => false,
+			]
+		);
+	}
+
+	/**
 	 * @return list<string>
 	 */
 	public static function detect_operations( string $code ): array {

@@ -37,6 +37,7 @@ final class QualityCheckAbilityTest extends TestCase {
 			'read'          => true,
 			'manage_options' => true,
 			'edit_pages'    => true,
+			'edit_post'     => true,
 		];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
@@ -285,6 +286,27 @@ final class QualityCheckAbilityTest extends TestCase {
 		self::assertSame( 4214, $result['post_id'] );
 		self::assertIsArray( QualityReportStore::find( 4214, $result['report_id'] ) );
 		self::assertSame( [], QualityReportStore::latest( self::POST_ID ) );
+	}
+
+	public function test_persisting_a_report_for_a_post_the_user_may_not_edit_is_refused(): void {
+		// The post comes from the evidence here, so the check has to run on the resolved post.
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn( string $cap, mixed ...$args ): bool => 'edit_post' !== $cap && ! empty( $GLOBALS['stonewright_test_user_caps'][ $cap ] );
+
+		$from_evidence = $this->ability()->execute( [ 'evidence' => $this->evidence( 'pass' ), 'persist' => true ] );
+		$from_argument = $this->ability()->execute( [ 'evidence' => $this->evidence( 'pass' ), 'post_id' => self::POST_ID, 'persist' => true ] );
+		unset( $GLOBALS['stonewright_test_user_can_callback'] );
+
+		foreach ( [ $from_evidence, $from_argument ] as $result ) {
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_forbidden', $result->get_error_code() );
+		}
+		self::assertSame( [], QualityReportStore::latest( self::POST_ID ), 'Nothing was stored.' );
+		self::assertFalse( $this->ability_with_no_edit_post_cap()->permission_callback( [ 'persist' => true, 'post_id' => self::POST_ID ] ) );
+	}
+
+	private function ability_with_no_edit_post_cap(): QualityCheck {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_pages' => true ];
+		return $this->ability();
 	}
 
 	public function test_persisting_without_a_post_is_refused(): void {

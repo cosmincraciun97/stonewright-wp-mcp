@@ -30,7 +30,7 @@ at runtime. If the option is falsy (the default), write calls return:
 
 ```json
 {
-  "code": "feature_disabled",
+  "code": "stonewright_feature_disabled",
   "message": "Elementor V4 atomic features are disabled."
 }
 ```
@@ -64,7 +64,7 @@ The authoritative gate columns live in the generated
 | `stonewright/elementor-v4-update-class` | Write | experimental | Fallback. Updates a global class. |
 | `stonewright/elementor-v4-migrate` | Write | experimental | Explicit V3-to-V4 migration with a per-element loss report; never implicit. |
 | `stonewright/elementor-v4-render-from-spec` | Write | experimental | Fallback. Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
-| `stonewright/elementor-v4-atomic-widget-define` | Read | sandboxed | Sandboxed Atomic widget definition. |
+| `stonewright/elementor-v4-atomic-widget-define` | Write | sandboxed | Sandboxed Atomic widget definition. |
 | `stonewright/elementor-native-execute` | Write | experimental | Runs a certified Elementor ability (default styles, element composition, structure read) inside the snapshot, lock, readback, rollback, and audit closure; `dry_run` defaults to true. |
 
 ## Write envelope for V4 abilities
@@ -111,6 +111,9 @@ an error and the snapshot is restored.
   fingerprinted, and certified against shipped contracts by the provider router.
   Only certified abilities whose contract allows a native write run, through
   `stonewright/elementor-native-execute`: default styles and element composition.
+  That tool does not depend on the V4 flag below: it is available when native
+  Elementor is available and an ability is certified, and in `production-safe`
+  mode a real write needs a confirmation token like the other writers.
   Writes that clear generated CSS site-wide (global classes, global variables)
   are refused with `upstream_global_clear_cache`; the Fallback abilities above stay
   the supported path for them. See
@@ -121,18 +124,20 @@ an error and the snapshot is restored.
   (`update_node`) in one dry run and one apply, on the Stonewright V4 writer,
   with a recursive readback of the whole document. See
   [Batch mode](../elementor-v4-engine.md#batch-mode-reusing-a-section).
-- V4 abilities are **blocked in `production-safe` mode** for all write
-  operations.
+- The Stonewright V4 writers are **blocked in `production-safe` mode** for all
+  write operations. `stonewright/elementor-native-execute` is the exception: it
+  follows the token rule above.
 
-## Using Elementor's own MCP server alongside
+## Elementor's own MCP server
 
-Stonewright does not disable, replace, or compete with Elementor's MCP server,
-and both can be connected to the same client. Use Stonewright when you want
-snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
-quick draft that you will review in the editor. Do not send one change through
-both servers: Stonewright's backup and readback only cover what it writes. When
+Connect only Stonewright to the AI client; do not add Elementor's own MCP server
+next to it. Stonewright's backup and readback only cover what it writes. When
 Stonewright runs an Elementor ability itself, through
-`stonewright/elementor-native-execute`, the closure covers it.
+`stonewright/elementor-native-execute`, the closure covers it. A write made
+through Elementor's own server is still observed, as a safety net: the affected post or kit is
+snapshotted before the call, and a change-history row and an audit row are
+written after it, without blocking or changing the call. See
+[Elementor MCP with Stonewright](../elementor-mcp.md).
 
 ## Enabling for development
 

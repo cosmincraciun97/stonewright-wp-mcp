@@ -22,12 +22,13 @@ final class SearchQuery extends AbilityKernel {
 				'search'=>[ 'type'=>'string' ],
 				'post_type'=>[ 'type'=>'string' ],
 				'per_page'=>[ 'type'=>'integer', 'minimum'=>1, 'maximum'=>50, 'default'=>20 ],
+				'page'=>[ 'type'=>'integer', 'minimum'=>1, 'default'=>1, 'description'=>'Result page, starting at 1.' ],
 			],
 			'required'=>[ 'search' ],
 		];
 	}
 	public function output_schema(): array {
- return [ 'additionalProperties' => true, 'type'=>'object', 'properties'=>[ 'items'=>[ 'type'=>'array' ] ], 'required'=>[ 'items' ] ]; }
+ return [ 'additionalProperties' => true, 'type'=>'object', 'properties'=>[ 'items'=>[ 'type'=>'array' ], 'total'=>[ 'type'=>'integer' ], 'page'=>[ 'type'=>'integer' ], 'per_page'=>[ 'type'=>'integer' ], 'total_pages'=>[ 'type'=>'integer' ] ], 'required'=>[ 'items' ] ]; }
 	public function permission_callback( array $args ): bool|\WP_Error {
  return Permissions::read(); }
 	public function execute( array $args ): array|\WP_Error {
@@ -39,11 +40,15 @@ final class SearchQuery extends AbilityKernel {
 					|| current_user_can( 'edit_others_posts' )
 					|| current_user_can( 'edit_posts' );
 
+				$per_page = max( 1, min( (int) ( $args['per_page'] ?? 20 ), 50 ) );
+				$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+
 				$q = new \WP_Query(
 					[
 						's'              => (string) $args['search'],
 						'post_type'      => isset( $args['post_type'] ) ? (string) $args['post_type'] : 'any',
-						'posts_per_page' => min( (int) ( $args['per_page'] ?? 20 ), 50 ),
+						'posts_per_page' => $per_page,
+						'paged'          => $page,
 						'post_status'    => $can_read_private ? 'any' : 'publish',
 					]
 				);
@@ -75,7 +80,13 @@ final class SearchQuery extends AbilityKernel {
 				// Matches across all pages, without the ones this caller may not read.
 				$total = max( count( $items ), (int) $q->found_posts - $skipped );
 
-				return [ 'items' => $items, 'total' => $total ];
+				return [
+					'items'       => $items,
+					'total'       => $total,
+					'page'        => $page,
+					'per_page'    => $per_page,
+					'total_pages' => (int) ceil( $total / $per_page ),
+				];
 			}
 		);
 	}

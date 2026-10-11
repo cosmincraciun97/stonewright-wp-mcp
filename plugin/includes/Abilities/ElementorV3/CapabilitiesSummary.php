@@ -96,6 +96,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'pro_elements_active'      => (bool) ( $status['pro_elements_active'] ?? false ),
 				'v4_atomic_support_status' => (string) ( $status['v4_atomic_support_status'] ?? 'unknown' ),
 				'native_elementor'         => NativeElementorReport::compact( (array) ( $status['native_elementor'] ?? [] ) ),
+				'native_hint'              => NativeElementorReport::hint( (array) ( $status['native_elementor'] ?? [] ) ),
 			],
 			'native_widgets'      => self::native_widgets(),
 			'responsive_controls' => [
@@ -112,7 +113,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 			'advanced_controls'   => EditorTabKnowledge::advanced_control_keys(),
 			'renderer_limits'     => [
 				'Validated Stonewright Design Spec only.',
-				'Use native Elementor widgets first; reserve stonewright/php-execute for short WordPress runtime inspection or plugin API calls.',
+				'Use native Elementor widgets first; keep short runtime inspection to the full profile, which alone carries stonewright/php-execute.',
 				'No Elementor HTML widget by default.',
 				'Browser screenshots and Figma extraction stay in external MCPs, not Stonewright.',
 			],
@@ -123,7 +124,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.',
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
 				'For Loop Grid or repeated dynamic cards backed by CPT/meta, write rows with stonewright/content-bulk-upsert-posts before the Elementor tree write.',
-				'For repeated CPT UI, ACF, option, term, plugin, and cache commands, use stonewright-wp-cli-batch-run with responseMode=summary.',
+				'For repeated read-oriented WP-CLI commands and cache flushes, use stonewright-wp-cli-batch-run with responseMode=summary; WP-CLI writes go through a typed ability or stonewright-wp-cli-run.',
 				'For long WP-CLI imports, cache rebuilds, plugin operations, or media/content batches, start a background job with stonewright-wp-cli-job-start and poll with stonewright-wp-cli-job-status.',
 				'For design-derived pages, implement at most two sections per write-and-verify batch; prefer one dense section per batch.',
 				'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.',

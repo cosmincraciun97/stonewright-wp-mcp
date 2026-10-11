@@ -8,11 +8,15 @@ use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\Renderer\Section;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec
  */
 final class BuildPageFromSpecFastPathTest extends TestCase {
+	use ElementorKsesSimulation;
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_posts'] = [
@@ -61,6 +65,7 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		$GLOBALS['stonewright_test_posts'] = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
@@ -124,6 +129,23 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 		$tree = json_decode( stripslashes( (string) $post->meta['_elementor_data'] ), true );
 		self::assertSame( 'keep', $tree[0]['id'] );
 		self::assertSame( Section::stable_id( 's0' ), $tree[1]['id'] );
+	}
+
+	public function test_a_user_without_unfiltered_html_gets_the_filtered_tree_compared_with_what_was_stored(): void {
+		$this->simulate_elementor_kses();
+
+		$result = ( new BuildPageFromSpec() )->execute(
+			[
+				'post_id' => 777,
+				'mode'    => 'append',
+				'spec'    => self::spec( 'Hello<script>alert(1)</script>' ),
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['content_filtered'] );
+		self::assertSame( $result['after_hash'], $result['readback_hash'], 'the planned hash is the hash of the filtered tree that was stored' );
+		self::assertStringNotContainsString( '<script>', (string) $GLOBALS['stonewright_test_posts'][777]->meta['_elementor_data'] );
 	}
 
 	public function test_replace_section_mode_replaces_only_the_container_built_from_the_section(): void {
@@ -294,6 +316,42 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['dry_run'] );
+	}
+
+	public function test_dry_run_reports_that_the_checkpoint_would_block_the_write(): void {
+		$args = [
+			'post_id'      => 777,
+			'design_scope' => 'rebrand',
+			'spec'         => self::multi_section_spec(),
+		];
+
+		$dry = ( new BuildPageFromSpec() )->execute( $args + [ 'dry_run' => true ] );
+
+		self::assertIsArray( $dry );
+		self::assertTrue( $dry['checkpoint']['would_block'] );
+		self::assertSame( DesignCheckpoint::ERROR_REQUIRED, $dry['checkpoint']['code'] );
+		// The apply is refused for exactly that, and stays untouched.
+		$apply = ( new BuildPageFromSpec() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $apply );
+		self::assertSame( DesignCheckpoint::ERROR_REQUIRED, $apply->get_error_code() );
+	}
+
+	public function test_dry_run_reports_no_block_with_a_valid_checkpoint_token_or_a_maintenance_scope(): void {
+		$with_token = ( new BuildPageFromSpec() )->execute(
+			[
+				'post_id'          => 777,
+				'design_scope'     => 'rebrand',
+				'checkpoint_token' => $this->checkpoint_token(),
+				'dry_run'          => true,
+				'spec'             => self::multi_section_spec(),
+			]
+		);
+		$maintenance = ( new BuildPageFromSpec() )->execute( [ 'post_id' => 777, 'design_scope' => 'repair', 'dry_run' => true, 'spec' => self::multi_section_spec() ] );
+
+		self::assertIsArray( $with_token );
+		self::assertFalse( $with_token['checkpoint']['would_block'] );
+		self::assertIsArray( $maintenance );
+		self::assertFalse( $maintenance['checkpoint']['would_block'] );
 	}
 
 	/**

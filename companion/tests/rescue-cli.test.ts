@@ -322,6 +322,20 @@ describe('stonewright rescue (companion)', () => {
 		expect(raw).not.toContain('--skip-plugins');
 	});
 
+	it('labels its audit row local and opens no Direct incident when the command fails', async () => {
+		const { runner } = fakeWp({ rescue: { stdout: '', stderr: 'rescue failed', exitCode: 1 } });
+
+		expect(await runRescueCli(['status'], process.env, runner)).toBe(1);
+
+		const rows = readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8')
+			.trim()
+			.split('\n')
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ tool: 'stonewright-rescue-status', status: 'error', backend: 'local', mode: 'local' });
+		expect(existsSync(join(stateDir, 'incidents'))).toBe(false);
+	});
+
 	it('uses the shared WP-CLI runner and nothing else to start a process', () => {
 		const source = readFileSync(new URL('../src/cli/rescue.ts', import.meta.url), 'utf8');
 

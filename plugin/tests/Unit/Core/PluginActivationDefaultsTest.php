@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 final class PluginActivationDefaultsTest extends TestCase {
 
 	public function test_fresh_install_defaults_to_essential_surface(): void {
-		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/SiteDefaults.php' );
 
 		self::assertStringContainsString(
 			"update_option( 'stonewright_mcp_surface', 'essential', false )",

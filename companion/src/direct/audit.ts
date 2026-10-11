@@ -33,6 +33,12 @@ export interface DirectAuditEntry {
 	causeKey?: string;
 	durationMs?: number;
 	mode?: string;
+	/**
+	 * Which backend wrote the row. Direct tool calls are 'direct' (the default). Rows for work that
+	 * the companion does locally in either mode (command recipes, the rescue command) are 'local':
+	 * they are not Direct backend writes, so they never open a Direct incident or count as a Direct error.
+	 */
+	backend?: 'direct' | 'local';
 	severity?: string;
 	effectVerified?: boolean;
 	eventId?: string;
@@ -215,6 +221,7 @@ function appendDirectAuditUnlocked(
 	const code = entry.code
 		? redactDirectAuditText(entry.code).slice(0, 190)
 		: null;
+	const backend = entry.backend ?? 'direct';
 	const category = entry.category ?? directCategory(entry);
 	const operationClass = entry.operationClass ?? directOperationClass(category);
 	const row: PersistedDirectAuditEntry = {
@@ -263,9 +270,9 @@ function appendDirectAuditUnlocked(
 			? redactDirectAuditText(entry.causeKey).slice(0, 255)
 			: null,
 		duration_ms: entry.durationMs ?? null,
-		backend: 'direct',
+		backend,
 		site_fingerprint: siteFingerprint,
-		mode: entry.mode ?? 'direct',
+		mode: entry.mode ?? (backend === 'local' ? 'local' : 'direct'),
 		severity:
 			entry.severity ??
 			(entry.status === 'error'
@@ -298,7 +305,7 @@ function appendDirectAuditUnlocked(
 	if (process.platform !== 'win32') {
 		chmodSync(path, 0o600);
 	}
-	if (entry.status === 'error') {
+	if (entry.status === 'error' && backend === 'direct') {
 		try {
 			new DirectIncidentStore(dirname(path), siteFingerprint).observeFailure({
 				event_id: eventId,
@@ -309,6 +316,8 @@ function appendDirectAuditUnlocked(
 				cause_key: entry.causeKey ?? `${entry.tool}|${code ?? 'unknown_error'}`,
 				severity: entry.severity ?? 'error',
 				timestamp: String(row['timestamp']),
+				// incident-repair-record needs a resource and a change set on the failure row.
+				repair_path: Boolean(entry.changeSetId) && Boolean(resource),
 			});
 		} catch {
 			row['secondary_errors'] = [{
@@ -639,10 +648,26 @@ export function escalateDirectError(
 	};
 }
 
+/** Errors older than this no longer count as recurring in task-start. */
+export const DIRECT_RECURRING_ERROR_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Event types of rows that older companions labelled direct although the work was local. */
+const LOCAL_EVENT_TYPES = new Set(['command_recipe', 'rescue_command']);
+
+export type DirectRecurringErrorOptions = {
+	/** Only errors of this target (directIncidentFingerprint of the canonical URL). */
+	siteFingerprint?: string;
+	/** How far back to look; default 30 days. */
+	windowMs?: number;
+	now?: number;
+};
+
 export function recentRecurringErrors(
 	baseDirOrPath?: string,
 	limit = 3,
+	options: DirectRecurringErrorOptions = {},
 ): DirectRecurringError[] {
+	const earliest = (options.now ?? Date.now()) - (options.windowMs ?? DIRECT_RECURRING_ERROR_WINDOW_MS);
 	const path =
 		baseDirOrPath && baseDirOrPath.endsWith('.jsonl')
 			? baseDirOrPath
@@ -659,8 +684,22 @@ export function recentRecurringErrors(
 				status?: string;
 				error?: string | null;
 				timestamp?: string;
+				backend?: string;
+				event_type?: string;
+				site_fingerprint?: string;
 			};
 			if (row.status !== 'error' || !row.tool) {
+				continue;
+			}
+			// Local work (command recipes, rescue) is not a Direct error.
+			if (row.backend === 'local' || LOCAL_EVENT_TYPES.has(String(row.event_type ?? ''))) {
+				continue;
+			}
+			if (options.siteFingerprint !== undefined && row.site_fingerprint !== options.siteFingerprint) {
+				continue;
+			}
+			const rowTime = Date.parse(String(row.timestamp ?? ''));
+			if (!Number.isFinite(rowTime) || rowTime < earliest) {
 				continue;
 			}
 			const prev = byTool.get(row.tool);

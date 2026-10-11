@@ -296,7 +296,7 @@ final class SpecializationCatalog {
 					'Record repeatable project conventions with stonewright/learning-record.',
 				],
 				'runtime_rules'      => [
-					'Use stonewright/php-execute for short PHP runtime snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.',
+					'Never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points; stonewright/php-execute for runtime snippets is on the full profile only.',
 					'Use stonewright_context_token for writes and confirmation tokens in production-safe mode.',
 					'Snapshot posts or theme-backed records before mutation.',
 					'Do not invent hidden storage keys; discover schema first.',

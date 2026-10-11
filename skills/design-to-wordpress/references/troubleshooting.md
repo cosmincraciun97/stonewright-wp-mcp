@@ -29,7 +29,7 @@ sideload. In production-safe mode a call that sideloads needs a
   `gutenberg`.
 - Check `stonewright/site-capabilities` to confirm available renderers.
 
-## feature_disabled (V4)
+## stonewright_feature_disabled (V4)
 
 The `stonewright_elementor_v4_atomic` option is off.
 
@@ -52,7 +52,7 @@ writing:
 ```
 "Confirm update:
   post_id: 42
-  snapshot_id: snap_1716300000_42
+  snapshot_id: snap_0123456789abcdef
   action: replace_page_content
 Reply YES to proceed."
 ```

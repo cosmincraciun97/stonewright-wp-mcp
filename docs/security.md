@@ -4,12 +4,13 @@ The full security reference lives in [plugin/SECURITY.md](../plugin/SECURITY.md)
 
 ## Summary
 
-Stonewright runs direct WordPress automation with four operator-control layers:
+Stonewright runs direct WordPress automation with five operator-control layers:
 
-1. **WordPress capabilities** — every ability checks a real capability before running.
+1. **WordPress capabilities** — every ability checks a real capability before running, on the object it acts on where there is one.
 2. **Pre-write backups** — every write that touches Elementor data or FSE styles snapshots the current state first.
-3. **Confirmation tokens** — destructive operations require a short-lived, single-use token to proceed.
+3. **Confirmation tokens** — destructive operations require a short-lived, single-use token to proceed in `production-safe` mode.
 4. **Audit log** — every write is recorded in an append-only database table.
+5. **Human approval** — custom code, the undo of a change to code, a snippet rollback, promotion of knowledge to guidance, memory that reads as an instruction, and the Full tool surface wait for an administrator in wp-admin.
 
 ## Threat model
 
@@ -25,9 +26,20 @@ for the exact trusted-principal policy, host prerequisites, and restart recovery
 
 An MCP client that authenticates with an administrator account can call any ability, including destructive ones. Mitigations:
 
-- Set `stonewright_mode` to `production-safe` to block all destructive abilities regardless of authentication level.
+- Set `stonewright_mode` to `production-safe` so every destructive ability needs a confirmation token bound to its exact call, whatever the authentication level. A site with no stored mode starts in the mode of its environment type (`production` gives `production-safe`), on every site of a network.
 - Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. For read-only agents, `read` is sufficient. For content workflows, `editor` is usually enough.
 - Rotate Application Passwords regularly.
+
+### Permissions per object
+
+A capability such as `edit_users` says that a user may manage accounts in general, not which account. wp-admin checks the capability on the object, and so do the abilities that act on one:
+
+- **Users.** `user-update`, `user-create` and `user-delete` check `edit_user` or `delete_user` for the target. A role change also needs `promote_users`, `promote_user` for the target and a role from the editable roles. A user cannot change, delete or promote an account, or grant a role, that holds `manage_options`, `promote_users` or `edit_users` when the user lacks it, and on multisite only a super admin can change a super admin. The last administrator cannot be deleted or demoted, and `reassign` must name another existing user. `user-app-passwords` checks the target user for each action and only where application passwords are available for that user.
+- **Settings.** `settings-update` checks every key before it writes any, and `default_role` cannot be `administrator` or a role with an elevated capability.
+- **Comments and media.** The comment abilities check `edit_comment` for the comment, and `comment-list` returns only comments the user may edit. `media-get` and `media-list` check `read_post` for each attachment.
+- **Theme Builder.** The abilities need `edit_theme_options` and, on a template, `edit_post` or `delete_post`. A template is moved to the trash; `force` is refused.
+- **History and restore.** `change-log` lists only posts where `edit_post` holds, and `change-restore` needs the publish capability of the post type when the snapshot is published, scheduled or private.
+- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`.
 
 ### Compromised MCP client
 
@@ -36,9 +48,11 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
 - Enable `production-safe` mode on all sites that are not development or staging.
 - Monitor the audit log at `/wp-json/stonewright/v1/audit-log` for unexpected
   ability names or unusual argument patterns. Coverage is **Stonewright-owned
-  mutations only**: abilities that call `AbilityKernel::audit()` and
+  mutations**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
-  dedupe). Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
+  dedupe), plus the write abilities of Elementor's own MCP server (`elementor/*`), which an
+  observer records as `observed_native` after they ran (it never blocks them).
+  Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
   stream. Repeated identical permission and safety denials are scoped by site,
   ability, and error: the first blocked event and bounded count summaries retain
@@ -159,7 +173,10 @@ permission filters run twice for one MCP tool call.
 Two paths run an ability without its registered object and so without these
 filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
 and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
-gates and the list of disabled abilities. To block an ability on every path,
+gates and the list of disabled abilities. `execute-ability` also validates the
+arguments against the input schema of the target before its permission callback,
+and refuses abilities the surface hides and abilities that run or write code
+unless the current profile lists them. To block an ability on every path,
 disable it (`stonewright_disabled_abilities`).
 
 ### Tool annotations are hints
@@ -172,8 +189,10 @@ does with the hints. See [Abilities](abilities.md#tool-annotations-and-exposure)
 
 ### Custom code and theme-file recovery
 
-`stonewright/php-execute` cannot mutate code files. Theme PHP/CSS/JS changes use
-`stonewright/theme-file-patch`: dry-run validation, native-gap evidence,
+`stonewright/php-execute` is not a route for code files: a static scan refuses
+common patterns that write theme, plugin or core files, but it is a best-effort
+guard, not a barrier (see [php-execute runtime guards](#php-execute-runtime-guards)).
+Theme PHP/CSS/JS changes use `stonewright/theme-file-patch`: dry-run validation, native-gap evidence,
 authenticated wp-admin approval, a single-use grant bound to the exact site,
 user, logical path, language, candidate hash, risk class, and byte budget, then
 atomic replace, readback, fresh bootstrap smoke, and rollback.
@@ -183,6 +202,27 @@ restricted permissions, and Apache/IIS access-denial files; the backup directory
 also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which
 verifies the reference, target, and backup hash before entering the same
 transaction and smoke gates. Do not expose or accept absolute backup paths.
+
+Rolling back a WPCode or Code Snippets snippet through
+`stonewright/custom-code-provider` rewrites code, so it needs the same
+human-issued one-time grant as an apply, bound to the code the snapshot restores.
+`rollback` with `dry_run: true` stages the restore at the approval page and
+writes nothing. A rollback without the grant answers
+`stonewright_custom_code_grant_required` with `approval_required`,
+`agent_must_stop` and the approval link; the agent shows it and stops, and does
+not issue or use a grant itself. The restore that runs after a failed apply, in
+the same call, does not ask again.
+
+Every refusal that waits for a person (a promotion to guidance, a custom-code
+grant, a snippet rollback, an undo of code, the full profile) carries its
+`code`, `approval_required`, `agent_must_stop` and `approval_url` in the error
+text an MCP client receives, not only in the error data a REST client reads, so
+the client can show the link and stop. A link that is not an http or https
+address is left out.
+
+### Memory that reads as an instruction
+
+Memory is read back to agents as context, so a stored line that tells an agent to ignore the plugin's rules is an instruction. `memory-save`, `learning-record`, `memory-generalize`, `knowledge-import`, `incident-repair-record` and `POST /stonewright/v1/memory` screen the text the way imported skills are screened. Text that tells an agent to override the plugin rules, safety gates or confirmation tokens, or to send credentials elsewhere, is stored with the status `needs_review` (the answer says `needs_review: true`). Nothing is dropped silently: the entry is not offered at task start or as site context, it drafts no skill, and a later save under its key does not clear it. An administrator approves or discards it on the Memory page. Prohibitions and plain mentions of credentials are not flagged, and the entry form of the Memory page is not screened, because a person types there. In Direct mode the companion screens `stonewright-learning-record` and `stonewright-incident-repair-record` the same way; a person clears an entry there by deleting it or by setting its status to `active` in the local memory file.
 
 ### Rescue after a failed change
 
@@ -197,6 +237,7 @@ A change that leaves the site failing is recorded in the change journal and roll
 - Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
 - `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
 - A verified change can be rolled back, but a verified change to code (a theme file, a custom-code snippet, a sandbox file or the Customizer CSS) is rolled back only by an administrator at the Rescue page. The ability, the REST route and WP-CLI refuse it with `stonewright_rescue_approval_required`, and a confirmation token does not lift the refusal.
+- `stonewright/change-rollback` (undo or redo from the change history), `stonewright/change-history-list` and `stonewright/change-diff-get` need `manage_options`. The rollback engine verifies the production-safe confirmation token itself, once, over the change id, `force_drift`, `expected_current_sha256` and `permanent`; the ability does not verify it again. An undo of code is never run on an ability or WP-CLI call: the answer is `stonewright_rescue_approval_required`, and only an administrator pressing Undo on the Changes page approves it. The list and the diff return short rows and masked, capped diffs, never a stored image, a blob name or a whole hash.
 - The undo of a verified change saves the current state first and refuses with `stonewright_rescue_undo_capture_failed` when it cannot, probes the site before and after, and puts the saved state back with `stonewright_rescue_undo_reverted` when the undo made a working site fail. An incident or an unverified change is rolled back as before.
 - The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
 
@@ -223,6 +264,12 @@ Elementor prints colour, typography, unit and spacing values into the generated 
 - **Before generation**, `elementor-css-regenerate` scans the stored settings of the post (and its page or kit settings) for `;`, braces, `<`, `>`, `url(`, `expression(`, `@import`, comment markers and backslashes under colour, typography, unit and numeric-side keys. A match is refused with `stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock or generation. Custom CSS keys are not scanned there; they stay under the custom-code approval gate.
 
 Atomic (`e-*`) widgets keep structure-only validation, as before.
+
+### Elementor's own abilities
+
+`stonewright-elementor-native-execute` runs one certified ability of Elementor's own MCP integration in-process, inside Stonewright's snapshot, write lock, readback, rollback and audit. The tool exists when the native Elementor state is `available` and at least one ability is certified; the experimental V4 flag plays no part. It plans first (`dry_run` is on by default), and its permission follows the family of the ability: `edit_theme_options` for the kit defaults, `edit_post` on the post for a tree composition or a structure read. A read and a dry run need no confirmation token in any mode; a real write needs one in `production-safe` mode, bound to its arguments. An ability that clears generated CSS for the whole site is refused, and a change to a published page that Elementor stages in an autosave is reported as `staged_in_autosave`, never as applied.
+
+Elementor's own write abilities, when something other than this tool runs them (for example Elementor's own MCP server), are not blocked or changed. An observer takes a snapshot first, and after the call records a change-history row and an audit row marked `observed_native`; it opens no Rescue frame, so such a call is not probed or rolled back automatically.
 
 ### Design mirror export
 
@@ -269,19 +316,92 @@ and active plugins only, ignores inactive plugin manifests, and checks exact
 class names, visibility/static modifiers, required and maximum arity,
 parameter and return types, nullability/unions, constants, and versions before
 any adapter method can run. Troubleshoot reports each blocked symbol and its
-active owner/version separately without exposing filesystem paths.
+active owner/version separately without exposing filesystem paths. A copy of the adapter that
+another plugin loaded first is accepted only when it passes the same signature checks from version
+0.5.0; otherwise Stonewright registers nothing through it, says which plugin owns it, and the two MCP routes answer 503.
 
 ### Companion exposure
 
-The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
+The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`. In Plugin mode the companion does not call WordPress REST write endpoints; it proxies to the plugin's MCP endpoint. Direct mode (no plugin) is the exception: it writes through core WordPress REST, and through local WP-CLI where the target check passes, using only its typed Direct tools.
 
 Direct writes require a recent task-start bound to the resolved alias and its
 canonical target identity. Repointing the alias invalidates that write latch;
 the old context cannot create or revoke Application Passwords or perform any
 other write against the new target. Direct audit idempotency and incidents use
-the same canonical identity rather than the alias. Audit-lock recovery checks
+the same canonical identity rather than the alias, and so does Direct memory: a
+lesson is filed under the site's canonical URL, so an alias pointed at another
+site does not inherit the old site's memory. Audit rows for local work
+(`stonewright-command-*`, `stonewright rescue`) carry `backend: local` and open no
+Direct incident; `task-start` counts only the recurring errors of its own site
+from the last 30 days. Audit-lock recovery checks
 boot/process-start ownership and quarantines a stale lock atomically before
 removing it, so PID reuse and replacement-lock races fail closed.
+
+Direct mode has no plugin and no authenticated wp-admin grant boundary, so its
+write protections are the companion's own and narrower than Plugin mode's:
+
+- A session started for one site (`STONEWRIGHT_SITE_ALIAS`) acts on that site
+  only; a `site` argument naming another alias is refused.
+- It refuses to write on a site where the Stonewright plugin is active, so a
+  Direct write cannot skip the plugin's tokens, snapshots, Rescue ledger and
+  audit. The plugin is detected through the REST index and the answer is cached
+  for five minutes per site. Reads are not affected. For recovery only,
+  `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` together with `confirm: true` on the
+  call lets a write through; each use is audited and reported in the result.
+
+- It refuses custom code (theme.json and Elementor CSS, HTML widgets, script,
+  style, iframe, object, embed, link and meta http-equiv markup, inline event
+  handlers, `javascript:` URLs) in global styles, Elementor data, content,
+  template, blueprint and widget writes, in what a block edit
+  (`stonewright-blocks-batch-mutate`) adds, in the markup
+  `stonewright-gutenberg-compose` returns (`html` and `raw` blocks included), and
+  in the text of ACF, media, menu, comment, taxonomy-term, settings, user and
+  Application Password writes.
+- It never deactivates or deletes Stonewright or the MCP adapter, never deletes
+  the account it signs in as or the last administrator, and writes only
+  allowlisted settings (never the site address or administrator email;
+  `default_role` only for a non-administrative core role).
+- It sends the Application Password only over https, or over http to a local
+  host (`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` for a trusted private network), and
+  never retries a write after a network error.
+- It saves a pre-image before template, template-part, global-styles, content,
+  block-edit and blueprint-over-page writes and refuses the write when that fails.
+  A block edit also needs the hash of the content it was planned against and is
+  refused if the content changed.
+  `stonewright-direct-backup-restore` puts a saved copy (or an Elementor file
+  backup) back only after a confirmation, after checking the hash stored in the
+  file and that the resource still exists, and after saving the current state so
+  the restore can be undone.
+- It cannot activate a skill. A skill saved through Direct is a disabled
+  candidate, `enabled:true` and any change to an active skill are refused, and a
+  lesson can be deleted only after a confirmation. Activation is an
+  administrator's approval in Plugin mode.
+- It asks for a confirmation on destructive tools in `confirm` write mode, and
+  for theme activation, plugin and user deletes, Application Password create and
+  revoke and backup restore in every mode. The refused call returns a
+  `confirmation_id`: an HMAC over the tool, the site and the exact arguments, kept
+  in the companion's memory for 10 minutes, usable once, and refused for other
+  arguments, another site or another tool. A plain `confirm: true` counts only on
+  a local site or with `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`. This is local to the
+  companion; Direct has no plugin confirmation tokens.
+- `elementor-data-update` replaces a whole tree only after structure checks, an
+  optional `expected_hash` match and a refusal to rewrite Atomic (V4) documents;
+  `force_destructive`, `allow_widget_type_remap` and `allow_atomic_raw` need a
+  confirmation and are audited.
+- `stonewright-media-upload` limits local paths, URL addresses, file types and
+  size, and connects to the address it checked for each hop.
+- In a Direct session `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
+  treat a command that changes the site as a Direct write: task-start,
+  `confirm` in `confirm` mode, a local install that is the Direct site, and an
+  audit row.
+- It reads every typed write back and compares the fields that were sent; a
+  difference is reported as `ok:false`, never as success. After a page, post or
+  template write it can fetch the public page (the pinned, redirect-checked
+  fetch used for media downloads) and report a failure; it restores the saved
+  copy only when the call asks for `rollback_on_probe_failure`.
+
+[Direct mode E2E](direct-mode-e2e.md) lists each protection and what is not done
+yet.
 
 ### Plugin data when the plugin is deleted
 
@@ -290,9 +410,9 @@ history, and settings stay in the database. Defining
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
 table, every `stonewright_` option (the OAuth signing and encryption keys
 included), every `stonewright_` and `sw_cc_` transient, and the scheduled
-events, on every site of a network, and the change journal files in
-`uploads/stonewright-state/` (a file in that folder that Stonewright did not write
-stays). See
+events, on every site of a network, and the change journal files and change
+history blobs in `uploads/stonewright-state/` (a file in those folders that
+Stonewright did not write stays). See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
 
@@ -344,6 +464,59 @@ by `ProtectedWpdbWriteGuard`:
   (`stonewright_custom_code_provider_required`) and never skip KSES to preserve
   PHP. Route those writes through the approval-gated custom-code provider.
 
+The scan of the source is a best-effort guard, not a runtime barrier: a snippet
+that reaches a write through an indirect call can pass it. `php-execute` and the
+WP-CLI runners (`wp-cli-run`, `wp-cli-batch-run`, `wp-cli-job-start`) need
+`edit_plugins` and `manage_options`, the sandbox capability pair, and a super
+admin on multisite. `wp-cli-batch-run` runs read-oriented commands only: one
+command outside its allowlist refuses the whole batch before any runs. While `DISALLOW_FILE_MODS` is set, php-execute also refuses
+snippets that call the plugin, theme and core installers and updaters, and the
+WP-CLI abilities refuse commands that write files.
+
+`stonewright-tool-profile` `extras` cannot add these abilities to a surface: an entry
+that names `php-execute`, a sandbox writer, a WP-CLI runner, `custom-code-provider`
+or a custom widget definer is refused with
+`stonewright_tool_profile_extras_restricted`, and a stored extra that names one is
+ignored. They come only from the profile that lists them (`full` for
+`php-execute`).
+
+The `full` profile is a person's choice. An administrator sets the MCP tool
+surface to Full in wp-admin (Stonewright > Setup > Settings); an agent cannot
+switch to it. `stonewright-tool-profile` with `action=activate` and
+`profile=full` returns `stonewright_tool_profile_full_requires_admin` (HTTP 403,
+`approval_required`, `agent_must_stop`, the settings link) in development,
+staging and production-safe mode, with or without a confirmation token, and
+writes no session profile. The other profiles still switch. A site whose
+administrator already chose Full has nothing to switch. In the companion,
+`STONEWRIGHT_MCP_TOOL_PROFILE=full` is the choice of the person who runs it; no
+tool changes it, and a profile hint in a tool result cannot move the companion
+onto `full` unless the site surface is already Full.
+
+No other route changes the surface for an agent either. `POST /stonewright/v1/settings`
+with `essential_tools_mode:false`, which puts the Full surface in effect, is accepted
+only from a person in wp-admin: a cookie sign-in with a valid REST nonce
+(`X-WP-Nonce`). An Application Password, an OAuth bearer and any other sign-in get
+`stonewright_full_surface_requires_admin` (403, `approval_required`,
+`agent_must_stop`, the settings link) and nothing in the request is written; the
+other settings in that route keep working with an Application Password. Writing the
+Full surface back from the change ledger (an undo or redo of a tool-profile row)
+needs an admin screen, so `stonewright-change-rollback` refuses it. The Setup
+screen applies the surface through admin-ajax with a nonce, and `options.php`
+saves it from the Settings form; both are cookie requests. No ability, settings
+import or blueprint writes the surface options.
+
+A companion in front of a plugin older than this rule does not offer or forward a
+switch to `full` either. `stonewright-tool-profile` in the companion refuses a
+request for `full` (an activation, or a call with no `action`, which the plugin
+takes as an activation) before it reaches the plugin, unless the companion
+already runs `full` or the site surface is Full; a read-only `action=resolve` is
+still forwarded. The companion itself only ever calls `action=resolve`, never
+with `full`, and never activates a profile.
+
+Every `wp_die()` in the plugin's admin pages and handlers that refuses a user (no
+permission, a failed security check) answers 403 through `AccessDenied::deny()`,
+with the same message as before.
+
 These guards do not make php-execute a sandbox. Prefer typed abilities for
 Elementor, FSE, options, and post writes. A successful call whose snippet uses
 post meta, option, Elementor data, or menu patterns returns a `routing_hint`
@@ -362,7 +535,7 @@ archives exclude Direct sites config, memory, and audit state.
 ## Hardening checklist
 
 - [ ] HTTPS enabled on the WordPress installation.
-- [ ] `stonewright_mode` set to `production-safe` on production sites.
+- [ ] `stonewright_mode` set to `production-safe` on production sites (a site with no stored mode starts in the mode of its environment type).
 - [ ] Dedicated Application Password for the MCP client with the minimum required role.
 - [ ] `COMPANION_BEARER_TOKEN` set to a strong random value.
 - [ ] `COMPANION_ALLOWED_ORIGINS` restricted to known request origins.

@@ -40,18 +40,30 @@ implement:
   before any mutation and return the `snapshot_id` in the response.
 - Always validate specs with `DesignSpec\Validator::validate( $spec )` before
   passing to a renderer. Reject with `WP_Error` if invalid.
-- Wrap destructive operations in `$this->audit( $args, fn )` to enable audit
-  logging.
+- Wrap write operations in `$this->audit_write( $args, fn )` and read-only ones
+  in `$this->audit_read( $args, fn )`. Both record the audit row; `audit_write`
+  also checks the production-safe confirmation token and declares the call a
+  write.
 
 ## Confirmation token for destructive abilities
 
-Abilities that delete or replace content must document the confirmation token
-flow in their docblock. The caller (skill or agent) is responsible for issuing
-the token and gating on user acknowledgement; the ability itself does not block.
+An ability that writes, deletes or replaces content declares an optional
+`confirmation_token` string in `input_schema()` and runs its logic through
+`$this->audit_write()`. In production-safe mode that wrapper refuses the call
+without a valid token issued for the exact arguments
+(`stonewright-security-issue-confirmation-token`). An ability whose dry run needs
+no token checks it itself, after its own validation, with the
+`Common\ConfirmationGuard` trait and `audit_write_with_own_token_gate()`. The
+caller (skill or agent) still shows the user what will change before it asks
+for the token.
 
 ## Test workflow
 
-Write a failing test first under `plugin/tests/`. Fix. Verify.
+Write a failing test first under `plugin/tests/Unit/` (or `plugin/tests/Integration/`).
+Fix. Verify. After adding or changing an ability, regenerate the generated files
+with `composer docs:matrix` (the ability matrix and `data/ability-traits.php`)
+and `composer contracts:generate` (`docs/contracts/*.json`); do not edit them by
+hand.
 
 ```bash
 cd plugin
@@ -62,10 +74,15 @@ composer phpcs         # coding standards
 
 ## MCP server registration
 
-The MCP HTTP transport is registered in `stonewright.php` via
-`Stonewright\WpMcp\Core\McpServer::boot()`. Abilities are registered in
-`Stonewright\WpMcp\Core\AbilityRegistry::register()`. New ability classes
-must be added to the registry map.
+`stonewright.php` boots `Stonewright\WpMcp\Core\PluginRegistration::boot()`.
+`Core\ServerRegistration::register_server()` creates the MCP server on the
+WordPress MCP Adapter, and abilities are registered by
+`Stonewright\WpMcp\Core\AbilityRegistry::register_all()`. New ability classes
+must be added to the registry class list. Which tools a client sees depends on
+the tool profile; abilities that run or write code (`stonewright/php-execute`,
+the sandbox writers, the WP-CLI runners) are listed only by the profiles that
+name them, and `php-execute` only by `full`, which an administrator chooses in
+wp-admin.
 
 ## Site state abilities (useful for dev)
 
@@ -84,7 +101,7 @@ must be added to the registry map.
 
 ```bash
 composer test          # runs PHPUnit
-composer phpstan       # runs PHPStan (level 8)
+composer phpstan       # runs PHPStan (level 5)
 composer phpcs         # PHPCS with WordPress-Extra + WordPress-Docs
 composer phpcbf        # auto-fix coding standards
 ```

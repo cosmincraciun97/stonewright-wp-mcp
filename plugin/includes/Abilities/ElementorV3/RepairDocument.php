@@ -6,7 +6,9 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -61,6 +63,8 @@ final class RepairDocument extends AbilityKernel {
 				'fixes_applied' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'snapshot_id'   => [ 'type' => 'string' ],
 				'message'       => [ 'type' => 'string' ],
+				'write_receipt' => [ 'type' => 'object' ],
+				'change_set'    => ChangeSet::output_property(),
 			],
 			'required'             => [ 'post_id', 'repaired', 'fixes_applied', 'snapshot_id' ],
 		];
@@ -85,60 +89,78 @@ final class RepairDocument extends AbilityKernel {
 					return $token_error;
 				}
 
-				$raw   = get_post_meta( $post_id, '_elementor_data', true );
-				$tree  = ElementorData::read( $post_id );
-				$fixes = [];
-
-				$decoded_root = self::decode_double_encoded_root( $raw );
-				if ( null !== $decoded_root ) {
-					$tree    = $decoded_root;
-					$fixes[] = 'double_encoded_root';
-				}
-
-				$tree = self::reindex_ids( $tree, $post_id, $id_fixes );
-				if ( $id_fixes['duplicate'] ) {
-					$fixes[] = 'duplicate_ids';
-				}
-				if ( $id_fixes['missing'] ) {
-					$fixes[] = 'missing_ids';
-				}
-
-				if ( [] === $fixes ) {
-					return [
-						'post_id'       => $post_id,
-						'repaired'      => false,
-						'fixes_applied' => [],
-						'snapshot_id'   => '',
-						'message'       => __( 'No transport or element-id corruption detected.', 'stonewright' ),
-					];
-				}
-
-				if ( ! SettingsValidator::validate_tree( $tree ) ) {
-					return SettingsValidator::last_error()
-						?? $this->error( 'repair_validation_failed', __( 'The repaired Elementor tree still failed validation.', 'stonewright' ) );
-				}
-
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->error( 'snapshot_failed', __( 'Could not snapshot the post before repair.', 'stonewright' ) );
-				}
-
-				// Never bypass the integrity gate: the normalized tree must pass the same
-				// persistence path as every other typed Elementor write.
-				if ( ! ElementorData::write( $post_id, $tree, [ 'id_only_repair' => true ] ) ) {
-					return ElementorData::write_error_for_ability();
-				}
-
-				return [
-					'post_id'       => $post_id,
-					'repaired'      => true,
-					'fixes_applied' => $fixes,
-					'snapshot_id'   => $snapshot_id,
-				];
+				// The lease is taken before the document is read, so no other writer changes it between the read and the repair.
+				return PostWriteLock::with_lease(
+					$post_id,
+					'repair-document',
+					fn ( string $lock_owner ) => $this->repair( $post_id, $lock_owner )
+				);
 			}
 		);
 	}
 
+	/**
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function repair( int $post_id, string $lock_owner ): array|\WP_Error {
+		$raw   = get_post_meta( $post_id, '_elementor_data', true );
+		$tree  = ElementorData::read( $post_id );
+		$fixes = [];
+
+		$decoded_root = self::decode_double_encoded_root( $raw );
+		if ( null !== $decoded_root ) {
+			$tree    = $decoded_root;
+			$fixes[] = 'double_encoded_root';
+		}
+
+		$tree = self::reindex_ids( $tree, $post_id, $id_fixes );
+		if ( $id_fixes['duplicate'] ) {
+			$fixes[] = 'duplicate_ids';
+		}
+		if ( $id_fixes['missing'] ) {
+			$fixes[] = 'missing_ids';
+		}
+
+		if ( [] === $fixes ) {
+			return [
+				'post_id'       => $post_id,
+				'repaired'      => false,
+				'fixes_applied' => [],
+				'snapshot_id'   => '',
+				'message'       => __( 'No transport or element-id corruption detected.', 'stonewright' ),
+			];
+		}
+
+		// The repair changes ids only, so a widget the document already has at its root stays; it is no new structure.
+		$root_widgets = [];
+		foreach ( $tree as $element ) {
+			if ( is_array( $element ) && 'widget' === (string) ( $element['elType'] ?? '' ) ) {
+				$root_widgets[] = (string) ( $element['id'] ?? '' );
+			}
+		}
+		if ( ! SettingsValidator::validate_tree( $tree, null, $root_widgets ) ) {
+			return SettingsValidator::last_error()
+				?? $this->error( 'repair_validation_failed', __( 'The repaired Elementor tree still failed validation.', 'stonewright' ) );
+		}
+
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		if ( '' === $snapshot_id ) {
+			return $this->error( 'snapshot_failed', __( 'Could not snapshot the post before repair.', 'stonewright' ) );
+		}
+
+		// Never bypass the integrity gate: the normalized tree must pass the same
+		// persistence path as every other typed Elementor write.
+		if ( ! ElementorData::write( $post_id, $tree, [ 'id_only_repair' => true, 'lock_owner' => $lock_owner ] ) ) {
+			return ElementorData::write_error_for_ability();
+		}
+
+		return [
+			'post_id'       => $post_id,
+			'repaired'      => true,
+			'fixes_applied' => $fixes,
+			'snapshot_id'   => $snapshot_id,
+		];
+	}
 	/**
 	 * @return array<int, array<string, mixed>>|null
 	 */

@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpPlugin = {
@@ -31,11 +32,75 @@ function compactPlugin(plugin: WpPlugin) {
     author: plugin.author ?? "",
     description: descriptionOf(plugin),
     network_only: plugin.network_only === true,
+    // The plugin's flag for the same fact as status.
+    active: (plugin.status ?? "") === "active" || plugin.status === "network-active",
   };
+}
+
+/**
+ * The plugin identifier core REST takes: folder/file without the .php. The plugin's tools take the file
+ * with its .php (akismet/akismet.php), so both are accepted.
+ */
+function pluginPath(value: string): string {
+  return value.trim().replace(/\.php$/i, "");
 }
 
 function encodePlugin(plugin: string): string {
   return plugin.split("/").map(encodeURIComponent).join("/");
+}
+
+/**
+ * Plugin folders Direct never deactivates or deletes: Stonewright itself, and the MCP adapter that
+ * carries the companion's connection. A plugin that only has "stonewright" in its name is another plugin.
+ */
+const PROTECTED_PLUGIN_FOLDERS = new Set(["stonewright", "mcp-adapter"]);
+
+function protectedPluginFolder(plugin: string): string | null {
+  const normalized = plugin
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .toLowerCase()
+    .replace(/\.php$/, "");
+  const folder = normalized.split("/")[0] ?? "";
+  return PROTECTED_PLUGIN_FOLDERS.has(folder) ? folder : null;
+}
+
+function selfProtectionError(tool: string, plugin: string, site: string, why: string) {
+  return new DirectSafetyBlockedError(
+    "self_protection",
+    `Refusing ${tool} for "${plugin}": ${why} Nothing was changed. Do this in wp-admin if it is really intended.`,
+    tool,
+    site,
+  );
+}
+
+/**
+ * Refuses a plugin that is Stonewright or the connection plugin. The path decides first, with no request;
+ * then the installed plugin's own header is read, so a renamed Stonewright folder is still recognised.
+ */
+async function assertPluginNotProtected(
+  ctx: DirectToolContext,
+  plugin: string,
+  tool: string,
+): Promise<void> {
+  const folder = protectedPluginFolder(plugin);
+  if (folder !== null) {
+    throw selfProtectionError(
+      tool,
+      plugin,
+      ctx.site.alias,
+      folder === "stonewright"
+        ? "this is Stonewright itself."
+        : "this is the plugin that carries the Stonewright connection (MCP adapter).",
+    );
+  }
+  const installed = await ctx.client.get<WpPlugin>(`/wp/v2/plugins/${encodePlugin(plugin.trim())}`);
+  const textdomain = (installed?.textdomain ?? "").trim().toLowerCase();
+  const name = (installed?.name ?? "").trim().toLowerCase();
+  if (textdomain === "stonewright" || name === "stonewright") {
+    throw selfProtectionError(tool, plugin, ctx.site.alias, "this is Stonewright itself.");
+  }
 }
 
 export async function pluginList(
@@ -68,23 +133,16 @@ export async function pluginActivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-activate",
   });
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.put<WpPlugin>(
+    result = await ctx.client.put<WpPlugin>(
       `/wp/v2/plugins/${encodePlugin(plugin)}`,
       {
         body: { status: "active" },
       },
     );
-    appendDirectAudit({
-      tool: "stonewright-plugin-activate",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: plugin,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-activate",
@@ -95,6 +153,18 @@ export async function pluginActivate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-activate",
+    resource: plugin,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    sent: { status: "active" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginDeactivate(
@@ -109,23 +179,17 @@ export async function pluginDeactivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-deactivate",
   });
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-deactivate");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.put<WpPlugin>(
+    result = await ctx.client.put<WpPlugin>(
       `/wp/v2/plugins/${encodePlugin(plugin)}`,
       {
         body: { status: "inactive" },
       },
     );
-    appendDirectAudit({
-      tool: "stonewright-plugin-deactivate",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: plugin,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-deactivate",
@@ -136,6 +200,18 @@ export async function pluginDeactivate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-deactivate",
+    resource: plugin,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    sent: { status: "inactive" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginInstall(
@@ -156,21 +232,14 @@ export async function pluginInstall(
   });
   const slug = input.slug.trim();
   if (!slug) throw new Error("slug is required (WordPress.org plugin slug)");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.post<WpPlugin>("/wp/v2/plugins", {
+    result = await ctx.client.post<WpPlugin>("/wp/v2/plugins", {
       body: {
         slug,
         status: input.status ?? "inactive",
       },
     });
-    appendDirectAudit({
-      tool: "stonewright-plugin-install",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: slug,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-install",
@@ -181,6 +250,18 @@ export async function pluginInstall(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-install",
+    resource: slug,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(result.plugin ?? slug)}`,
+    readQuery: {},
+    sent: { status: input.status ?? "inactive" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginGet(
@@ -188,7 +269,7 @@ export async function pluginGet(
   input: { plugin: string },
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-get");
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   const result = await ctx.client.get<WpPlugin>(
     `/wp/v2/plugins/${encodePlugin(plugin)}`,
@@ -208,26 +289,30 @@ export async function pluginDelete(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-delete",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  if (input.confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      "confirm:true is required for this tool (stonewright-plugin-delete)",
-      "stonewright-plugin-delete",
-      ctx.site.alias,
-    );
-  }
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-delete");
   const result = await ctx.client.del(`/wp/v2/plugins/${encodePlugin(plugin)}`);
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-plugin-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: plugin,
-    status: "ok",
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    expect: "absent",
   });
-  return (
-    result ?? { deleted: true, plugin, note: "Plugin must be inactive first." }
+  return attachVerification(
+    (result as object | undefined) ?? {
+      deleted: true,
+      plugin,
+      note: "Plugin must be inactive first.",
+    },
+    verification,
   );
 }

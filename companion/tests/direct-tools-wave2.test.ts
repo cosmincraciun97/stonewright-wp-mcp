@@ -8,6 +8,8 @@ import type { ResolvedSite } from '../src/direct/sites-config.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE2_TOOL_NAMES } from '../src/direct/registry.js';
 import { siteDiscover } from '../src/direct/tools/site-discover.js';
 import { settingsUpdate } from '../src/direct/tools/settings.js';
+import { DirectSafetyBlockedError } from '../src/direct/writes.js';
+import { runWithDirectCallContext } from '../src/direct/plugin-presence.js';
 import { pluginActivate, pluginInstall } from '../src/direct/tools/plugins.js';
 import { menuDelete } from '../src/direct/tools/menus.js';
 import { globalStylesUpdate } from '../src/direct/tools/global-styles.js';
@@ -91,6 +93,20 @@ describe('direct wave 2 tools', () => {
 		expect(result.detected_plugins.acf).toBe(true);
 		expect(result.post_types.some((t) => t.slug === 'page')).toBe(true);
 		expect(result.unavailable_without_plugin.some((c) => c.id === 'elementor-engine')).toBe(true);
+		const ids = result.unavailable_without_plugin.map((c) => c.id);
+		for (const id of [
+			'rescue',
+			'change-sets',
+			'section-reuse',
+			'design-direction',
+			'site-context',
+			'elementor-v4-atomic',
+		]) {
+			expect(ids).toContain(id);
+		}
+		const elementor = result.unavailable_without_plugin.find((c) => c.id === 'elementor-engine');
+		expect(elementor?.reason).not.toMatch(/only on local WP-CLI/i);
+		expect(elementor?.reason).toMatch(/core REST/i);
 		expect(result.upgrade_hint).toMatch(/Stonewright plugin/i);
 	});
 
@@ -104,21 +120,46 @@ describe('direct wave 2 tools', () => {
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
-	it('allows settings update when confirm:true', async () => {
-		homeDir();
-		const fetchImpl = vi.fn(() =>
+	const settingsFetch = () =>
+		vi.fn(() =>
 			Promise.resolve(new Response(JSON.stringify({ title: 'X' }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
 			})),
 		);
+
+	it('allows settings update on a remote site when the call carries the confirmation_id it was given', async () => {
+		homeDir();
+		const fetchImpl = settingsFetch();
 		const client = new WpRestClient(site, { fetchImpl });
-		const result = await settingsUpdate(
-			{ client, site, writeMode: 'confirm' },
-			{ settings: { title: 'X' }, confirm: true },
+		const input = { settings: { title: 'X' } };
+		const run = (extra: { confirm?: boolean; confirmationId?: string }) =>
+			runWithDirectCallContext(
+				{ tool: 'stonewright-settings-update', confirm: extra.confirm === true, args: input, ...(extra.confirmationId ? { confirmationId: extra.confirmationId } : {}) },
+				() => settingsUpdate({ client, site, writeMode: 'confirm' }, { ...input, ...(extra.confirm ? { confirm: true } : {}) }),
+			);
+		// A plain confirm:true is not enough on a remote site; the refusal hands out the id.
+		const refused = await run({ confirm: true }).catch((error: unknown) => error as DirectSafetyBlockedError);
+		expect(refused).toBeInstanceOf(DirectSafetyBlockedError);
+		const id = (refused as DirectSafetyBlockedError).details['confirmation_id'] as string;
+		expect(fetchImpl).not.toHaveBeenCalled();
+		const result = await run({ confirmationId: id });
+		expect(result.settings).toMatchObject({ title: 'X' });
+		expect((result as { verification: { status: string } }).verification.status).toBe('verified');
+		// the write and its readback
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+	});
+
+	it('still accepts a plain confirm:true on a remote site when STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on', async () => {
+		homeDir();
+		const fetchImpl = settingsFetch();
+		const client = new WpRestClient(site, { fetchImpl });
+		const env = { STONEWRIGHT_DIRECT_CONFIRM_LEGACY: 'on' };
+		const result = await runWithDirectCallContext({ tool: 'stonewright-settings-update', confirm: true, env }, () =>
+			settingsUpdate({ client, site, writeMode: 'confirm', env }, { settings: { title: 'X' }, confirm: true }),
 		);
 		expect(result.settings).toMatchObject({ title: 'X' });
-		expect(fetchImpl).toHaveBeenCalledOnce();
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
 	it('blocks plugin activate/install without confirm in confirm mode', async () => {

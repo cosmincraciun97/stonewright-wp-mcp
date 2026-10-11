@@ -105,7 +105,8 @@ final class ElementorSchema extends AbilityKernel {
 					'widget_type' => $widget_type,
 					'redirect'    => [
 						'ability' => 'stonewright/elementor-v3-container-schema',
-						'input'   => [ 'element_type' => $widget_type ],
+						// container-schema takes no element type; it describes the container controls that sections and columns share.
+						'input'   => [ 'include_controls' => false ],
 					],
 				]
 			);

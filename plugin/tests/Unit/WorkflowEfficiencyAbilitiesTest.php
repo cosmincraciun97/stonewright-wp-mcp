@@ -341,7 +341,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.', $result['token_rules'] );
 	}
 
-	public function test_tool_profile_full_still_recommends_php_execute(): void {
+	public function test_tool_profile_full_still_recommends_php_execute_on_a_site_an_administrator_set_to_full(): void {
+		// The full profile is an administrator's choice in wp-admin; the ability does not make it.
+		update_option( 'stonewright_mcp_surface', 'full', false );
+		update_option( 'stonewright_essential_tools_mode', false, false );
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
 
 		self::assertNotNull( $ability );
@@ -532,7 +535,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
 		self::assertNotContains( 'stonewright/php-execute', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['fast_path']['recommended_mcp_tools'] );
-		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
+		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated read-oriented WP-CLI commands (post, term, option, plugin reads and cache flushes); write through typed abilities or stonewright-wp-cli-run.', $result['fast_path']['batching_rules'] );
 	}
 
 	public function test_workflow_preflight_omits_elementor_summary_for_content_model_tasks(): void {

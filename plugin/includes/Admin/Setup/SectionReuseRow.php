@@ -42,7 +42,7 @@ final class SectionReuseRow {
 
 		$help = __( 'Let agents offer to copy a section from another page of this site into the page they are building. Turn it off and every section is built from scratch. The setting changes when you save.', 'stonewright' );
 		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
-			$help .= ' ' . __( 'In production-safe mode an Elementor V3 copy needs a confirmation token like any other write, a Gutenberg copy needs one only when the same change removes a block, and copying an Elementor V4 section stays blocked.', 'stonewright' );
+			$help .= ' ' . __( 'In production-safe mode an Elementor V3 or Gutenberg copy needs a confirmation token like any other write, and copying an Elementor V4 section stays blocked.', 'stonewright' );
 		}
 
 		$switch = Html::void( 'input', [ 'type' => 'hidden', 'name' => $option, 'value' => 'off' ] )

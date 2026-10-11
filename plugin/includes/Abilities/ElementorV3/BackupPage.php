@@ -64,7 +64,11 @@ final class BackupPage extends AbilityKernel {
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
-				$snapshot_id = Backup::snapshot_post( $post_id );
+				// A manual snapshot changes nothing, so it arms no rescue: there is no write to probe or roll back.
+				$snapshot_id = Backup::snapshot_post( $post_id, [], false );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				return [ 'snapshot_id' => $snapshot_id ];
 			}
 		);

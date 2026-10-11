@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**394** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**397** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -13,7 +13,7 @@ matrix after changing the registry.
 | Category | Count | Scope |
 |---|---:|---|
 | Section reuse | 2 | Find sections the site already has and extract one as a portable payload. The copy itself is an insert operation of the V3, V4 and block batch writers. |
-| Security | 7 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, and rescue status and rollback. |
+| Security | 10 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, rescue status and rollback, and change history list, diff and rollback. |
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
@@ -42,7 +42,7 @@ matrix after changing the registry.
 | Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. The Elementor articles live in a private folder under uploads that `elementor-knowledge-refresh` fills; the readers return nothing until the first refresh. |
 | Expertise | 4 | Expertise pack discovery and reads. |
 | Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
-| Comments | 5 | Comment list, update, moderation, and deletion. |
+| Comments | 5 | Comment reads (get, list), creation through the core comment pipeline, update and moderation, and deletion (trash or permanent). |
 | Users | 6 | User and application-password administration. |
 | Widgets | 4 | WordPress widget-area reads and writes. |
 | Settings | 2 | Site settings reads and guarded updates. |
@@ -51,11 +51,23 @@ matrix after changing the registry.
 | Custom Code | 1 | Typed dry-run then human-approval apply for WPCode / Code Snippets / equivalent providers. |
 | Plugins Manage | 3 | Plugin install, activate, and deactivate operations. |
 | Revisions | 3 | Revision listing, inspection, and restore. |
-| Search | 2 | WordPress search and OpenSearch discovery. |
+| Search | 2 | WordPress content search and oEmbed URL resolution. |
 | WooCommerce | 17 | Product, variation, term, catalog-audit, order, and sales operations. |
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
+
+## Change history
+
+The change history (see [Rescue](rescue.md#change-history-ledger)) is read and acted on through three abilities in the Security category. All need `manage_options`. They return short rows and masked, capped diffs, never a stored copy of the content. The details of each input and answer are in [Rescue](rescue.md#abilities-and-wp-cli).
+
+| Name | Kind | What it does |
+|---|---|---|
+| `stonewright/change-history-list` | Read | Lists changes newest first, one short row each (`change_id`, `time`, `kind`, `family`, `resource_label`, `ability`, `actor`, `status`, `summary`, `restorable` and `restorable_reason`, `parent_id`, `children`). Filters `family`, `resource`, `ability`, `actor`, `status`, `from`, `to`, `restorable` and `kind`; paging `page` and `per_page` (1 to 100, default 25). A filter value that is not allowed is refused with `stonewright_change_history_invalid` and never widens the list. |
+| `stonewright/change-diff-get` | Read | Returns the diff of one change (masked, capped by `max_lines`, 20 to 2000, default 400; `deleted` when the change removed the resource) and a `plan` summary of its undo: `restorable`, `drift`, `newer_changes`, `approval_required`, `requires_force`, `confirmation_required` and the start of `current_sha256`. When an undo cannot run, `plan.available` is false with `error_code`. |
+| `stonewright/change-rollback` | Write | Undoes a change, or redoes a rollback row. Input `change_id`, `dry_run`, `force_drift`, `expected_current_sha256`, `permanent` and `confirmation_token`. Call it with `dry_run` first: the plan, a short diff (counts per part) and, in production-safe mode, `confirmation_args`. Drift is refused unless `force_drift`. In production-safe mode a run needs a token issued for those `confirmation_args`; the engine verifies it once and writes the one audit row of the call. A run probes the site and puts the earlier state back when the probe fails. A change to code is never undone on a call: the answer is `stonewright_rescue_approval_required` with the `approval_url`, and an administrator presses **Undo** on **Stonewright > Activity > Changes**. |
+
+The three are in the `site-admin` tool profile, next to `change-log` and `change-restore` (which keep working on post snapshots). `wp stonewright changes list`, `diff` and `rollback` do the same from the command line.
 
 ## Section reuse
 
@@ -81,13 +93,24 @@ An `insert_section` operation of `stonewright/elementor-v3-batch-mutate` whose s
 
 `drop_settings` is the user's explicit approval to copy the section without exactly the rejected settings. It is a list of `{ "element": "ph-3", "setting": "acme_old_style" }` entries (the placeholder of the element and the setting key, or `__globals__.key` for one binding), and the refusal offers the value to send as `drop_settings_proposal`. The list must equal the settings the schema rejects now, no more and no less: a missing or an extra entry refuses the insert with `stonewright_section_drop_settings_mismatch` (`drop_settings_missing` and `drop_settings_unexpected` say what differs) and removes nothing, and a value that is not such a list is refused with `stonewright_section_drop_settings_invalid`. Nothing that is not listed is ever removed, and without the option nothing is removed. A CSS class the site has not approved and custom CSS that needs a grant count as rejected settings: they are dropped when listed and left to the custom code gate when they are not. The removed settings are listed in `removed_settings` on the operation and at the top of the answer (with the operation index), in a `settings_removed` warning, in `write_receipt.removed_settings` and in the `removed_settings` detail of the audit row. In `production-safe` the confirmation token covers the whole call, so a token issued for the insert without `drop_settings`, or with another list, does not approve it. The option exists only for Elementor V3 sections: an `insert_section` of `stonewright/elementor-v4-update-node` or `stonewright/blocks-batch-mutate` that carries `drop_settings` is refused with `stonewright_section_drop_settings_unsupported`, and nothing is written.
 
-The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are not listed over MCP at all and are left out of the profiles, so a client that lists tools again cannot call them (the call is answered as an unknown tool). A client that keeps an old tool list is still safe: `extract` fails with `stonewright_section_reuse_off`, and `find` answers `{ "enabled": false, "instruction": ... }` only when it is run in-process, for example from PHP. Every `insert_section` operation refuses with `stonewright_section_reuse_off`. That refusal is a blocked, not retryable answer: the failure message of the three batch writers says that section reuse is off and carries `retryable: false` and `execution_status: blocked` for MCP clients, and it is not counted as a recurring error and carries no repeat-failure advice. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. While it is `off`, `stonewright-task-start` does not offer the `stonewright-section-reuse` skill. In `production-safe` mode an Elementor V3 `insert_section` needs the confirmation token that every `elementor-v3-batch-mutate` write needs unless it is a dry run, and a Gutenberg `insert_section` needs one only when the same batch removes a block. Elementor copies carry checks of their own: CSS classes must be in `stonewright_approved_css_classes`, placeholder and unregistered widgets are refused, a repeated id attribute is renamed with an `anchors_renamed` warning, a repeated `op_id` is refused, and one batch may add at most the element cap (2000) of one write; `section-reuse-extract` warns about the first four before the copy. V4 text adaptations use the text type the live widget declares (`escaped-html` on current Elementor, not `html-v3`). See [Section reuse](architecture.md#section-reuse).
+The option `stonewright_section_reuse` is `ask` (default) or `off`, edited in **Stonewright > Setup > Settings**. While it is `off` the two read abilities are not listed over MCP at all and are left out of the profiles, so a client that lists tools again cannot call them (the call is answered as an unknown tool). A client that keeps an old tool list is still safe: `extract` fails with `stonewright_section_reuse_off`, and `find` answers `{ "enabled": false, "instruction": ... }` only when it is run in-process, for example from PHP. Every `insert_section` operation refuses with `stonewright_section_reuse_off`. That refusal is a blocked, not retryable answer: the failure message of the three batch writers says that section reuse is off and carries `retryable: false` and `execution_status: blocked` for MCP clients, and it is not counted as a recurring error and carries no repeat-failure advice. Agents see the value as `agent_preferences.section_reuse` in `stonewright-task-start` and in the connect-time instructions, and for fifteen minutes after a change as a `notices` line on every response. While it is `off`, `stonewright-task-start` does not offer the `stonewright-section-reuse` skill. In `production-safe` mode an Elementor V3 `insert_section` needs the confirmation token that every `elementor-v3-batch-mutate` write needs unless it is a dry run, and so does a Gutenberg `insert_section` (every `blocks-batch-mutate` write that is not a dry run needs one). Elementor copies carry checks of their own: CSS classes must be in `stonewright_approved_css_classes`, placeholder and unregistered widgets are refused, a repeated id attribute is renamed with an `anchors_renamed` warning, a repeated `op_id` is refused, and one batch may add at most the element cap (2000) of one write; `section-reuse-extract` warns about the first four before the copy. V4 text adaptations use the text type the live widget declares (`escaped-html` on current Elementor, not `html-v3`). See [Section reuse](architecture.md#section-reuse).
 
 All ability responses support optional `stonewright_fields` projection while
 retaining top-level fields required by their declared output schema. The
 `stonewright/rules-get` ability serves the native registry with digest/filter
 semantics, `stonewright/memory-generalize` de-identifies memory in bounded
-batches, and `stonewright/elementor-v3-get-page-structure` accepts `knownHash`
+batches, `stonewright/memory-save`, `stonewright/learning-record`,
+`memory-generalize`, `stonewright/knowledge-import` (its memory entries, whatever
+status the bundle gives them; the answer counts them as `memory_needs_review`),
+`stonewright/incident-repair-record` (the repair recipe; the incident is still
+resolved and `learning_status` is `needs_review`) and `POST /stonewright/v1/memory`
+store text that tells an agent to override the plugin rules, disable confirmation
+tokens or send credentials elsewhere with the status `needs_review` (it is not
+offered at task start or as site context until an administrator approves it on
+the Memory page; the screen is the one imported skills go through, and a
+prohibition such as "never ignore the system prompt" is not flagged). The entry
+form of the Memory page is not screened, because an administrator types there.
+`stonewright/elementor-v3-get-page-structure` accepts `knownHash`
 for unchanged short-circuit reads.
 
 ## Context Requirement
@@ -105,7 +128,12 @@ compatibility tools. `stonewright-context-bootstrap` is also the tool-list
 sentinel: if it is missing, the Stonewright MCP server did not load.
 
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
-the task needs to switch or verify a low-token execution profile. It returns
+the task needs to switch or verify a low-token execution profile. It never
+switches to the `full` profile: an administrator chooses the Full tool surface
+in wp-admin (Stonewright > Setup > Settings), and a request for `full` is
+refused with `stonewright_tool_profile_full_requires_admin`,
+`approval_required`, `agent_must_stop` and the settings link, in every mode.
+`action=resolve` can still describe it. It returns
 compact profiles such as `low-tools`, `elementor-design`, `content-model`,
 `gutenberg`, `wp-cli`, and the opt-in `discover-execute` and read-only
 `inspect` with the hyphenated MCP
@@ -242,8 +270,14 @@ The three protocol tools are:
 | `stonewright/get-ability-info` | `stonewright-get-ability-info` | Bounded input/output schema plus permission and mode notes for one ability. |
 | `stonewright/execute-ability` | `stonewright-execute-ability` | Runs that named ability through the same permission, confirmation, backup, audit, and context gates as a direct MCP call. |
 
-`execute-ability` cannot invoke itself. Disabled abilities stay disabled.
-`stonewright/php-execute` is not on this profile; it remains on `full`.
+`execute-ability` cannot invoke itself. Disabled abilities stay disabled. It checks
+the arguments against the input schema of the ability it runs (bounds, enums,
+patterns, unknown properties) before that ability's permission and execute
+callbacks, refuses an ability the tool surface hides, and runs an ability that
+runs or writes code (`php-execute`, the sandbox writers, the WP-CLI runners,
+`custom-code-provider`, the custom widget definers) only when the configured
+surface or the session profile lists it. `stonewright/php-execute` is not on
+this profile; it remains on `full`.
 
 ## Inspect
 
@@ -269,7 +303,8 @@ is needed, call `stonewright-tool-profile` with the profile that owns the write
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
 inside the loaded WordPress runtime. It is on the **full** tool profile only —
-bootstrap and essential do not expose it. It has access to WordPress functions,
+no other profile, including bootstrap and essential, exposes it — and an
+administrator chooses that profile in wp-admin; an agent cannot switch to it. It has access to WordPress functions,
 loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected
@@ -299,9 +334,9 @@ The WP-CLI tools are:
 |---|---|
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns compact `wp cli cmd-dump` command paths by default; use `responseMode=full` only when the raw command tree is required. |
-| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports writes; use `stonewright/php-execute` for PHP snippets instead of WP-CLI eval or shell entry points. |
-| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
-| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. |
+| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports content, option, cache and rewrite commands. `eval`, `eval-file`, `shell`, `package`, `config`, plugin and theme `install`/`update`/`delete`/`activate`, `db` (except `check`, `size`, `tables`, `columns`, `prefix`, `search`), `user` changes, role and capability changes, `core download`/`update`, `cron event run`, and `search-replace` without `--dry-run` are refused, however a leading `@alias`, global flags, quotes or case spell them. PHP snippets belong to `stonewright/php-execute` on the `full` profile only. Needs `edit_plugins` and `manage_options` (a super admin on multisite); commands that write files are refused while `DISALLOW_FILE_MODS` is set. |
+| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request. Read-oriented commands only: `post`, `term`, `option`, `plugin`, `theme` and `user` reads, `db check`, cron lists, and cache and rewrite flushes. One command off that list refuses the whole batch before any command runs. Same capability and deny-list as `wp-cli-run`. |
+| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. Same capability and deny-list as `wp-cli-run`; a batch of writes runs here. |
 | `stonewright/wp-cli-job-status` (`stonewright-wp-cli-job-status`) | Polls a WP-CLI background job and returns the compact result when complete. |
 
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
@@ -310,8 +345,8 @@ In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 `stonewright-wp-cli-job-status` are direct companion aliases. They do not
 require the WordPress-side HTTP bridge explicitly enabled with
 `STONEWRIGHT_HTTP_ENABLE=1` plus `PORT`. Use batch run for
-repeated commands or Unicode-heavy values so agents do not need large inline
-shell scripts. Use background jobs for long WP-CLI work that should not block
+repeated read commands or Unicode-heavy values so agents do not need large
+inline shell scripts; write batches go through a background job. Use background jobs for long WP-CLI work that should not block
 one MCP request.
 The companion also exposes `stonewright-wp-cli-install`, which downloads the
 official `wp-cli.phar` into the Stonewright cache for users who do not have
@@ -341,12 +376,18 @@ for debugging and operational tasks.
 - `stonewright/elementor-schema` lists/searches live widgets and returns compact
   widget controls with `mode=summary`; use `mode=control` for one complete
   control or paginated `mode=full` only when required.
-- `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
-  include third-party block inserter metadata such as keywords, examples,
-  supports, attributes, and variations when WordPress exposes them.
+- `stonewright/blocks-list-registered` lists the registered blocks with their
+  name and title; `responseMode=full` adds the category, description, icon,
+  keywords, supports, an example and whether the block is dynamic.
+  `stonewright/blocks-get-schema` returns the attributes and variations of one
+  block.
 - `stonewright/design-direction-list` and `stonewright/design-direction-get`
   read stored design directions; `get` returns revision history only when
-  `include_versions` is true. Both are reads and need no token.
+  `include_versions` is true. Both are reads and need no token, but they (like
+  `design-direction-brief`, `design-implementation-contract`, `design-native-plan`
+  and `widget-intent-resolve`) need the design-view capability
+  (`manage_options`), not just `read`. Only a direction with the `ready` status
+  can be activated; an archived, draft or stale one cannot.
 - `stonewright/design-direction-brief` returns the active direction's ready
   state, tokens, guidance, waivers, hash, and compact translated Elementor
   rules. Density maps to responsive section padding and a default container
@@ -356,12 +397,14 @@ for debugging and operational tasks.
   contract repeatedly.
 - `stonewright/design-direction-save` validates the contract allowlist-only and
   rejects unknown fields instead of stripping them. It creates a new revision
-  only when the contract hash changed, and returns the hash before and after. When the saved direction is the active one and the new revision is not ready, the direction is switched off and the result reports `active_cleared`; `design-direction-capture` and `design-direction-restore` report it the same way.
+  only when the contract hash changed, and returns the hash before and after. A save that names no `status` keeps the stored status (a ready direction stays ready while its contract still reports ready). When the saved direction is the active one and the new revision is not ready, the direction is switched off and the result reports `active_cleared`; `design-direction-capture` and `design-direction-restore` report it the same way.
 - `stonewright/design-direction-capture` turns compact Elementor kit evidence,
   as returned by `stonewright/elementor-v3-get-kit-globals`, into a draft
   contract with provenance for every mapped token. It previews by default and
   stores only when `save` is true; a stored capture is always a draft, is never
-  marked ready, and never becomes the active direction. Values the kit did not
+  marked ready, and never becomes the active direction. A save refuses a slug
+  that already holds a direction that is not a draft (`stonewright_direction_exists`)
+  unless `overwrite` is true. Values the kit did not
   report stay absent instead of being guessed, contradictory values keep the
   first and report a conflict, and unusable or unsupported evidence is reported
   in `unmapped` rather than silently dropped.
@@ -375,7 +418,9 @@ for debugging and operational tasks.
   globals. It writes nothing and returns the exact operations a sync would
   perform, plus `warnings` for what the kit has no global for and `blocked` for
   values it cannot store. Its `base_hash` describes the live kit and is the
-  concurrency guard for the apply half.
+  concurrency guard for the apply half. A `kit_id` other than the active kit has
+  to be an Elementor kit post (`stonewright_direction_sync_invalid_kit`), and
+  plan and apply both need `edit_post` on it.
 - `stonewright/design-direction-sync-apply` writes a sync-ready direction into
   the kit. It requires the dry run's `base_hash` and refuses as
   `stonewright_direction_sync_stale` when the kit moved since then, refuses any

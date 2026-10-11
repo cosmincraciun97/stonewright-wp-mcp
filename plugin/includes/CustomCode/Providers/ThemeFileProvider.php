@@ -6,12 +6,13 @@ namespace Stonewright\WpMcp\CustomCode\Providers;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
+use Stonewright\WpMcp\CustomCode\VerifiedApplyInterface;
 use Stonewright\WpMcp\Security\ChangeSet;
 
 /**
  * Adapter that delegates theme file work to existing typed abilities.
  */
-final class ThemeFileProvider implements ProviderInterface {
+final class ThemeFileProvider implements ProviderInterface, VerifiedApplyInterface {
 
 	public function id(): string {
 		return 'theme-file';
@@ -84,6 +85,16 @@ final class ThemeFileProvider implements ProviderInterface {
 
 	/** @param array<string, mixed> $args */
 	public function dry_run( array $args ) {
+		return $this->run_dry_run( $args, false );
+	}
+
+	/** @param array<string, mixed> $args */
+	public function dry_run_verified( array $args ) {
+		return $this->run_dry_run( $args, true );
+	}
+
+	/** @param array<string, mixed> $args */
+	private function run_dry_run( array $args, bool $token_verified ) {
 		$path = sanitize_text_field( (string) ( $args['target_id'] ?? $args['path'] ?? '' ) );
 		if ( '' === $path ) {
 			return new \WP_Error( 'stonewright_theme_file_path_required', __( 'path/target_id is required.', 'stonewright' ), [ 'status' => 400 ] );
@@ -105,7 +116,7 @@ final class ThemeFileProvider implements ProviderInterface {
 			'create_if_missing' => (bool) ( $args['create_if_missing'] ?? false ),
 			'theme'             => (string) ( $args['theme'] ?? 'stylesheet' ),
 		] + ChangeSet::lineage_input( $args );
-		$result = $ability->execute( $input );
+		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
 		}
@@ -116,6 +127,16 @@ final class ThemeFileProvider implements ProviderInterface {
 
 	/** @param array<string, mixed> $args */
 	public function apply( array $args ) {
+		return $this->run_apply( $args, false );
+	}
+
+	/** @param array<string, mixed> $args */
+	public function apply_verified( array $args ) {
+		return $this->run_apply( $args, true );
+	}
+
+	/** @param array<string, mixed> $args */
+	private function run_apply( array $args, bool $token_verified ) {
 		$path = sanitize_text_field( (string) ( $args['target_id'] ?? $args['path'] ?? '' ) );
 		if ( '' === $path ) {
 			return new \WP_Error( 'stonewright_theme_file_path_required', __( 'path/target_id is required.', 'stonewright' ), [ 'status' => 400 ] );
@@ -136,7 +157,7 @@ final class ThemeFileProvider implements ProviderInterface {
 			'theme'              => (string) ( $args['theme'] ?? 'stylesheet' ),
 			'smoke_url'          => (string) ( $args['smoke_url'] ?? '' ),
 		] + ChangeSet::lineage_input( $args );
-		$result = $ability->execute( $input );
+		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
 		}

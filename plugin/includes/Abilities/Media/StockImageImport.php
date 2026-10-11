@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Media;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Media\RemoteDownload;
 use Stonewright\WpMcp\Media\StockImageClient;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -23,7 +24,7 @@ final class StockImageImport extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Sideloads a stock photo into the media library, writes license attribution to the caption, and records an audit entry. Requires upload_files.', 'stonewright' );
+		return __( 'Sideloads a stock photo into the media library, writes license attribution to the caption, and records an audit entry. The download is capped at 25 MB and must be a JPEG, PNG, GIF, WebP or AVIF image, whatever the URL looks like. Requires upload_files, and edit access to a parent post when one is given.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -107,8 +108,14 @@ final class StockImageImport extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * @stonewright-cap upload_files + edit_post(parent_post_id) when a parent is given
+	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::upload_files();
+		if ( ! Permissions::upload_files() ) {
+			return false;
+		}
+		return UploadMedia::parent_error( (int) ( $args['parent_post_id'] ?? 0 ) ) ?? true;
 	}
 
 	/**
@@ -139,6 +146,10 @@ final class StockImageImport extends AbilityKernel {
 
 				$provider    = isset( $args['provider'] ) ? sanitize_key( (string) $args['provider'] ) : StockImageClient::PROVIDER_OPENVERSE;
 				$parent      = isset( $args['parent_post_id'] ) ? max( 0, (int) $args['parent_post_id'] ) : 0;
+				$parent_error = UploadMedia::parent_error( $parent );
+				if ( null !== $parent_error ) {
+					return $parent_error;
+				}
 				$title       = isset( $args['title'] ) ? sanitize_text_field( (string) $args['title'] ) : '';
 				$alt         = isset( $args['alt'] ) ? sanitize_text_field( (string) $args['alt'] ) : $title;
 				$creator     = isset( $args['creator'] ) ? sanitize_text_field( (string) $args['creator'] ) : '';
@@ -170,8 +181,30 @@ final class StockImageImport extends AbilityKernel {
 				require_once ABSPATH . 'wp-admin/includes/image.php';
 
 				$desc = '' !== $title ? $title : basename( (string) wp_parse_url( $image_url, PHP_URL_PATH ) );
-				$attachment_id = media_sideload_image( $image_url, $parent, $desc, 'id' );
+
+				// Download the file ourselves and sideload it: media_sideload_image() rejects a URL whose path has no image
+				// extension, which is how stock providers serve many of their images. The type is read from the bytes.
+				$tmp = RemoteDownload::fetch( $image_url, 60 );
+				if ( is_wp_error( $tmp ) ) {
+					return $tmp;
+				}
+				$extension = RemoteDownload::image_extension( $tmp );
+				if ( '' === $extension ) {
+					@unlink( $tmp );
+					return $this->error( 'stock_image_invalid', __( 'The downloaded file is not a supported image (JPEG, PNG, GIF, WebP or AVIF).', 'stonewright' ), [ 'status' => 422 ] );
+				}
+				$base = sanitize_file_name( pathinfo( (string) wp_parse_url( $image_url, PHP_URL_PATH ), PATHINFO_FILENAME ) );
+				$base = '' === $base ? 'stock-image' : $base;
+				$attachment_id = media_handle_sideload(
+					[
+						'name'     => $base . '.' . $extension,
+						'tmp_name' => $tmp,
+					],
+					$parent,
+					$desc
+				);
 				if ( is_wp_error( $attachment_id ) ) {
+					@unlink( $tmp );
 					return $attachment_id;
 				}
 

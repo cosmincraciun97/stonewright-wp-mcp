@@ -114,6 +114,47 @@ final class RepairDocumentTest extends TestCase {
 		self::assertTrue( $result['repaired'] );
 	}
 
+	public function test_every_key_of_a_result_is_declared_in_the_output_schema(): void {
+		$post_id = 906;
+		$this->add_post(
+			$post_id,
+			wp_json_encode(
+				[
+					[ 'id' => 'dup', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+					[ 'id' => 'dup', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+				]
+			)
+		);
+		$ability = new RepairDocument();
+
+		$result = $ability->execute( [ 'post_id' => $post_id ] );
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'write_receipt', $result, 'The write carries its receipt.' );
+		$declared = $ability->output_schema()['properties'];
+		self::assertSame( [], array_values( array_diff( array_keys( $result ), array_keys( $declared ) ) ), 'Core output validation would refuse a key the schema does not declare.' );
+		self::assertArrayHasKey( 'write_receipt', $declared );
+		self::assertArrayHasKey( 'change_set', $declared );
+	}
+
+	public function test_a_document_with_a_legacy_root_widget_can_still_be_repaired(): void {
+		$post_id = 907;
+		$this->add_post(
+			$post_id,
+			wp_json_encode(
+				[
+					[ 'id' => 'dup', 'elType' => 'widget', 'widgetType' => 'html', 'settings' => [ 'html' => '<p>a</p>' ], 'elements' => [] ],
+					[ 'id' => 'dup', 'elType' => 'widget', 'widgetType' => 'html', 'settings' => [ 'html' => '<p>b</p>' ], 'elements' => [] ],
+				]
+			)
+		);
+
+		$result = ( new RepairDocument() )->execute( [ 'post_id' => $post_id ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() : '' );
+		self::assertContains( 'duplicate_ids', $result['fixes_applied'] );
+	}
+
 	public function test_public_contract_detects_every_repair_gate(): void {
 		$rows = PublicApiContractSnapshot::collect( 'test' )['abilities'];
 		$row  = current( array_filter( $rows, static fn( array $candidate ): bool => 'stonewright/elementor-v3-repair-document' === $candidate['ability_name'] ) );

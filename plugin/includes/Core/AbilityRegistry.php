@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkCreate;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Elementor\Provider\NativeAvailability;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -292,6 +293,9 @@ use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
+use Stonewright\WpMcp\Abilities\Security\ChangeDiffGet;
+use Stonewright\WpMcp\Abilities\Security\ChangeHistoryList;
+use Stonewright\WpMcp\Abilities\Security\ChangeRollback;
 use Stonewright\WpMcp\Abilities\Security\RescueRollback;
 use Stonewright\WpMcp\Abilities\Security\RescueStatus;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
@@ -339,6 +343,9 @@ final class AbilityRegistry {
 			IncidentRepairRecord::class,
 			RescueStatus::class,
 			RescueRollback::class,
+			ChangeHistoryList::class,
+			ChangeDiffGet::class,
+			ChangeRollback::class,
 			CreateOneTimeLink::class,
 
 			// Section reuse: hidden from the tool lists while the setting is off.
@@ -767,7 +774,7 @@ final class AbilityRegistry {
 		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 
-		foreach ( self::public_classes() as $class ) {
+		foreach ( self::public_classes( true ) as $class ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
@@ -901,6 +908,25 @@ final class AbilityRegistry {
 		}
 
 		return $names;
+	}
+
+	/**
+	 * Whether execute-ability may run this ability in the current session.
+	 *
+	 * An ability the surface hides (an experimental family that is off, section reuse while off) is
+	 * refused. One that runs or writes code is refused unless the configured surface or the session
+	 * profile lists it; every other ability is reachable by name, which is what discovery is for.
+	 */
+	public static function session_may_execute( Ability $ability ): bool {
+		$class = $ability::class;
+		if ( [] === self::filter_hidden_abilities( [ $class ] ) ) {
+			return false;
+		}
+		if ( ! FullProfileOnlyAbilities::is_restricted( $ability->name() ) ) {
+			return true;
+		}
+
+		return in_array( $class, self::public_classes(), true );
 	}
 
 	/**
@@ -1101,6 +1127,13 @@ final class AbilityRegistry {
 			// A bulk rewrite of stored memory. Category "memory" is exempt and
 			// "generalize" is in no keyword list, so it must be named here.
 			'stonewright/memory-generalize',
+			// Mutations in exempt categories whose verbs ("restore", "import", "refresh",
+			// "capture", "backup") are in no keyword list.
+			'stonewright/change-restore',
+			'stonewright/knowledge-import',
+			'stonewright/elementor-knowledge-refresh',
+			'stonewright/feedback-capture',
+			'stonewright/site-backup-page',
 		];
 	}
 
@@ -1139,7 +1172,7 @@ final class AbilityRegistry {
 	 *
 	 * @return array<string, mixed>
 	 */
-	private static function input_schema_for_ability( Ability $ability ): array {
+	public static function input_schema_for_ability( Ability $ability ): array {
 		$schema = $ability->input_schema();
 
 		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
@@ -1599,16 +1632,39 @@ final class AbilityRegistry {
 	/**
 	 * @return array<int, class-string<Ability>>
 	 */
-	private static function public_classes(): array {
-		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile() );
+	private static function public_classes( bool $for_registration = false ): array {
+		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile(), $for_registration );
+	}
+
+	/**
+	 * Names of the abilities register_all() registers with the Abilities API on this request. The server lists its
+	 * tools later (mcp_server_ability_names()) and every tool it lists must be among these, or the MCP adapter looks up
+	 * an ability that does not exist.
+	 *
+	 * @return list<string>
+	 */
+	public static function registration_ability_names_for_test(): array {
+		$names = [];
+		foreach ( self::public_classes( true ) as $class ) {
+			if ( class_exists( $class ) ) {
+				/** @var Ability $ability */
+				$ability = new $class();
+				$names[] = $ability->name();
+			}
+		}
+		return $names;
 	}
 
 	/**
 	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 * @param bool                                                    $for_registration Whether the classes are the ones to register with the Abilities API. The gated route to native Elementor is registered
+	 *                                                                whatever the live native state is at that moment (Elementor registers its own abilities on the same hook, so it is not known yet);
+	 *                                                                it is listed as a tool only when the state allows it, and its own permission check refuses a call when it does not.
 	 * @return array<int, class-string<Ability>>
 	 */
-	private static function classes_for_surface( string $surface, ?array $session ): array {
+	private static function classes_for_surface( string $surface, ?array $session, bool $for_registration = false ): array {
 		$classes = self::list();
+		$gated   = $for_registration ? [ 'stonewright/elementor-native-execute' ] : [];
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
 			return self::filter_hidden_abilities( $classes );
@@ -1624,7 +1680,8 @@ final class AbilityRegistry {
 					self::bootstrap_ability_names(),
 					$base,
 					$session['ability_names'],
-					self::essential_extra_ability_names()
+					self::essential_extra_ability_names(),
+					$gated
 				),
 				true
 			);
@@ -1636,7 +1693,8 @@ final class AbilityRegistry {
 			array_merge(
 				$base,
 				// Extras apply to bootstrap and essential compact surfaces.
-				self::essential_extra_ability_names()
+				self::essential_extra_ability_names(),
+				$gated
 			),
 			true
 		);
@@ -1773,7 +1831,7 @@ final class AbilityRegistry {
 	 * @return list<string>
 	 */
 	private static function essential_ability_names(): array {
-		return [
+		$names = [
 			// Startup and runtime.
 			'stonewright/context-bootstrap',
 			'stonewright/task-start',
@@ -1811,6 +1869,12 @@ final class AbilityRegistry {
 			'stonewright/site-pulse',
 			'stonewright/learning-record',
 		];
+		if ( NativeAvailability::is_available() ) {
+			// Native Elementor is available and certified: the gated route to it belongs on the default surface.
+			$at = (int) array_search( 'stonewright/elementor-v3-batch-mutate', $names, true );
+			array_splice( $names, $at + 1, 0, [ 'stonewright/elementor-native-execute' ] );
+		}
+		return $names;
 	}
 
 	/**
@@ -1845,7 +1909,7 @@ final class AbilityRegistry {
 		return array_values(
 			array_filter(
 				array_map( 'strval', $extra ),
-				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' )
+				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' ) && ! FullProfileOnlyAbilities::is_restricted( $name )
 			)
 		);
 	}

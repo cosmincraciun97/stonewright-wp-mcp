@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
+use Stonewright\WpMcp\Core\McpRuntimeStatus;
 use Stonewright\WpMcp\Core\ServerRegistration;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -904,6 +905,13 @@ final class SetupDiagnostics {
 			'selection_state'  => $state,
 			'blocking_reasons' => [] === $reasons ? '' : implode( ',', $reasons ),
 		];
+		$runtime = McpRuntimeStatus::from_report( $report );
+		if ( '' !== $runtime['adapter_plugin'] ) {
+			$evidence['adapter_plugin'] = $runtime['adapter_plugin'];
+		}
+		if ( McpRuntimeStatus::FOREIGN === $runtime['state'] ) {
+			return DiagnosticCheck::ok( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $runtime['summary'], $evidence, $scope );
+		}
 		if ( $compatible ) {
 			$summary = '' !== $owner
 				? sprintf(
@@ -915,12 +923,11 @@ final class SetupDiagnostics {
 				: __( 'The selected MCP adapter runtime is compatible.', 'stonewright' );
 			return DiagnosticCheck::ok( 'mcp_runtime', __( 'MCP runtime', 'stonewright' ), $summary, $evidence, $scope );
 		}
-		$summary = sprintf(
-			/* translators: %s: blocking reason codes */
-			__( 'MCP runtime is blocked (%s).', 'stonewright' ),
-			[] === $reasons ? 'runtime_incompatible' : implode( ', ', $reasons )
-		);
-		$remedy = sanitize_text_field( (string) ( $report['remediation'] ?? '' ) );
+		$summary = $runtime['summary'];
+		$remedy = $runtime['remedy'];
+		if ( '' === $remedy ) {
+			$remedy = sanitize_text_field( (string) ( $report['remediation'] ?? '' ) );
+		}
 		if ( '' === $remedy ) {
 			$remedy = __( 'Install a tested compatible MCP adapter build. Do not disable unrelated business plugins.', 'stonewright' );
 		}

@@ -93,7 +93,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- the route is reported as missing by WordPress → Direct mode (101 tools in the current full surface); an unclear answer keeps Plugin mode
+- the route is reported as missing by WordPress → Direct mode (105 Direct tools; with the companion's own local tools `tools/list` shows 125 on the `full` profile); an unclear answer keeps Plugin mode
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
@@ -198,19 +198,30 @@ plugin-only capabilities that remain unavailable until you install Stonewright.
 
 | Capability | Direct | With plugin |
 |---|---|---|
-| Content / media / taxonomies | yes | yes |
-| Menus, FSE templates, global styles | yes | yes |
-| Settings, plugins, themes, users, search | yes | yes |
+| Content / media / taxonomies | yes (media upload limited to allowed folders, public URLs, allowed types, 25 MiB) | yes |
+| Menus, FSE templates, global styles | yes (pre-image before template, template-part, global-styles and page updates; custom code refused) | yes |
+| Settings, plugins, themes, users, search | yes (no before-state saved) | yes |
 | WP-CLI (local companion) | yes | yes |
 | PHP execute, Elementor engines, DesignSpec | no | yes |
-| Custom PHP/CSS/JS/HTML write (approval grant) | no | yes (human grant) |
+| Custom PHP/CSS/JS/HTML write (approval grant) | no (refused in content, template, blueprint, widget, global-styles and Elementor data writes) | yes (human grant) |
 | Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
-| Production-safe confirmation tokens | no | yes |
+| Production-safe confirmation tokens | no (Direct has its own `confirmation_id`, bound to the call; `confirm: true` is a caller-set flag on a local site only) | yes |
+| Change sets, Rescue | no | yes |
+| Backup restore, after-write verification | yes (`stonewright-direct-backup-list` / `-restore`; every typed write is read back; an optional public-page check) | yes (snapshots and the change history; Rescue probes and rolls back) |
 
-Remote destructive Direct tools require `confirm: true` by default
-(`STONEWRIGHT_DIRECT_WRITES=confirm`). Local `.local`/`.test` hosts default to
-`on`. Optional per-site `disabledTools` in `~/.stonewright/sites.json` can block
-writes on production aliases.
+Remote destructive Direct tools need a confirmation by default
+(`STONEWRIGHT_DIRECT_WRITES=confirm`): the refused call returns a
+`confirmation_id` and the same call is repeated with it. So do template and
+template-part updates and a blueprint applied over an existing page. Local `.local`/`.test`
+hosts default to `on`. Optional per-site `disabledTools` in
+`~/.stonewright/sites.json` can block writes on production aliases.
+
+Direct mode saves pre-images and Elementor file backups under
+`~/.stonewright/backups/`; `stonewright-direct-backup-list` and `-restore` list
+and restore them (a restore needs a confirmation). It reads every typed write back, and can
+fetch the public page after a page, post or template write (on by default for a
+local site, off for a remote one). The full list of what Direct mode protects
+and does not do yet is in [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
 Copy the **Remote Streamable HTTP** snippet from **Stonewright > Setup**; it points
@@ -301,8 +312,8 @@ see [Updating Stonewright](updates.md).
 Do not recover from a missing tool by running `wp cli info`, `wp plugin
 activate`, `wp option update`, or other `wp` commands in a normal shell, and do
 not switch to another PHP adapter. Use the live Stonewright MCP tools:
-`stonewright-wordpress-mcp-status`, `stonewright-php-execute`,
-`stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wordpress-mcp-status`, `stonewright-php-execute` (`full` profile
+only), `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`.
@@ -387,6 +398,8 @@ Optional env vars:
 |---|---|
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; used for `cwd`, `--path`, and LocalWP discovery. |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Direct mode: comma/semicolon list of folders, besides the working directory and the companion media folder, that `stonewright-media-upload` may read local files from without `confirm: true`. |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Direct mode: largest file `stonewright-media-upload` sends, in bytes. Default 25 MiB, at most 512 MiB. |
 | `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
 | `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
 | `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Core\MethodRouter;
+use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
@@ -21,6 +22,8 @@ use Stonewright\WpMcp\Security\ThemeWriteTransaction;
  */
 final class ThemeCustomCss extends AbilityKernel {
 	use ConfirmationGuard;
+
+	private bool $token_already_verified = false;
 
 	public function name(): string {
 		return 'stonewright/theme-custom-css';
@@ -44,7 +47,7 @@ final class ThemeCustomCss extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'action'             => [ 'type' => 'string', 'enum' => [ 'get', 'update' ] ],
-				'css'                => [ 'type' => 'string' ],
+				'css'                => [ 'type' => 'string', 'description' => 'The complete stylesheet to store. Required for update: it replaces the stored CSS, so an update without it is refused.' ],
 				'dry_run'            => [
 					'type'        => 'boolean',
 					'default'     => false,
@@ -105,6 +108,23 @@ final class ThemeCustomCss extends AbilityKernel {
 		return Permissions::edit_css();
 	}
 
+	/**
+	 * Runs the ability for a caller that has already verified the confirmation token for the exact request
+	 * (the custom-code provider pipeline checks it once, for custom-code-provider and its arguments). The
+	 * token is not read again, and every other gate of the ability, the human grant included, still runs.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
 	public function execute( array $args ): array|\WP_Error {
 		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
 		if ( $args instanceof \WP_Error ) {
@@ -121,11 +141,23 @@ final class ThemeCustomCss extends AbilityKernel {
 					];
 				}
 
-				$verify = $args;
-				unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
-				$token_error = $this->confirmation_token_error( $args, $verify );
-				if ( null !== $token_error ) {
-					return $token_error;
+				// An update stores the css it is given, so a call without it would store an empty stylesheet.
+				// It is refused before any token is looked at.
+				if ( ! isset( $args['css'] ) || ! is_string( $args['css'] ) ) {
+					return $this->error(
+						'css_required',
+						__( 'An update needs the complete css to store. To clear the custom CSS, send an empty string.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
+				}
+
+				if ( ! $this->token_already_verified ) {
+					$verify = $args;
+					unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
+					$token_error = $this->confirmation_token_error( $args, $verify );
+					if ( null !== $token_error ) {
+						return $token_error;
+					}
 				}
 
 				$before        = (string) wp_get_custom_css();
@@ -254,8 +286,20 @@ final class ThemeCustomCss extends AbilityKernel {
 				if ( $post instanceof \WP_Post && $post->ID > 0 ) {
 					$backup_ref = Backup::snapshot_post( (int) $post->ID );
 				}
+				// The history keeps the CSS as it is, also on a first save, when there is no custom CSS post to snapshot.
+				$change = CodeAdapter::begin(
+					[
+						'ability_fallback' => $this->name(),
+						'family'           => 'custom_code',
+						'resource_type'    => 'customizer_css',
+						'resource_id'      => '' !== $stylesheet ? $stylesheet : 'active-theme',
+						'before'           => $before,
+						'summary'          => (string) self::change_summary( $path, $before, $after, $changed_bytes )['summary'],
+					]
+				);
 				$result = wp_update_custom_css_post( $after );
 				if ( is_wp_error( $result ) ) {
+					CodeAdapter::finish( $change, 'failed' );
 					return $result;
 				}
 
@@ -264,6 +308,7 @@ final class ThemeCustomCss extends AbilityKernel {
 				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 					$rollback        = wp_update_custom_css_post( $before );
 					$rollback_status = is_wp_error( $rollback ) || (string) wp_get_custom_css() !== $before ? 'failed' : 'restored';
+					CodeAdapter::finish( $change, 'restored' === $rollback_status ? 'rolled_back' : 'rollback_failed' );
 					return new \WP_Error(
 						'stonewright_custom_css_readback_mismatch',
 						__( 'Customizer CSS readback did not match the approved candidate. Rollback attempted.', 'stonewright' ),
@@ -282,6 +327,8 @@ final class ThemeCustomCss extends AbilityKernel {
 						]
 					);
 				}
+
+				CodeAdapter::applied( $change, $readback );
 
 				return [
 					'ok'                  => true,

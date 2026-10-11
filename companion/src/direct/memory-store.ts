@@ -3,6 +3,7 @@ import { join, resolve, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { defaultStonewrightDir } from './skills-store.js';
 import { assertNoSensitiveMaterial } from './sensitive-content.js';
+import { memoryBlockingRules } from './instruction-screen.js';
 
 const SCOPE_RE = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 const KINDS = new Set(['correction', 'lesson', 'preference', 'fact'] as const);
@@ -19,8 +20,80 @@ export type MemoryEntry = {
 	topic?: string;
 	scope_label?: string;
 	source?: string;
-	status: 'active' | 'stale';
+	/**
+	 * `needs_review`: the text told an agent to override the plugin's rules or move credentials. The entry is kept,
+	 * is never offered at task start, and stays so until a person clears it (edits its status in the memory file, or
+	 * deletes it with stonewright-memory-delete).
+	 */
+	status: 'active' | 'stale' | 'needs_review';
+	/** How sure the lesson is, 0 to 1. Files written before scores existed have none; see effectiveConfidence. */
+	confidence?: number;
+	/** When the lesson was last recorded or confirmed. Files written before scores existed have none. */
+	last_verified?: string;
 };
+
+/** Confidence of a lesson that arrived without one, by where it came from. */
+const SOURCE_CONFIDENCE: Readonly<Record<string, number>> = {
+	'explicit-user-request': 1,
+	'verified-repair': 0.9,
+	'write-recovery': 0.6,
+};
+const DEFAULT_CONFIDENCE = 0.7;
+/** A lesson loses half its weight for every 90 days without a confirmation, down to a quarter of it. */
+const HALF_LIFE_DAYS = 90;
+const FRESHNESS_FLOOR = 0.25;
+/** A stale lesson stays readable but sorts far below any active one. */
+const STALE_FACTOR = 0.1;
+/** A lesson not confirmed for this long, or held with low confidence, is flagged for a re-check before use. */
+const VERIFY_AFTER_DAYS = 180;
+const LOW_CONFIDENCE = 0.4;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function defaultConfidenceForSource(source: string | undefined): number {
+	return SOURCE_CONFIDENCE[source ?? ''] ?? DEFAULT_CONFIDENCE;
+}
+
+export function effectiveConfidence(entry: MemoryEntry): number {
+	return typeof entry.confidence === 'number' ? entry.confidence : defaultConfidenceForSource(entry.source);
+}
+
+export function effectiveLastVerified(entry: MemoryEntry): string {
+	return entry.last_verified ?? entry.ts;
+}
+
+function ageDays(entry: MemoryEntry, now: number): number {
+	const at = Date.parse(effectiveLastVerified(entry));
+	return Number.isFinite(at) ? Math.max(0, (now - at) / DAY_MS) : 0;
+}
+
+/**
+ * Recall weight of a lesson: its confidence, reduced by the time since it was last confirmed, and far
+ * lower when it is marked stale. Ranking by it puts a fresh, confident lesson ahead of an old or doubtful one.
+ */
+export function memoryScore(entry: MemoryEntry, now: number = Date.now()): number {
+	const freshness = FRESHNESS_FLOOR + (1 - FRESHNESS_FLOOR) * 0.5 ** (ageDays(entry, now) / HALF_LIFE_DAYS);
+	if (entry.status === 'needs_review') return 0;
+	return effectiveConfidence(entry) * freshness * (entry.status === 'stale' ? STALE_FACTOR : 1);
+}
+
+/** The lessons best first; a tie goes to the newer one. */
+export function rankMemory(entries: readonly MemoryEntry[], now: number = Date.now()): MemoryEntry[] {
+	return entries
+		.map((entry) => ({ entry, score: memoryScore(entry, now) }))
+		.sort((a, b) => b.score - a.score || b.entry.ts.localeCompare(a.entry.ts))
+		.map((row) => row.entry);
+}
+
+/** True when a lesson is old or doubtful enough that it should be checked before it is relied on. */
+export function needsVerification(entry: MemoryEntry, now: number = Date.now()): boolean {
+	return entry.status === 'stale' || effectiveConfidence(entry) < LOW_CONFIDENCE || ageDays(entry, now) > VERIFY_AFTER_DAYS;
+}
+
+function assertConfidence(value: number): void {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+		throw new Error('Memory confidence must be a number from 0 to 1');
+	}
+}
 
 function root(baseDir?: string, env?: NodeJS.ProcessEnv): string {
 	return baseDir ?? defaultStonewrightDir(env);
@@ -77,10 +150,16 @@ function parseLine(line: string): MemoryEntry | null {
 			kind: KINDS.has(row.kind as MemoryKind) ? (row.kind as MemoryKind) : 'fact',
 			text,
 			tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-			status: row.status === 'stale' ? 'stale' : 'active',
+			status: row.status === 'stale' || row.status === 'needs_review' ? row.status : 'active',
 			...(typeof row.topic === 'string' ? { topic: row.topic } : {}),
 			...(typeof row.scope_label === 'string' ? { scope_label: row.scope_label } : {}),
 			...(typeof row.source === 'string' ? { source: row.source } : {}),
+			...(typeof row.confidence === 'number' && row.confidence >= 0 && row.confidence <= 1
+				? { confidence: row.confidence }
+				: {}),
+			...(typeof row.last_verified === 'string' && Number.isFinite(Date.parse(row.last_verified))
+				? { last_verified: row.last_verified }
+				: {}),
 		};
 	} catch {
 		return null;
@@ -122,6 +201,8 @@ export function recordMemory(input: {
 	dedupe?: boolean;
 	/** Internal deterministic receipt key. Keeps identical recipes isolated by incident proof. */
 	stableId?: string;
+	/** 0 to 1. Without one a new entry gets the default for its source; a repeat keeps the one it had. */
+	confidence?: number;
 }): MemoryEntry {
 	const text = input.text.trim();
 	if (!text) {
@@ -139,6 +220,9 @@ export function recordMemory(input: {
 	if (text.length > MAX_TEXT) {
 		throw new Error(`Memory text exceeds ${MAX_TEXT} bytes`);
 	}
+	// The same screen as the plugin's memory. A match is kept, as an entry that waits for a person.
+	const reviewRules = memoryBlockingRules(text, input.topic ?? '');
+	if (input.confidence !== undefined) assertConfidence(input.confidence);
 	const kind = input.kind ?? 'correction';
 	if (!KINDS.has(kind)) {
 		throw new Error(`Invalid memory kind: ${kind}`);
@@ -159,13 +243,18 @@ export function recordMemory(input: {
 			: existing.findIndex((e) => normalizeText(e.text) === norm);
 		if (matchIdx >= 0) {
 			const prev = existing[matchIdx];
+			const now = new Date().toISOString();
 			const updated: MemoryEntry = {
 				...prev,
-				ts: new Date().toISOString(),
+				ts: now,
+				// Recording the same lesson again confirms it.
+				last_verified: now,
+				confidence: input.confidence ?? prev.confidence ?? defaultConfidenceForSource(input.source ?? prev.source),
 				kind,
 				text,
 				tags: (input.tags ?? prev.tags).map(String),
-				status: 'active',
+				// Only a person clears an entry that waits for review; recording it again does not.
+				status: reviewRules.length > 0 || prev.status === 'needs_review' ? 'needs_review' : 'active',
 				...(input.topic !== undefined ? { topic: input.topic } : {}),
 				...(input.source !== undefined ? { source: input.source } : {}),
 			};
@@ -187,7 +276,9 @@ export function recordMemory(input: {
 		kind,
 		text,
 		tags: (input.tags ?? []).map(String),
-		status: 'active',
+		status: reviewRules.length > 0 ? 'needs_review' : 'active',
+		last_verified: ts,
+		confidence: input.confidence ?? defaultConfidenceForSource(input.source),
 		...(input.topic !== undefined ? { topic: input.topic } : {}),
 		...(input.source !== undefined ? { source: input.source } : {}),
 	};
@@ -216,6 +307,32 @@ export function listMemory(input: {
 		.filter((entry) => input.activeOnly !== true || entry.status === 'active');
 	items.reverse();
 	return { items: items.slice(0, input.limit ?? 20) };
+}
+
+/**
+ * Appends entries that came from another memory file, keeping their ids, timestamps and status.
+ * An id the file already holds is skipped, so importing twice adds nothing. Returns how many were added.
+ */
+export function importMemoryEntries(input: {
+	baseDir?: string;
+	env?: NodeJS.ProcessEnv;
+	scope: string;
+	entries: MemoryEntry[];
+}): number {
+	const file = memoryFile(input.baseDir, input.scope, input.env);
+	const known = new Set(readAll(file).map((entry) => entry.id));
+	const fresh = input.entries.filter((entry) => {
+		if (known.has(entry.id)) return false;
+		known.add(entry.id);
+		return true;
+	});
+	if (fresh.length === 0) return 0;
+	mkdirSync(memoryDir(input.baseDir, input.env), { recursive: true, mode: 0o700 });
+	appendFileSync(file, `${fresh.map((entry) => JSON.stringify(entry)).join('\n')}\n`, {
+		encoding: 'utf8',
+		mode: 0o600,
+	});
+	return fresh.length;
 }
 
 export function setMemoryStatus(input: {

@@ -90,6 +90,18 @@ Three modes are stored in the `stonewright_mode` option:
 | `staging` | Same as development; useful for labelling deployments. |
 | `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
 
+A site that has no stored mode gets one from the WordPress environment type
+(`WP_ENVIRONMENT_TYPE` or `wp_get_environment_type()`): `production` gives
+`production-safe`, `staging` gives `staging`, and anything else (`development`,
+`local`) gives `development`. This happens on activation, on the first request
+of a site that the plugin was not activated on individually (a sub-site after a
+network activation), when a site is created on a network where the plugin is
+network-active, and when the plugin version changes on a site that has no mode.
+A stored mode is never replaced. On a network activation WordPress runs the
+activation once, on the main site, so every other site gets its own mode and its
+own tables and keys on its first request; each site still turns **AI abilities**
+on in its own settings.
+
 ### MCP tool surface
 
 `stonewright_mcp_surface` controls how many abilities appear on the public MCP
@@ -99,7 +111,7 @@ Three modes are stored in the `stonewright_mode` option:
 |---|---|
 | `bootstrap` | Explicit progressive-discovery/transport diagnostic (≤ 12 tools, ≤ ~3,500 est. tokens). Use only when the client is proven to process live tool-list changes. |
 | `essential` | Fresh-install default and compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
-| `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
+| `full` | Entire registered ability catalog, including `php-execute` and the other abilities that run or write code. **Slow and high-context** — only for specialist sessions that truly need every ability. Chosen only by an administrator in wp-admin; an agent, an Application Password, an OAuth client or WP-CLI cannot switch to it. |
 
 The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
 essential map to enabled; full maps to disabled. Existing installs without
@@ -134,6 +146,10 @@ expansion inside the companion.
 
 Agents should call `stonewright-tool-profile` only for an explicit manual
 override or recovery; normal Bootstrap tasks expand from `task-start`.
+The `full` profile, which lists `php-execute` and the other abilities that run
+or write code, is not one of them: choose **Full** under **MCP tool surface**
+here. A request for `full` through `stonewright-tool-profile` is refused with a
+link to this setting, unless the site already uses the Full surface.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
 tasks on a compact set of batch-first tools. If a profile expects a disabled or
 gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
@@ -147,7 +163,8 @@ keeps direct WP-CLI batch/background-job tools visible.
 
 The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
 optional MCP proxy. It writes to WordPress through tokenized WP-CLI commands;
-direct PHP runtime snippets go through `stonewright/php-execute`.
+direct PHP runtime snippets go through `stonewright/php-execute`, which is on the
+`full` profile only.
 
 Most users can skip this section. The setup note in Card 3 already runs
 Stonewright through `npx` with the versioned GitHub release tarball, and direct companion
@@ -175,14 +192,17 @@ of shelling out to `wp ...` themselves.
 ### Elementor V4 atomic
 
 Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
-and related abilities. It is off by default and only relevant on sites running
-Elementor 3.18+.
+and related abilities. It is off by default and only relevant on sites running an
+Elementor version with the Atomic Widgets module. It does not gate the native
+Elementor MCP integration: `stonewright-elementor-native-execute` is available when
+the native Elementor state is `available` and at least one Elementor ability is
+certified.
 
 ### Reuse saved sections
 
 One row of the settings form, after **Elementor V4 atomic abilities**. The switch saves the option `stonewright_section_reuse` as `ask` (on, the default) or `off` through the same Settings API form as the other settings, so it needs `manage_options` and the form's nonce, and a change is written to the Audit Log (`stonewright/section-reuse-setting`).
 
-The info callout under the switch follows the switch as you toggle it, before you save, and a screen reader announces it when it appears (the callout sits in one polite live region). It shows what the setting will mean once saved: the setting itself changes only when you save the form, and without JavaScript the callout shows the saved value. It says what the setting does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that an Elementor V3 copy needs a confirmation token like any other write, that a Gutenberg copy needs one only when the same change removes a block, and that copying an Elementor V4 section stays blocked.
+The info callout under the switch follows the switch as you toggle it, before you save, and a screen reader announces it when it appears (the callout sits in one polite live region). It shows what the setting will mean once saved: the setting itself changes only when you save the form, and without JavaScript the callout shows the saved value. It says what the setting does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that an Elementor V3 or Gutenberg copy needs a confirmation token like any other write, and that copying an Elementor V4 section stays blocked.
 
 Turning it off removes `stonewright-section-reuse-find` and `stonewright-section-reuse-extract` from the tool lists (over MCP they cannot be called at all) and from the profiles, stops `stonewright-task-start` from offering the section reuse skill, makes an insert operation refuse, and tells agents so: the value is in `agent_preferences.section_reuse` of `stonewright-task-start`, and for fifteen minutes after the change every response carries one `notices` line. A client that keeps an old tool list is still safe, because each reuse ability and insert operation checks the live option; the refusal is not retried and does not appear under recurring errors. The row stacks label above control at narrow widths.
 
@@ -343,6 +363,16 @@ packages only from this repository's versioned release path, and shows the
 installed plugin, latest release, and optional configured HTTP bridge version.
 An explicit click bypasses the background 12-hour release cache and browser
 caches; automatic update checks stay cached.
+
+The WordPress update screen keeps the same 12-hour release cache, with two
+exceptions. **Dashboard > Updates > Check again** (`update-core.php?force-check=1`,
+for a user who can update plugins) and the twice-daily `wp_update_plugins` cron
+event read the release list from GitHub once per request, so a release published
+in the last 12 hours is offered at once. Other page loads, the Plugins screen and
+front-end requests use the cache. WP-CLI has no force flag for plugin checks;
+`wp cron event run wp_update_plugins` runs the same refresh. When GitHub cannot
+be reached, the refresh keeps the release found earlier and the update stays
+offered.
 The panel links the exact companion package and SHA-256 manifest and creates a
 credential-free **Copy update prompt** handoff.
 

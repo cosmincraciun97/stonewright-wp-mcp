@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
-import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpComment = {
@@ -27,6 +28,19 @@ function compactComment(c: WpComment) {
   };
 }
 
+/**
+ * Core's comment query knows the status `approve`; Direct documents `approved` and the plugin takes
+ * `approve`. Both reach WordPress as `approve` when listing.
+ */
+function listStatus(status: string | undefined): string | undefined {
+  return status === "approved" ? "approve" : status;
+}
+
+/** Writing a status, core and Direct both take `approved`; the plugin spells it `approve`. */
+function writeStatus(status: string | undefined): string | undefined {
+  return status === "approve" ? "approved" : status;
+}
+
 export async function commentList(
   ctx: DirectToolContext,
   input: {
@@ -43,7 +57,7 @@ export async function commentList(
   const items = await ctx.client.get<WpComment[]>("/wp/v2/comments", {
     query: {
       post: input.post,
-      status: input.status,
+      status: listStatus(input.status),
       search: input.search,
       per_page: perPage,
       page,
@@ -95,27 +109,43 @@ export async function commentCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-comment-create",
   });
-  const c = await ctx.client.post<WpComment>("/wp/v2/comments", {
-    body: {
-      post: input.post,
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-comment-create",
+    `post/${input.post}`,
+    scanTextFields({
       content: input.content,
-      ...(input.parent !== undefined ? { parent: input.parent } : {}),
-      ...(input.author_name !== undefined
-        ? { author_name: input.author_name }
-        : {}),
-      ...(input.author_email !== undefined
-        ? { author_email: input.author_email }
-        : {}),
-    },
+      author_name: input.author_name,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  const createBody: Record<string, unknown> = {
+    post: input.post,
+    content: input.content,
+    ...(input.parent !== undefined ? { parent: input.parent } : {}),
+    ...(input.author_name !== undefined
+      ? { author_name: input.author_name }
+      : {}),
+    ...(input.author_email !== undefined
+      ? { author_email: input.author_email }
+      : {}),
+  };
+  const c = await ctx.client.post<WpComment>("/wp/v2/comments", {
+    body: createBody,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-comment-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `comments/${c.id}`,
-    status: "ok",
+    resourceType: "comments",
+    readPath: `/wp/v2/comments/${c.id}`,
+    expect: "present",
+    sent: createBody,
   });
-  return compactComment(c);
+  return attachVerification(compactComment(c), verification);
 }
 
 export async function commentUpdate(
@@ -135,20 +165,31 @@ export async function commentUpdate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-comment-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-comment-update",
+    `comments/${input.id}`,
+    scanTextFields({ content: input.content }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.content !== undefined) body.content = input.content;
-  if (input.status !== undefined) body.status = input.status;
+  if (input.status !== undefined) body.status = writeStatus(input.status);
   const c = await ctx.client.post<WpComment>(`/wp/v2/comments/${input.id}`, {
     body,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-comment-update",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `comments/${input.id}`,
-    status: "ok",
+    resourceType: "comments",
+    readPath: `/wp/v2/comments/${input.id}`,
+    sent: body,
   });
-  return compactComment(c);
+  return attachVerification(compactComment(c), verification);
 }
 
 export async function commentDelete(
@@ -170,12 +211,20 @@ export async function commentDelete(
   const result = await ctx.client.del<unknown>(`/wp/v2/comments/${input.id}`, {
     query: { force: input.force === true },
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-comment-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `comments/${input.id}`,
-    status: "ok",
+    resourceType: "comments",
+    readPath: `/wp/v2/comments/${input.id}`,
+    ...(input.force === true
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }

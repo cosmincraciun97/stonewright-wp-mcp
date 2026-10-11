@@ -30,6 +30,7 @@ final class ChangeTimelineTest extends TestCase {
 			'edit_posts'     => true,
 			'edit_pages'     => true,
 			'edit_post'      => true,
+			'publish_posts'  => true,
 		];
 		$GLOBALS['stonewright_test_current_user_id']    = 7;
 		$GLOBALS['stonewright_test_posts'][ $this->post_id ] = (object) [

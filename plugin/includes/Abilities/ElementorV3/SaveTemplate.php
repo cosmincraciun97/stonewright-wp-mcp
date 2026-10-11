@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -28,6 +29,21 @@ final class SaveTemplate extends AbilityKernel {
 
 	public function category(): string {
 		return 'elementor';
+	}
+
+	/**
+	 * Every call creates a new library template and leaves the source page and earlier templates as they are.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
 	}
 
 	public function input_schema(): array {
@@ -96,6 +112,7 @@ final class SaveTemplate extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				// Library templates are recognised through their type meta and the
 				// type term; the edit mode, version and data are stored by ElementorData::write().

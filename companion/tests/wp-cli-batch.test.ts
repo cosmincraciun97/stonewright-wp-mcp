@@ -13,8 +13,8 @@ describe('WP-CLI batch runner', () => {
 			{
 				path: process.cwd(),
 				commands: [
-					['post', 'create', '--post_title=Marius Șoflete', '--porcelain'],
-					['term', 'create', 'echipa_rol', 'Producție Media'],
+					['post', 'list', '--post_title=Test Șoferiță', '--format=ids'],
+					['term', 'list', 'echipa_rol', '--search=Producție Media'],
 				],
 			},
 			runner,
@@ -25,8 +25,8 @@ describe('WP-CLI batch runner', () => {
 		expect(result.succeeded).toBe(2);
 		expect(result.failed).toBe(0);
 		expect(calls).toHaveLength(2);
-		expect(calls[0]?.args).toContain('--post_title=Marius Șoflete');
-		expect(calls[1]?.args).toContain('Producție Media');
+		expect(calls[0]?.args).toContain('--post_title=Test Șoferiță');
+		expect(calls[1]?.args).toContain('--search=Producție Media');
 		expect(calls.every((call) => call.shell === false)).toBe(true);
 	});
 
@@ -44,7 +44,7 @@ describe('WP-CLI batch runner', () => {
 		const result = await runWpCliBatch(
 			{
 				commands: [
-					['post', 'create', '--post_title=Broken'],
+					['post', 'list', '--post_title=Broken'],
 					['post', 'list'],
 				],
 			},

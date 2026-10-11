@@ -35,6 +35,22 @@ final class RemoveBlock extends AbilityKernel {
 		return 'gutenberg';
 	}
 
+	/**
+	 * The block is addressed by its index path, so repeating the call removes the next block that
+	 * moved into that position: the call is not idempotent although its verb is remove.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => true,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',
@@ -95,6 +111,9 @@ final class RemoveBlock extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
 				$html   = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(

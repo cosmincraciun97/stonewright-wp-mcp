@@ -4,7 +4,9 @@ import {
   assertWriteAllowed,
   type DirectWriteMode,
 } from "../writes.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import { resolveRestBase } from "../rest-discovery.js";
 import type { ResolvedSite } from "../sites-config.js";
 
@@ -12,6 +14,7 @@ export interface TaxonomyToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
+  env?: NodeJS.ProcessEnv | undefined;
 }
 
 type WpTerm = {
@@ -105,24 +108,27 @@ export async function taxonomyCreate(
     destructive: false,
     tool: "stonewright-taxonomy-terms",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-taxonomy-terms",
+    input.taxonomy ?? "categories",
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.taxonomy ?? "categories");
+  const body: Record<string, unknown> = {
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    parent: input.parent,
+  };
+  let term: WpTerm;
   try {
-    const term = await ctx.client.post<WpTerm>(`/wp/v2/${collection}`, {
-      body: {
-        name: input.name,
-        slug: input.slug,
-        description: input.description,
-        parent: input.parent,
-      },
-    });
-    appendDirectAudit({
-      tool: "stonewright-taxonomy-terms",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${term.id}`,
-      status: "ok",
-    });
-    return compactTerm(term);
+    term = await ctx.client.post<WpTerm>(`/wp/v2/${collection}`, { body });
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
@@ -133,6 +139,18 @@ export async function taxonomyCreate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-taxonomy-terms",
+    resource: `${collection}/${term.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${term.id}`,
+    expect: "present",
+    sent: body,
+  });
+  return attachVerification(compactTerm(term), verification);
 }
 
 export async function taxonomyUpdate(
@@ -153,6 +171,17 @@ export async function taxonomyUpdate(
     destructive: false,
     tool: "stonewright-taxonomy-terms",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-taxonomy-terms",
+    `${input.taxonomy ?? "categories"}/${input.id}`,
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.taxonomy ?? "categories");
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;
@@ -160,19 +189,11 @@ export async function taxonomyUpdate(
   if (input.description !== undefined) body.description = input.description;
   if (input.parent !== undefined) body.parent = input.parent;
 
+  let term: WpTerm;
   try {
-    const term = await ctx.client.put<WpTerm>(
-      `/wp/v2/${collection}/${input.id}`,
-      { body },
-    );
-    appendDirectAudit({
-      tool: "stonewright-taxonomy-terms",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
-      status: "ok",
+    term = await ctx.client.put<WpTerm>(`/wp/v2/${collection}/${input.id}`, {
+      body,
     });
-    return compactTerm(term);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
@@ -183,6 +204,17 @@ export async function taxonomyUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-taxonomy-terms",
+    resource: `${collection}/${input.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${input.id}`,
+    sent: body,
+  });
+  return attachVerification(compactTerm(term), verification);
 }
 
 export async function taxonomyDelete(
@@ -203,21 +235,11 @@ export async function taxonomyDelete(
     tool: "stonewright-taxonomy-terms",
   });
   const collection = await collectionFor(ctx, input.taxonomy ?? "categories");
+  let result: unknown;
   try {
-    const result = await ctx.client.del<unknown>(
-      `/wp/v2/${collection}/${input.id}`,
-      {
-        query: { force: input.force ?? true },
-      },
-    );
-    appendDirectAudit({
-      tool: "stonewright-taxonomy-terms",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
-      status: "ok",
+    result = await ctx.client.del<unknown>(`/wp/v2/${collection}/${input.id}`, {
+      query: { force: input.force ?? true },
     });
-    return { deleted: true, result };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-taxonomy-terms",
@@ -228,4 +250,15 @@ export async function taxonomyDelete(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-taxonomy-terms",
+    resource: `${collection}/${input.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${input.id}`,
+    expect: "absent",
+  });
+  return attachVerification({ deleted: true, result }, verification);
 }

@@ -344,7 +344,8 @@ describe('direct error audit', () => {
 			ability: 'stonewright-foo',
 			state: 'open',
 		}));
-		expect(body.required_actions).toContain('repair_open_incidents_first');
+		// Nothing can close this incident (no change set or verifier path), so it informs and does not block.
+		expect(body.required_actions).toEqual([]);
 		expect(body.guidance.some((g) => g.includes('incident_actions'))).toBe(true);
 	});
 
@@ -623,6 +624,8 @@ describe('direct error audit', () => {
 			},
 			fetchImpl,
 		});
+		// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
+		fetchImpl.mockClear();
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools ?? {};
 		const calls: Array<[string, Record<string, unknown>]> = [
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],
@@ -657,6 +660,8 @@ describe('direct error audit', () => {
 			},
 			fetchImpl,
 		});
+		// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
+		fetchImpl.mockClear();
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools ?? {};
 		const calls: Array<[string, Record<string, unknown>]> = [
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],
@@ -758,10 +763,15 @@ describe('direct error audit', () => {
 					STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
 					STONEWRIGHT_DIRECT_WRITES: 'on', STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
 				},
-				fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ code: 'rest_write_failed', message: 'Synthetic write failure', data: { status: 500 } }), {
-					status: 500,
-					headers: { 'content-type': 'application/json' },
-				})),
+				// The pre-image read succeeds; only the write itself fails.
+				fetchImpl: (_url: Parameters<typeof fetch>[0], init?: RequestInit) => Promise.resolve(
+					(init?.method ?? 'GET') === 'GET'
+						? new Response(JSON.stringify({ id: 42, title: { raw: 'Before' }, content: { raw: '' } }), { status: 200, headers: { 'content-type': 'application/json' } })
+						: new Response(JSON.stringify({ code: 'rest_write_failed', message: 'Synthetic write failure', data: { status: 500 } }), {
+							status: 500,
+							headers: { 'content-type': 'application/json' },
+						}),
+				),
 			});
 			const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<unknown> }> })._registeredTools ?? {};
 			await tools['stonewright-content-update']?.handler?.({ id: 42, title: 'Synthetic title' });

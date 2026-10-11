@@ -10,7 +10,7 @@ final class V4FeatureGate {
 
 	public static function check( bool $write = false ): bool|\WP_Error {
 		if ( ! get_option( 'stonewright_elementor_v4_atomic', false ) ) {
-			return new \WP_Error( 'feature_disabled', 'Elementor V4 atomic features are disabled.' );
+			return new \WP_Error( 'stonewright_feature_disabled', 'Elementor V4 atomic features are disabled.' );
 		}
 		if ( ! self::atomic_widgets_module_present() ) {
 			return new \WP_Error(

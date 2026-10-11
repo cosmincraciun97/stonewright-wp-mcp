@@ -38,8 +38,8 @@ If list returns `stonewright_plugin_missing`, stop. ACF is not loaded.
 
 Related, not ACF-named: `stonewright-cpt-list`, `stonewright-cpt-register`,
 `stonewright-taxonomy-register`, `stonewright-content-model-loop-grid-flow`
-(experimental Loop Grid path). Production-safe schema writes need
-`stonewright-security-issue-confirmation-token`.
+(experimental Loop Grid path). Production-safe schema and value writes need a
+token from `stonewright-security-issue-confirmation-token`.
 
 ## Field-group model
 
@@ -79,8 +79,8 @@ Rules:
   `key`, `name`, `label`, `type`, `required`. It **drops** `sub_fields`,
   `layouts`, `min`, `max`, and location. Do not treat that compact get as
   the full schema. For nested types, inspect with `stonewright-php-execute`
-  (`acf_get_field_group` + `acf_get_fields`) or re-import the JSON you
-  saved.
+  (`acf_get_field_group` + `acf_get_fields`; `full` profile only) or re-import
+  the JSON you saved.
 
 ## Discover → read → write
 
@@ -91,10 +91,11 @@ Rules:
    Optional `format_value` (default true) is `get_fields( $post_id, … )`.
 4. Plan the write. Schema goes through `stonewright-acf-field-group-save`
    (`confirmation_token` in production-safe). Values go through
-   `stonewright-acf-value-update` (`post_id`, `selector`, `value`). That
-   path snapshots the post first.
-5. Read back with `stonewright-acf-values-get` or `get_field` via
-   `stonewright-php-execute`. Meta-key peeking (`role_0_name`) is not
+   `stonewright-acf-value-update` (`post_id`, `selector`, `value`, and
+   `confirmation_token` in production-safe). That path snapshots the post on
+   a real change.
+5. Read back with `stonewright-acf-values-get` or, on the `full` profile,
+   `get_field` via `stonewright-php-execute`. Meta-key peeking (`role_0_name`) is not
    completion.
 
 Do not write `_elementor_data` or raw `update_post_meta` for ACF fields
@@ -104,13 +105,14 @@ when these typed tools exist.
 
 No typed options-page register/list/update ability.
 
-- Register or inspect with `stonewright-php-execute` calling
-  `acf_add_options_page` / `acf_get_options_pages` (official ACF API).
+- On the `full` profile, register or inspect with `stonewright-php-execute`
+  calling `acf_add_options_page` / `acf_get_options_pages` (official ACF API).
 - Location: `options_page` + the slug ACF assigned. Confirm the slug
   before attaching a group.
 - **Typed value tools cannot target options.** `acf-values-get` and
   `acf-value-update` require integer `post_id` ≥ 1. They reject `'option'`.
-  Read/write options values with `stonewright-php-execute`:
+  On the `full` profile, read/write options values with
+  `stonewright-php-execute`:
   `get_fields('option')`, `update_field( $selector, $value, 'option' )`.
   Then read back.
 
@@ -163,9 +165,12 @@ calls. It is experimental. Still list/get the field group after it runs.
 
 ## php-execute / WP-CLI
 
-`stonewright-php-execute` is for official ACF API snippets the typed
-surface cannot take (options pages, full nested schema, `'option'`
-values). Do not replace `acf-field-group-save` with a homemade importer
+`stonewright-php-execute` is on the `full` profile only. On any other
+profile the php-execute snippets in this skill are not available: use the typed
+tools, or ask the user whether an administrator should choose the Full surface in
+wp-admin (an agent cannot switch to `full`). It is for official ACF API
+snippets the typed surface cannot take (options pages, full nested schema,
+`'option'` values). Do not replace `acf-field-group-save` with a homemade importer
 and do not write ACF tables through `$wpdb`.
 
 Never `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or

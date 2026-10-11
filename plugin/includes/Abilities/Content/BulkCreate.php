@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -48,7 +49,8 @@ final class BulkCreate extends AbilityKernel {
 							'title'     => [ 'type' => 'string', 'maxLength' => 255 ],
 							'content'   => [ 'type' => 'string' ],
 							'status'    => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ] ],
-							'post_type' => [ 'type' => 'string', 'default' => 'page' ],
+							'date'      => PostDate::schema(),
+							'post_type' => [ 'type' => 'string', 'default' => 'page', 'description' => 'A registered content post type. Attachments, revisions, menu items and other internal types are refused.' ],
 						],
 						'required'   => [ 'title' ],
 					],
@@ -63,6 +65,7 @@ final class BulkCreate extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
+				'ok'      => [ 'type' => 'boolean' ],
 				'created' => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ],
 				'errors'  => [ 'type' => 'array' ],
 			],
@@ -75,7 +78,11 @@ final class BulkCreate extends AbilityKernel {
 	public function permission_callback( array $args ): bool|\WP_Error {
 		foreach ( (array) ( $args['items'] ?? [] ) as $i => $item ) {
 			$item_post_type = sanitize_key( (string) ( $item['post_type'] ?? 'page' ) );
-			$blocked        = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
+			$invalid        = PostTypeGuard::error( $item_post_type );
+			if ( $invalid instanceof \WP_Error ) {
+				return $invalid;
+			}
+			$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
 			if ( $blocked instanceof \WP_Error ) {
 				return $blocked;
 			}
@@ -117,26 +124,38 @@ final class BulkCreate extends AbilityKernel {
 					return $token_error;
 				}
 
-				$created = [];
-				$errors  = [];
+				// Check every item before the first write, so a bad item stops the call with nothing created.
+				$prepared = [];
 				foreach ( (array) ( $args['items'] ?? [] ) as $idx => $item ) {
+					$item           = is_array( $item ) ? $item : [];
 					$item_post_type = sanitize_key( (string) ( $item['post_type'] ?? 'page' ) );
-					$blocked        = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
+					$invalid        = PostTypeGuard::error( $item_post_type );
+					if ( $invalid instanceof \WP_Error ) {
+						$invalid->add_data( [ 'status' => 400, 'failed_index' => $idx, 'post_type' => $item_post_type ] );
+						return $invalid;
+					}
+					$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $item_post_type );
 					if ( $blocked instanceof \WP_Error ) {
 						return $blocked;
 					}
+					$status = (string) ( $item['status'] ?? 'draft' );
+					$date   = PostDate::resolve( $item['date'] ?? null, $status );
+					if ( is_wp_error( $date ) ) {
+						$date->add_data( [ 'status' => 400, 'failed_index' => $idx ] );
+						return $date;
+					}
+					$prepared[ $idx ] = [
+						'post_title'   => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
+						'post_content' => wp_kses_post( (string) ( $item['content'] ?? '' ) ),
+						'post_status'  => $status,
+						'post_type'    => $item_post_type,
+					] + $date;
+				}
 
-					$id = wp_insert_post(
-						wp_slash(
-							[
-								'post_title'   => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
-								'post_content' => wp_kses_post( (string) ( $item['content'] ?? '' ) ),
-								'post_status'  => (string) ( $item['status'] ?? 'draft' ),
-								'post_type'    => $item_post_type,
-							]
-						),
-						true
-					);
+				$created = [];
+				$errors  = [];
+				foreach ( $prepared as $idx => $payload ) {
+					$id = wp_insert_post( wp_slash( $payload ), true );
 
 					if ( is_wp_error( $id ) ) {
 						$errors[] = [
@@ -146,9 +165,10 @@ final class BulkCreate extends AbilityKernel {
 						];
 						continue;
 					}
+					RescueGuard::note_post_created( (int) $id );
 					$created[] = (int) $id;
 				}
-				return [ 'created' => $created, 'errors' => $errors ];
+				return [ 'ok' => [] === $errors, 'created' => $created, 'errors' => $errors ];
 			}
 		);
 	}

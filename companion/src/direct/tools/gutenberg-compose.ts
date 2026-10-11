@@ -1,5 +1,12 @@
 import { assertToolEnabled } from "../writes.js";
 import type { ResolvedSite } from "../sites-config.js";
+import { parseBlockMarkup, serializeBlockAttributes } from "../block-markup.js";
+import { scanBlockTree } from "../block-guard.js";
+import { refuseCustomCode } from "../custom-code-guard.js";
+
+const TOOL = "stonewright-gutenberg-compose";
+// A block delimiter inside the content of an html block would open or close blocks around it.
+const BLOCK_COMMENT = /<!--\s*\/?\s*wp:/i;
 
 export type GutenbergBlockSpec =
   | { type: "heading"; level?: number; content: string; align?: string }
@@ -43,7 +50,8 @@ function attrsJson(attrs: Record<string, unknown>): string {
     ([, v]) => v !== undefined && v !== null && v !== "",
   );
   if (entries.length === 0) return "";
-  return ` ${JSON.stringify(Object.fromEntries(entries))}`;
+  // Escaped as WordPress writes block attributes, so a value cannot end the comment it sits in.
+  return ` ${serializeBlockAttributes(Object.fromEntries(entries))}`;
 }
 
 function composeBlock(spec: GutenbergBlockSpec): string {
@@ -51,6 +59,11 @@ function composeBlock(spec: GutenbergBlockSpec): string {
     case "raw":
       return spec.markup;
     case "html":
+      if (BLOCK_COMMENT.test(spec.content)) {
+        throw new Error(
+          "An html block cannot contain block comments (<!-- wp:... -->): they would open or close blocks around it. Use a raw block for markup that already holds blocks.",
+        );
+      }
       return `<!-- wp:html -->\n${spec.content}\n<!-- /wp:html -->`;
     case "heading": {
       const level = Math.min(Math.max(spec.level ?? 2, 1), 6);
@@ -157,6 +170,21 @@ export function gutenbergCompose(
     throw new Error("blocks must be a non-empty array");
   }
   const markup = input.blocks.map(composeBlock).join("\n\n");
+
+  // Html and raw blocks pass caller markup through, so the result is read as WordPress would read it:
+  // the block comments must balance and carry valid JSON, and it must hold no custom code.
+  const parsed = parseBlockMarkup(markup);
+  const broken = parsed.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (broken.length > 0) {
+    throw new Error(
+      `The composed markup is not valid block markup, so nothing was returned: ${broken
+        .slice(0, 3)
+        .map((diagnostic) => `${diagnostic.message} (line ${diagnostic.line})`)
+        .join(" ")} code=invalid_block_markup`,
+    );
+  }
+  const refusal = refuseCustomCode(ctx.site, TOOL, "markup", scanBlockTree(parsed.blocks));
+  if (refusal) return refusal;
   return {
     markup,
     block_count: input.blocks.length,

@@ -122,7 +122,8 @@ final class ProviderRouter {
 			'native_preferred' => $native_preferred,
 			'native_elementor' => $native_elementor,
 			'schema_limits'    => [ 'max_depth' => self::MAX_SCHEMA_DEPTH, 'max_keys' => self::MAX_SCHEMA_KEYS, 'max_bytes' => self::MAX_SCHEMA_BYTES ],
-			'writes_enabled'   => false,
+			// Real state: true when a certified native ability may be written through stonewright-elementor-native-execute.
+			'writes_enabled'   => true === ( $native_elementor['writes_enabled'] ?? false ),
 			'safety_closure'   => [ 'permission', 'mode', 'confirmation_token', 'backup', 'validation', 'write_lock', 'readback', 'frontend_verification', 'rollback', 'audit' ],
 		];
 	}
@@ -224,7 +225,7 @@ final class ProviderRouter {
 				'output_schema_summary'   => (array) $ability['output_schema_summary'],
 				'schema_output'           => 'certified' === $state ? 'full_bounded' : 'summary_only_untrusted_or_rejected',
 				'schema_fingerprint'      => (string) $ability['schema_fingerprint'],
-				'routable_write'          => false,
+				'routable_write'          => NativeElementorReport::routable_write( $state, $contract ),
 				'safety_closure_required' => true,
 				'provenance'              => self::bounded_provenance( (array) ( $ability['provenance'] ?? [ 'schema' => 'upstream_registered_ability' ] ) ),
 			];
@@ -299,7 +300,7 @@ final class ProviderRouter {
 				'count'             => 0,
 				'samples'           => [],
 				'samples_truncated' => false,
-			];
+			] + self::issue_explanation( $code );
 		}
 
 		++$issues[ $severity ][ $key ]['count'];
@@ -316,6 +317,25 @@ final class ProviderRouter {
 			return;
 		}
 		$issues[ $severity ][ $key ]['samples'][] = $sample;
+	}
+
+	/**
+	 * What a known diagnostic means, so that a long list of one code is not a mystery.
+	 *
+	 * @return array{effect?:string,note?:string}
+	 */
+	private static function issue_explanation( string $code ): array {
+		return match ( $code ) {
+			'descriptor_unavailable' => [
+				'effect' => 'inventory_only',
+				'note'   => 'A prop of these Atomic types could not be turned into a bounded descriptor, so the types are listed in the inventory only and no native write is offered for them. Nothing is broken: the certified native abilities and the Stonewright V4 writers are not affected.',
+			],
+			'schema_unavailable', 'schema_invalid' => [
+				'effect' => 'inventory_only',
+				'note'   => 'An Atomic extension did not expose a usable props schema, so its types are listed in the inventory only and no native write is offered for them. Other Atomic types are not affected.',
+			],
+			default => [],
+		};
 	}
 
 	/** @param array<string,mixed> $issue */
@@ -413,7 +433,7 @@ final class ProviderRouter {
 			'name'               => $name,
 			'schema_fingerprint' => $fingerprint,
 			'provenance'         => self::bounded_provenance( (array) ( $evidence['provenance'] ?? [] ) ),
-			'routable'           => false,
+			'routable'           => 'upstream-ability' === $kind && NativeElementorReport::routable( (string) ( $certification['state'] ?? '' ), NativeContracts::for_ability( $name ) ),
 			'write_eligible'     => $write_eligible,
 		];
 		if ( $write_primitive ) {
@@ -430,7 +450,7 @@ final class ProviderRouter {
 				$providers[ $id ]['write_primitives'][] = [
 					'name'                    => $name,
 					'source'                  => 'upstream_registered_ability',
-					'routable'                => false,
+					'routable'                => NativeElementorReport::routable_write( 'certified', NativeContracts::for_ability( $name ) ),
 					'safety_closure_required' => true,
 				];
 			}

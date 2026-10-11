@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Abilities\Acf;
 
+use Stonewright\WpMcp\Security\RescueGuard;
+
 /**
  * ACF availability, field-key resolution, raw readback, and typed comparators.
  */
@@ -64,6 +66,102 @@ final class AcfRuntime {
 		return function_exists( 'get_fields' )
 			|| function_exists( 'acf_get_field_groups' )
 			|| class_exists( 'ACF', false );
+	}
+
+	/**
+	 * Whether ACF can import a field group, which is the call that saves the group and its fields.
+	 */
+	public static function can_import_field_groups(): bool {
+		// Unit tests toggle this without unloading function stubs.
+		if ( array_key_exists( 'stonewright_test_acf_import_available', $GLOBALS ) ) {
+			return (bool) $GLOBALS['stonewright_test_acf_import_available'];
+		}
+		return function_exists( 'acf_import_field_group' );
+	}
+
+	/**
+	 * Saves a field group and its fields through acf_import_field_group(), and reads the group back.
+	 *
+	 * ACF keeps a group and each of its fields as posts. The posts that exist are recorded in the change ledger
+	 * before the import, and the posts it creates are recorded after it, so the save can be traced and undone.
+	 *
+	 * @param array<string, mixed> $group A field group with its key and its fields.
+	 * @return array<string, mixed>|\WP_Error The saved group, or an error when ACF cannot import or did not store the group.
+	 */
+	public static function import_field_group( array $group ): array|\WP_Error {
+		if ( ! self::can_import_field_groups() || ! function_exists( 'acf_import_field_group' ) ) {
+			return new \WP_Error(
+				'stonewright_acf_import_unavailable',
+				__( 'This ACF version cannot import a field group, so nothing was saved.', 'stonewright' ),
+				[ 'status' => 409 ]
+			);
+		}
+		$key    = (string) ( $group['key'] ?? '' );
+		$before = self::field_group_post_ids( $key );
+		foreach ( $before as $post_id ) {
+			RescueGuard::note_post_overwrite( $post_id );
+		}
+
+		$result = acf_import_field_group( $group );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		if ( ! is_array( $result ) ) {
+			return new \WP_Error( 'stonewright_acf_import_failed', __( 'ACF did not import the field group.', 'stonewright' ), [ 'status' => 500, 'key' => $key ] );
+		}
+		// Read the group back: an import that returned a group is not proof that it was stored.
+		$saved = function_exists( 'acf_get_field_group' ) ? acf_get_field_group( $key ) : $result;
+		if ( ! is_array( $saved ) || $key !== (string) ( $saved['key'] ?? '' ) ) {
+			return new \WP_Error( 'stonewright_acf_import_failed', __( 'ACF reported the import, but the field group could not be read back.', 'stonewright' ), [ 'status' => 500, 'key' => $key ] );
+		}
+		foreach ( array_diff( self::field_group_post_ids( $key ), $before ) as $post_id ) {
+			RescueGuard::note_post_created( $post_id );
+		}
+		return $saved;
+	}
+
+	/**
+	 * The ids of the posts that hold a field group and all its fields, including nested ones.
+	 *
+	 * @return list<int>
+	 */
+	private static function field_group_post_ids( string $key ): array {
+		$ids = [];
+		if ( '' === $key ) {
+			return $ids;
+		}
+		if ( function_exists( 'acf_get_field_group' ) ) {
+			$group = acf_get_field_group( $key );
+			if ( is_array( $group ) && (int) ( $group['ID'] ?? 0 ) > 0 ) {
+				$ids[] = (int) $group['ID'];
+			}
+		}
+		if ( function_exists( 'acf_get_fields' ) ) {
+			self::collect_field_post_ids( acf_get_fields( $key ), $ids );
+		}
+		return array_values( array_unique( $ids ) );
+	}
+
+	/**
+	 * @param mixed      $fields
+	 * @param list<int> $ids
+	 */
+	private static function collect_field_post_ids( mixed $fields, array &$ids ): void {
+		if ( ! is_array( $fields ) ) {
+			return;
+		}
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+			if ( (int) ( $field['ID'] ?? 0 ) > 0 ) {
+				$ids[] = (int) $field['ID'];
+			}
+			self::collect_field_post_ids( $field['sub_fields'] ?? null, $ids );
+			foreach ( (array) ( $field['layouts'] ?? [] ) as $layout ) {
+				self::collect_field_post_ids( is_array( $layout ) ? ( $layout['sub_fields'] ?? null ) : null, $ids );
+			}
+		}
 	}
 
 	/**

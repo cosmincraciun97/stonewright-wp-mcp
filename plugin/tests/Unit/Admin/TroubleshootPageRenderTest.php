@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
+use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -38,7 +39,8 @@ final class TroubleshootPageRenderTest extends TestCase {
 		StorageRig::reset_globals();
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_transients']      = [];
-		unset( $_SERVER['REMOTE_ADDR'] );
+		unset( $_SERVER['REMOTE_ADDR'], $GLOBALS['stonewright_test_extra_plugins'] );
+		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 		$_GET = [];
 	}
 
@@ -105,6 +107,56 @@ final class TroubleshootPageRenderTest extends TestCase {
 		self::assertStringContainsString( 'Synthetic &lt;b&gt;check&lt;/b&gt;', $html );
 		self::assertStringNotContainsString( 'Synthetic <b>check</b>', $html );
 		self::assertStringContainsString( 'Synthetic summary', $html );
+	}
+
+	/** @param list<string> $blocking */
+	private static function runtime( bool $compatible, array $blocking, bool $foreign ): void {
+		$GLOBALS['stonewright_test_extra_plugins'] = [ 'foreign-seo/foreign-seo.php' => [ 'Name' => 'Foreign SEO Suite', 'Version' => '2.0.0' ] ];
+		$property                                  = new \ReflectionProperty( McpAbilitiesCompatibilityPreflight::class, 'current' );
+		$property->setValue(
+			null,
+			[
+				'compatible'       => $compatible,
+				'adapter'          => [
+					'class'            => 'WP\\MCP\\Core\\McpAdapter',
+					'status'           => 'loaded',
+					'selected_owner'   => 'plugin:foreign-seo',
+					'selected_version' => $foreign ? '0.5.0' : '0.4.0',
+					'selection_state'  => 'selected',
+					'foreign_runtime'  => $foreign,
+					'owner_details'    => [ [ 'owner' => 'plugin:foreign-seo', 'version' => $foreign ? '0.5.0' : '0.4.0', 'state' => 'autoloadable' ] ],
+					'abi'              => [ 'status' => $compatible ? 'compatible' : 'incompatible', 'issues' => $compatible ? [] : [ 'unsupported_package_version' ] ],
+					'reason'           => $compatible ? null : 'runtime_abi_incompatible',
+				],
+				'abilities'        => [],
+				'blocking_reasons' => $blocking,
+			]
+		);
+	}
+
+	public function test_a_blocked_adapter_is_explained_with_its_plugin_version_and_what_to_do(): void {
+		self::runtime( false, [ 'adapter_abi_incompatible' ], false );
+
+		$html = self::render();
+
+		self::assertStringContainsString( 'MCP route unavailable', $html );
+		self::assertStringContainsString( 'Foreign SEO Suite', $html );
+		self::assertStringContainsString( '0.4.0', $html );
+		self::assertStringContainsString( 'MCP clients cannot connect', $html );
+		self::assertStringContainsString( '0.5.0 or newer', $html );
+		self::assertMatchesRegularExpression( '/MCP route unavailable.*?sw-ui-callout--danger|sw-ui-callout--danger.*?MCP route unavailable/s', $html );
+	}
+
+	public function test_another_plugins_adapter_that_works_is_named_as_information(): void {
+		self::runtime( true, [], true );
+
+		$html = self::render();
+
+		self::assertStringContainsString( 'Runtime contract compatible', $html );
+		self::assertStringContainsString( 'Foreign SEO Suite', $html );
+		self::assertStringContainsString( '0.5.0', $html );
+		self::assertStringContainsString( 'MCP adapter in use', $html );
+		self::assertStringNotContainsString( 'MCP route unavailable', $html );
 	}
 
 	public function test_the_page_refuses_without_manage_options(): void {

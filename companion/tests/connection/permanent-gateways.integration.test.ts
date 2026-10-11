@@ -266,8 +266,11 @@ describe('permanent gateways integration', () => {
 		// Local ping gateway owns the name even if remote only exposed ping.
 		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({
 			task: 'minimal plugin surface',
-		}) as { structuredContent?: { ok?: boolean } };
+		}) as { structuredContent?: { ok?: boolean; backend?: string; source?: string } };
 		expect(taskStart.structuredContent?.ok).toBe(true);
+		// The common task-start core: the answer says which backend it came from.
+		expect(taskStart.structuredContent?.source).toBe('plugin');
+		expect(taskStart.structuredContent?.backend).toBe('plugin');
 	});
 
 	it('client_has_tool is never true from counts or caller-supplied names alone', async () => {
@@ -304,6 +307,40 @@ describe('permanent gateways integration', () => {
 			expected_tool: 'stonewright-task-start',
 		}) as { structuredContent?: { client_has_tool?: boolean } };
 		expect(gatewayCheck.structuredContent?.client_has_tool).toBe(true);
+	});
+
+	it('checks php-execute by default on the full profile only', async () => {
+		const checkDefault = async (profile: string, sessionProfile?: string) => {
+			const server = await createMcpServer({
+				env: {
+					STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+					WP_API_USERNAME: 'admin',
+					WP_API_PASSWORD: 'pw',
+					STONEWRIGHT_MCP_TOOL_PROFILE: profile,
+				},
+				fetchImpl: stonewrightMcpFetch(
+					[{ name: 'stonewright-task-start' }, { name: 'stonewright-php-execute' }],
+					sessionProfile
+						? {
+							taskStartResponse: workflowPreflightPayload({
+								configured_mcp_surface: sessionProfile,
+								session_tool_profile: sessionProfile,
+								tools_changed: true,
+								surface_revision: 2,
+							}),
+						}
+						: {},
+				),
+			});
+			await toolHandler(server, 'stonewright-task-start')?.({ task: 'check the default expected tool' });
+			const check = await toolHandler(server, 'stonewright-client-surface-check')?.({}) as {
+				structuredContent?: { expected_tool?: string };
+			};
+			return check.structuredContent?.expected_tool;
+		};
+		expect(await checkDefault('essential-static', 'full')).toBe('stonewright-php-execute');
+		expect(await checkDefault('essential-static')).toBe('stonewright-task-start');
+		expect(await checkDefault('low-tools')).toBe('stonewright-task-start');
 	});
 
 	it('does not translate companion site_alias into the plugin task-start schema', async () => {

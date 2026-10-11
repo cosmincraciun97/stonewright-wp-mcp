@@ -16,6 +16,7 @@ import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	coerceProxyToolProfile,
 	emitToolListChanged,
+	profileOffersPhpExecute,
 	proxyToolNamesForProfile,
 	type ProxyToolProfile,
 	type WordPressProxyLiveState,
@@ -23,6 +24,7 @@ import {
 import { APP_VERSION, companionPackageSpec } from '../version.js';
 import type { DirectSessionControls, DirectToolProfile } from '../direct/registry.js';
 import * as selfImprove from '../direct/tools/self-improve.js';
+import { DirectSafetyBlockedError } from '../direct/writes.js';
 import {
 	ActiveClientCallSequence,
 	REQUIRED_ACTIVE_HOST_CALLS,
@@ -103,6 +105,13 @@ export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	client_visibility: { state: string; reason: string };
 	error_code: string | null;
 	next_action: string | null;
+	/** Set when Direct is the session mode but the Stonewright plugin is active on the site. */
+	mode_conflict: {
+		plugin_detected: boolean;
+		direct_writes: 'refused';
+		reads: 'allowed';
+		next_action: string;
+	} | null;
 }
 
 export interface ConnectionRuntime {
@@ -530,6 +539,7 @@ function createInitialStatus(profile: ProxyToolProfile): WordPressMcpConnectionS
 		client_visibility: defaultClientVisibility(),
 		error_code: null,
 		next_action: 'Call stonewright-task-start or stonewright-connect-doctor to diagnose connectivity.',
+		mode_conflict: null,
 	};
 }
 
@@ -557,6 +567,21 @@ function wordpressSurfaceFromEnv(value: string | undefined): 'bootstrap' | 'esse
 function siteUrlFromEnv(env: NodeJS.ProcessEnv): string | null {
 	const raw = (env['STONEWRIGHT_WP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_MCP_URL'] ?? '').trim();
 	return raw || null;
+}
+
+/** Where an administrator chooses the tool surface, from the site address the companion is configured with. */
+function surfaceSettingsLinkFromEnv(env: NodeJS.ProcessEnv): string | null {
+	const raw = siteUrlFromEnv(env);
+	if (!raw) return null;
+	try {
+		const url = new URL(raw);
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+		const cut = url.pathname.indexOf('/wp-json');
+		const base = (cut >= 0 ? url.pathname.slice(0, cut) : url.pathname).replace(/\/+$/, '');
+		return `${url.origin}${base}/wp-admin/admin.php?page=stonewright&tab=settings#stonewright_mcp_surface`;
+	} catch {
+		return null;
+	}
 }
 
 function toolResponse<T extends Record<string, unknown>>(result: T): {
@@ -727,9 +752,6 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			inputSchema: catalogObservationInputSchema(runtime),
 		},
 		wrap('stonewright-client-surface-check', (input) => {
-			const expected = typeof input['expected_tool'] === 'string' && input['expected_tool'].trim() !== ''
-				? normalizeToolName(input['expected_tool'])
-				: 'stonewright-php-execute';
 			const catalogObserved = typeof input['catalog_observation'] === 'string'
 				&& input['catalog_observation'] === runtime.catalogObservation;
 			if (catalogObserved) {
@@ -740,6 +762,10 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const filtered = new Set(runtime.status.profile_filtered_tool_names ?? []);
 			const missingProfile = new Set(runtime.status.profile_missing_tool_names ?? []);
 			const profile = live?.profile ?? ((runtime.status.tool_profile as ProxyToolProfile) || runtime.profile);
+			// php-execute is on the full profile only, so it is the default check there and the startup gateway elsewhere.
+			const expected = typeof input['expected_tool'] === 'string' && input['expected_tool'].trim() !== ''
+				? normalizeToolName(input['expected_tool'])
+				: (profileOffersPhpExecute(profile) ? 'stonewright-php-execute' : 'stonewright-task-start');
 			const liveEnabled = new Set(live?.enabledToolNames ?? []);
 			for (const name of liveEnabled) {
 				filtered.delete(name);
@@ -1008,9 +1034,38 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			},
 		},
 		wrap('stonewright-tool-profile', async (input) => {
+			// The full profile is chosen by a person: the one who runs the companion, or an administrator in wp-admin.
+			// A request for it is refused here, before it reaches a plugin: a plugin older than this rule would switch.
+			// A read-only resolve is still forwarded, and so is a request on a site whose surface is already Full.
+			const requestedByAgent = typeof input['profile'] === 'string' ? input['profile'] : '';
+			const connected = Boolean(runtime.callRemoteTool && runtime.status.connected);
+			const rawAction = typeof input['action'] === 'string' ? input['action'].trim().toLowerCase() : '';
+			const effectiveAction = rawAction || (connected ? 'activate' : 'resolve');
+			if (
+				requestedByAgent.trim() !== ''
+				&& coerceProxyToolProfile(requestedByAgent) === 'full'
+				&& effectiveAction !== 'resolve'
+				&& runtime.profile !== 'full'
+				&& runtime.effectiveWordPressSurface !== 'full'
+			) {
+				return {
+					ok: false,
+					source: connected ? 'plugin' : 'local',
+					isError: true,
+					error_code: 'stonewright_tool_profile_full_requires_admin',
+					approval_required: true,
+					agent_must_stop: true,
+					...(surfaceSettingsLinkFromEnv(runtime.env) ? { approval_url: surfaceSettingsLinkFromEnv(runtime.env) } : {}),
+					message: FULL_PROFILE_IS_A_PERSONS_CHOICE,
+				};
+			}
 			if (runtime.callRemoteTool && runtime.status.connected) {
 				try {
 					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input);
+					// A refusal from the plugin (the full profile is an administrator's choice) is the answer, not a
+					// reason to fall back to the local catalog or to report success.
+					const refused = remoteErrorResult(remote);
+					if (refused) return refused;
 					const structured = extractStructured(remote);
 					const effectiveSurface = wordpressSurfaceFromEnv(
 						typeof structured?.['mcp_surface'] === 'string' ? structured['mcp_surface'] : undefined,
@@ -1075,7 +1130,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				site_alias: z.string().optional(),
 			},
 		},
-		wrap('stonewright-task-start', async (input) => {
+		wrap('stonewright-task-start', async function taskStartHandler(input: Record<string, unknown>, promotionTried = false): Promise<Record<string, unknown>> {
 			const task = String(input['task'] ?? '');
 			const site = typeof input['site'] === 'string'
 				? input['site']
@@ -1263,6 +1318,8 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						registered,
 					);
 					return {
+						// The common task-start core carries `backend`; the plugin's own answer does not.
+						backend: 'plugin',
 						...structured,
 						ok: !v3.surface.relist_required && !v3.reconciliation.mismatch_reason,
 						source: 'plugin',
@@ -1340,12 +1397,40 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				...(runtime.fetchImpl ? { fetchImpl: runtime.fetchImpl } : {}),
 				directToolCount: runtime.status.direct_tool_count,
 			};
-			const local = await selfImprove.taskStartAuthoritative(selfCtx, {
-				task,
-				...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
-				...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
-				...(site ? { site } : {}),
-			});
+			let local: Awaited<ReturnType<typeof selfImprove.taskStartAuthoritative>>;
+			try {
+				local = await selfImprove.taskStartAuthoritative(selfCtx, {
+					task,
+					...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
+					...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
+					...(site ? { site } : {}),
+				});
+			} catch (error) {
+				if (error instanceof DirectSafetyBlockedError) {
+					return {
+						ok: false,
+						isError: true,
+						blocked: true,
+						source: 'direct',
+						error: error.code,
+						error_code: error.code,
+						message: error.message,
+					};
+				}
+				throw error;
+			}
+
+			// The Direct task-start reached the Stonewright plugin, so the plugin was
+			// installed (or enabled) after this session picked Direct. An auto session
+			// moves to Plugin mode now; any other session is told how to switch.
+			const pluginDetected = (local as { plugin_detected?: unknown }).plugin_detected === true;
+			if (pluginDetected && !promotionTried && runtime.status.configured_mode === 'auto') {
+				await runtime.reconnectCoordinator.run('plugin-detected');
+				runtime.syncLegacyStatus();
+				if (runtime.status.mode === 'plugin' && runtime.status.connected && runtime.callRemoteTool) {
+					return taskStartHandler(input, true);
+				}
+			}
 
 			let sessionProfile: DirectToolProfile | ProxyToolProfile = runtime.profile;
 			let surfaceRevision = runtime.surface.getRevision();
@@ -1409,9 +1494,13 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					: '',
 				client_visibility: v3.client_visibility,
 				error_code: v3.error_code,
-				next_action: v3.startup_ready
-					? 'Use only tools present in the current MCP list / session_tools.'
-					: 'startup_ready is false (registry barrier incomplete). Permanent gateways remain callable; do not invent missing tools.',
+				next_action: pluginDetected
+					? (runtime.status.mode === 'plugin' && runtime.status.next_action
+						? runtime.status.next_action
+						: String((local as { next_action?: unknown }).next_action ?? ''))
+					: v3.startup_ready
+						? 'Use only tools present in the current MCP list / session_tools.'
+						: 'startup_ready is false (registry barrier incomplete). Permanent gateways remain callable; do not invent missing tools.',
 				guidance,
 				registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
 				plugin: v3.plugin,
@@ -1496,6 +1585,46 @@ function pluginReachableFromEvidence(evidence: EndpointEvidence): boolean | null
 		return false;
 	}
 	return null;
+}
+
+const FULL_PROFILE_IS_A_PERSONS_CHOICE =
+	"The full profile (php-execute and the other tools that run or write code) is chosen by a person, never by an agent: an administrator sets the site's MCP tool surface to Full in wp-admin (Stonewright > Setup > Settings), and the person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full. Tell the user and stop. Do not look for another way to switch.";
+
+/**
+ * The answer of a plugin tool that failed, in the shape a gateway returns: the message, and the fields the plugin
+ * copies into it so that a refusal that waits for a person keeps its code, flags and approval link.
+ */
+function remoteErrorResult(remote: unknown): Record<string, unknown> | null {
+	if (!remote || typeof remote !== 'object' || (remote as { isError?: unknown }).isError !== true) return null;
+	const content = (remote as { content?: unknown }).content;
+	let text = '';
+	if (Array.isArray(content)) {
+		for (const part of content) {
+			if (part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string') {
+				text += (part as { text: string }).text;
+			}
+		}
+	}
+	const out: Record<string, unknown> = { ok: false, source: 'plugin', isError: true, message: text.trim() };
+	const trailing = /(\{[^{}]*\})\s*$/.exec(text);
+	if (trailing) {
+		try {
+			const fields = JSON.parse(trailing[1] ?? '') as Record<string, unknown>;
+			out['message'] = text.slice(0, trailing.index).trim() || out['message'];
+			if (typeof fields['code'] === 'string') out['error_code'] = fields['code'];
+			for (const key of ['approval_required', 'agent_must_stop', 'retryable']) {
+				if (typeof fields[key] === 'boolean') out[key] = fields[key];
+			}
+			for (const key of ['execution_status']) {
+				if (typeof fields[key] === 'string') out[key] = fields[key];
+			}
+			const url = fields['approval_url'];
+			if (typeof url === 'string' && /^https?:\/\/\S+$/i.test(url)) out['approval_url'] = url;
+		} catch {
+			// The text had no JSON tail; the message stands as it is.
+		}
+	}
+	return out;
 }
 
 function extractStructured(raw: unknown): Record<string, unknown> | null {

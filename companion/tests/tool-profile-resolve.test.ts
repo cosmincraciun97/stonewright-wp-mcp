@@ -5,6 +5,8 @@ import {
 	coerceProxyToolProfile,
 	effectiveInitialProxyProfile,
 	maxToolsFromEnv,
+	neverDisableToolNamesFor,
+	profileOffersPhpExecute,
 	proxyToolNamesForProfile,
 	proxyToolProfileFromEnv,
 	resolvePluginProxyToolNames,
@@ -56,7 +58,7 @@ describe('tool profile resolve + client cap', () => {
 	it('supports the real bootstrap surface instead of coercing it to essential', () => {
 		expect(coerceProxyToolProfile('bootstrap')).toBe('bootstrap');
 		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-task-start');
-		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-php-execute');
+		expect(proxyToolNamesForProfile('bootstrap')).not.toContain('stonewright-php-execute');
 		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-security-issue-confirmation-token');
 		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(12);
 	});
@@ -64,7 +66,21 @@ describe('tool profile resolve + client cap', () => {
 	it('defaults fresh companion installs to essential-static', () => {
 		expect(proxyToolProfileFromEnv({})).toBe('essential-static');
 		expect(coerceProxyToolProfile('essential-static')).toBe('essential-static');
-		expect(proxyToolNamesForProfile('essential-static')).toContain('stonewright-php-execute');
+		expect(proxyToolNamesForProfile('essential-static')).not.toContain('stonewright-php-execute');
+	});
+
+	it('keeps php-execute out of every fallback profile, as it is on the full profile only', () => {
+		const profiles = [
+			'bootstrap', 'essential-static', 'low-tools', 'essential', 'elementor-design',
+			'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'inspect', 'discover-execute',
+		] as const;
+		for (const profile of profiles) {
+			expect(proxyToolNamesForProfile(profile), profile).not.toContain('stonewright-php-execute');
+		}
+		expect(profileOffersPhpExecute('full')).toBe(true);
+		for (const profile of profiles) {
+			expect(profileOffersPhpExecute(profile), profile).toBe(false);
+		}
 	});
 
 	it('uses the saved plugin surface for normal clients and preserves strict overrides', () => {
@@ -143,6 +159,26 @@ describe('tool profile resolve + client cap', () => {
 				'stonewright-design-visual-compare',
 			]),
 		);
+	});
+
+	it('low-tools fallback keeps php-execute off the surface, as the plugin does', () => {
+		const names = proxyToolNamesForProfile('low-tools');
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'stonewright-task-start',
+				'stonewright-tool-profile',
+				'stonewright-security-issue-confirmation-token',
+			]),
+		);
+		expect(names).not.toContain('stonewright-php-execute');
+	});
+
+	it('pins php-execute for the full profile only', () => {
+		for (const profile of ['inspect', 'low-tools', 'bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'discover-execute'] as const) {
+			expect(neverDisableToolNamesFor(profile).has('stonewright-php-execute'), profile).toBe(false);
+			expect(neverDisableToolNamesFor(profile).has('stonewright-task-start'), profile).toBe(true);
+		}
+		expect(neverDisableToolNamesFor('full').has('stonewright-php-execute')).toBe(true);
 	});
 
 	it('discover-execute fallback is a protocol surface without php-execute', () => {

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\ThemeBuilder\TemplateGuard;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
 /**
@@ -13,6 +14,9 @@ use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
  * Returns lightweight identity records — id, title, type — not the full
  * data tree. For the document body and conditions, follow up with
  * GetTemplate.
+ *
+ * Needs `edit_theme_options`. A draft, private or otherwise unpublished template is listed only for a user who
+ * may edit it.
  *
  * @stonewright-status stable
  */
@@ -67,13 +71,17 @@ final class ListTemplates extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::edit_theme_options();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_read(
 			$args,
 			function ( array $args ) {
+				$denied = TemplateGuard::execute_error( 'edit_post' );
+				if ( null !== $denied ) {
+					return $denied;
+				}
 				$query_args = [
 					'post_type'      => 'elementor_library',
 					// phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- Theme templates are bounded admin metadata, not public pagination.
@@ -93,6 +101,9 @@ final class ListTemplates extends AbilityKernel {
 
 				$templates = [];
 				foreach ( (array) $ids as $id ) {
+					if ( ! TemplateGuard::can_view( (int) $id ) ) {
+						continue;
+					}
 					$templates[] = [
 						'template_id'   => (int) $id,
 						'title'         => (string) get_the_title( (int) $id ),

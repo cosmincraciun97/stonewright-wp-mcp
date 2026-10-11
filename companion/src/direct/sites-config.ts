@@ -28,6 +28,7 @@ import {
 	type LoadRegistryOptions,
 } from '../cli/connect/registry.js';
 import type { ConfiguredMode, SiteRecordV2, SitesRegistryV1, SitesRegistryV2 } from '../cli/connect/types.js';
+import { DirectSafetyBlockedError } from './writes.js';
 
 export interface SiteEntry {
 	url: string;
@@ -421,6 +422,69 @@ export function resolveSite(config: SitesConfig, alias?: string): ResolvedSite {
 		environment: entry.environment,
 		configuredMode: entry.configuredMode,
 	};
+}
+
+/**
+ * The alias this MCP session is bound to. `stonewright connect` writes
+ * STONEWRIGHT_SITE_ALIAS into the client entry, so one session means one site.
+ * Null means the session has no fixed site (multi-site use, or env credentials).
+ */
+export function sessionSiteAlias(env: NodeJS.ProcessEnv = process.env): string | null {
+	const alias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
+	return alias === '' ? null : alias;
+}
+
+/**
+ * Resolve the site a Direct call acts on.
+ *
+ * With a session alias, that site is the default and the only site a `site`
+ * argument may name. Any other alias is refused with `site_not_in_session`, so a
+ * session started for one site cannot write to another through the registry.
+ * Without a session alias nothing changes: the registry default, or the alias
+ * the caller names.
+ */
+export function resolveSessionSite(
+	config: SitesConfig,
+	env: NodeJS.ProcessEnv = process.env,
+	requestedAlias?: string,
+): ResolvedSite {
+	const session = sessionSiteAlias(env);
+	// Env credentials describe exactly one site, so there is nothing to bind.
+	if (session === null || config.source === 'env') {
+		return resolveSite(config, requestedAlias);
+	}
+
+	let bound: ResolvedSite;
+	try {
+		bound = resolveSite(config, session);
+	} catch (err) {
+		// STONEWRIGHT_SITE_ALIAS=default selects the registry default site.
+		if (session.toLowerCase() === 'default') {
+			bound = resolveSite(config, undefined);
+		} else {
+			throw err;
+		}
+	}
+
+	const wanted = (requestedAlias ?? '').trim();
+	if (wanted === '') {
+		return bound;
+	}
+	let requested: ResolvedSite | null = null;
+	try {
+		requested = resolveSite(config, wanted);
+	} catch {
+		requested = null;
+	}
+	if (requested === null || requested.alias !== bound.alias) {
+		throw new DirectSafetyBlockedError(
+			'site_not_in_session',
+			`Site "${wanted}" is not this session's site. This session is bound to "${bound.alias}"; use a Stonewright MCP entry configured for the other site. code=site_not_in_session`,
+			'stonewright-direct',
+			bound.alias,
+		);
+	}
+	return bound;
 }
 
 export type { LoadRegistryOptions, SiteRecordV2, SitesRegistryV2, ConfiguredMode };

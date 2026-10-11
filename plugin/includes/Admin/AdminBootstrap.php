@@ -224,6 +224,7 @@ final class AdminBootstrap {
 			'stonewright-design'        => 'pages/design.css',
 			'stonewright-context'       => 'pages/context.css',
 			'stonewright-rescue'        => 'pages/rescue.css',
+			'stonewright-changes'       => 'pages/changes.css',
 			'stonewright-oauth-consent' => 'pages/consent.css',
 		];
 

@@ -16,10 +16,21 @@ override default behavior.
 
 ## Hard rules
 
-1. **Full PHP runtime access is first-class.** Use
+1. **Full PHP runtime access is first-class on the `full` profile.** Use
    `stonewright/php-execute` for direct PHP snippets inside the loaded
-   WordPress runtime. Do not replace it with another MCP adapter, direct REST
-   runner calls, shell scripts, or private client-config workarounds.
+   WordPress runtime; it is on the `full` profile only and no other profile
+   lists it. An administrator chooses the `full` profile (the Full tool
+   surface) in wp-admin under Stonewright > Setup > Settings; an agent never
+   switches to it. `stonewright-tool-profile` refuses a request for `full` in
+   every mode (a site already on the Full surface has nothing to switch) with
+   `approval_required` and `agent_must_stop` and the settings link: show the
+   link to the user and stop. The person who runs the
+   companion may set `STONEWRIGHT_MCP_TOOL_PROFILE=full`; no tool changes it.
+   Nor does a REST call with an Application Password or an OAuth bearer
+   (`POST /stonewright/v1/settings` with `essential_tools_mode:false` needs a
+   cookie sign-in and a REST nonce) or an undo from the change ledger.
+   Do not replace it with another MCP adapter, direct REST runner calls, shell
+   scripts, or private client-config workarounds.
 2. **No `__return_true` for writes.** Every ability that writes, updates, or
    deletes state must use a real permission callback that calls into
    `Stonewright\WpMcp\Security\Permissions`. Read-only abilities may use simple
@@ -39,11 +50,60 @@ override default behavior.
 6. **Mode support.** The plugin must always honor the three modes
    `development`, `staging`, and `production-safe`. The admin UI exposes the
    toggle. Permissions and ability gates read the option.
-7. **Companion WP-CLI stays tokenized.** The Node companion handles WP-CLI,
-   health checks, and an optional MCP HTTP proxy. It must not call WordPress
-   REST write endpoints, must run WP-CLI with `execFile` argv tokens only, and
-   PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
-   eval, shell, package, `--exec`, or `--require` entry points.
+7. **Companion WP-CLI stays tokenized; REST writes are a Direct mode
+   exception.** The Node companion handles WP-CLI, health checks, and an
+   optional MCP HTTP proxy. It must run WP-CLI with `execFile` argv tokens only,
+   and PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
+   eval, shell, package, `--exec`, or `--require` entry points. In Plugin mode
+   the companion stays a thin proxy to the plugin's MCP endpoint and must not
+   call WordPress REST write endpoints. In Direct mode only, where no plugin is
+   installed, the companion writes through core WordPress REST (and through local
+   WP-CLI where the target check passes), and only through the typed Direct
+   tools, never through a generic REST writer (`stonewright-rest-request` is
+   GET only). Those tools carry these protections: a session bound to one site
+   (with `STONEWRIGHT_SITE_ALIAS` set, every Direct tool acts on that site and
+   refuses a `site` argument that names another); a refusal to write on a site
+   where the Stonewright plugin is active (the call is refused and points to
+   Plugin mode; reads still work; a recovery-only override needs
+   `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus `confirm: true` and is
+   audited); a recent
+   `stonewright-task-start` for the same site and canonical URL; the
+   `STONEWRIGHT_DIRECT_WRITES` mode (`confirm` is the default for non-local
+   hosts and asks for a confirmation on destructive tools, template and
+   template-part updates, block edits, and a blueprint applied over a page; a refused call
+   returns a `confirmation_id` bound to its tool, site and exact arguments,
+   valid for 10 minutes and one use, and the same call is repeated with it; a
+   plain `confirm: true` counts only on a local host or with
+   `STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on`); a refusal of
+   custom code (CSS, script, style, iframe, object, embed, link, meta
+   http-equiv, inline event handlers, `javascript:` URLs, HTML widgets) in
+   global styles, Elementor data, content (block edits and the markup of
+   `stonewright-gutenberg-compose` included), template, blueprint, and widget
+   writes, and in the text of ACF, media, menu, comment, taxonomy-term,
+   settings, and user writes; a refusal to deactivate or delete Stonewright or
+   the MCP adapter, to delete the signed-in account or the last administrator,
+   and to write settings outside an allowlist; the Application Password sent
+   only over https or to a local host, and no automatic retry of a write; a
+   pre-image saved under `~/.stonewright/backups` before template,
+   template-part, global-styles, content, block-edit, and blueprint-over-page writes, with
+   the write refused when it cannot be saved (Elementor data keeps its own file
+   backup); the Elementor checks for a whole-tree write (a tree `hash` from
+   `elementor-data-get` that `expected_hash` must match, unique ids, containers
+   or sections at the root, a size cap, no raw write onto an Atomic V4 or mixed
+   document, and `force_destructive`, `allow_widget_type_remap` and
+   `allow_atomic_raw` each needing a confirmation and being audited) and a check
+   that a local WP-CLI install is the target site; the same latch, `confirm`, target check, and audit row for
+   a local WP-CLI command that changes the site in a Direct session; limits on
+   `stonewright-media-upload` sources, types, size, and connection address; and
+   a redacted local audit log; every typed write read back and compared, with
+   the result reporting a mismatch as `ok:false`; the saved copies listed and
+   restored only after a confirmation (`stonewright-direct-backup-list` and
+   `-restore`); and, after a page, post, or template write, a public-page check
+   that rolls back only when the call asks for it. Direct mode has no change
+   sets or plugin confirmation tokens (its `confirmation_id` is local to the
+   companion); `docs/direct-mode-e2e.md` lists what it does not do yet. Direct
+   cannot activate a skill: a skill it saves is a disabled candidate, and
+   activation needs Plugin mode.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,
    WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
    typed dry-run first. Return `approval_url`, exact target path, byte counts,
@@ -51,7 +111,17 @@ override default behavior.
    or retrieve a grant, or apply with `custom_code_grant` unless the user
    explicitly asks the agent to perform that approval step. Pluginless Direct
    mode may inspect custom CSS but must not write it because it has no
-   authenticated wp-admin grant boundary.
+   authenticated wp-admin grant boundary. Other changes wait for a person in
+   wp-admin the same way, and the agent shows the `approval_url` the error
+   carries and stops: rolling back a WPCode or Code Snippets snippet (it needs
+   the same grant as an apply, `stonewright_custom_code_grant_required`); the
+   undo of a verified change to code, which only an administrator on the Rescue
+   or Changes page runs (`stonewright_rescue_approval_required`, a confirmation
+   token does not lift it); promoting a knowledge candidate to an active skill
+   or an expertise pack to `verified` or `stable` (an administrator approves it
+   on the Skills screen; `user_approved` and `maintainer_approved` are ignored);
+   and memory stored as `needs_review` (an administrator approves it on the
+   Memory page).
 9. **Updater contract is part of every user-consumed release.** Do not ship a
    version, tag, or GitHub release that operators should install unless all of
    the following are true in the published artifacts (not only in source):
@@ -100,6 +170,21 @@ override default behavior.
 - Every imported component needs Stonewright-specific security review, tests,
   namespace changes, and compatibility checks. Upstream behavior is evidence,
   not proof that the port is safe in Stonewright.
+
+## Admin UI consistency
+
+- Stonewright admin pages are built from the shared `sw-ui` components and the control-size tokens in
+  `plugin/assets/admin/sw-ui.css` (token table in `DESIGN.md`, "Control size"). Use the `Ui\Button` and `Ui\FormField`
+  helpers and the `sw-ui-toolbar` / `sw-ui-control-row` rows.
+- No per-page sizing of buttons or inputs: a page stylesheet places controls and never sets their height, padding or
+  line-height. `node scripts/check-admin-control-sizing.mjs` enforces it.
+- Rows of controls are centred and level: the controls of a row share one height, and a button beside a field with a
+  label above it lines up with the input.
+- Before a PR that touches admin UI, run the layout check against a test site:
+  `cd e2e && npx playwright test admin-layout.spec.ts` (`WP_BASE_URL`, `WP_USERNAME`, `WP_PASSWORD` as in
+  `e2e/README.md`). It reads the pages from the admin menu, so a new page is covered without editing the test.
+- Attach before and after screenshots to the PR when the visible UI changes, and keep the familiar UI: do not redesign,
+  remove visible elements (the band, the EXP markers, copy) or rename things as a side effect of a sizing fix.
 
 ## Required directory layout
 
@@ -276,11 +361,13 @@ Recommend against stable 1.0 while any required gate is missing:
   `stonewright-context-bootstrap` is visible in the MCP tool list, stop
   WordPress work and ask the user to reload the AI client or fix the
   Stonewright MCP config. Do not work around a missing Stonewright MCP server.
-- If status is connected and the site surface is full/essential but
-  `stonewright-php-execute` (or another needed tool) is missing from the client
-  list, call `stonewright-client-surface-check`, then `stonewright-task-start` /
-  `stonewright-tool-profile` activate and re-list tools, or restart the MCP
-  client. Do **not** invent `/abilities/run` or other REST workarounds.
+- If status is connected and the site surface is full/essential but a needed
+  tool (`stonewright-php-execute` only on the `full` profile) is missing from
+  the client list, call `stonewright-client-surface-check`, then `stonewright-task-start`
+  and re-list tools, or restart the MCP client. Do **not** invent
+  `/abilities/run` or other REST workarounds. `stonewright-tool-profile` does
+  not switch to `full`; if the site surface is not Full, tell the user an
+  administrator chooses it in wp-admin.
 - Do not inspect private AI-client config files, parse repository files as a
   substitute for the live MCP tool list, hand-roll JSON-RPC calls, create
   scratch scripts such as `query-mcp.js` or `run-ability.js`, helper JSON
@@ -325,15 +412,25 @@ Recommend against stable 1.0 while any required gate is missing:
   retry a same-owner options CAS miss and continue while this writer still
   owns a live lease; `stonewright_elementor_lock_lost` /
   `stonewright_elementor_css_lease_lost` mean ownership is gone, expired, or
-  foreign. Never call a site-wide Elementor files-manager clear for one post.
+  foreign. When the stylesheet version of the post moves, the regenerator also
+  purges that one post's cached page in the page-cache plugins that expose a
+  per-post purge, never a whole-site purge. Never call a site-wide Elementor
+  files-manager clear for one post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,
   cache, rewrite, plugin, option, post, media, menu, and taxonomy work when it
-  speeds up implementation or debugging.
-- Use `stonewright/php-execute` for direct WordPress runtime inspection,
-  plugin API calls, and short PHP snippets when that is faster than many typed
-  calls.
+  speeds up implementation or debugging. `stonewright/wp-cli-batch-run` runs
+  read-oriented commands only.
+- For Elementor's own native abilities use `stonewright-elementor-native-execute`
+  rather than Elementor's own MCP tools: it adds the snapshot, write lock,
+  readback, rollback, and audit that a direct call to Elementor does not have
+  (such a call is only observed). It plans first (dry run); a real write needs a
+  confirmation token in `production-safe` mode.
+- On the `full` profile only (an administrator's choice in wp-admin, never an
+  agent's), use `stonewright/php-execute` for direct WordPress runtime
+  inspection, plugin API calls, and short PHP snippets when that is faster than
+  many typed calls.
 
 ## Context discipline
 

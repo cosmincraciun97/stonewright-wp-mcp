@@ -21,6 +21,7 @@ use Stonewright\WpMcp\Elementor\V4\ArchitectureRouter;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
+use Stonewright\WpMcp\Elementor\Write\InnerLayout;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
@@ -69,7 +70,7 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
+		return __( 'Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. Use op_id refs to avoid follow-up reads for generated IDs. An add_inner_section operation adds an inner section to a column or a container (the replacement of stonewright-elementor-add-inner-section); a later operation can add into its column as parent_ref op_id.column. An insert_section operation copies a section returned by stonewright-section-reuse-extract into the page with fresh ids; address its elements in the same batch as @op_id.placeholder.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -105,6 +106,7 @@ final class BatchMutate extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
 				],
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
 				'operations'         => [
 					'type'     => 'array',
@@ -116,7 +118,7 @@ final class BatchMutate extends AbilityKernel {
 						'properties'           => [
 							'action'                 => [
 								'type' => 'string',
-								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
+								'enum' => [ 'add_container', 'add_inner_section', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element', 'insert_section' ],
 							],
 							'type'                   => [
 								'type'        => 'string',
@@ -222,6 +224,7 @@ final class BatchMutate extends AbilityKernel {
 				'before_hash'   => [ 'type' => 'string' ],
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; the hashes are those of the filtered tree.' ],
 				'idempotent_replay' => [ 'type' => 'boolean' ],
 				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'post_write'    => [ 'type' => 'object' ],
@@ -318,8 +321,9 @@ final class BatchMutate extends AbilityKernel {
 					}
 				}
 
-				$read_start = microtime( true );
-				$tree       = ElementorData::read( $post_id );
+				$read_start  = microtime( true );
+				$tree        = ElementorData::read( $post_id );
+				$stored_tree = $tree;
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
 				$targeted_ids = self::operation_target_ids( $operations );
@@ -456,8 +460,23 @@ final class BatchMutate extends AbilityKernel {
 				}
 				$touched_ids = array_values( array_unique( array_filter( $touched_ids ) ) );
 
+				if ( $dry_run ) {
+					// The checks the write runs against the stored document, so the dry run reports what the apply would. A plan that
+					// drops settings of a third party is shown with the hash that approves it, so that removal is not refused here;
+					// the apply refuses it without the approval.
+					$plans_unknown_removal = false;
+					foreach ( $items as $item ) {
+						$plans_unknown_removal = $plans_unknown_removal || is_array( $item['third_party_risk'] ?? null );
+					}
+					$preflight = ElementorData::preflight( $stored_tree, $tree, [ 'force_destructive' => true, 'touched_ids' => $touched_ids, 'allow_unknown_setting_removal' => $allow_unknown_setting_removal || $plans_unknown_removal ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
+				}
+
 				$snapshot_id = '';
 				$write_ms    = 0.0;
+				$content_filtered = [];
 				$after_hash  = TreeHasher::hash( $tree );
 				$had_effect  = ! hash_equals( $before_hash, $after_hash );
 				$readback_hash = $dry_run ? $after_hash : '';
@@ -533,6 +552,10 @@ final class BatchMutate extends AbilityKernel {
 							);
 						}
 						$write_ms      = self::elapsed_ms( $write_start );
+						// For a user without unfiltered_html Elementor stores the tree after its own filtering; compare with the tree that was stored.
+						$tree          = ElementorData::tree_as_written( $tree );
+						$after_hash    = TreeHasher::hash( $tree );
+						$content_filtered = ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [];
 						$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 						if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 							$restored = Backup::restore( $post_id, $snapshot_id );
@@ -562,7 +585,7 @@ final class BatchMutate extends AbilityKernel {
 				if ( $dry_run ) {
 					$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $after_hash )->verified( 'planned' );
 				}
-				$response      = [
+				$response      = $content_filtered + [
 					'ok'            => 0 === $failed,
 					'post_id'       => $post_id,
 					'dry_run'       => $dry_run,
@@ -786,6 +809,7 @@ final class BatchMutate extends AbilityKernel {
 	private static function normalize_action( string $action ): string {
 		return match ( $action ) {
 			'container' => 'add_container',
+			'inner-section', 'inner_section' => 'add_inner_section',
 			'widget'    => 'add_widget',
 			'update'    => 'update_element',
 			'move'      => 'move_element',
@@ -830,6 +854,7 @@ final class BatchMutate extends AbilityKernel {
 
 		return match ( $action ) {
 			'add_container'  => $this->add_container( $tree, $operation, $refs, $require_evidence ),
+			'add_inner_section' => $this->add_inner_section( $tree, $operation, $refs ),
 			'add_widget'     => $this->add_widget( $tree, $operation, $refs, $require_evidence ),
 			'update_element' => $this->update_element( $tree, $operation, $refs, $require_evidence, $dry_run ),
 			'patch_repeater_row' => $this->patch_repeater_row( $tree, $operation, $refs, $require_evidence ),
@@ -851,7 +876,7 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
-		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		$parent_error = $this->parent_container_error( $tree, $parent_path, 'container' );
 		if ( null !== $parent_error ) {
 			return $parent_error;
 		}
@@ -888,6 +913,56 @@ final class BatchMutate extends AbilityKernel {
 			[ 'evidence' => $evidence, 'allowed_breakpoints' => $scope ],
 			[] !== $validated['warnings'] ? [ 'normalization_warnings' => $validated['warnings'] ] : []
 		);
+	}
+
+	/**
+	 * Adds an inner section to a column (an inner section with one column) or to a container (a nested container).
+	 * This is the replacement of the deprecated stonewright/elementor-add-inner-section.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>            $operation
+	 * @param array<string, string>           $refs
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function add_inner_section( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
+		if ( $parent_path instanceof \WP_Error ) {
+			return $parent_path;
+		}
+		if ( [] === $parent_path ) {
+			return $this->error( 'inner_section_needs_parent', __( 'An inner section goes inside a column or a container; send parent_id or parent_ref.', 'stonewright' ), [ 'status' => 400 ] );
+		}
+		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		if ( null !== $parent_error ) {
+			return $parent_error;
+		}
+		$element = InnerLayout::element( $tree, $parent_path );
+		if ( null === $element ) {
+			$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];
+			return $this->error(
+				'parent_not_container',
+				__( 'An inner section goes inside a column or a container.', 'stonewright' ),
+				[
+					'status'         => 400,
+					'parent_id'      => (string) ( $parent['id'] ?? '' ),
+					'parent_el_type' => (string) ( $parent['elType'] ?? '' ),
+				]
+			);
+		}
+
+		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
+		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
+		$item     = $this->created_item( $operation, $refs, $element['id'], 'inner_section' );
+		$column   = $element['elements'][0]['id'] ?? null;
+		if ( is_string( $column ) ) {
+			$item['column_id'] = $column;
+			if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
+				// The column of an inner section is where its widgets go: "parent_ref": "<op_id>.column".
+				$refs[ $operation['op_id'] . '.column' ] = $column;
+			}
+		}
+
+		return $item;
 	}
 
 	/**
@@ -1250,9 +1325,14 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
-		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		$parent_error = $this->parent_container_error( $tree, $parent_path, (string) ( $element['elType'] ?? '' ), $element_id );
 		if ( null !== $parent_error ) {
 			return $parent_error;
+		}
+
+		// A container or section inside another element is an inner one; at the root it is not.
+		if ( in_array( (string) ( $element['elType'] ?? '' ), [ 'container', 'section' ], true ) ) {
+			$element['isInner'] = [] !== $parent_path;
 		}
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
@@ -1477,14 +1557,18 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	/**
-	 * The error for a parent that cannot hold child elements, or null when the parent is the document root, a
-	 * container, a section or a column.
+	 * The error for a parent that cannot hold child elements, or null when the parent is a container, a section or
+	 * a column, or the document root for an element that may sit there. A widget never may.
 	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<int, int>                  $parent_path
+	 * @param string                           $child_el_type elType of the element placed under the parent.
 	 */
-	private function parent_container_error( array $tree, array $parent_path ): ?\WP_Error {
-		if ( [] === $parent_path || ElementorData::accepts_children( $tree, $parent_path ) ) {
+	private function parent_container_error( array $tree, array $parent_path, string $child_el_type = '', string $child_id = '' ): ?\WP_Error {
+		if ( [] === $parent_path ) {
+			return 'widget' === $child_el_type ? ElementorData::widget_at_root_error( $child_id ) : null;
+		}
+		if ( ElementorData::accepts_children( $tree, $parent_path ) ) {
 			return null;
 		}
 		$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];
@@ -1889,7 +1973,7 @@ final class BatchMutate extends AbilityKernel {
 	private static function repair_hint( string $code, string $action ): string {
 		return match ( $code ) {
 			'stonewright_parent_not_found', 'stonewright_unknown_ref' => 'Read the current page structure. For an empty page, add the root container with no parent; reference later nodes by @op_id.',
-			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_widget, update_element, patch_repeater_row, move_element, or remove_element.',
+			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_inner_section, add_widget, update_element, patch_repeater_row, move_element, or remove_element.',
 			'stonewright_ambiguous_repeater_row' => 'Refresh the widget and select exactly one stable custom_id, falling back to _id only when custom_id is unavailable.',
 			'stonewright_third_party_replace_blocked' => 'Use patch_repeater_row. If a full replace is unavoidable, review one explicit high-risk dry-run and bind the apply to its preservation hash.',
 			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',

@@ -98,7 +98,8 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('Do not point IDE MCP configs at companion/dist/index.js');
 		expect(profile.notes.join('\n')).toContain('For source development, use npm --prefix <repo>/companion run mcp:source');
 		expect(profile.notes.join('\n')).toContain('Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote');
-		expect(profile.notes.join('\n')).toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
+		expect(profile.notes.join('\n')).toContain('stonewright-php-execute is on the full profile only');
+		expect(profile.notes.join('\n')).not.toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
 		expect(profile.notes.join('\n')).toContain('Do not inspect private AI-client config files');
 		expect(profile.notes.join('\n')).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js');
@@ -116,8 +117,9 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_do_not_use).toContain('Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.');
 		expect(profile.agent_do_not_use).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.');
 		expect(profile.agent_do_not_use).toContain('Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.');
+		// php-execute is on the full profile only, and this profile is not full.
+		expect(profile.agent_use_instead).not.toContain('stonewright-php-execute');
 		expect(profile.agent_use_instead).toEqual(expect.arrayContaining([
-			'stonewright-php-execute',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
@@ -171,6 +173,26 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
+	it('offers php-execute in the setup profile of the full profile only', () => {
+		const forProfile = (name: string) => buildSetupProfile(
+			{ STONEWRIGHT_WP_URL: 'http://mcp-test.local', STONEWRIGHT_MCP_TOOL_PROFILE: name },
+			'win32',
+		);
+
+		const full = forProfile('full');
+		expect(full.agent_use_instead).toContain('stonewright-php-execute');
+		expect(full.notes.join('\n')).toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
+		expect(full.tool_inventory.refresh_required_tool_names).toContain('stonewright-php-execute');
+
+		for (const name of ['essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'bootstrap', 'low-tools']) {
+			const profile = forProfile(name);
+			expect(profile.agent_use_instead, name).not.toContain('stonewright-php-execute');
+			expect(profile.notes.join('\n'), name).not.toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
+			expect(profile.tool_inventory.refresh_required_tool_names, name).not.toContain('stonewright-php-execute');
+			expect(profile.tool_inventory.token_notes.join('\n'), name).not.toContain('Use stonewright-php-execute');
+		}
+	});
+
 	it('preserves a low-tools companion profile for strict client caps', () => {
 		const profile = buildSetupProfile(
 			{
@@ -182,7 +204,11 @@ describe('buildSetupProfile', () => {
 
 		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('low-tools');
 		expect(profile.notes.join('\n')).toContain('Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients');
-		expect(profile.notes.join('\n')).toContain('php-execute plus companion WP-CLI batch and background-job tools stay visible');
+		expect(profile.notes.join('\n')).toContain('task-start plus companion WP-CLI batch and background-job tools stay visible, and php-execute stays on the full profile only');
+		expect(profile.notes.join('\n')).not.toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
+		expect(profile.agent_use_instead).not.toContain('stonewright-php-execute');
+		expect(profile.tool_inventory.refresh_required_tool_names).not.toContain('stonewright-php-execute');
+		expect(profile.tool_inventory.token_notes.join('\n')).not.toContain('Use stonewright-php-execute');
 		expect(profile.tool_visibility_checks).not.toContain('stonewright-wp-cli-install');
 		expect(profile.agent_use_instead).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_visibility_checks).toContain('stonewright-wp-cli-batch-run');

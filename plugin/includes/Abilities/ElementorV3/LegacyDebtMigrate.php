@@ -5,7 +5,6 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\LegacyDebtMigrator;
-use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
 use Stonewright\WpMcp\Support\Json;
@@ -86,6 +85,26 @@ final class LegacyDebtMigrate extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		// A dry run only plans, so it is a read. An apply writes: it is an audited write that needs a token in production-safe mode.
+		$callback = fn ( array $args ) => $this->run( $args );
+		return 'apply' === sanitize_key( (string) ( $args['action'] ?? 'dry_run' ) )
+			? $this->audit_write( $args, $callback )
+			: $this->audit_read( $args, $callback );
+	}
+
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		// A call refused for its input never spends a token.
+		if ( ! get_post( (int) ( $args['post_id'] ?? 0 ) ) ) {
+			return new \WP_Error( 'stonewright_not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
+		}
+		return null;
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function run( array $args ): array|\WP_Error {
 		$post_id    = (int) ( $args['post_id'] ?? 0 );
 		$element_id = sanitize_key( (string) ( $args['element_id'] ?? '' ) );
 		$paths      = array_values( array_filter( array_map( static fn ( mixed $path ): string => is_scalar( $path ) ? mb_substr( trim( (string) $path ), 0, 255 ) : '', (array) ( $args['paths'] ?? [] ) ) ) );
@@ -142,18 +161,7 @@ final class LegacyDebtMigrate extends AbilityKernel {
 		if ( strlen( $idempotency_key ) < 8 ) {
 			return new \WP_Error( 'stonewright_idempotency_key_required', __( 'Apply requires an idempotency key of at least eight characters.', 'stonewright' ), [ 'status' => 400 ] );
 		}
-		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
-			$verify_args = array_filter( $args, static fn ( string $key ): bool => 'confirmation_token' !== $key, ARRAY_FILTER_USE_KEY );
-			$token = (string) ( $args['confirmation_token'] ?? '' );
-			if ( '' === $token ) {
-				return new \WP_Error( 'stonewright_confirmation_required', __( 'Production-safe mode requires a confirmation_token.', 'stonewright' ), [ 'status' => 403 ] );
-			}
-			$verified = ConfirmationToken::verify_or_error( $token, $this->name(), $verify_args );
-			if ( $verified instanceof \WP_Error ) {
-				return $verified;
-			}
-		}
-
+		// The token of this apply was verified by audit_write() before this ran, and covers the batch it delegates to.
 		$batch = ( new BatchMutate() )->execute_with_verified_token(
 			[
 				'post_id'           => $post_id,

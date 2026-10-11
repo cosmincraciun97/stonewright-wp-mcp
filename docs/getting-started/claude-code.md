@@ -62,8 +62,11 @@ connection smoke test.
 `stonewright-task-start` is the canonical first call. Expect mode Direct, local
 skills/memory hints, and write-mode guidance. Then call
 `stonewright-site-discover` before choosing REST operations. Destructive tools
-require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`. Direct mode
-does not write custom PHP/CSS/JS/HTML.
+need a confirmation when `STONEWRIGHT_DIRECT_WRITES=confirm`: a refused call returns
+a `confirmation_id` to repeat the same call with (a plain `confirm:true` counts on a
+local site only). Direct mode refuses custom PHP/CSS/JS/HTML. It saves a copy before
+whole-document writes (`stonewright-direct-backup-restore` puts one back), reads each
+typed write back and reports a difference as `ok:false`.
 
 Copy-paste wording for other clients: [install-prompts.md](../install-prompts.md)
 Option B.
@@ -91,8 +94,8 @@ scratch helper scripts, creating helper JSON argument files, launching the
 companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, or calling the REST runner from shell; they should use Stonewright's
-`stonewright-php-execute` for runtime snippets and `stonewright-wp-cli-*` tools
-so commands stay tokenized.
+`stonewright-php-execute` for runtime snippets (`full` profile only) and
+`stonewright-wp-cli-*` tools so commands stay tokenized.
 
 ## 2. Create an Application Password
 

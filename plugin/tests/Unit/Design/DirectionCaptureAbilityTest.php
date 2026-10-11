@@ -219,6 +219,47 @@ final class DirectionCaptureAbilityTest extends TestCase {
 		self::assertSame( 'captured-stone', $result['slug'] );
 	}
 
+	public function test_a_save_refuses_a_slug_that_holds_a_direction_that_is_not_a_draft(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_pages' => true ];
+		$capture = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true ] );
+		self::assertIsArray( $capture );
+		$payload = json_decode( (string) wp_json_encode( $capture['contract'] ), true );
+		$saved   = ( new DirectionSave( $this->service ) )->execute( [ 'contract' => $payload, 'slug' => (string) $capture['slug'], 'status' => 'ready' ] );
+		self::assertIsArray( $saved );
+		self::assertIsArray( ( new DirectionActivate( $this->service ) )->execute( [ 'id' => (int) $saved['id'] ] ) );
+
+		$again = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $again );
+		self::assertSame( 'stonewright_direction_exists', $again->get_error_code() );
+		self::assertSame( 'ready', $this->repository->get( (int) $saved['id'] )['status'], 'The ready direction is untouched.' );
+		self::assertSame( (int) $saved['id'], (int) get_option( self::ACTIVE_OPTION, 0 ), 'It is still the active direction.' );
+	}
+
+	public function test_overwrite_true_replaces_a_direction_that_is_not_a_draft(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_pages' => true ];
+		$capture = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true ] );
+		self::assertIsArray( $capture );
+		$payload = json_decode( (string) wp_json_encode( $capture['contract'] ), true );
+		$saved   = ( new DirectionSave( $this->service ) )->execute( [ 'contract' => $payload, 'slug' => (string) $capture['slug'], 'status' => 'ready' ] );
+		self::assertIsArray( $saved );
+
+		$again = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true, 'overwrite' => true ] );
+
+		self::assertIsArray( $again, $again instanceof \WP_Error ? $again->get_error_code() : '' );
+		self::assertSame( 'draft', $again['status'] );
+		self::assertSame( (int) $saved['id'], $again['id'] );
+	}
+
+	public function test_a_save_over_a_draft_needs_no_overwrite_flag(): void {
+		$first  = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true ] );
+		$second = ( new DirectionCapture( $this->service ) )->execute( [ 'evidence' => $this->evidence(), 'save' => true ] );
+
+		self::assertIsArray( $first );
+		self::assertIsArray( $second, $second instanceof \WP_Error ? $second->get_error_code() : '' );
+		self::assertSame( $first['id'], $second['id'] );
+	}
+
 	public function test_saving_records_an_audit_event(): void {
 		( new DirectionCapture( $this->service ) )->execute(
 			[

@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Expertise\ExpertiseStore;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\Expertise\PackValidator;
+use Stonewright\WpMcp\Security\PromotionGrant;
 
 /** @coversDefaultClass \Stonewright\WpMcp\Expertise\ExpertiseResolver */
 final class ExpertiseEngineTest extends TestCase {
@@ -33,9 +34,14 @@ final class ExpertiseEngineTest extends TestCase {
 			public function insert( string $table, array $row ): int { ++$this->insert_id; return 1; }
 		};
 		ExpertiseStore::reset_cache();
+		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_current_user_id'] = 7;
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
 	}
 
 	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options'] = [];
+		unset( $GLOBALS['stonewright_test_user_caps'] );
 		if ( null !== $this->original_wpdb ) { $GLOBALS['wpdb'] = $this->original_wpdb; } else { unset( $GLOBALS['wpdb'] ); }
 	}
 
@@ -143,7 +149,7 @@ final class ExpertiseEngineTest extends TestCase {
 	}
 
 	public function test_candidate_cannot_self_promote_without_persisted_runtime_evidence(): void {
-		$blocked = ExpertisePromotion::promote( 'wordpress-core', 'verified', false, '' );
+		$blocked = ExpertisePromotion::promote( 'wordpress-core', 'verified' );
 		self::assertInstanceOf( \WP_Error::class, $blocked );
 		self::assertSame( 'stonewright_expertise_verification_gate', $blocked->get_error_code() );
 
@@ -177,11 +183,32 @@ final class ExpertiseEngineTest extends TestCase {
 			public function insert( string $table, array $row ): int { ++$this->insert_id; $this->rows[] = $row; return 1; }
 		};
 
-		$result = ExpertisePromotion::promote( 'wordpress-core', 'verified', false, '' );
+		// The evidence is in place, but no administrator has approved the promotion.
+		$blocked = ExpertisePromotion::promote( 'wordpress-core', 'verified' );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_promotion_approval_required', $blocked->get_error_code() );
+		self::assertCount( 1, PromotionGrant::pending() );
+		self::assertSame( [], array_filter( $GLOBALS['wpdb']->rows, static fn( array $row ): bool => isset( $row['pack_json'] ) ) );
+
+		$request = PromotionGrant::pending()[0];
+		self::assertIsArray( PromotionGrant::approve( (string) $request['request_id'] ) );
+
+		$result = ExpertisePromotion::promote( 'wordpress-core', 'verified' );
 		self::assertIsArray( $result );
 		self::assertSame( 'verified', $result['to'] );
-		$saved_pack = json_decode( (string) $GLOBALS['wpdb']->rows[1]['pack_json'], true, 512, JSON_THROW_ON_ERROR );
+
+		// The grant was spent by that promotion; it cannot be used again.
+		self::assertSame( 'stonewright_promotion_grant_used', PromotionGrant::consume( PromotionGrant::KIND_EXPERTISE, 'wordpress-core', $pack['hash'], 'verified' )->get_error_code() );
+		$saved_pack = json_decode( (string) end( $GLOBALS['wpdb']->rows )['pack_json'], true, 512, JSON_THROW_ON_ERROR );
 		self::assertSame( [ $fingerprint ], $saved_pack['verified_runtime_fingerprints'] );
+	}
+
+	public function test_the_advisory_candidate_step_needs_no_administrator_approval(): void {
+		$result = ExpertisePromotion::promote( 'forms-integrations', 'candidate' );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'candidate', $result['to'] );
+		self::assertSame( [], PromotionGrant::pending() );
 	}
 
 	/** @return array<string, mixed> */

@@ -25,7 +25,7 @@ final class DeletePattern extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Trashes a user-defined synced pattern (wp_block CPT). Snapshots first. Requires confirmation in production-safe mode.', 'stonewright' );
+		return __( 'Trashes a user-defined synced pattern (wp_block CPT), or deletes it permanently when force is true. The result says which one happened: trashed, deleted, or both false when WordPress kept it. Snapshots first. Requires confirmation in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -38,7 +38,11 @@ final class DeletePattern extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'id'                 => [ 'type' => 'integer', 'minimum' => 1 ],
-				'force'              => [ 'type' => 'boolean', 'default' => false ],
+				'force'              => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'When true the pattern is deleted permanently instead of moved to the trash.',
+				],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
 			'required'             => [ 'id' ],
@@ -52,8 +56,9 @@ final class DeletePattern extends AbilityKernel {
 				'id'          => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
 				'trashed'     => [ 'type' => 'boolean' ],
+				'deleted'     => [ 'type' => 'boolean' ],
 			],
-			'required'   => [ 'id', 'snapshot_id', 'trashed' ],
+			'required'   => [ 'id', 'snapshot_id', 'trashed', 'deleted' ],
 		];
 	}
 
@@ -78,15 +83,24 @@ final class DeletePattern extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( (int) $post->ID );
-				$deleted     = wp_delete_post( (int) $post->ID, (bool) ( $args['force'] ?? false ) );
-				if ( ! $deleted ) {
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+				$removed = wp_delete_post( (int) $post->ID, (bool) ( $args['force'] ?? false ) );
+				if ( ! $removed ) {
 					return $this->error( 'delete_failed', __( 'Pattern could not be deleted.', 'stonewright' ) );
 				}
+
+				// Read the outcome back: without force the pattern is trashed, with force (or on a
+				// site without a trash) it is gone.
+				$after   = get_post( (int) $post->ID );
+				$trashed = $after && 'trash' === (string) $after->post_status;
 
 				return [
 					'id'          => (int) $post->ID,
 					'snapshot_id' => $snapshot_id,
-					'trashed'     => true,
+					'trashed'     => (bool) $trashed,
+					'deleted'     => ! $after,
 				];
 			}
 		);

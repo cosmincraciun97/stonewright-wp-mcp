@@ -71,8 +71,11 @@ old indexed backups before moving them.
 - Stonewright WordPress MCP plugin installed and active on the target site.
 - MCP client configured to reach the plugin.
 - For Elementor skills: Elementor >= 3.x active.
-- For V4 atomic skill: Elementor >= 4.0.0 and `stonewright_elementor_v4_atomic`
-  enabled.
+- For V4 atomic skill: an Elementor build with the Atomic Widgets module
+  (4.0.0, or a 3.31+ build that ships it) and `stonewright_elementor_v4_atomic`
+  enabled. Certified native Elementor abilities run through
+  `stonewright/elementor-native-execute` when native Elementor is available;
+  that tool does not depend on the option.
 - For FSE skills: a block theme active.
 - For content-model skills: the target plugin active and discoverable through
   `stonewright/site-plugins-list`, official REST routes, or WP-CLI command
@@ -93,7 +96,8 @@ instead of reading repository files as a replacement. For WP-CLI work, use
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`; do not recover by running `wp ...` in a normal
 shell or by switching to another PHP adapter. Use `stonewright/php-execute`
-for direct runtime snippets and `stonewright-wp-cli-*` for tokenized WP-CLI.
+(`full` profile only) for direct runtime snippets and `stonewright-wp-cli-*` for
+tokenized WP-CLI.
 
 ## Companion layer
 

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Core\AbilityInputValidator;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
@@ -129,10 +130,23 @@ final class ExecuteAbility extends AbilityKernel {
 			);
 		}
 
+		if ( ! AbilityRegistry::session_may_execute( $ability ) ) {
+			return $this->error(
+				'ability_not_on_surface',
+				__( 'This ability is not available on the current tool surface. Abilities that run or write code are reachable only on the profile that lists them.', 'stonewright' ),
+				[ 'status' => 403, 'ability' => $name ]
+			);
+		}
+
 		$input = $args['arguments'] ?? [];
 		$input = is_array( $input ) ? Utf8::deep_sanitize( $input ) : [];
 		if ( ! is_array( $input ) ) {
 			$input = [];
+		}
+
+		$valid = AbilityInputValidator::validate( $ability, $input );
+		if ( $valid instanceof \WP_Error ) {
+			return $this->error( 'ability_invalid_input', $valid->get_error_message(), [ 'status' => 400, 'ability' => $name ] );
 		}
 
 		$permission = $ability->permission_callback( $input );

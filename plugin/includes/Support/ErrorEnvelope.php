@@ -42,6 +42,9 @@ final class ErrorEnvelope {
 		'gated_mcp_tool',
 		'approval_flow',
 		'reason',
+		'approval_required',
+		'agent_must_stop',
+		'approval_url',
 	];
 
 	/**
@@ -66,15 +69,20 @@ final class ErrorEnvelope {
 	];
 
 	/**
-	 * Errors of a write that Rescue undid. MCP clients receive only the message, so the code and a
-	 * few plain fields are copied into it. Nothing else of the error data is.
+	 * Errors of Rescue: a write it undid, an undo that failed, and an undo of code that waits for an administrator.
+	 * MCP clients receive only the message, so the code and a few plain fields are copied into it. Nothing else of
+	 * the error data is.
 	 *
 	 * @var list<string>
 	 */
 	private const RESCUE_ERROR_CODES = [
 		'stonewright_rescue_write_rolled_back',
 		'stonewright_rescue_rollback_failed',
+		'stonewright_rescue_approval_required',
 	];
+
+	/** Longest approval URL copied into a message. */
+	private const APPROVAL_URL_MAX = 400;
 
 	/**
 	 * Data fields copied into the message of a Rescue error: short identifiers and status words.
@@ -138,6 +146,10 @@ final class ErrorEnvelope {
 
 		if ( in_array( (string) $error->get_error_code(), self::RESCUE_ERROR_CODES, true ) ) {
 			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::rescue_fields( $data ) );
+		} elseif ( [] !== self::approval_fields( $data ) ) {
+			// A refusal that waits for a person (a promotion, a custom-code grant, a snippet rollback, the full
+			// profile) names its code and the page where the person decides, so the client can show it and stop.
+			$payload = array_merge( [ 'code' => (string) $error->get_error_code() ], $payload, self::approval_fields( $data ) );
 		}
 
 		if ( empty( $payload['schema_requests'] ) && isset( $data['items'] ) && is_array( $data['items'] ) ) {
@@ -229,6 +241,19 @@ final class ErrorEnvelope {
 				continue;
 			}
 
+			if ( in_array( $key, [ 'approval_required', 'agent_must_stop' ], true ) ) {
+				$out[ $key ] = true === $value;
+				continue;
+			}
+
+			if ( 'approval_url' === $key ) {
+				$url = self::approval_url( $data );
+				if ( '' !== $url ) {
+					$out[ $key ] = $url;
+				}
+				continue;
+			}
+
 			$out[ $key ] = $value;
 		}
 		$retry_after = self::retry_after( $data );
@@ -255,7 +280,48 @@ final class ErrorEnvelope {
 				$fields[ $key ] = mb_substr( sanitize_text_field( $data[ $key ] ), 0, 96 );
 			}
 		}
+		$url = self::approval_url( $data );
+		if ( '' !== $url ) {
+			$fields['approval_url'] = $url;
+		}
 		return $fields;
+	}
+
+	/**
+	 * The fields of an error that waits for a person to decide: the flags that say so and the address of the page.
+	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, bool|string>
+	 */
+	private static function approval_fields( array $data ): array {
+		$required = true === ( $data['approval_required'] ?? null );
+		$stop     = true === ( $data['agent_must_stop'] ?? null );
+		if ( ! $required && ! $stop ) {
+			return [];
+		}
+		$fields = [
+			'approval_required' => $required,
+			'agent_must_stop'   => $stop,
+		];
+		$url    = self::approval_url( $data );
+		if ( '' !== $url ) {
+			$fields['approval_url'] = $url;
+		}
+		return $fields;
+	}
+
+	/**
+	 * The address of the page where an administrator approves an undo: an http or https URL, kept whole or left out.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function approval_url( array $data ): string {
+		$url = $data['approval_url'] ?? null;
+		if ( ! is_string( $url ) || '' === $url || strlen( $url ) > self::APPROVAL_URL_MAX || 1 !== preg_match( '#^https?://[^\s\x00-\x1F\x7F]+$#i', $url ) ) {
+			return '';
+		}
+		$clean = esc_url_raw( $url, [ 'http', 'https' ] );
+		return $clean === $url ? $url : '';
 	}
 
 	/**

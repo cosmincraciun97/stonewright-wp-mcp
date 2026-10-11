@@ -124,7 +124,7 @@ test.describe('Connect wizard interactions', () => {
 			'If the connection fails, open Stonewright → Troubleshoot in wp-admin and run diagnostics.',
 		);
 		expect(fullPrompt).toContain(
-			'`--profile discover-execute` exposes a minimal 3-tool protocol surface.',
+			'`--profile discover-execute` exposes the three protocol tools plus the startup and confirmation-token tools.',
 		);
 		expect(fullPrompt).toContain(
 			'Static or third-party block writes finalize through the Block Editor Queue page; keep it open when asked.',

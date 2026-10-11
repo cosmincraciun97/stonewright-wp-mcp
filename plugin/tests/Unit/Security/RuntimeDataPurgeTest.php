@@ -43,19 +43,26 @@ final class RuntimeDataPurgeTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'dry_run', $result['action'] );
 		self::assertFalse( $result['preview']['contains_raw_rows'] );
-		self::assertSame( 3, $result['preview']['counts']['audit_events'] );
 		self::assertSame( 4, $result['preview']['counts']['memory_entries'] );
 		self::assertSame( 3, $result['preview']['counts']['incidents'] );
-		self::assertSame( 2, $result['preview']['counts']['oauth_audit_transients'] );
-		self::assertSame( 13, $result['preview']['scope_watermarks']['audit']['table_max_id'] );
+		self::assertSame( 0, $result['preview']['counts']['audit_events'], 'the default scopes leave the audit log out' );
 		self::assertSame( [], $GLOBALS['wpdb']->deletes );
+	}
+
+	public function test_the_purger_still_previews_the_audit_scope_count_only(): void {
+		$preview = RuntimeDataPurger::preview( [ 'audit' ] );
+
+		self::assertIsArray( $preview );
+		self::assertSame( 3, $preview['counts']['audit_events'] );
+		self::assertSame( 2, $preview['counts']['oauth_audit_transients'] );
+		self::assertSame( 13, $preview['scope_watermarks']['audit']['table_max_id'] );
 	}
 
 	public function test_apply_requires_the_reviewed_state_and_plan(): void {
 		$result = ( new RuntimeDataPurge() )->execute(
 			[
 				'action'              => 'apply',
-				'scopes'              => RuntimeDataPurger::SCOPES,
+				'scopes'              => RuntimeDataPurge::agent_scopes(),
 				'expected_state_hash' => str_repeat( 'a', 64 ),
 				'approved_plan_hash'  => str_repeat( 'b', 64 ),
 				'acknowledgement'     => 'erase_runtime_history',
@@ -71,7 +78,7 @@ final class RuntimeDataPurgeTest extends TestCase {
 		$dry = ( new RuntimeDataPurge() )->execute( [] );
 		$args = [
 			'action'              => 'apply',
-			'scopes'              => RuntimeDataPurger::SCOPES,
+			'scopes'              => RuntimeDataPurge::agent_scopes(),
 			'expected_state_hash' => $dry['preview']['state_hash'],
 			'approved_plan_hash'  => $dry['preview']['plan_hash'],
 			'acknowledgement'     => 'erase_runtime_history',
@@ -80,7 +87,7 @@ final class RuntimeDataPurgeTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertTrue( $result['effect_verified'] );
-		self::assertSame( 1, $result['after']['counts']['audit_events'] );
+		self::assertSame( 0, $result['after']['counts']['audit_events'], 'the audit log is not part of the purge' );
 		self::assertSame( 0, $result['after']['counts']['memory_entries'] );
 		self::assertSame( 0, $result['after']['counts']['incidents'] );
 		self::assertSame( 0, $result['after']['counts']['error_patterns'] );
@@ -94,7 +101,7 @@ final class RuntimeDataPurgeTest extends TestCase {
 		$dry = ( new RuntimeDataPurge() )->execute( [] );
 		$args = [
 			'action'              => 'apply',
-			'scopes'              => RuntimeDataPurger::SCOPES,
+			'scopes'              => RuntimeDataPurge::agent_scopes(),
 			'expected_state_hash' => $dry['preview']['state_hash'],
 			'approved_plan_hash'  => $dry['preview']['plan_hash'],
 			'acknowledgement'     => 'erase_runtime_history',
@@ -104,12 +111,87 @@ final class RuntimeDataPurgeTest extends TestCase {
 		self::assertSame( 'stonewright_confirmation_required', $missing->get_error_code() );
 
 		$token_args = $args;
-		$token_args['scopes'] = RuntimeDataPurger::normalize_scopes( RuntimeDataPurger::SCOPES );
+		$token_args['scopes'] = RuntimeDataPurger::normalize_scopes( RuntimeDataPurge::agent_scopes() );
 		$result = ( new RuntimeDataPurge() )->execute(
 			$args + [ 'confirmation_token' => ConfirmationToken::issue( 'stonewright/security-runtime-data-purge', $token_args ) ]
 		);
 		self::assertIsArray( $result );
 		self::assertTrue( $result['effect_verified'] );
+	}
+
+	public function test_the_audit_scope_is_not_offered_to_agents(): void {
+		$ability = new RuntimeDataPurge();
+		$schema  = $ability->input_schema();
+
+		self::assertNotContains( 'audit', $schema['properties']['scopes']['items']['enum'] );
+		self::assertNotContains( 'audit', $schema['properties']['scopes']['default'] );
+		self::assertContains( 'audit', RuntimeDataPurger::SCOPES, 'the purger itself still knows the scope' );
+	}
+
+	/**
+	 * @return array<string, array{0: string}>
+	 */
+	public static function actions(): array {
+		return [ 'dry run' => [ 'dry_run' ], 'apply' => [ 'apply' ] ];
+	}
+
+	/**
+	 * @dataProvider actions
+	 */
+	public function test_a_call_that_names_the_audit_scope_is_refused_and_deletes_nothing( string $action ): void {
+		$dry  = ( new RuntimeDataPurge() )->execute( [] );
+		$args = [
+			'action'              => $action,
+			'scopes'              => [ 'audit', 'memory' ],
+			'expected_state_hash' => (string) ( $dry['preview']['state_hash'] ?? str_repeat( 'a', 64 ) ),
+			'approved_plan_hash'  => (string) ( $dry['preview']['plan_hash'] ?? str_repeat( 'b', 64 ) ),
+			'acknowledgement'     => 'erase_runtime_history',
+		];
+
+		$result = ( new RuntimeDataPurge() )->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_runtime_data_purge_audit_requires_administrator', $result->get_error_code() );
+		self::assertSame( 403, $result->get_error_data()['status'] );
+		self::assertSame( [], $GLOBALS['wpdb']->deletes );
+	}
+
+	public function test_the_audit_refusal_cannot_be_turned_into_approval_by_the_confirmation_token_or_acknowledgement(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args  = [
+			'action'              => 'apply',
+			'scopes'              => [ 'audit' ],
+			'expected_state_hash' => str_repeat( 'a', 64 ),
+			'approved_plan_hash'  => str_repeat( 'b', 64 ),
+			'acknowledgement'     => 'erase_runtime_history',
+		];
+		$token = ConfirmationToken::issue( 'stonewright/security-runtime-data-purge', $args );
+
+		$result = ( new RuntimeDataPurge() )->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_runtime_data_purge_audit_requires_administrator', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['wpdb']->deletes );
+	}
+
+	public function test_omitting_the_scopes_never_selects_the_audit_log(): void {
+		$dry = ( new RuntimeDataPurge() )->execute( [] );
+		self::assertIsArray( $dry );
+		self::assertNotContains( 'audit', $dry['preview']['scopes'] );
+
+		$result = ( new RuntimeDataPurge() )->execute(
+			[
+				'action'              => 'apply',
+				'expected_state_hash' => $dry['preview']['state_hash'],
+				'approved_plan_hash'  => $dry['preview']['plan_hash'],
+				'acknowledgement'     => 'erase_runtime_history',
+			]
+		);
+
+		self::assertIsArray( $result );
+		foreach ( $GLOBALS['wpdb']->delete_queries as $query ) {
+			self::assertStringNotContainsString( 'stonewright_audit_log', $query );
+		}
 	}
 
 	public function test_permission_requires_manage_options(): void {

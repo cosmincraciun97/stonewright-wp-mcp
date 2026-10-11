@@ -16,6 +16,7 @@ use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
+use Stonewright\WpMcp\Security\AccessDenied;
 
 /**
  * Stonewright Sandbox admin page.
@@ -526,12 +527,12 @@ final class SandboxPage {
 	 */
 	public static function handle_save(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		$nonce = isset( $_POST['_stonewright_nonce'] ) ? wp_unslash( (string) $_POST['_stonewright_nonce'] ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		$name     = isset( $_POST['stonewright_filename'] ) ? sanitize_file_name( wp_unslash( (string) $_POST['stonewright_filename'] ) ) : '';
@@ -547,12 +548,12 @@ final class SandboxPage {
 	 */
 	public static function handle_create(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		$nonce = isset( $_POST['_stonewright_nonce'] ) ? wp_unslash( (string) $_POST['_stonewright_nonce'] ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		$name     = isset( $_POST['stonewright_filename'] ) ? sanitize_file_name( wp_unslash( (string) $_POST['stonewright_filename'] ) ) : '';
@@ -568,12 +569,12 @@ final class SandboxPage {
 	 */
 	public static function handle_action(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		$nonce = isset( $_POST['_stonewright_nonce'] ) ? wp_unslash( (string) $_POST['_stonewright_nonce'] ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		$name        = isset( $_POST['stonewright_filename'] ) ? sanitize_file_name( wp_unslash( (string) $_POST['stonewright_filename'] ) ) : '';

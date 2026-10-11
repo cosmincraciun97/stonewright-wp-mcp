@@ -90,7 +90,7 @@ final class TransactionEnvelope {
 					'minItems'    => 1,
 					'maxItems'    => 200,
 					'items'       => [ 'type' => 'object', 'additionalProperties' => true ],
-					'description' => 'Elementor batch operations (add_container, add_widget, update_element, move_element, remove_element).',
+					'description' => 'Elementor batch operations (add_container, add_inner_section, add_widget, update_element, move_element, remove_element).',
 				],
 				'stop_on_error'     => [ 'type' => 'boolean', 'default' => true ],
 				'rollback_on_error' => [

@@ -4,7 +4,6 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\PluginsManage;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
-use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -13,8 +12,6 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class PluginDelete extends AbilityKernel {
-	use ConfirmationGuard;
-
 	public function name(): string {
 		return 'stonewright/plugin-delete';
 	}
@@ -59,28 +56,43 @@ final class PluginDelete extends AbilityKernel {
 		return Permissions::delete_plugins();
 	}
 
+	/**
+	 * Checked before the confirmation token is looked at, so a refusal never spends one.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		$plugin = (string) ( $args['plugin'] ?? '' );
+		if ( PluginTarget::is_self( $plugin ) ) {
+			return new \WP_Error( 'stonewright_self_protection', 'Cannot delete Stonewright from itself.' );
+		}
+		$plugin = PluginTarget::normalise( $plugin );
+		if ( ! PluginTarget::exists( $plugin ) ) {
+			return PluginTarget::not_found_error();
+		}
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		if ( is_plugin_active( $plugin ) ) {
+			return new \WP_Error( 'stonewright_plugin_active', 'Plugin must be inactive before delete.' );
+		}
+		return null;
+	}
+
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$verify = $args;
-				unset( $verify['confirmation_token'] );
-				$err = $this->confirmation_token_error( $args, $verify );
-				if ( null !== $err ) {
-					return $err;
-				}
 				require_once ABSPATH . 'wp-admin/includes/plugin.php';
 				require_once ABSPATH . 'wp-admin/includes/file.php';
-				$plugin = (string) $args['plugin'];
-				if ( str_contains( $plugin, 'stonewright' ) ) {
-					return new \WP_Error( 'stonewright_self_protection', 'Cannot delete Stonewright from itself.' );
-				}
-				if ( is_plugin_active( $plugin ) ) {
-					return new \WP_Error( 'stonewright_plugin_active', 'Plugin must be inactive before delete.' );
-				}
+				$plugin = PluginTarget::normalise( (string) $args['plugin'] );
 				$result = delete_plugins( [ $plugin ] );
 				if ( is_wp_error( $result ) ) {
 					return $result;
+				}
+				if ( null === $result ) {
+					return new \WP_Error( 'stonewright_plugin_delete_incomplete', 'The plugin was not deleted: WordPress needs filesystem credentials for it.', [ 'plugin' => $plugin ] );
+				}
+				if ( true !== $result ) {
+					return new \WP_Error( 'stonewright_plugin_delete_failed', 'The plugin could not be deleted.', [ 'plugin' => $plugin ] );
 				}
 				return [
 					'deleted' => true,

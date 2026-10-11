@@ -125,7 +125,7 @@ playbooks that an agent should open only when asked.
 
 ## Test a skill before enabling it
 
-1. Import the file from **Stonewright → Skills → Import** and read the review:
+1. Import the file from **Stonewright → Knowledge → Skills → Import** and read the review:
    lint errors, warnings, trust findings, and whether the slug is taken.
 2. Fix the file and inspect it again until the review is ready to import.
 3. Open the draft in the editor, enable it, and save. Activation checks the

@@ -24,9 +24,13 @@ measured values and provenance, drop the raw vendor tree.
 
 ## 3. Checkpoint after the first section
 
-Call `stonewright-design-checkpoint-record` with the section, the evidence, and
-the direction revision it was built against. Show the user the rendered
-result and wait.
+Show the user the rendered result and wait for a yes. Only then call
+`stonewright-design-checkpoint-record` with the `post_id`, the `section_id` (the
+element id of the approved top-level section), `approved: true` and, when a
+quality report exists for it, its `report_id`. The direction it was built
+against defaults to the active one. The `checkpoint_token` it returns is what
+the later section writes carry; editing the approved section afterwards
+invalidates it.
 
 This is the cheapest place to be wrong. A direction that is off by one type
 scale costs one section to fix here and a whole page to fix later.

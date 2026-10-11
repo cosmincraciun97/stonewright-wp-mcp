@@ -5,11 +5,19 @@ import {
   recentRecurringErrors,
 } from "../audit.js";
 import {
+  defaultConfidenceForSource,
+  deleteMemory,
+  effectiveConfidence,
+  effectiveLastVerified,
   getMemory,
   listMemory,
+  memoryScore,
   memoryStorageRef,
+  needsVerification,
+  rankMemory,
   recordMemory,
   setMemoryStatus,
+  type MemoryEntry,
   type MemoryKind,
 } from "../memory-store.js";
 import {
@@ -17,7 +25,9 @@ import {
   directIncidentFingerprint,
 } from "../incidents.js";
 import { assertNoSensitiveMaterial } from "../sensitive-content.js";
-import { loadSitesConfig, resolveSite } from "../sites-config.js";
+import { memoryBlockingRules } from "../instruction-screen.js";
+import { resolveSiteMemoryScope } from "../memory-scope.js";
+import { loadSitesConfig, resolveSessionSite } from "../sites-config.js";
 import {
   deleteSkill,
   getSkill,
@@ -36,6 +46,8 @@ import { permanentRulesGuidance } from "../permanent-rules.js";
 import { createHash, randomBytes } from "node:crypto";
 import type { SitesConfig, ResolvedSite } from "../sites-config.js";
 import { WpRestClient, WpRestError } from "../wp-rest-client.js";
+import { cachedPluginPresence, rememberPluginPresence } from "../plugin-presence.js";
+import { resolveRequestedMode } from "../mode.js";
 
 export type SelfImproveContext = {
   env: NodeJS.ProcessEnv;
@@ -72,9 +84,9 @@ function configuredSite(
 ): ResolvedSite | null {
   try {
     const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-    return resolveSite(config, alias);
+    return resolveSessionSite(config, ctx.env, alias);
   } catch (err) {
-    if ((alias ?? "").trim()) {
+    if ((alias ?? "").trim() || err instanceof DirectSafetyBlockedError) {
       throw err;
     }
     return null;
@@ -98,36 +110,70 @@ export type ResolveScopeOptions = {
  * Resolve memory/skills scope. Never silently maps unknown aliases to _global.
  * Unknown explicit site aliases throw with code=site_alias_unresolved.
  */
+export type SelfImproveScope = {
+  /** The alias (or _global). Skills are still filed under it. */
+  scope: string;
+  siteAlias: string | null;
+  baseDir: string;
+  /** The memory file key: the site's identity, or _global. */
+  memoryScope: string;
+  /** An alias-keyed memory file that is still read for this site (older companions wrote there). */
+  legacyMemoryScope: string | null;
+};
+
+function siteScope(ctx: SelfImproveContext, baseDir: string, site: ResolvedSite): SelfImproveScope {
+  const memory = resolveSiteMemoryScope({
+    baseDir,
+    env: ctx.env,
+    alias: site.alias,
+    siteUrl: site.url,
+  });
+  return {
+    scope: site.alias,
+    siteAlias: site.alias,
+    baseDir,
+    memoryScope: memory.memoryScope,
+    legacyMemoryScope: memory.legacyScope,
+  };
+}
+
+function globalScope(baseDir: string): SelfImproveScope {
+  return { scope: "_global", siteAlias: null, baseDir, memoryScope: "_global", legacyMemoryScope: null };
+}
+
 export function resolveSelfImproveScope(
   ctx: SelfImproveContext,
   site?: string,
   options: ResolveScopeOptions = {},
-): { scope: string; siteAlias: string | null; baseDir: string } {
+): SelfImproveScope {
   const baseDir = stateDir(ctx);
   const allowGlobalFallback = options.allowGlobalFallback !== false;
   const explicitSite = (site ?? "").trim();
 
   if (options.global === true || explicitSite === "_global") {
-    return { scope: "_global", siteAlias: null, baseDir };
+    return globalScope(baseDir);
   }
 
   if (explicitSite) {
+    let resolved: ResolvedSite;
     try {
       const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-      const resolved = resolveSite(config, explicitSite);
-      return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
+      resolved = resolveSessionSite(config, ctx.env, explicitSite);
     } catch (err) {
+      // A site outside this session is a refusal, not an unknown alias.
+      if (err instanceof DirectSafetyBlockedError) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(
         `Unknown or unresolvable site alias "${explicitSite}". ${msg} code=site_alias_unresolved`,
       );
     }
+    return siteScope(ctx, baseDir, resolved);
   }
 
+  let bound: ResolvedSite;
   try {
     const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-    const resolved = resolveSite(config, undefined);
-    return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
+    bound = resolveSessionSite(config, ctx.env);
   } catch {
     if (options.requireSite) {
       throw new Error(
@@ -135,12 +181,13 @@ export function resolveSelfImproveScope(
       );
     }
     if (allowGlobalFallback) {
-      return { scope: "_global", siteAlias: null, baseDir };
+      return globalScope(baseDir);
     }
     throw new Error(
       "No site bound and global fallback disabled. code=site_required",
     );
   }
+  return siteScope(ctx, baseDir, bound);
 }
 
 function mergeIndex(scopes: string[], baseDir: string): SkillMeta[] {
@@ -190,6 +237,32 @@ export function skillGet(
   throw new Error(`Skill not found: ${input.slug}`);
 }
 
+export const SKILL_ACTIVATION_NOTE =
+  "Direct mode has no human approval step, so a skill saved here is a disabled candidate: it is kept as a note and is not offered at task start. A skill becomes active in Plugin mode, where an administrator approves it.";
+
+/** A skill that is active in a scope is changed only through Plugin mode, never by a call that cannot be approved. */
+function assertNoActiveSkill(baseDir: string, scope: string, slug: string, tool: string, site: string): void {
+  let existing: SkillMeta | null = null;
+  try {
+    existing = getSkill({ baseDir, scope, slug });
+  } catch {
+    existing = null;
+  }
+  if (existing?.enabled === true) {
+    throw new DirectSafetyBlockedError(
+      "skill_active_requires_plugin_mode",
+      `The skill "${slug}" is active. Direct mode cannot change an active skill because it has no human approval step; nothing was changed. Save the new version under another slug as a candidate, or change the skill in Plugin mode.`,
+      tool,
+      site,
+    );
+  }
+}
+
+/**
+ * Saves a skill as a candidate. It is always stored disabled: Direct has no human approval step, and an
+ * agent must not activate its own playbook. `enabled: true` is refused and points to Plugin mode, and a
+ * skill that is already active is never overwritten.
+ */
 export function skillSave(
   ctx: SelfImproveContext,
   input: {
@@ -207,6 +280,16 @@ export function skillSave(
   const scope = input.global ? "_global" : resolved.scope;
   const site = resolved.siteAlias ? configuredSite(ctx, resolved.siteAlias) : null;
   const targetIdentity = site?.url ?? `direct-global:${scope}`;
+  const auditSite = resolved.siteAlias ?? "_global";
+  if (input.enabled === true) {
+    throw new DirectSafetyBlockedError(
+      "skill_activation_requires_plugin_mode",
+      `Direct mode cannot activate a skill. ${SKILL_ACTIVATION_NOTE} Nothing was saved; call again without enabled to save it as a candidate.`,
+      "stonewright-skill-save",
+      auditSite,
+    );
+  }
+  assertNoActiveSkill(resolved.baseDir, scope, input.slug, "stonewright-skill-save", auditSite);
   const meta = saveSkill({
     baseDir: resolved.baseDir,
     scope,
@@ -215,7 +298,7 @@ export function skillSave(
     description: input.description,
     triggers: input.triggers,
     body: input.body,
-    ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+    enabled: false,
   });
   appendDirectAudit({
     tool: "stonewright-skill-save",
@@ -224,7 +307,7 @@ export function skillSave(
     resource: `${scope}/${input.slug}`,
     status: "ok",
   });
-  return meta;
+  return { ...meta, status: "candidate" as const, note: SKILL_ACTIVATION_NOTE };
 }
 
 export function skillDelete(
@@ -236,10 +319,13 @@ export function skillDelete(
   assertWriteAllowed({
     site: site ?? resolved.siteAlias ?? "_global",
     mode: resolveDirectWriteMode(ctx.env, site?.url),
-    destructive: true,
+    // A skill is a local file, so the site's confirmation does not apply: the check below asks for confirm:true in every mode.
+    destructive: false,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-skill-delete",
     env: ctx.env,
+    // A skill is a local file; the site's plugin does not matter.
+    localOnly: true,
   });
   if (input.confirm !== true) {
     throw new DirectSafetyBlockedError(
@@ -265,22 +351,146 @@ export function skillDelete(
   return result;
 }
 
+export const LOCAL_MEMORY_VISIBILITY =
+  "local-only (not visible in WordPress Stonewright Memory UI; companion ~/.stonewright/memory only)";
+
+/** The memory files that belong to a scope: the site's own, an older alias-keyed one, then the global one. */
+function memoryStoresFor(scope: SelfImproveScope): string[] {
+  return scope.memoryScope === "_global"
+    ? ["_global"]
+    : [
+        scope.memoryScope,
+        ...(scope.legacyMemoryScope ? [scope.legacyMemoryScope] : []),
+        "_global",
+      ];
+}
+
+/** A lesson as the agent sees it: the stored fields plus the confidence and verification time it is ranked by. */
+function scoredMemory(entry: MemoryEntry, now: number) {
+  return {
+    ...entry,
+    confidence: Math.round(effectiveConfidence(entry) * 1000) / 1000,
+    last_verified: effectiveLastVerified(entry),
+    score: Math.round(memoryScore(entry, now) * 1000) / 1000,
+  };
+}
+
+/**
+ * Lists the companion's local memory. It never reads the plugin's site memory, and says so: `backend`
+ * and `memory_backend` name the store, and when the plugin is known to be active on the site the answer
+ * carries a note, because task-start and learning-record use the plugin's memory in that case.
+ * Newest first by default; `order: "score"` ranks by confidence and time since last confirmed, so a stale
+ * or doubtful lesson comes last.
+ */
 export function memoryList(
   ctx: SelfImproveContext,
-  input: { limit?: number; site?: string; activeOnly?: boolean } = {},
+  input: {
+    limit?: number;
+    offset?: number;
+    site?: string;
+    activeOnly?: boolean;
+    order?: "recent" | "score";
+  } = {},
 ) {
-  const { scope, baseDir } = resolveSelfImproveScope(ctx, input.site);
-  const scopes = scope === "_global" ? ["_global"] : [scope, "_global"];
-  const items = scopes.flatMap(
-    (s) => listMemory({
-      baseDir,
-      scope: s,
-      limit: input.limit ?? 20,
-      activeOnly: input.activeOnly === true,
-    }).items,
+  const resolved = resolveSelfImproveScope(ctx, input.site);
+  const { scope, baseDir, siteAlias, memoryScope } = resolved;
+  const limit = input.limit ?? 20;
+  const offset = input.offset ?? 0;
+  const byScore = input.order === "score";
+  const seen = new Set<string>();
+  const found = memoryStoresFor(resolved)
+    .flatMap(
+      (store) => listMemory({
+        baseDir,
+        scope: store,
+        // Ranking needs every entry; newest-first only needs the newest ones.
+        limit: byScore ? 10_000 : limit + offset,
+        activeOnly: input.activeOnly === true,
+      }).items,
+    )
+    .filter((entry) => !seen.has(entry.id) && seen.add(entry.id));
+  const now = Date.now();
+  const items = byScore
+    ? rankMemory(found, now)
+    : [...found].sort((a, b) => b.ts.localeCompare(a.ts));
+
+  let pluginActive = false;
+  if (siteAlias) {
+    try {
+      const site = configuredSite(ctx, siteAlias);
+      pluginActive = site !== null && cachedPluginPresence(site.url) === "present";
+    } catch {
+      pluginActive = false;
+    }
+  }
+  return {
+    scope,
+    memory_scope: memoryScope,
+    site_alias: siteAlias,
+    backend: "direct" as const,
+    memory_backend: scope === "_global" ? "direct-global" : "direct-site-local",
+    memory_visibility: LOCAL_MEMORY_VISIBILITY,
+    items: items.slice(offset, offset + limit).map((entry) => scoredMemory(entry, now)),
+    ...(pluginActive
+      ? {
+          plugin_detected: true,
+          note: "The Stonewright plugin is active on this site. This list is the companion's local memory only; task-start and learning-record use the plugin's site memory here. Switch to Plugin mode to list the site memory.",
+        }
+      : {}),
+  };
+}
+
+/**
+ * Deletes one lesson from the companion's local memory by id. It always needs a confirmation, in every
+ * write mode, bound to the call (the `confirmation_id` a refused call returns; a plain `confirm:true` counts
+ * only on a local site): a deleted lesson cannot be brought back. Only local memory is touched; a lesson kept in the
+ * plugin's site memory is removed in Plugin mode (the `stonewright-memory-delete` ability).
+ */
+export function memoryDelete(
+  ctx: SelfImproveContext,
+  input: { id: string; confirm?: boolean; global?: boolean; site?: string },
+) {
+  const resolved = input.global === true
+    ? resolveSelfImproveScope(ctx, "_global", { global: true })
+    : resolveSelfImproveScope(ctx, input.site);
+  const site = configuredSite(ctx, resolved.siteAlias ?? input.site);
+  assertWriteAllowed({
+    site: site ?? resolved.siteAlias ?? "_global",
+    mode: resolveDirectWriteMode(ctx.env, site?.url),
+    destructive: true,
+    // A deleted lesson cannot be brought back: ask in every write mode, with a confirmation bound to this call.
+    alwaysConfirm: true,
+    ...(site?.url !== undefined ? { siteUrl: site.url } : {}),
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-memory-delete",
+    env: ctx.env,
+    // A lesson is a local file; the site's plugin does not matter.
+    localOnly: true,
+  });
+  const store = memoryStoresFor(resolved).find(
+    (candidate) => getMemory({ baseDir: resolved.baseDir, scope: candidate, id: input.id }) !== null,
   );
-  items.sort((a, b) => b.ts.localeCompare(a.ts));
-  return { scope, items: items.slice(0, input.limit ?? 20) };
+  if (store === undefined) {
+    throw new Error(`No memory entry has that id in the local memory. code=memory_not_found`);
+  }
+  deleteMemory({ baseDir: resolved.baseDir, scope: store, id: input.id });
+  if (getMemory({ baseDir: resolved.baseDir, scope: store, id: input.id }) !== null) {
+    throw new Error("The memory entry is still stored after the delete. code=memory_delete_failed");
+  }
+  appendDirectAudit({
+    tool: "stonewright-memory-delete",
+    site: resolved.siteAlias ?? "_global",
+    targetIdentity: site?.url ?? `direct-global:${resolved.scope}`,
+    resource: memoryStorageRef(store, input.id),
+    status: "ok",
+  }, defaultAuditPath({ ...ctx.env, STONEWRIGHT_STATE_DIR: resolved.baseDir }));
+  return {
+    deleted: true as const,
+    id: input.id,
+    backend: "direct" as const,
+    memory_scope: store,
+    memory_visibility: LOCAL_MEMORY_VISIBILITY,
+  };
 }
 
 export type IncidentRepairRecordInput = {
@@ -314,7 +524,7 @@ export function incidentRepairRecord(
   ctx: SelfImproveContext,
   input: IncidentRepairRecordInput,
 ) {
-  const { scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, input.site, {
+  const { scope, siteAlias, baseDir, memoryScope } = resolveSelfImproveScope(ctx, input.site, {
     allowGlobalFallback: true,
   });
   const configured = siteAlias ? configuredSite(ctx, siteAlias) : null;
@@ -398,7 +608,7 @@ export function incidentRepairRecord(
   }
   const memory = recordMemory({
     baseDir,
-    scope,
+    scope: memoryScope,
     kind: "lesson",
     text: recipe,
     tags: ["verified-repair", incident.ability, incident.error_code],
@@ -407,8 +617,11 @@ export function incidentRepairRecord(
     dedupe: true,
     stableId: receiptId.slice(0, 16),
   });
-  const readback = getMemory({ baseDir, scope, id: memory.id });
-  if (!readback || readback.text !== recipe || readback.status !== "active") {
+  const readback = getMemory({ baseDir, scope: memoryScope, id: memory.id });
+  // The same screen as the plugin's memory: a recipe that tells an agent to override the rules is kept, for review.
+  const needsReview = readback?.status === "needs_review";
+  const reviewRules = needsReview ? memoryBlockingRules(recipe, input.repair_scope?.trim() || incident.error_code) : [];
+  if (!readback || readback.text !== recipe || (readback.status !== "active" && !needsReview)) {
     throw new Error("Verified repair memory readback failed. code=memory_readback_mismatch");
   }
   if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId, {
@@ -416,7 +629,7 @@ export function incidentRepairRecord(
 		updated_at: resolved.updated_at,
 		occurrences: resolved.occurrences,
 	})) {
-    setMemoryStatus({ baseDir, scope, id: memory.id, status: "stale" });
+    setMemoryStatus({ baseDir, scope: memoryScope, id: memory.id, status: "stale" });
     throw new Error("Verified repair could not link learning to incident. code=incident_state_changed");
   }
   appendDirectAudit({
@@ -435,8 +648,64 @@ export function incidentRepairRecord(
     incident_id: incident.incident_id,
     incident_state: "resolved" as const,
     repair_receipt_id: receiptId,
-    learning_status: "promoted" as const,
+    learning_status: needsReview ? ("needs_review" as const) : ("promoted" as const),
     memory_key: memory.id,
+    ...(needsReview ? { needs_review: true as const, review_rules: reviewRules } : {}),
+  };
+}
+
+/**
+ * The keys a task-start answer carries whichever backend answered (the companion's local store or, on a
+ * site where the plugin is active, the plugin's). `backend` says which; `mode` is the session's mode.
+ * Everything else is backend-specific: local answers add matched_skills, memory_highlights,
+ * recurring_errors, incident_actions, setup and capabilities; the plugin's answer keeps its own extras
+ * (fast_path, saved_wordpress_mode, effective_wordpress_mode and the rest) plus plugin_mode and next_action.
+ */
+export const TASK_START_CORE_KEYS = [
+  "ok",
+  "backend",
+  "mode",
+  "site",
+  "write_mode",
+  "context_token",
+  "expires_at",
+  "hard_rules",
+  "target_context",
+  "required_actions",
+  "guidance",
+] as const;
+
+/**
+ * The keys a learning-record answer carries whichever backend stored the lesson. Local answers add
+ * storage_scope, site_alias, visibility, memory_type, memory, skill and note; the plugin's answer keeps
+ * its own extras (skill_id, skill_slug, skill_status, site_fingerprint). memory_id is a string for local
+ * memory and a number for the plugin; memory_key is a string in both.
+ */
+export const LEARNING_RECORD_CORE_KEYS = [
+  "ok",
+  "stored",
+  "backend",
+  "scope",
+  "memory_id",
+  "storage_ref",
+  "memory_key",
+  "verified",
+  "memory_backend",
+] as const;
+
+/** The plugin's learning-record answer with the core keys filled in; its own values win. */
+function withLearningCore(result: Record<string, unknown>): Record<string, unknown> {
+  const memoryId = result["memory_id"];
+  return {
+    ok: result["ok"] !== false,
+    stored: result["ok"] !== false,
+    scope: "project",
+    verified: false,
+    storage_ref: "",
+    memory_backend: "plugin-site",
+    memory_key: memoryId === undefined || memoryId === null ? "" : String(memoryId),
+    ...result,
+    backend: "plugin",
   };
 }
 
@@ -447,6 +716,8 @@ export type LearningRecordInput = {
   scope?: string;
   source?: string;
   evidence?: string;
+  /** 0 to 1; without one the lesson gets the default for its source. */
+  confidence?: number;
   /** Explicit global memory intent — required to write _global.jsonl. */
   global?: boolean;
   /** Legacy Direct free-text. */
@@ -468,6 +739,7 @@ function normalizeLearningInput(input: LearningRecordInput): {
   correction: string;
   kind: MemoryKind;
   source: string;
+  confidence: number;
   tags: string[];
 } {
   const correction = (input.correction ?? input.text ?? "").trim();
@@ -487,14 +759,14 @@ function normalizeLearningInput(input: LearningRecordInput): {
     )
       ? input.kind
       : "correction";
-  const source =
-    input.source?.trim() ||
-    (input.kind ? "explicit-user-request" : "explicit-user-request");
+  // A source the caller did not give is recorded as such; it is never presented as the user's own request.
+  const source = input.source?.trim() || "agent-recorded";
   return {
     topic,
     correction,
     kind,
     source,
+    confidence: input.confidence ?? defaultConfidenceForSource(source),
     tags: input.tags ?? ["user-authored"],
   };
 }
@@ -515,17 +787,18 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   let scope: string;
   let siteAlias: string | null;
   let baseDir: string;
+  let memoryScope: string;
   if (storeGlobally) {
-    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, "_global", {
+    ({ scope, siteAlias, baseDir, memoryScope } = resolveSelfImproveScope(ctx, "_global", {
       global: true,
     }));
   } else if ((input.site ?? "").trim()) {
-    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, input.site, {
+    ({ scope, siteAlias, baseDir, memoryScope } = resolveSelfImproveScope(ctx, input.site, {
       allowGlobalFallback: false,
       requireSite: true,
     }));
   } else {
-    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, undefined, {
+    ({ scope, siteAlias, baseDir, memoryScope } = resolveSelfImproveScope(ctx, undefined, {
       allowGlobalFallback: true,
     }));
   }
@@ -537,18 +810,23 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   }
 
   const normalized = normalizeLearningInput(input);
+  if (input.draft_skill) {
+    // Refused before anything is stored: a draft never replaces an active skill.
+    assertNoActiveSkill(baseDir, scope, input.draft_skill.slug, "stonewright-learning-record", siteAlias ?? scope);
+  }
   const entry = recordMemory({
     baseDir,
-    scope,
+    scope: memoryScope,
     text: normalized.correction,
     kind: normalized.kind,
     tags: normalized.tags,
     topic: normalized.topic,
     source: normalized.source,
+    confidence: normalized.confidence,
     dedupe: true,
   });
 
-  const readback = getMemory({ baseDir, scope, id: entry.id });
+  const readback = getMemory({ baseDir, scope: memoryScope, id: entry.id });
   if (!readback || readback.text.trim() !== entry.text.trim()) {
     appendDirectAudit({
       tool: "stonewright-learning-record",
@@ -561,8 +839,15 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     );
   }
 
+  // The same screen as the plugin's memory: a lesson that tells an agent to override the rules is kept for review.
+  const needsReview = entry.status === "needs_review";
+  const reviewRules = memoryBlockingRules(normalized.correction, normalized.topic);
   let skill: SkillMeta | null = null;
-  if (input.draft_skill) {
+  let skillError: string | null = null;
+  if (input.draft_skill && needsReview) {
+    // A lesson waiting for review does not become a skill draft.
+    skillError = "stonewright_memory_needs_review";
+  } else if (input.draft_skill) {
     skill = saveSkill({
       baseDir,
       scope,
@@ -591,27 +876,45 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     backend: "direct" as const,
     memory_backend: memoryBackend,
     scope: semanticScope,
-    storage_scope: scope,
+    storage_scope: memoryScope,
     site_alias: siteAlias,
     visibility,
     memory_type: normalized.kind,
     memory_id: entry.id,
-    storage_ref: memoryStorageRef(scope, entry.id),
+    storage_ref: memoryStorageRef(memoryScope, entry.id),
     verified: true,
     ok: true,
     memory_key: entry.id,
     memory: entry,
     skill,
+    ...(skillError !== null ? { skill_error: skillError } : {}),
+    ...(needsReview
+      ? {
+          needs_review: true as const,
+          status: "needs_review" as const,
+          review_rules: reviewRules,
+          message:
+            "Stored for review. The text tells an agent to override the plugin rules or move credentials, so it is not offered at task start until a person clears it: delete it with stonewright-memory-delete, or set its status to active in the local memory file.",
+        }
+      : {}),
     note:
       "Direct-local memory is machine-local. wp-admin cannot read this file; use export/import for cross-host sync.",
   };
 }
 
+/** The steps task-start asks of every Direct session; the correction trigger is the second. */
+export const REQUIRED_FOLLOWUPS: readonly string[] = [
+  "Read the matched skill playbooks and the memory_highlights before acting; re-check a highlight marked verify_before_use against the site first.",
+  "If the user corrects you, or a repeatable mistake is detected, call stonewright-learning-record. When a write that failed is later fixed on the same resource, the call that fixed it returns a learning_offer: ask the user before recording it.",
+  "A skill you draft stays a disabled candidate. Only a person activates a skill, in Plugin mode; never try to enable one yourself.",
+  "Remove a wrong or outdated lesson with stonewright-memory-delete, after the user agrees.",
+];
+
 export function taskStart(
   ctx: SelfImproveContext,
   input: { task: string; surface?: string; intent?: string; site?: string },
 ) {
-  const { scope, baseDir, siteAlias } = resolveSelfImproveScope(
+  const { scope, baseDir, siteAlias, memoryScope } = resolveSelfImproveScope(
     ctx,
     input.site,
     { allowGlobalFallback: true },
@@ -657,17 +960,18 @@ export function taskStart(
       matched.push(hit);
     }
   }
-  const writeMode = resolveDirectWriteMode(ctx.env, undefined);
-  const recurring = recentRecurringErrors(baseDir, 3);
-  const incidentStore = new DirectIncidentStore(
-    baseDir,
-    directIncidentFingerprint(normalizedUrl ?? `direct-global:${scope}`),
-  );
+  const writeMode = resolveDirectWriteMode(ctx.env, resolvedSite?.url);
+  // The same target identity the audit rows and the incident store use: one site's errors are not another's.
+  const targetFingerprint = directIncidentFingerprint(normalizedUrl ?? `direct-global:${scope}`);
+  const recurring = recentRecurringErrors(baseDir, 3, { siteFingerprint: targetFingerprint });
+  const incidentStore = new DirectIncidentStore(baseDir, targetFingerprint);
+  // A quiet incident closes itself after seven days; see DirectIncidentStore.
+  incidentStore.expireStale();
   for (const incident of incidentStore.list()) {
     if (incident.learning_status === "stale" && incident.learning_memory_key) {
       setMemoryStatus({
         baseDir,
-        scope,
+        scope: memoryScope,
         id: incident.learning_memory_key,
         status: "stale",
       });
@@ -677,9 +981,13 @@ export function taskStart(
     input.surface ?? input.intent ?? "",
     3,
   );
+  // Only an incident that incident-repair-record can close blocks task start.
+  const repairRequired = incidentStore.requiresRepair();
+  // The lessons most worth reading first: confident and recently confirmed, not just the newest.
   const memory = memoryList(ctx, {
     limit: 5,
     activeOnly: true,
+    order: "score",
     ...(input.site !== undefined ? { site: input.site } : {}),
   }).items;
   const pointerOk = pointerInstalled(ctx.env);
@@ -687,16 +995,20 @@ export function taskStart(
 
   const guidance = [
     "Direct mode: core WordPress REST via Application Passwords; no plugin required.",
-    "Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.",
+    "Destructive tools need a confirmation (a refused call returns confirmation_id: repeat the same call with it); writes honor STONEWRIGHT_DIRECT_WRITES.",
     ...permanentRulesGuidance(),
     'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
-    "If the user explicitly asks to remember a correction, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope.",
+    "If the user corrects you or a repeatable mistake is detected, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope. Any skill you draft stays a disabled candidate.",
     "Load a matched skill body with stonewright-skill-get before acting on its topic.",
     "Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.",
   ];
-  if (incidentActions.length > 0) {
+  if (repairRequired) {
     guidance.unshift(
       "Repair incident_actions first. Record learning only through stonewright-incident-repair-record after an independent correlated verifier succeeds.",
+    );
+  } else if (incidentActions.length > 0) {
+    guidance.unshift(
+      "incident_actions are listed for information: Direct has no verifier path for them, so they do not block work. They close on their own after 7 days without a new failure.",
     );
   }
   if (!pointerOk) {
@@ -706,8 +1018,13 @@ export function taskStart(
   }
 
   return {
+    ok: true as const,
+    // Which backend answered: the companion's local store. `mode` is the session's mode.
+    backend: "direct" as const,
     mode: "direct" as const,
     site: siteAlias,
+    context_token: contextToken,
+    expires_at: expiresAt,
     write_mode: writeMode,
     // Digest only: the bodies come from stonewright-rules-get, so a client that
     // already cached this digest spends nothing on rules.
@@ -729,7 +1046,7 @@ export function taskStart(
       stonewright_mode: writeMode,
       memory_backend: memoryBackend,
       memory_visibility: memoryVisibility,
-      storage_scope: scope,
+      storage_scope: memoryScope,
       tool_profile: "direct",
       expires_at: expiresAt,
       context_token: contextToken,
@@ -740,15 +1057,19 @@ export function taskStart(
       next: "call stonewright-skill-get with this slug and follow the playbook",
     })),
     memory_highlights: memory.slice(0, 5).map((m) => ({
+      // The id lets a wrong or outdated lesson be removed with stonewright-memory-delete.
+      id: m.id,
       ts: m.ts,
       kind: m.kind,
       text: m.text,
+      confidence: m.confidence,
+      last_verified: m.last_verified,
+      ...(needsVerification(m) ? { verify_before_use: true } : {}),
     })),
     recurring_errors: recurring,
     incident_actions: incidentActions,
-    required_actions: incidentActions.length > 0
-      ? ["repair_open_incidents_first"]
-      : [],
+    required_actions: repairRequired ? ["repair_open_incidents_first"] : [],
+    required_followups: REQUIRED_FOLLOWUPS,
     setup: {
       agents_md: agentsPath,
       pointer_installed: pointerOk,
@@ -784,6 +1105,7 @@ export async function taskStartAuthoritative(
   const client = new WpRestClient(site, {
     fetchImpl: ctx.fetchImpl,
     timeoutMs: ctx.timeoutMs,
+    env: ctx.env,
   });
   try {
     const plugin = await client.post<Record<string, unknown>>(
@@ -806,11 +1128,41 @@ export async function taskStartAuthoritative(
     };
     targetBindings.set(bindingKey(ctx, site.alias), binding);
     markTaskStartSeen(site);
+    // The bridge answered, so the plugin is active here: Direct writes are refused
+    // until the session runs in Plugin mode.
+    rememberPluginPresence(site.url, true);
+    const switchAction =
+      resolveRequestedMode(ctx.env) === "direct"
+        ? "This session is Direct-only (STONEWRIGHT_MODE=direct). Set STONEWRIGHT_MODE=auto or plugin for this site, then call stonewright-reconnect or restart the MCP client."
+        : "Call stonewright-reconnect with force_probe=true to switch this session to Plugin mode.";
+    const pluginActions = Array.isArray(plugin["required_actions"])
+      ? (plugin["required_actions"] as unknown[]).map(String)
+      : [];
+    const pluginGuidance = Array.isArray(plugin["guidance"])
+      ? (plugin["guidance"] as unknown[]).map(String)
+      : [];
 
+    const hardRules =
+      plugin["hard_rules"] && typeof plugin["hard_rules"] === "object"
+        ? plugin["hard_rules"]
+        : { digest: globalRulesDigest(), tool: "stonewright-rules-get" };
     return {
       ...plugin,
+      // The common core of task-start (see TASK_START_CORE_KEYS), whichever backend answered.
+      ok: plugin["ok"] === false ? (false as const) : (true as const),
+      // The plugin's site store answered; `mode` stays the session's mode.
+      backend: "plugin" as const,
       mode: "direct" as const,
+      write_mode: resolveDirectWriteMode(ctx.env, site.url),
+      hard_rules: hardRules,
       plugin_mode: String(plugin["mode"] ?? ""),
+      plugin_detected: true,
+      required_actions: ["switch_to_plugin_mode", ...pluginActions],
+      next_action: `The Stonewright plugin is active on this site, so this Direct session cannot write. ${switchAction}`,
+      guidance: [
+        "The Stonewright plugin is active on this site. Use Plugin mode for writes; Direct writes are refused here, reads still work.",
+        ...pluginGuidance,
+      ],
       site: site.alias,
       target_context: {
         ...target,
@@ -871,8 +1223,9 @@ export async function learningRecordAuthoritative(
   const client = new WpRestClient(site, {
     fetchImpl: ctx.fetchImpl,
     timeoutMs: ctx.timeoutMs,
+    env: ctx.env,
   });
-  return client.post<Record<string, unknown>>(
+  const stored = await client.post<Record<string, unknown>>(
     "/stonewright/v1/direct/learning-record",
     {
       body: {
@@ -881,6 +1234,7 @@ export async function learningRecordAuthoritative(
       },
     },
   );
+  return withLearningCore(stored);
 }
 
 function joinStateAgents(baseDir: string): string {

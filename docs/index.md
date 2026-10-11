@@ -2,8 +2,8 @@
 
 Stonewright exposes WordPress site-building primitives as MCP tools. Agents use
 those tools to create and edit Gutenberg blocks, Elementor pages, FSE templates,
-media, menus, skills, memory, direct PHP runtime snippets, and WP-CLI-assisted
-workflows with operator controls.
+media, menus, skills, memory, direct PHP runtime snippets (on the Full tool surface
+an administrator chooses), and WP-CLI-assisted workflows with operator controls.
 
 ## Where To Start
 
@@ -17,6 +17,7 @@ workflows with operator controls.
 - [Admin Troubleshoot](admin/troubleshoot.md)
 - [Admin Context](admin/context.md)
 - [Admin Design](admin/design.md)
+- [Admin Changes](admin/changes.md)
 - [Admin navigation and page layout](admin/navigation.md)
 - [Admin Overview](admin/overview.md)
 - [Verified client versions and support tiers](verified-client-versions.md)
@@ -38,6 +39,7 @@ workflows with operator controls.
 - [Expertise and public capability parity](expertise-parity.md)
 - [Release notes](releases/README.md)
 - [Elementor write verification](elementor-write-verification.md)
+- [Elementor MCP with Stonewright](elementor-mcp.md)
 - [Permanent remediation contracts](permanent-remediation-contracts.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)
@@ -57,7 +59,7 @@ workflows with operator controls.
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
-| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, and its limits |
+| `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, the change history with undo and redo, and its limits |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

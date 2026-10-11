@@ -5,9 +5,13 @@ namespace Stonewright\WpMcp\Abilities\CustomCode;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\CustomCode\GrantedRollbackInterface;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
+use Stonewright\WpMcp\CustomCode\ProviderSupport;
+use Stonewright\WpMcp\CustomCode\VerifiedApplyInterface;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
+use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
 
@@ -18,6 +22,9 @@ use Stonewright\WpMcp\Security\RescueGuard;
  *
  * Dry-run returns approval_url and must stop before opening approval or obtaining
  * a grant. Apply requires a human-issued single-use custom_code_grant.
+ * Rollback of a WPCode or Code Snippets snippet rewrites code, so it needs the same grant, bound to the
+ * code it restores: rollback with dry_run stages it for approval and writes nothing, and a rollback
+ * without the grant answers with the approval handoff and stops.
  * Apply/rollback also require confirmation_token in production-safe mode.
  *
  * @stonewright-status stable
@@ -34,7 +41,7 @@ final class ProviderOps extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Discover, list, read, dry-run, apply, verify, and roll back custom code through first-party adapters (WPCode, Code Snippets, Customizer CSS, theme files). Writes require dry_run then a human-issued custom-code grant; agents must stop at the approval URL.', 'stonewright' );
+		return __( 'Discover, list, read, dry-run, apply, verify, and roll back custom code through first-party adapters (WPCode, Code Snippets, Customizer CSS, theme files). Writes, including a rollback of a WPCode or Code Snippets snippet, require a dry run (rollback takes dry_run:true) and then a human-issued custom-code grant; agents get approval_required and agent_must_stop with the approval URL and must stop there, never approve it themselves.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -73,7 +80,11 @@ final class ProviderOps extends AbilityKernel {
 				],
 				'custom_code_grant'      => [
 					'type'        => 'string',
-					'description' => 'Single-use human-issued grant bound to after_sha256. Required for apply.',
+					'description' => 'Single-use human-issued grant bound to after_sha256. Required for apply, and for rollback of a WPCode or Code Snippets snippet (bound to the code the snapshot restores).',
+				],
+				'dry_run'                => [
+					'type'        => 'boolean',
+					'description' => 'rollback only (WPCode, Code Snippets): stage the restore for human approval and return the approval handoff. Writes nothing and needs no grant.',
 				],
 				'expected_before_sha256' => [
 					'type'        => 'string',
@@ -94,9 +105,51 @@ final class ProviderOps extends AbilityKernel {
 					'maximum' => 200,
 					'default' => 50,
 				],
+				'id'                     => [
+					'type'        => 'string',
+					'maxLength'   => 255,
+					'description' => 'Alias of target_id for WPCode and Code Snippets.',
+				],
 				'mode'                   => [
 					'type'        => 'string',
+					'enum'        => [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_all' ],
+					'default'     => 'replace_all',
 					'description' => 'Theme-file patch mode when provider=theme-file.',
+				],
+				'marker'                 => [
+					'type'        => 'string',
+					'maxLength'   => 4096,
+					'description' => 'Required for mode insert_after_marker (theme-file). Must match exactly once.',
+				],
+				'start_marker'           => [
+					'type'        => 'string',
+					'maxLength'   => 4096,
+					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once; the replacement keeps the marker.',
+				],
+				'end_marker'             => [
+					'type'        => 'string',
+					'maxLength'   => 4096,
+					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once, after start_marker.',
+				],
+				'create_if_missing'      => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Theme-file only: create an allowlisted file that does not exist yet.',
+				],
+				'theme'                  => [
+					'type'        => 'string',
+					'enum'        => [ 'stylesheet', 'template' ],
+					'default'     => 'stylesheet',
+					'description' => 'Theme-file only: the active (child) theme, or the parent (template) theme.',
+				],
+				'smoke_url'              => [
+					'type'        => 'string',
+					'maxLength'   => 2048,
+					'description' => 'Theme-file apply only: optional public URL to check after the write.',
+				],
+				'expected_active'        => [
+					'type'        => 'boolean',
+					'description' => 'verify only (WPCode): the active state the snippet is expected to have.',
 				],
 				'native_gap'             => [
 					'type'                 => 'object',
@@ -187,6 +240,15 @@ final class ProviderOps extends AbilityKernel {
 					];
 				}
 
+				// A rollback of snippet code needs the human grant like an apply. A plan, or a call without the grant,
+				// is answered here, before a confirmation token is read, so that a token is not spent on a stop.
+				if ( 'rollback' === $action ) {
+					$stop = $this->rollback_approval_stop( $args );
+					if ( null !== $stop ) {
+						return $stop;
+					}
+				}
+
 				// Production-safe: apply and rollback need confirmation tokens.
 				if ( in_array( $action, [ 'apply', 'rollback' ], true ) ) {
 					$verify_args = $args;
@@ -222,11 +284,23 @@ final class ProviderOps extends AbilityKernel {
 					RescueGuard::arm_custom_code_write( $provider_id, sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) ) );
 				}
 
+				// The token of an apply was verified above, once, for this ability and these arguments. A provider that
+				// delegates to a typed ability that checks a token too gets the verified entry points, so the single-use
+				// token is not consumed a second time; the human grant is still checked by the delegated ability.
+				$verified = $provider instanceof VerifiedApplyInterface;
+
+				if ( 'rollback' === $action && $provider instanceof GrantedRollbackInterface ) {
+					$grant_error = $this->rollback_grant_error( $provider, $args );
+					if ( $grant_error instanceof \WP_Error ) {
+						return $grant_error;
+					}
+				}
+
 				return match ( $action ) {
 					'list' => $provider->list( $args ),
 					'read' => $provider->read( (string) ( $args['target_id'] ?? $args['path'] ?? '' ) ),
-					'dry-run' => $provider->dry_run( $args ),
-					'apply' => $provider->apply( $args ),
+					'dry-run' => $verified ? $provider->dry_run_verified( $args ) : $provider->dry_run( $args ),
+					'apply' => $verified ? $provider->apply_verified( $args ) : $provider->apply( $args ),
 					'verify' => $provider->verify( $args ),
 					'rollback' => $provider->rollback( $args ),
 					default => new \WP_Error(
@@ -237,6 +311,103 @@ final class ProviderOps extends AbilityKernel {
 				};
 			}
 		);
+	}
+
+	/**
+	 * The plan or the stop of a rollback that needs the human grant, or null when the call goes on.
+	 *
+	 * With dry_run true the pipeline stages the restore and returns the approval handoff. A call without a grant returns the same
+	 * handoff as a refusal. Neither writes. A restore that changes nothing needs no approval.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error|null
+	 */
+	private function rollback_approval_stop( array $args ): array|\WP_Error|null {
+		$provider_id = sanitize_key( (string) ( $args['provider'] ?? '' ) );
+		$provider    = ProviderRegistry::get( $provider_id );
+		if ( ! $provider instanceof GrantedRollbackInterface ) {
+			return null;
+		}
+		$dry_run = true === ( $args['dry_run'] ?? false );
+		if ( ! $dry_run && '' !== trim( (string) ( $args['custom_code_grant'] ?? '' ) ) ) {
+			return null;
+		}
+
+		$candidate = $provider->rollback_candidate( $args );
+		if ( $candidate instanceof \WP_Error ) {
+			return $candidate;
+		}
+		$handoff = ProviderSupport::dry_run_handoff(
+			$provider_id,
+			$candidate['path'],
+			$candidate['language'],
+			$candidate['before'],
+			$candidate['after'],
+			[
+				'risk_class'     => 'custom_code_' . $provider_id . '_rollback',
+				'rollback_plan'  => 'Put the snapshot code back into the snippet.',
+				'test_plan'      => [
+					'Validate syntax for the restored language.',
+					'Restore only with a human-issued single-use grant.',
+					'Verify the readback hash.',
+				],
+				'response_extra' => [
+					'target_id'   => (string) ( $args['target_id'] ?? $args['id'] ?? '' ),
+					'snapshot_id' => (string) ( $args['snapshot_id'] ?? '' ),
+				],
+			]
+		);
+		if ( $handoff instanceof \WP_Error ) {
+			return $handoff;
+		}
+		if ( $dry_run ) {
+			return $handoff;
+		}
+		if ( empty( $handoff['approval_required'] ) ) {
+			return null;
+		}
+
+		return new \WP_Error(
+			'stonewright_custom_code_grant_required',
+			__( 'Rolling back snippet code needs a human-issued one-time grant. Show the user the approval URL, path, hashes and summary, then stop. Do not open the approval page or issue, retrieve, or use a grant yourself.', 'stonewright' ),
+			array_merge(
+				[ 'status' => 400, 'retryable' => false ],
+				CustomCodeGrant::missing_grant_proposal(
+					[
+						'path'          => $candidate['path'],
+						'after_sha256'  => (string) $handoff['after_sha256'],
+						'language'      => $candidate['language'],
+						'changed_bytes' => (int) $handoff['changed_bytes'],
+						'approval_url'  => (string) $handoff['approval_url'],
+						'proposal_id'   => (string) $handoff['proposal_id'],
+					]
+				)
+			)
+		);
+	}
+
+	/**
+	 * Checks and spends the human grant of a rollback that changes the snippet. The grant is bound to the code the
+	 * snapshot restores, so a grant for other code does not unlock it.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	private function rollback_grant_error( GrantedRollbackInterface $provider, array $args ): ?\WP_Error {
+		$candidate = $provider->rollback_candidate( $args );
+		if ( $candidate instanceof \WP_Error ) {
+			return $candidate;
+		}
+		if ( hash_equals( ProviderSupport::content_hash( $candidate['before'] ), ProviderSupport::content_hash( $candidate['after'] ) ) ) {
+			return null;
+		}
+		$grant = ProviderSupport::consume_grant(
+			(string) ( $args['custom_code_grant'] ?? '' ),
+			$candidate['path'],
+			ProviderSupport::content_hash( $candidate['after'] ),
+			$candidate['language'],
+			ProviderSupport::changed_bytes( $candidate['before'], $candidate['after'] )
+		);
+		return $grant instanceof \WP_Error ? $grant : null;
 	}
 
 	/**

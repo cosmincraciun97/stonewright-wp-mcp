@@ -19,6 +19,7 @@ use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionImportSanitizer;
 use Stonewright\WpMcp\Design\Direction\DirectionSummary;
 use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\Permissions;
 use WP_Error;
 
@@ -168,7 +169,7 @@ final class DesignPage {
 
 	public static function handle_import(): void {
 		if ( ! Permissions::manage_options() ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
 		}
 		check_admin_referer( self::IMPORT_NONCE );
 
@@ -257,7 +258,7 @@ final class DesignPage {
 
 	public static function handle_activate(): void {
 		if ( ! Permissions::manage_options() ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
 		}
 		check_admin_referer( self::ACTIVATE_NONCE );
 

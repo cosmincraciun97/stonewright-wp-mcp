@@ -25,9 +25,18 @@ tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
 Direct mode may inspect Customizer CSS when core exposes it, and
 `stonewright-custom-css` refuses updates because pluginless mode has no
-authenticated wp-admin one-time-grant boundary. Direct has no custom-code gate:
-its other write tools (content, templates, global styles, Elementor data) send
-what they are given and do not screen it for scripts, styles, or HTML.
+authenticated wp-admin one-time-grant boundary. The other Direct write tools
+(content, block edits, templates, blueprints, widgets, global styles, Elementor data) refuse custom
+code the same way and write nothing: theme.json `styles.css` and per-block
+`css`, Elementor custom CSS setting keys and HTML-type widgets, and script,
+style, iframe, object, embed, link, and `meta http-equiv` elements, inline event
+handlers (`on*=`), and `javascript:` URLs in content, template, and blueprint markup (element and attribute names are
+matched case-insensitively, and entity-encoded or JSON-escaped forms are
+detected). The check covers everything sent, so a page, template, or widget that
+already holds custom code cannot be saved through Direct either. The same check covers the text of ACF field values,
+media titles, captions and alt text, menu and menu-item names, descriptions and URLs, comments, taxonomy terms, user
+display names, Application Password names, and the string values of settings. The refusal is a normal result with `approval_required` and
+`agent_must_stop`; custom code needs Plugin mode and its custom-code approval.
 
 MIT License.
 
@@ -55,8 +64,9 @@ authorization. A refresh token expires after 30 days without use, and one
 presented again within 60 seconds of its use receives the grant's current
 refresh token.
 
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. The one exception is a token refresh that got no
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+read once after a network error and never retries a write.) The one exception is a token refresh that got no
 response at all: it is sent once more with the same refresh credential, at most
 30 seconds after the first request and ended 50 seconds after it, inside the
 server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
@@ -84,7 +94,9 @@ against core WordPress REST.
 |---|---|---|
 | `STONEWRIGHT_MODE` | `auto` \| `direct` \| `plugin` | `auto` |
 | `STONEWRIGHT_DIRECT_WRITES` | `on` \| `off` \| `confirm` | `on` for localhost/`.local`/`.test`; `confirm` for remote |
-| `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry | unset |
+| `STONEWRIGHT_DIRECT_CONFIRM_LEGACY` | `on` accepts a plain `confirm: true` as the confirmation on any site; `off` refuses it everywhere, local sites included. Unset: it counts on localhost/`.local`/`.test` only | unset |
+| `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry; binds the session to that site | unset |
+| `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE` | `1` allows a Direct write on a plugin site when the call also passes `confirm: true`. Recovery only; every use is audited and warned about | unset |
 | Multi-site registry | `~/.stonewright/sites.json` | schema v2: metadata only; secrets in OS store / `env://` |
 
 **Auto-detect:** probes `{site}/wp-json/mcp/stonewright` with HEAD, then GET
@@ -94,9 +106,19 @@ when HEAD is 404 or the HEAD probe fails. Status includes `endpoint_evidence`.
   response → **plugin** mode. 401/403 is authentication failure, not Direct
   fallback.
 - WordPress JSON `rest_no_route` on GET → plugin route **missing**. In `auto`,
-  Direct tools may register; `plugin.reachable` is false and
-  `configured_mcp_url` stays the plugin MCP URL. In `plugin-only`, stay
-  degraded with no Direct tools.
+  Direct tools may register when the site does not have the Stonewright plugin;
+  `plugin.reachable` is false and `configured_mcp_url` stays the plugin MCP URL.
+  In `plugin-only`, stay degraded with no Direct tools.
+- Route missing but the REST index lists the plugin's `stonewright/v1` namespace
+  (for example the MCP Adapter is inactive) → the plugin is live, so `auto`
+  stays degraded with `plugin_route_missing` and registers no Direct tools.
+  Enable the MCP Adapter, then call `stonewright-reconnect`.
+- A site whose `fallback_policy` is `never` also stays degraded instead of
+  falling back to Direct. `always-direct` and `direct-when-plugin-unavailable`
+  allow it.
+- `STONEWRIGHT_MODE=direct` (`direct-only`) never switches to the plugin, but
+  still reads the REST index. When the plugin is active, Direct registers with
+  `mode_conflict` in the status: reads work and writes are refused.
 - HTML/CDN 404 → **inconclusive**; keep the plugin path.
 - Network errors → keep plugin proxy path (existing recovery)
 
@@ -112,41 +134,292 @@ site-hosted state.
 | Capability | Direct | Plugin |
 |---|---|---|
 | Content (posts/pages/CPT) list/get/create/update/delete | yes | yes |
-| Media list/upload/update | yes | yes |
+| Media list/upload/update | yes; upload limited to allowed folders, public URLs, allowed types, 25 MiB | yes |
 | Taxonomy terms | yes | yes |
 | Menus + menu items | yes | yes |
-| FSE templates / template parts | yes | yes |
-| Global styles (theme.json) | yes | yes |
-| Settings get/update | yes | yes |
-| Plugins list/activate/deactivate/install | yes | yes |
+| FSE templates / template parts | yes; pre-image before update, read back after the write, a confirmation for updates in `confirm` mode, custom code refused | yes |
+| Global styles (theme.json) | yes; pre-image before update, read back after the write, custom CSS refused | yes |
+| Settings get/update | yes; allowlisted keys only, `default_role` limited to non-administrative core roles; no before-state saved | yes |
+| Plugins list/activate/deactivate/install | yes; Stonewright and the MCP adapter are never deactivated or deleted | yes |
 | Themes list | yes | yes |
 | Users list/get/me | yes | yes |
 | Search + block patterns | yes | yes |
 | WooCommerce products/orders/sales read | yes | yes |
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
-| Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
-| WP-CLI tokenized tools | yes (local host only) | yes (local host only) |
-| `stonewright/php-execute` | no | yes |
-| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
+| Gutenberg compose helper (local markup) | yes; the markup it returns must be valid blocks and holds no custom code | n/a (use plugin Gutenberg tools) |
+| Gutenberg validate | yes; parses the blocks (balanced comments, valid JSON attributes, block names against the site's block list when readable) and runs the custom-code guard over every block | yes (plugin Gutenberg tools) |
+| Gutenberg block edits by path | yes: `stonewright-blocks-batch-mutate` inserts, updates and removes blocks with a content hash, a saved copy and a readback; no move, no `insert_section`, no browser finalizer | yes (`stonewright-blocks-batch-mutate`, with a finalizer for static blocks) |
+| WP-CLI tokenized tools | yes (local host only; a command that changes the site needs task-start, `confirm: true` in `confirm` mode and a matching local install, and is audited) | yes (local host only; no latch, confirmation or audit row from the companion) |
+| `stonewright/php-execute` | no | yes (`full` profile only) |
+| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup restorable with `stonewright-direct-backup-restore`, read back after the write; `elementor-data-get` returns a tree `hash` and `architecture`, and `elementor-data-update` takes `expected_hash`, checks ids, root, settings and size, and does not rewrite Atomic V4 or mixed documents; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
-| Memory / skills store | yes — private local state | yes — site-hosted |
-| Production-safe confirmation tokens | no | yes |
+| Memory / skills store | yes — private local state; lessons are ranked by confidence and time since last confirmed; a skill saved through Direct is a disabled candidate | yes — site-hosted; skills are activated by an administrator's approval |
+| Production-safe confirmation tokens | no; Direct has its own `confirmation_id`, bound to the call's tool, site and arguments and kept in the companion's memory (10 minutes, one use) | yes |
+| Change sets, Rescue | no | yes |
+| List and restore saved copies | yes: `stonewright-direct-backup-list` / `-restore` (pre-images and Elementor file backups) | yes: Plugin snapshots and the change history |
+| Front-end probe and rollback | page, post and template writes; an automatic restore only with `rollback_on_probe_failure:true` | Rescue probes and rolls back |
+| After-write readback and verification | yes for the typed write tools: the resource is read back and the sent fields compared (`verification`); Elementor HTML/CSS caches are not checked remotely | yes |
 | Audit | local redacted JSONL; no server UI | server-side UI |
 
-Destructive Direct writes on remote sites require `confirm: true` when
-`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Only tools
-flagged destructive ask for it; content, template, and media updates do not.
-Direct takes no snapshot before a write; an Elementor data update saves a file backup that no tool restores.
+**Session site.** With `STONEWRIGHT_SITE_ALIAS` set, every Direct tool acts on
+that alias, not on the registry default, and a `site` argument that names another
+alias is refused with `site_not_in_session`. This covers REST calls, WP-CLI,
+memory scope, incidents and the task-start latch. Without an alias, nothing
+changes: the registry default, or the alias the call names.
+
+**Tools with the same name in both modes.** Thirty-seven tool names exist in Direct
+and in Plugin mode. Direct keeps its own argument names and also accepts the
+plugin's (`post_id`, `menu_id`, `user_login`, `alt`, `blueprint_id`, `date_from`,
+`blogname` and the rest listed in [Direct mode E2E](../docs/direct-mode-e2e.md#tools-that-exist-in-both-modes)).
+An alias and its Direct argument with different values are refused
+(`argument_alias_conflict`), and an argument only the plugin has is refused
+(`plugin_only_argument`) rather than dropped. Rows for local work
+(`stonewright-command-*`, `stonewright rescue`) carry `backend: "local"` and open
+no Direct incident; `task-start` lists only the errors of its own site from the
+last 30 days.
+
+**Plugin on the site.** Before a Direct write, the companion checks the site's
+REST index for the plugin's `stonewright/v1` namespace. If the plugin is active,
+the write is refused with `stonewright_direct_write_blocked_plugin_present`: use
+Plugin mode (`STONEWRIGHT_MODE=auto` or `plugin`, then `stonewright-reconnect`).
+The answer is cached per site for five minutes and cleared on reconnect, so a
+write adds no request once it is known. If the check cannot be completed, the
+write is refused with `stonewright_direct_plugin_check_failed`. Reads, and the
+typed plugin bridge used by `task-start` and `learning-record`, are not checked.
+A Direct session whose `task-start` reaches the plugin reports `plugin_detected`
+and `required_actions: ["switch_to_plugin_mode"]`; an `auto` session switches to
+Plugin mode right away when the MCP route answers.
+
+For recovery only, `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` in the client entry
+plus `confirm: true` on the call lets one write through. Each use writes an audit
+row (`direct_write_plugin_override`) and returns a `warnings` entry. Remove the
+switch when the recovery is done.
+
+Destructive Direct writes on remote sites need a confirmation when
+`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
+flagged destructive ask for it: deletes, template and template-part creates,
+`global-styles-update`, `elementor-data-update`, plugin, theme-activate, comment, widget, settings
+and user changes, `template-update`, `template-part-update`, and
+`blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
+and taxonomy writes do not.
+
+A destructive call without a valid confirmation is refused with
+`confirmation_required`, a `confirmation_id` and a short `summary` of what the call
+will do. Repeat the same call, unchanged, with `confirmation_id`. The id is an HMAC
+over the tool name, the site and the exact arguments, is kept in the companion's
+memory for 10 minutes and works once; it is refused for other arguments, another site
+or another tool, after it expires and when it is used again
+(`confirmation_invalid` with a `reason`, and a fresh id for the call). A plain
+`confirm: true` is still the confirmation on a local site (localhost, `.local`,
+`.test`), where it is a flag the caller sets and is not bound to the arguments. On
+any other site it is no longer accepted and the refusal says so;
+`STONEWRIGHT_DIRECT_CONFIRM_LEGACY=on` restores it, and `=off` refuses it on local
+sites too. Local WP-CLI commands that change the site keep `confirm: true`: they run
+on this machine against an install checked to be the Direct site. Restarting the
+companion drops every pending id.
+
+`elementor-data-update` replaces the whole tree. `elementor-data-get` returns `hash`
+(SHA-256 of the tree with object keys sorted; computed in the companion, not equal to
+the plugin's hash) and `architecture` (`v3`, `v4`, `mixed`, `empty`); `knownHash`
+answers `unchanged:true`, `root_id` limits the answer to one element, `include_content`
+adds bounded settings per node, and `max_nodes` and `response_mode` are aliases of
+`maxElements` and `responseMode`. Pass that hash as `expected_hash` on the update
+(optional, recommended): a tree that changed since is refused with
+`revision_conflict` and `current_hash`, and nothing is written. The update also
+refuses duplicate ids, a widget at the document root or directly inside a widget,
+`settings` that are not an object, CSS characters in a colour setting, and a tree over
+4 MiB, with more than 5000 elements or nested deeper than 32 levels. A document that holds Atomic (V4) elements or
+`$$type` settings, or a tree that does, is not rewritten (Plugin mode types V4
+writes) unless `allow_atomic_raw:true` is passed. `force_destructive`,
+`allow_widget_type_remap` and `allow_atomic_raw` each need a confirmation in every
+write mode, write an audit row before the write, and are listed in the result as
+`overrides_used` (`overrides_requested` shows what was asked for). The result returns
+`previous_hash` and `hash`. A restore through `stonewright-direct-backup-restore` is not
+held to these checks.
+
+Before `template-update`, `template-part-update`, `global-styles-update`,
+`content-update`, `blueprint-apply` with a `post_id`, and
+`stonewright-blocks-batch-mutate`, Direct reads the
+current resource with `context=edit` and stores it under
+`~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
+(mode 0600 where the platform supports it; at most 20 per resource, the oldest
+deleted). The result carries `backup_path` and `backup_sha256` (SHA-256 of the
+stored file). When the current resource cannot be read or the file cannot be
+stored, the write is refused and nothing is sent. The file holds the REST
+resource only, never request headers or credentials. An Elementor data update
+keeps its own file backup under `backups/<site alias>/post-<id>-<timestamp>.json`.
+
+`stonewright-direct-backup-list` lists both kinds (newest first, with a `backup_id`,
+the tool, the resource, the time, the file hash and an integrity check; it never
+returns their content). `stonewright-direct-backup-restore` puts one back. It needs
+a confirmation (`confirm:true` on a local site, otherwise a `confirmation_id`; a
+`dry_run:true` call shows what would change and needs none),
+checks the hash stored in the file (an edited file is refused; a file without a
+stored hash needs the `backup_sha256` the original write returned as
+`expected_sha256`), checks the resource still exists (nothing is recreated),
+saves the current state first so the restore can be undone (the result returns
+its `backup_id`), writes the stored fields back through the same REST route, reads
+the resource back and compares it, and writes audit rows. Restoring puts back
+what was on the site, so custom code in the saved copy is not screened again.
+Saved meta is written over the current meta and no key is deleted, so a meta key
+added after the backup stays; the result lists those keys as `meta_not_in_backup`,
+and `matches_backup` can be false after a correct restore.
+The names `stonewright-direct-backup-*` are kept apart from the Plugin abilities
+(`backup-restore`, `site-backup-page`, `rescue-*`). They are on the `gutenberg`,
+`content-model`, `elementor-design`, `site-admin` and `full` profiles, not on the
+bootstrap or essential surface.
+
+After every typed write the resource is read back (`context=edit`) and the fields
+that were sent are compared with what WordPress returns, the way WordPress
+returns them (`{raw, rendered}` pairs reduce to `raw`, line endings are unified,
+numbers and numeric strings match). The result carries `verification`:
+`verified` (a slug that WordPress stored with a numeric suffix because the one sent was taken is
+`verified` with `slug_adjusted: { requested, stored }`), `mismatch` (the result is `ok:false` with `error:"verification_mismatch"`,
+the differing fields and, when a saved copy exists, `restore_with`) or
+`not_checked` (the readback could not be read). The write audit row carries
+`before_sha256` and `after_sha256` (a hash of the stored state without volatile
+fields such as modified dates), and a `direct_verifier` row records the outcome.
+The generic `stonewright-rest-request` and local WP-CLI commands are not read back.
+
+After a published page or post is written, or a template or template part is
+updated, Direct fetches the public page (the permalink, or the home page for a
+template) and checks for HTTP 200, a non-empty body, no PHP fatal or parse error
+text and not the WordPress critical-error page. The fetch uses the same pinned,
+redirect-checked connection as a media download; only the site's own local host
+(`localhost`, a loopback address, `.localhost`, `.test`, `.local`) may be a
+non-public address. The probe is on by default for a local site and off for a
+remote one; `probe:true`, `probe:false` or `STONEWRIGHT_DIRECT_PROBE=on|off`
+changes that. A failed probe returns `ok:false`, `site_status:"probe_failed"` and a
+`rollback_offer` (the restore call with the saved copy); nothing is rolled back
+unless the call had `rollback_on_probe_failure:true`, in which case the saved copy
+is restored (audited, undoable) and the page is checked again
+(`site_status:"rolled_back"`). A page that cannot be reached is reported as
+`unavailable`, not as a failure. A page created by the write has no saved copy, so
+it can only be reported.
+
+### Gutenberg blocks (Direct)
+
+`stonewright-gutenberg-validate` reads a post's block markup the way WordPress
+does. The comment delimiters must balance and match, each block's attributes must
+be a valid JSON object, and, when the site's block list (`/wp/v2/block-types`) can
+be read, each block name must be one the site has (an unknown name is a warning:
+its plugin or theme may be inactive). The answer lists `diagnostics` with line
+numbers, `unknown_blocks`, `custom_code` (the custom-code guard run over every
+block, `html` and classic blocks included) and the `content_hash` that
+`stonewright-blocks-batch-mutate` takes as `expected_content_hash`. It changes
+nothing. `stonewright-gutenberg-compose` reads its own result the same way before
+returning it: unbalanced comments or attributes that are not valid JSON are an
+error, an `html` block cannot contain block comments, and custom code in `html` or
+`raw` markup is refused with the usual `approval_required` envelope and no markup.
+
+`stonewright-blocks-batch-mutate` edits the blocks of a page or post by path
+instead of sending the whole content back. Its arguments are the Plugin ability's:
+`post_id`, `operations`, `expected_content_hash`, `dry_run`; each operation is an
+`insert`, `update` or `remove` with `path`, `position`, `before_path`,
+`after_path`, `block`, `attrs` and `innerHTML`. A path addresses a block the way
+the editor does (`[1]` is the second top-level block, `[1, 0]` its first inner
+block) and operations apply in order. A dry run writes nothing and returns
+`before_hash` and `after_hash`; a write needs `expected_content_hash` set to the
+`before_hash` and is refused as `content_conflict` if the content changed, checked
+again just before the write. In `confirm` mode a write also needs a confirmation
+bound to the exact operations and hash. All operations apply or none does. Direct saves a
+copy of the post first (`backup_id`, restorable), reads the post back
+(`verification`) and probes the page like `content-update`. Blocks that were not
+touched are written back byte for byte. `update` sets `innerHTML` on a block that
+has no inner blocks and merges `attrs` (a value of `null` removes one); because
+Direct cannot generate the saved markup of a static block, `attrs` alone are
+accepted only on a block with no markup of its own, and a change to a container's
+attributes goes through `stonewright-content-update` or Plugin mode. Custom code
+that the operations add is refused with the `approval_required` envelope (code the
+page already holds is left alone), as is a block name the site does not have, a
+block comment inside markup, and a post whose block markup is already broken.
+
+`stonewright-media-upload` reads a local `path` only from the working directory,
+the companion media folder (`<state dir>/media`) or a root listed in
+`STONEWRIGHT_DIRECT_MEDIA_ROOTS`. The path is resolved first, so a symlink or a
+`..` that leaves those folders counts as outside them. Any other file needs
+`confirm: true` on the call. A `url` must be http or https and must resolve only
+to public addresses; private, loopback, link-local, multicast and reserved IPv4
+and IPv6 addresses are refused, and so is a redirect to one. Each redirect hop (at
+most five) resolves the name once, checks every address, and connects to the
+addresses it checked, with the original Host header and TLS server name, so a
+host that changes its answer after the check cannot move the download.
+The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies. The size is checked before a local file is read and while a download streams, and a download has a 60 second limit.
+
+For a configured site alias, the Elementor tools use WP-CLI only when the local
+install is that site: they compare the install's `home` option (then `siteurl`)
+with the alias URL, once per alias and process. When the addresses differ, or the
+local address cannot be read, the tool uses core REST instead and returns
+`wp_cli_refused` ("the local WordPress is not the target site"), without naming
+either host. Set `STONEWRIGHT_WP_ROOT` or `path` to the install of the alias site
+to use WP-CLI for it.
 
 Local WP-CLI Elementor updates invalidate only the post-scoped
-`_elementor_element_cache` after verified readback and preserve `_elementor_css`
+`_elementor_element_cache` (the deletion is read back) and preserve `_elementor_css`
 metadata. They never run Elementor's global CSS flush command; use Plugin mode
 for guarded target-post CSS closure. Their receipt still says
 `browser_required`: cache invalidation is not rendered visual acceptance.
 Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for
 the closed-loop `stonewright-elementor-post-write-verify` ability.
+
+Direct sends the Application Password only over https, or over http to
+`localhost`, a loopback address, `.localhost`, `.test` or `.local`. A site on
+any other plain-http address is refused before anything is sent;
+`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` allows plain http for a trusted private
+network. The REST client retries a read (GET) once after a network error and
+never retries a write.
+
+A Direct write does not remove the ground it stands on. `plugin-deactivate` and
+`plugin-delete` refuse Stonewright itself and the MCP adapter (`mcp-adapter`).
+`user-delete` refuses the user the session signs in as (found through
+`/wp/v2/users/me`) and the last administrator; `user-update` refuses a role
+change that takes administrator from either. `settings-update` writes only
+allowlisted keys (title, description, time and date formats, timezone, week
+start, posts per page, comment and ping defaults, registration, `default_role`,
+front page settings, site icon), never the site address or administrator email,
+and accepts `default_role` only for `subscriber`, `contributor`, `author` or
+`editor`. A refusal sends nothing.
+
+In a Direct session, `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
+treat a command that is not read-oriented as a Direct write: it needs
+`stonewright-task-start` for the site, `confirm: true` when writes are in
+`confirm` mode, and a local WordPress that is the Direct site; the run leaves an
+audit row (the command words, no values). The commands the shared command
+policy refuses stay refused. `stonewright-wp-cli-batch-run` runs read-oriented
+commands only. In Plugin mode these tools behave as before.
+
+### What Direct mode does not do yet
+
+- The probe covers page, post, template and template-part writes only; global
+  styles, Elementor data and other writes are read back but not probed.
+- Custom-code screening covers every Direct write that sends text or markup;
+  a write to a field that holds custom code needs Plugin mode.
+- Pre-images cover six tools (the five whole-document writes and
+  `stonewright-blocks-batch-mutate`); plugin, theme, settings, menu, media, ACF and
+  taxonomy writes are read back but save no before-state, so they cannot be
+  restored.
+- Block edits have no `move`, no `insert_section` and no browser finalizer, so a
+  change to a static block's attributes needs the matching `innerHTML`, and the
+  attributes of a container are changed with `stonewright-content-update`.
+- Direct cannot activate a skill. A skill saved through Direct (or drafted with
+  `learning-record`) is a disabled candidate that is not offered at task start; an
+  active skill is changed and approved in Plugin mode.
+- `learning-record` screens the lesson with the plugin's instruction screen. Text
+  that tells an agent to override the plugin rules, disable confirmation tokens or
+  send credentials elsewhere is stored with the status `needs_review`, not offered
+  at task start, and not cleared by recording it again; a person deletes it or sets
+  its status to `active` in the local memory file.
+- Elementor raw writes have no control-schema validation and no per-post lease.
+  Duplicate element ids are refused, the base hash (`expected_hash`) is optional,
+  and the readback compares the stored tree with the written one.
+- The verifier rows tie a readback to its write, but `stonewright-incident-repair-record`
+  still needs a verifier row from a different tool that names the failure it
+  repairs, so it returns guidance only until an agent records one.
+
+[docs/direct-mode-e2e.md](../docs/direct-mode-e2e.md) lists what Direct mode
+protects and what it does not do yet in full.
 
 ## Advanced companion setup
 
@@ -262,7 +535,8 @@ it replaces stale or inherited `STONEWRIGHT_WP_*` values instead of allowing a
 named entry to start against another site. Other sites' secrets stay unloaded.
 
 **Modes per site:** `auto` (default probe), `plugin-only` (fail closed without
-plugin MCP), `direct-only` (skip plugin probe). Prefer `--password-env` or the
+plugin MCP), `direct-only` (never use the plugin MCP route; a plugin on the site still
+refuses Direct writes). Prefer `--password-env` or the
 interactive prompt over `--password` (shell history).
 
 Browser provider, scan consent, and install consent are distinct per-client
@@ -400,15 +674,28 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, php-execute, and
+Stonewright companion so setup, status, compact profiles, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 The companion also publishes compact MCP handshake instructions, so clients get
-the first-call, recovery, low-tools, php-execute, and WP-CLI routing rules
+the first-call, recovery, low-tools, and WP-CLI routing rules
 before any tool is called.
 For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
-the canonical `stonewright-wp-cli-*` recovery tools remain local.
+the canonical `stonewright-wp-cli-*` recovery tools remain local. Like the
+bootstrap profile, it registers no `stonewright-php-execute`, even when the
+site's saved surface is `full`; that tool is on the full profile only. The full
+profile is chosen by a person: the one who runs the companion sets
+`STONEWRIGHT_MCP_TOOL_PROFILE=full`, and an administrator sets the site's tool
+surface to Full in wp-admin. No tool switches to it: `stonewright-tool-profile`
+with `action=activate` and `profile=full` returns the plugin's refusal
+(`approval_required`, `agent_must_stop` and the settings link) or, with no
+plugin, its own, and a profile hint in a tool result does not move the companion
+onto `full` unless the site surface is Full. The companion does not forward a
+request for `full` to the plugin either (a plugin older than this rule would
+switch): it refuses an activation, or a call with no `action`, unless it already
+runs `full` or the site surface is Full, and a read-only `action=resolve` still
+goes through. It only ever asks the plugin for `action=resolve`, never for `full`.
 For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
 It registers discovery, read, and verify tools plus the permanent gateways and
 the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It
@@ -464,6 +751,8 @@ cp .env.example .env
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | optional | Largest file `stonewright-media-upload` sends, in bytes; default 26214400 (25 MiB), at most 536870912 |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | optional | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that `stonewright-media-upload` may read local files from without `confirm: true` |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |
 
@@ -559,10 +848,25 @@ Alias names (`companion_wp_cli_*`) are also registered for backward compatibilit
 
 Batch aliases (`stonewright-wp-cli-batch-run` and
 `companion_wp_cli_batch_run`) run multiple tokenized WP-CLI commands in one
-UTF-8 JSON request. Use them for repeated post/meta/term/media/option writes
-instead of large inline PowerShell/Node scripts. Use background jobs only for
-long imports, cache rebuilds, plugin operations, or large batches where a
-single MCP request would otherwise block.
+UTF-8 JSON request. They accept read-oriented commands only (`post`, `term`,
+`option`, `plugin`, `theme` and `user` reads, `db check`, cron lists, cache and
+rewrite flushes); a command off that list refuses the whole batch before any
+command runs. Use them for repeated reads instead of large inline
+PowerShell/Node scripts. Use background jobs for long imports, cache rebuilds,
+batches of writes, or any work where a single MCP request would otherwise block.
+
+Every runner reads the argv the way WP-CLI does: a leading `@alias`, global flags
+before or between the command words, quotes, case, and a whole command in one
+token do not hide the command. The agent-facing runners (run, batch, jobs and
+their HTTP routes) refuse `eval`, `eval-file`, `shell`, `package`, `config`,
+`scaffold`, plugin and theme `install`/`update`/`delete`/`activate`, `db` (except
+read-only subcommands), `user` changes, role and capability changes,
+`core download`/`update`/`install`, `cron event run`, `cli update`,
+`search-replace` without `--dry-run`, option writes to sensitive options, and the
+`--exec`, `--require`, `--prompt`, `--config`, `--ssh` and `--http` flags.
+Commands the companion builds for its own setup, rescue and approved command
+recipes use a narrower list that refuses only the entry points that run
+arbitrary code.
 
 ### HTTP endpoints (when `STONEWRIGHT_HTTP_ENABLE=1` and `PORT` are set)
 
@@ -588,15 +892,15 @@ Example body for `/wp-cli/batch`:
 ```json
 {
   "commands": [
-    ["post", "create", "--post_type=page", "--post_title=Marius Șoflete"],
-    ["term", "create", "echipa_rol", "Producție Media"]
+    ["post", "list", "--post_type=page", "--s=Marius Șoflete", "--format=ids"],
+    ["term", "list", "echipa_rol", "--search=Producție Media", "--format=ids"]
   ],
   "stopOnError": true
 }
 ```
 
 Batch requests preserve Unicode through JSON and still run each command through
-`execFile` argv tokens with the same blocked-command checks as single runs.
+`execFile` argv tokens with the same blocked-command checks as single runs, plus the read-oriented command list of batch runs.
 
 Agent recovery rule: do not run `wp cli info`, `wp plugin activate`,
 `wp option update`, or other `wp ...` commands in a normal shell to debug
@@ -627,22 +931,48 @@ npm run build
 
 ## Direct mode tool surface
 
-**101** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+**105** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`). The companion adds its own local tools to them: 8 connection and diagnostics tools (`stonewright-setup-profile`, `-wordpress-mcp-status`, `-client-surface-check`, `-connect-doctor`, `-mode-capabilities`, `-reconnect`, `-ping`, `-tool-profile`) and 7 `stonewright-wp-cli-*` tools; the `full` profile also lists five legacy `companion_wp_cli_*` aliases. In Direct mode `tools/list` therefore shows 125 tools with `full` (105 + 20) and 37 with `essential` or `essential-static` (22 Direct tools + 15 local tools). `stonewright-task-start` is one of the 105.
 
 - Waves 1–3: content (including `stonewright-content-create` for any registered post type, plus `stonewright-content-create-page` / `stonewright-content-create-post`), menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`. WooCommerce catalog writes and audits are plugin-only.
-- Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
+- Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-incident-repair-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
 - Wave 4 ACF/SEO: `stonewright-acf-fields-get|update`, `stonewright-seo-head-get`
 - Wave 5: `stonewright-elementor-status|data-get|data-update` (local WP-CLI + mandatory backup), `stonewright-gutenberg-validate`, `stonewright-agents-md-sync`, `stonewright-rules-get` (the same native rule registry the plugin ships; also on the bootstrap surface, because task start hands out a rule digest and the tool that resolves it has to be reachable first)
+- Wave 6 backups: `stonewright-direct-backup-list`, `stonewright-direct-backup-restore` (task profiles and `full`; not on the bootstrap or essential surface)
+- Wave 7: `stonewright-memory-delete` (`site-admin` and `full`) and `stonewright-blocks-batch-mutate` (`gutenberg` and `full`); neither is on the bootstrap or essential surface
 
 ### Self-improvement (pluginless)
 
 | Path | Purpose |
 |---|---|
 | `~/.stonewright/skills/<scope>/<slug>.md` | Local skill playbooks (markdown + frontmatter) |
-| `~/.stonewright/memory/<scope>.jsonl` | Local memory entries |
+| `~/.stonewright/memory/<host>-<fingerprint>.jsonl` | Local memory entries, keyed by the site's canonical URL (`_global.jsonl` for global memory). A file from an earlier companion, `memory/<alias>.jsonl`, is copied once and still read while the alias points at the same site |
 | `~/.stonewright/audit-direct.jsonl` | Local Direct audit events with credential redaction |
 
 Set `STONEWRIGHT_STATE_DIR` in tests to override the base directory. Skills load on demand via `skill-get`; `task-start` only returns matched refs.
+
+**Learning loop.** `task-start` asks for `stonewright-learning-record` whenever the
+user corrects the agent or a repeatable mistake is detected (`required_followups`).
+When a Direct write to a resource fails, or its readback reports a mismatch, and a
+later write to the same resource on the same site succeeds, the successful answer
+carries a `learning_offer`: the agent is to tell the user what failed and what
+fixed it and ask whether to record it, and only then call `learning-record` (with
+`source: "write-recovery"`, citing the audit event). The failures are held in the
+running companion only; nothing new is stored. Each lesson carries a `confidence`
+(0 to 1; the default follows its `source`) and a `last_verified` time that moves
+when the same lesson is recorded again. `task-start` shows the five best lessons
+by score (confidence, reduced by the time since last confirmed; a stale lesson
+sorts last), with their `id`, and marks one `verify_before_use` when it is old or
+doubtful. `stonewright-memory-list` takes `order: "score"`. Files written by
+earlier companions have neither field and keep working: their entries get a default
+confidence and count from the time they were recorded.
+`stonewright-memory-delete` removes one local lesson by id and always needs a
+confirmation (the `confirmation_id` a refused call returns, bound to that call; a
+plain `confirm:true` counts on a local site only); a lesson in the plugin's site
+memory is removed in Plugin mode.
+An agent cannot activate its own skill in Direct mode: `stonewright-skill-save`
+and the `draft_skill` of `learning-record` store a disabled candidate, `enabled:true`
+and any change to an active skill are refused, and activation is an
+administrator's approval in Plugin mode.
 
 A new state directory contains no user memory, user-created skills, or audit
 events. Packaged generic built-ins remain available. Companion replacement and

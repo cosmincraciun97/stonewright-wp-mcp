@@ -129,12 +129,21 @@ document mutation.
 ## Compatibility abilities
 
 The generated `stonewright/elementor-add-*` abilities remain available only in
-the explicit full/compatibility surface during the two-release warning window.
+the explicit full/compatibility surface while they are deprecated.
 Their metadata points to `stonewright/elementor-v3-batch-mutate`; the generated
 [migration table](migration-elementor-v3-tools.md) lists every exact mapping.
-The first public beta starts the warning window; the earliest eligible removal
-is beta.3. New skills and recommendations use the live schema plus batch
+The warning window started with the first public beta and its two-warning
+minimum has passed. The deprecated abilities are removed in 2.0.0, the sunset
+version they report in their metadata, and the changelog announces the removal
+before it ships. New skills and recommendations use the live schema plus batch
 compiler.
+
+An inner section is a layout element, not a widget, so it has no schema to read.
+The replacement of `stonewright/elementor-add-inner-section` is the
+`add_inner_section` action of `stonewright/elementor-v3-batch-mutate`: it adds a
+nested container to a container, or an inner section with one column to a column,
+and a later operation in the same batch adds into that column with
+`parent_ref: "<op_id>.column"`.
 
 ## Verification coverage
 

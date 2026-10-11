@@ -12,6 +12,7 @@ use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
 use Stonewright\WpMcp\Elementor\SpecSectionRecord;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -97,7 +98,9 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'before_hash'   => [ 'type' => 'string' ],
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; the hashes are those of the filtered tree.' ],
 				'evidence_hash' => [ 'type' => 'string' ],
+				'checkpoint'    => [ 'type' => 'object', 'description' => 'Dry run only: whether the write would be refused by the design checkpoint gate (would_block), and the code, message and next_action when it would.' ],
 				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
@@ -171,124 +174,141 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$render_started_at = microtime( true );
 				$rendered          = Renderer::render( $normalized, $diagnostics );
 				$render_ms         = self::elapsed_ms( $render_started_at );
-				$existing     = ElementorData::read( $post_id );
-				$before_hash  = TreeHasher::hash( $existing );
-				$architecture = (string) ( AtomicTreeInspector::inspect( $existing )['architecture'] ?? 'empty' );
-				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
-					return $this->error(
-						'v3_architecture_mismatch',
-						__( 'This document contains Elementor V4 Atomic nodes. V3 rendering is blocked to prevent a mixed tree.', 'stonewright' ),
-						[
-							'status'       => 409,
-							'architecture' => $architecture,
-							'before_hash'  => $before_hash,
-							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
-						]
-					);
-				}
-				$expected_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
-				if ( '' !== $expected_hash && ! hash_equals( $expected_hash, $before_hash ) ) {
-					return $this->error( 'tree_conflict', __( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ), [ 'status' => 409, 'expected_tree_hash' => $expected_hash, 'current_tree_hash' => $before_hash ] );
-				}
-				$plan = $this->plan_merge( $post_id, $existing, $rendered, $mode, self::explicit_section_ids( (array) $args['spec'] ) );
-				if ( $plan instanceof \WP_Error ) {
-					return $plan;
-				}
-				$tree       = $plan['tree'];
-				$after_hash = TreeHasher::hash( $tree );
+				// The lease is taken before the document is read, so no other writer changes it between the read and the write.
+				// A dry run writes nothing and takes no lease.
+				$build = function ( string $lock_owner ) use ( $args, $post_id, $started_at, $validate_ms, $evidence_hash, $dry_run, $mode, $diagnostics, $rendered, $render_ms ) {
+					$existing     = ElementorData::read( $post_id );
+					$before_hash  = TreeHasher::hash( $existing );
+					$architecture = (string) ( AtomicTreeInspector::inspect( $existing )['architecture'] ?? 'empty' );
+					if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
+						return $this->error(
+							'v3_architecture_mismatch',
+							__( 'This document contains Elementor V4 Atomic nodes. V3 rendering is blocked to prevent a mixed tree.', 'stonewright' ),
+							[
+								'status'       => 409,
+								'architecture' => $architecture,
+								'before_hash'  => $before_hash,
+								'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+							]
+						);
+					}
+					$expected_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
+					if ( '' !== $expected_hash && ! hash_equals( $expected_hash, $before_hash ) ) {
+						return $this->error( 'tree_conflict', __( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ), [ 'status' => 409, 'expected_tree_hash' => $expected_hash, 'current_tree_hash' => $before_hash ] );
+					}
+					$plan = $this->plan_merge( $post_id, $existing, $rendered, $mode, self::explicit_section_ids( (array) $args['spec'] ) );
+					if ( $plan instanceof \WP_Error ) {
+						return $plan;
+					}
+					$tree       = $plan['tree'];
+					$after_hash = TreeHasher::hash( $tree );
 
-				// The write runs these checks too; running them here gives a dry run
-				// and an apply the same answer before anything is snapshotted.
-				$preflight = ElementorData::preflight( $existing, $tree, [ 'force_destructive' => true ] );
-				if ( $preflight instanceof \WP_Error ) {
-					return $preflight;
-				}
+					// The write runs these checks too; running them here gives a dry run
+					// and an apply the same answer before anything is snapshotted.
+					$preflight = ElementorData::preflight( $existing, $tree, [ 'force_destructive' => true ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
 
-				if ( $dry_run ) {
+					// The checkpoint gate runs for a dry run as well. A dry run is never refused for it, so the first section can
+					// still be previewed; it reports whether the write would be, and what the write then needs.
+					$checkpoint_error = $this->checkpoint_error( $args, $post_id, $tree, $existing );
+					if ( null !== $checkpoint_error && ! $dry_run ) {
+						return $checkpoint_error;
+					}
+
+					if ( $dry_run ) {
+						$element_count = count( ElementorData::flatten( $tree ) );
+						return [
+							'post_id'       => $post_id,
+							'snapshot_id'   => '',
+							'elements'      => $element_count,
+							'element_count' => $element_count,
+							'diagnostics'   => $diagnostics,
+							'dry_run'       => true,
+							'mode'          => $mode,
+							'metrics'       => [
+								'elapsed_ms'  => self::elapsed_ms( $started_at ),
+								'validate_ms' => $validate_ms,
+								'render_ms'   => $render_ms,
+								'write_ms'    => 0.0,
+							],
+							'preview'       => $tree,
+							'before_hash'   => $before_hash,
+							'after_hash'    => $after_hash,
+							'readback_hash' => $after_hash,
+							'evidence_hash' => $evidence_hash,
+							'checkpoint'    => self::checkpoint_report( $checkpoint_error ),
+						];
+					}
+
+					// Backup before any mutation (AGENTS.md hard rule #3).
+					$snapshot_id = Backup::snapshot_post( $post_id );
+					if ( '' === $snapshot_id ) {
+						return $this->backup_failed_error();
+					}
+
+					$write_started_at = microtime( true );
+					// Full-page builds can legitimately shrink the previous document after snapshot.
+					$write_options = [ 'force_destructive' => true ];
+					if ( '' !== $lock_owner ) {
+						$write_options['lock_owner'] = $lock_owner;
+					}
+					if ( ! ElementorData::write( $post_id, $tree, $write_options ) ) {
+						$error = ElementorData::write_error_for_ability();
+						// A refused concurrent write stored nothing; restoring the snapshot
+						// there could overwrite what the other writer saved.
+						if ( 'stonewright_elementor_write_busy' === $error->get_error_code() ) {
+							return $error;
+						}
+						$data             = $error->get_error_data();
+						$data             = is_array( $data ) ? $data : [];
+						$data['restored'] = Backup::restore( $post_id, $snapshot_id );
+						$error->add_data( $data );
+						return $error;
+					}
+					$write_ms = self::elapsed_ms( $write_started_at );
+					// For a user without unfiltered_html Elementor stores the tree after its own filtering; compare with the tree that was stored.
+					$tree             = ElementorData::tree_as_written( $tree );
+					$after_hash       = TreeHasher::hash( $tree );
+					$content_filtered = ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [];
+					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+					if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+						return $this->error( 'readback_mismatch', __( 'Elementor write readback differed from the compiled tree; the snapshot was restored.', 'stonewright' ), [ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ] );
+					}
+
+					// The write is stored and read back; only now is the section record updated.
+					if ( null !== $plan['record'] && ! SpecSectionRecord::store( $post_id, $plan['record'] ) ) {
+						$diagnostics[] = [
+							'code'    => 'spec_section_record_not_stored',
+							'message' => 'The page was written, but the record of which container belongs to which spec section could not be stored; replace_section will not find these sections until the page is rebuilt with mode replace.',
+						];
+					}
+
 					$element_count = count( ElementorData::flatten( $tree ) );
-					return [
+					return $content_filtered + [
 						'post_id'       => $post_id,
-						'snapshot_id'   => '',
+						'snapshot_id'   => $snapshot_id,
 						'elements'      => $element_count,
 						'element_count' => $element_count,
 						'diagnostics'   => $diagnostics,
-						'dry_run'       => true,
+						'dry_run'       => false,
 						'mode'          => $mode,
 						'metrics'       => [
 							'elapsed_ms'  => self::elapsed_ms( $started_at ),
 							'validate_ms' => $validate_ms,
 							'render_ms'   => $render_ms,
-							'write_ms'    => 0.0,
+							'write_ms'    => $write_ms,
 						],
-						'preview'       => $tree,
 						'before_hash'   => $before_hash,
 						'after_hash'    => $after_hash,
-						'readback_hash' => $after_hash,
+						'readback_hash' => $readback_hash,
 						'evidence_hash' => $evidence_hash,
 					];
-				}
+				};
 
-				$checkpoint_error = $this->checkpoint_error( $args, $post_id, $tree, $existing );
-				if ( null !== $checkpoint_error ) {
-					return $checkpoint_error;
-				}
-
-				// Backup before any mutation (AGENTS.md hard rule #3).
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-
-				$write_started_at = microtime( true );
-				// Full-page builds can legitimately shrink the previous document after snapshot.
-				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
-					$error = ElementorData::write_error_for_ability();
-					// A refused concurrent write stored nothing; restoring the snapshot
-					// there could overwrite what the other writer saved.
-					if ( 'stonewright_elementor_write_busy' === $error->get_error_code() ) {
-						return $error;
-					}
-					$data             = $error->get_error_data();
-					$data             = is_array( $data ) ? $data : [];
-					$data['restored'] = Backup::restore( $post_id, $snapshot_id );
-					$error->add_data( $data );
-					return $error;
-				}
-				$write_ms = self::elapsed_ms( $write_started_at );
-				$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
-				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
-					$restored = Backup::restore( $post_id, $snapshot_id );
-					return $this->error( 'readback_mismatch', __( 'Elementor write readback differed from the compiled tree; the snapshot was restored.', 'stonewright' ), [ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ] );
-				}
-
-				// The write is stored and read back; only now is the section record updated.
-				if ( null !== $plan['record'] && ! SpecSectionRecord::store( $post_id, $plan['record'] ) ) {
-					$diagnostics[] = [
-						'code'    => 'spec_section_record_not_stored',
-						'message' => 'The page was written, but the record of which container belongs to which spec section could not be stored; replace_section will not find these sections until the page is rebuilt with mode replace.',
-					];
-				}
-
-				$element_count = count( ElementorData::flatten( $tree ) );
-				return [
-					'post_id'       => $post_id,
-					'snapshot_id'   => $snapshot_id,
-					'elements'      => $element_count,
-					'element_count' => $element_count,
-					'diagnostics'   => $diagnostics,
-					'dry_run'       => false,
-					'mode'          => $mode,
-					'metrics'       => [
-						'elapsed_ms'  => self::elapsed_ms( $started_at ),
-						'validate_ms' => $validate_ms,
-						'render_ms'   => $render_ms,
-						'write_ms'    => $write_ms,
-					],
-					'before_hash'   => $before_hash,
-					'after_hash'    => $after_hash,
-					'readback_hash' => $readback_hash,
-					'evidence_hash' => $evidence_hash,
-				];
+				return $dry_run ? $build( '' ) : PostWriteLock::with_lease( $post_id, 'build-page', $build );
 			}
 		);
 	}
@@ -353,6 +373,26 @@ final class BuildPageFromSpec extends AbilityKernel {
 				]
 			)
 		);
+	}
+
+	/**
+	 * What a dry run says about the checkpoint gate: whether the write would be refused for it, and why.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function checkpoint_report( ?\WP_Error $error ): array {
+		if ( null === $error ) {
+			return [ 'would_block' => false ];
+		}
+		$data = $error->get_error_data();
+		$data = is_array( $data ) ? $data : [];
+
+		return [
+			'would_block' => true,
+			'code'        => $error->get_error_code(),
+			'message'     => $error->get_error_message(),
+			'next_action' => $data['next_action'] ?? null,
+		];
 	}
 
 	private function to_error( bool|\WP_Error $verified ): ?\WP_Error {
@@ -517,7 +557,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 	 * @param array<int, array<string, mixed>> $existing
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function with_unused_ids( array $rendered, array $existing ): array {
+	public static function with_unused_ids( array $rendered, array $existing ): array {
 		$used = [];
 		ElementorData::walk(
 			$existing,

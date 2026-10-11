@@ -48,7 +48,7 @@ final class CustomCodeApprovalPage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to approve custom code.', 'stonewright' ) );
+			wp_die( esc_html__( 'You do not have permission to approve custom code.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only proposal/result lookup.

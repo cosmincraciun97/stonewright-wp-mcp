@@ -48,7 +48,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
-		$this->assertStringContainsString( 'Use stonewright/php-execute for direct full WordPress runtime access', $instructions );
+		$this->assertStringContainsString( 'On the full profile only, use stonewright/php-execute for direct full WordPress runtime access', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php to replace Stonewright php-execute', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
 		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call', $instructions );
@@ -80,7 +80,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'registered woocommerce/* blocks', $instructions );
 		$this->assertStringContainsString( 'Deletes preview first and trash by default', $instructions );
 		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
-		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets', $instructions );
+		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute (full profile only) for PHP runtime snippets', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
 		$this->assertStringContainsString( 'HTML widgets are disabled by default at site level', $instructions );
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
@@ -189,5 +189,24 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/design-checkpoint-record', $instructions );
 		$this->assertStringContainsString( 'checkpoint_token to every later section write', $instructions );
 		$this->assertStringContainsString( 'preserve, repair, content_only, responsive_fix', $instructions );
+	}
+
+	public function test_default_instructions_prefer_native_execute_for_v4_and_keep_v3_on_the_v3_writers(): void {
+		$instructions = AgentInstructions::default();
+
+		$this->assertStringContainsString( 'stonewright-elementor-native-execute', $instructions );
+		$this->assertStringContainsString( 'V4 (Atomic)', $instructions );
+		$this->assertStringContainsString( 'certified', $instructions );
+		$this->assertStringContainsString( 'Stonewright V4 writers', $instructions );
+		$this->assertStringContainsString( 'V3 documents stay on the V3 writers', $instructions );
+		$this->assertStringContainsString( 'Never call elementor/* tools on Elementor\'s own MCP server', $instructions );
+		$this->assertStringContainsString( 'backups, the change history and the audit', $instructions );
+	}
+
+	public function test_the_bootstrap_summary_carries_one_short_native_line(): void {
+		$summary = AgentInstructions::server_bootstrap_summary();
+
+		$this->assertStringContainsString( 'stonewright-elementor-native-execute', $summary );
+		$this->assertStringContainsString( 'never call elementor/* on Elementor\'s own MCP server', $summary );
 	}
 }

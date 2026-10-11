@@ -51,13 +51,15 @@ allows a native write is executed only by `stonewright/elementor-native-execute`
 (see Native execution below); the Stonewright V4 writers above stay as the
 fallback.
 
-Elementor's MCP server and Stonewright do not compete: both can be connected to
-one client. Use Stonewright when you want snapshots, readback, audit, and
-rollback; Elementor's MCP alone is fine for a quick draft.
+Connect only Stonewright to the AI client. Stonewright runs the certified Elementor
+abilities itself, with snapshots, readback, audit, and rollback; a call on Elementor's
+own MCP server has none of them. See [Elementor MCP with Stonewright](elementor-mcp.md).
 
 ### What the module needs
 
-`native_elementor.mcp_module` reports each requirement as met or missing:
+`native_elementor.mcp_module` reports the first three as `requirements` (each met or
+missing, with the names of the missing ones in `missing`), the site switch as
+`site_exposure_enabled` and the Atomic Editor as `atomic_editor_active`:
 
 - the WordPress Abilities API (`wp_register_ability`, part of WordPress core);
 - the WordPress MCP Adapter (`WP\MCP\Core\McpAdapter`);
@@ -75,7 +77,7 @@ requirement. `mcp_adapter.provider_id` names the plugin whose copy was loaded.
 `native_elementor` appears in `stonewright/site-capabilities`,
 `stonewright/elementor-v3-status`, and `stonewright/elementor-provider-discovery`.
 `stonewright-task-start` carries only its `state` as
-`elementor.status.native_elementor`. The report lists the Elementor version, the
+`elementor.status.native_elementor`, plus one short `native_hint`. The report lists the Elementor version, the
 module requirements, the registered `elementor/*` abilities, ownership
 (`official`, `third-party`, or `mixed`), one schema fingerprint per ability, and
 a certification entry per contract.
@@ -157,23 +159,33 @@ does not guess fields. Writes plan first: `dry_run` defaults to `true`.
 
 A write runs in this order and stops at the first failure:
 
-1. **Route.** The ability must be certified for the live Elementor version and its
+1. **Gates.** The permission for the family (`edit_theme_options` for default
+   styles, edit access to the post for a composition or a structure read; Elementor's
+   own ability checks its capability again when it runs). The tool is available when
+   the native Elementor state is `available` and at least one ability is certified;
+   otherwise the call fails with `stonewright_native_unavailable`, the state, the
+   issue codes (for example `elementor_version_out_of_range`) and the Stonewright
+   writers to use instead. The experimental V4 flag is not part of this gate. Then,
+   for a real write in `production-safe` mode, a confirmation token bound to the
+   arguments (`stonewright/security-issue-confirmation-token`), the same rule the
+   other writers follow. Reads and dry-run plans need no token in any mode.
+2. **Route.** The ability must be certified for the live Elementor version and its
    contract must allow a native write; otherwise the call fails with
    `stonewright_native_route_refused`, the exact reason or issues, the missing
    feature (for example `elementor_mcp_site_exposure`), and the Stonewright
-   writers to use instead. Documents route per subtree and are never converted:
+   writers to use instead. A contract that requires the Atomic Editor fails with
+   `stonewright_native_atomic_editor_inactive` while that experiment is off.
+   Documents route per subtree and are never converted:
    a V3 document or a V3 subtree of a mixed document routes to the V3 writers, an
    insert at the root of a mixed document and a missing parent are refused, and an
    Atomic subtree or an empty or V4 document routes native.
-2. **Gates.** The experimental V4 flag, the Atomic Editor requirement, the
-   production-safe block, the permission for the family (kit options, or the post),
-   and the production-safe confirmation token. Native writes stay blocked in
-   `production-safe` mode like the other V4 writers.
 3. **Exposure.** Every Atomic type in the composition must be registered on the
    site; a missing one fails with `stonewright_atomic_type_unavailable`,
    `missing_feature: atomic_type:<type>`, and the types the site has.
-4. **Snapshot and lock.** `Backup::snapshot_post()` of the page (or the active kit)
-   and the per-post write lock, released afterwards.
+4. **Snapshot and lock.** `Backup::snapshot_post()` of the page (or the active kit;
+   a kit snapshot of a default-styles write also takes the default styles through
+   Elementor's repository, because they are posts of their own) and the per-post
+   write lock, released afterwards.
 5. **Execute** the Elementor ability.
 6. **Independent readback.** Default styles are read back from Elementor's
    repository; a composition is read back from `_elementor_data` (or from the
@@ -192,8 +204,38 @@ A write runs in this order and stops at the first failure:
 9. **ChangeSetV1 and audit.** The result carries `change_set`: planned and applied
    changes, before and after hashes, the verification outcome, and `repair_of` and
    `supersedes` lineage. A staged edit is `queued` with nothing applied. A
-   default-styles write reports no rollback recipe, because a kit snapshot does not
-   cover the default style posts; its automatic rollback happens inside the call.
+   default-styles write names its kit snapshot as the rollback recipe when that
+   snapshot holds the default styles (the change history marks the same row
+   restorable); without them it names none, and its automatic rollback happens
+   inside the call.
+
+Where the tool is listed: on the essential surface and right after provider
+discovery in the `elementor-design` profile when native Elementor is available.
+The agent instructions say to prefer it for a V4 (Atomic) document and to fall back
+to the Stonewright V4 writers when it refuses; V3 stays on the V3 writers, and
+`elementor/*` tools are never called on Elementor's own MCP server.
+
+### Calls made outside the tool
+
+A call to an `elementor/*` write ability that does not come through
+`stonewright/elementor-native-execute` (for example through Elementor's own MCP
+server) cannot be gated, but it is observed. Stonewright hooks core's
+`wp_before_execute_ability` (name, input, ability) and `wp_after_execute_ability`
+(name, input, result, ability); core fires the first after the input and permission
+checks and the second only when the call succeeded. Before the call, the post the
+input names (or the active kit for default styles, classes and variables) is
+snapshotted, into a pool of its own (the newest three per post) that never pushes a
+real backup out; the snapshot is dropped when the call failed or changed nothing.
+The change it looks for is a change of the post's image, which for the active kit
+holds the global classes and the default styles as Elementor's repositories return
+them, and the global variables. After the call, a change-history row (family `elementor`, status "Not
+verified", with the content before so it can be undone) is written when the
+document changed, and an audit row marked `observed_native` is always written. The
+observer never blocks, refuses or rewrites the call, opens no rescue frame, and a
+failure of its own recording is logged only. A page the call created is recorded
+from `post_id` in the result. A change staged in an autosave leaves the live
+document unchanged, so it has an audit row (outcome `staged_in_autosave`, not
+`unchanged`) and no history row.
 
 Statuses are `planned`, `applied`, `unchanged`, `staged_in_autosave`, and `read`.
 The structure read returns Elementor's structure and flags a pending autosave,
@@ -203,10 +245,22 @@ because that read shows the published document.
 
 `stonewright/elementor-v4-update-node` and `stonewright/elementor-v4-render-from-spec`
 compare the stored document with the tree they wrote, nested content included,
-and restore the snapshot on a mismatch. The class adapters compare the stored
+and restore the snapshot on a mismatch.
+`render-from-spec` takes the page write lease before it reads the page (for an
+append) and keeps it through the snapshot, the write and the readback; a busy page
+answers `stonewright_elementor_write_busy` before anything is stored. The class adapters compare the stored
 class, variants and props included, with what was written and put the previous
 class back (or delete the new one) on a mismatch; the variable adapter checks the
-label, type, and value. Each result carries `readback` or fails with
+label, type, and value and, on a mismatch, deletes the new variable or puts the
+previous label, type and value back, and says in `rollback_status` whether that was
+confirmed. The snapshot the four class and variable writers return covers the
+variables (the kit meta `_elementor_global_variables`) and the global classes. From
+Elementor 4.3 a class is an `e_global_class` post, so the snapshot of a class write
+holds the items, order and labels that Elementor's `Global_Classes_Repository`
+returns for the frontend and preview contexts, and a restore writes them back with
+`put()` and reads them back; the legacy kit meta key `_elementor_global_classes` is
+only the fallback where that repository does not exist. `change-restore` and the
+Changes page bring a class or variable change back. Each result carries `readback` or fails with
 `stonewright_atomic_readback_mismatch` and its `problems`.
 
 ## Surgical node update
@@ -222,9 +276,12 @@ node by id (merge or replace). It:
    against its reverse map. Unknown keys already on a certified node are
    preserved with a warning; new keys still require a `$$type`/`value`
    envelope.
-4. Snapshots with `Backup::snapshot_post`, then writes through
-   `ElementorData::write` **without** `skip_integrity`.
+4. Takes the page write lock, reads the page again and refuses with
+   `elementor_revision_conflict` when it changed since the plan, then snapshots with
+   `Backup::snapshot_post` and writes through `ElementorData::write` **without**
+   `skip_integrity`.
 5. Supports `dry_run:true` to return the planned settings without writing.
+   `dry_run` defaults to **false**: a call without it writes.
 
 Prefer `dry_run` first. Use class/variable abilities for kit-level styles; do
 not use this ability for tree restructure, elType/widgetType remaps, or full
@@ -261,6 +318,10 @@ editor model and preview DOM after mutation. It never calls the V3 adapter as a
 fallback.
 
 `stonewright/elementor-v4-migrate` is the only explicit V3-to-V4 path. Dry-run
-returns a per-element compatibility/loss report. Apply is refused unless every
-element has a verified zero-loss mapping; successful apply snapshots the page,
-writes once, compares the readback hash, and restores automatically on mismatch.
+returns a per-element compatibility/loss report. Apply needs `confirm_migration=true`
+(and, once a V4 write is allowed in `production-safe` mode, a `confirmation_token`
+bound to the post and the other arguments) and is refused unless every element has a
+verified zero-loss mapping. It takes the page write lock, refuses a page that changed
+since the plan (`elementor_revision_conflict`), snapshots the page, writes once,
+compares the readback hash, and restores the snapshot on a failure or mismatch; the
+error carries `rollback_status` (`succeeded` or `failed`) from that restore.

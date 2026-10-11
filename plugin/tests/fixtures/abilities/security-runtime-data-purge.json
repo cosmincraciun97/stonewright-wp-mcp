@@ -2,7 +2,6 @@
   "args": {
     "action": "dry_run",
     "scopes": [
-      "audit",
       "memory",
       "incidents",
       "error_patterns"

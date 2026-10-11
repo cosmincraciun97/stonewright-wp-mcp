@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\WpCli;
 
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * Runs multiple tokenized WP-CLI commands through the local companion.
@@ -22,7 +23,7 @@ final class BatchRun extends WpCliAbility {
 	}
 
 	public function description(): string {
-		return __( 'Runs multiple tokenized WP-CLI commands through the companion in one request. Use responseMode=summary for token-efficient CPT UI, ACF, post, meta, term, option, and plugin command workflows.', 'stonewright' );
+		return __( 'Runs multiple tokenized WP-CLI commands through the companion in one request. Read-oriented commands only (post, term, option, plugin, theme, user, db check, cron lists) plus cache and rewrite flushes; one other command refuses the whole batch before any runs. Use responseMode=summary for token-efficient output. Requires edit_plugins and manage_options (a super admin on multisite).', 'stonewright' );
 	}
 
 	/**
@@ -55,7 +56,7 @@ final class BatchRun extends WpCliAbility {
 							'minItems' => 1,
 							'items'    => [ 'type' => 'string' ],
 						],
-						'description' => 'List of WP-CLI argv token arrays after wp, e.g. [["post","create","--post_type=page"],["post","meta","update","42","key","value"]].',
+						'description' => 'List of WP-CLI argv token arrays after wp, e.g. [["post","list","--post_type=page","--format=json"],["post","meta","get","42","key"]].',
 					],
 					'parseJson'          => [
 						'type'        => 'boolean',
@@ -97,6 +98,9 @@ final class BatchRun extends WpCliAbility {
 		];
 	}
 
+	public function permission_callback( array $args ): bool|\WP_Error {
+		return Permissions::can_run_code();
+	}
 	public function execute( array $args ): array|\WP_Error {
 		if ( empty( $args['commands'] ) || ! is_array( $args['commands'] ) ) {
 			return $this->error( 'wp_cli_invalid_commands', __( 'A non-empty commands array is required.', 'stonewright' ), [ 'status' => 400 ] );
@@ -115,6 +119,11 @@ final class BatchRun extends WpCliAbility {
 					static fn( string $key ): bool => 'confirmation_token' !== $key,
 					ARRAY_FILTER_USE_KEY
 				);
+
+				$policy_error = $this->command_policy_error( (array) $a['commands'], true );
+				if ( null !== $policy_error ) {
+					return $policy_error;
+				}
 
 				$token_error = $this->confirmation_token_error( $a, $request_args );
 				if ( null !== $token_error ) {

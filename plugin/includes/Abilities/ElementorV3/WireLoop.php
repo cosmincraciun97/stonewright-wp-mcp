@@ -183,7 +183,8 @@ final class WireLoop extends AbilityKernel {
 					);
 				}
 
-				if ( empty( $args['dry_run'] ) && $has_spec ) {
+				// Every write that is not a dry run needs a token, whether the template is new or an existing one.
+				if ( empty( $args['dry_run'] ) ) {
 					$verify_args = array_filter(
 						$args,
 						static fn( string $key ): bool => 'confirmation_token' !== $key,

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -40,6 +41,7 @@ final class CreatePage extends AbilityKernel {
 				'excerpt'  => [ 'type' => 'string' ],
 				'status'   => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ], 'default' => 'draft' ],
 				'parent'   => [ 'type' => 'integer', 'minimum' => 0, 'default' => 0 ],
+				'date'     => PostDate::schema(),
 				'template' => [ 'type' => 'string' ],
 				'slug'     => [ 'type' => 'string' ],
 				'meta'     => [ 'type' => 'object' ],
@@ -95,14 +97,20 @@ final class CreatePage extends AbilityKernel {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
+				$status = (string) ( $args['status'] ?? 'draft' );
+				$date   = PostDate::resolve( $args['date'] ?? null, $status );
+				if ( is_wp_error( $date ) ) {
+					return $date;
+				}
+
 				$payload = [
 					'post_title'   => sanitize_text_field( (string) $args['title'] ),
 					'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
 					'post_excerpt' => sanitize_text_field( (string) ( $args['excerpt'] ?? '' ) ),
-					'post_status'  => (string) ( $args['status'] ?? 'draft' ),
+					'post_status'  => $status,
 					'post_type'    => 'page',
 					'post_parent'  => (int) ( $args['parent'] ?? 0 ),
-				];
+				] + $date;
 
 				if ( ! empty( $args['slug'] ) ) {
 					$payload['post_name'] = sanitize_title( (string) $args['slug'] );
@@ -112,14 +120,14 @@ final class CreatePage extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				$meta_skipped = [];
 
 				if ( ! empty( $args['template'] ) ) {
+					// The key is protected, so the generic meta gate would refuse it; it is written directly from the allowlist.
 					$template_key = '_wp_page_template';
-					if ( Permissions::can_edit_post_meta( (int) $id, $template_key ) ) {
-						update_post_meta( (int) $id, $template_key, sanitize_text_field( (string) $args['template'] ) );
-					} else {
+					if ( ! ProtectedMeta::set( (int) $id, $template_key, sanitize_text_field( (string) $args['template'] ) ) ) {
 						$meta_skipped[] = $template_key;
 					}
 				}

@@ -38,6 +38,29 @@ final class UninstallFileTest extends TestCase {
 		self::assertSame( [], UninstallSite::$log, 'the caches were left alone as well' );
 	}
 
+	/**
+	 * The list of registered custom widgets says which generated widget files Elementor loads. With the plugin
+	 * gone nothing loads them, and a reinstall must not bring them back without a new registration, so the list
+	 * goes on every uninstall; the rest of the data stays unless the setting asks for its removal.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_deleting_the_plugin_forgets_the_registered_custom_widgets_and_keeps_the_other_data(): void {
+		define( 'WP_UNINSTALL_PLUGIN', 'stonewright/stonewright.php' );
+		$wpdb = UninstallSite::reset();
+		$GLOBALS['wpdb'] = $wpdb;
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [ 'my-card' ];
+		$others = $GLOBALS['stonewright_test_options'];
+		unset( $others['stonewright_registered_widgets'] );
+
+		include self::file();
+
+		self::assertArrayNotHasKey( 'stonewright_registered_widgets', $GLOBALS['stonewright_test_options'] );
+		self::assertSame( $others, $GLOBALS['stonewright_test_options'], 'every other option was kept' );
+		self::assertSame( [], $wpdb->statements, 'no table was touched' );
+	}
+
 	private static function helper_file(): string {
 		return WP_CONTENT_DIR . '/mu-plugins/stonewright-rescue.php';
 	}
@@ -130,6 +153,9 @@ final class UninstallFileTest extends TestCase {
 		file_put_contents( $journal, '{"version":1,"updated_at":0,"entries":[]}' );
 		file_put_contents( $journal . '.lock', '' );
 		file_put_contents( $uploads . '/stonewright-state/.htaccess', 'Require all denied' );
+		mkdir( $uploads . '/stonewright-state/blobs', 0777, true );
+		file_put_contents( $uploads . '/stonewright-state/blobs/' . hash( 'sha256', 'synthetic image' ) . '.gz', (string) gzencode( 'synthetic image' ) );
+		file_put_contents( $uploads . '/stonewright-state/blobs/index.php', "<?php\n// Silence is golden.\n" );
 		return [ $site, $content, $uploads ];
 	}
 
@@ -176,6 +202,8 @@ final class UninstallFileTest extends TestCase {
 			self::assertSame( 0, $run['loaded']['autoloaders'] ?? -1, 'no autoloader was there to help' );
 			self::assertTrue( $run['loaded']['installer'] ?? false );
 			self::assertFalse( $run['loaded']['journal'] ?? true, 'the default path loads no data removal code' );
+			self::assertFalse( $run['loaded']['blob_store'] ?? true, 'nor the blob store' );
+			self::assertCount( 1, glob( $uploads . '/stonewright-state/blobs/*.gz' ) ?: [], 'the change history blobs are data and stay' );
 		} finally {
 			self::remove_folder( $site );
 		}
@@ -194,6 +222,7 @@ final class UninstallFileTest extends TestCase {
 			self::assertSame( 0, $run['loaded']['autoloaders'] ?? -1, 'no autoloader was there to help' );
 			self::assertTrue( $run['loaded']['journal'] ?? false );
 			self::assertTrue( $run['loaded']['journal_file'] ?? false );
+			self::assertTrue( $run['loaded']['blob_store'] ?? false, 'the blob store is loaded by uninstall.php, which has no autoloader' );
 		} finally {
 			self::remove_folder( $site );
 		}

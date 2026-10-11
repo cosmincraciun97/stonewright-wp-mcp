@@ -271,6 +271,81 @@ final class BlocksBatchMutateTest extends TestCase {
 		self::assertTrue( $allowed['ok'] );
 	}
 
+	public function test_every_write_requires_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$before = (string) $GLOBALS['stonewright_test_posts'][801]->post_content;
+		foreach (
+			[
+				'update' => [ 'action' => 'update', 'path' => [ 0 ], 'innerHTML' => '<p>Changed</p>' ],
+				'insert' => [ 'action' => 'insert', 'path' => [], 'position' => 1, 'block' => [ 'blockName' => 'core/heading', 'innerHTML' => '<h2>New</h2>' ] ],
+				'move'   => [ 'action' => 'move', 'path' => [ 0 ], 'position' => 0 ],
+			] as $label => $operation
+		) {
+			$args = [
+				'post_id'               => 801,
+				'expected_content_hash' => $this->current_hash(),
+				'operations'            => [ $operation ],
+			];
+
+			$blocked = ( new BlocksBatchMutate() )->execute( $args );
+			self::assertInstanceOf( \WP_Error::class, $blocked, $label );
+			self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code(), $label );
+			self::assertSame( $before, $GLOBALS['stonewright_test_posts'][801]->post_content, $label . ' wrote nothing.' );
+		}
+
+		$args = [
+			'post_id'               => 801,
+			'expected_content_hash' => $this->current_hash(),
+			'operations'            => [ [ 'action' => 'update', 'path' => [ 0 ], 'innerHTML' => '<p>Changed</p>' ] ],
+		];
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/blocks-batch-mutate', $args );
+		$allowed = ( new BlocksBatchMutate() )->execute( $args );
+		self::assertIsArray( $allowed, is_wp_error( $allowed ) ? $allowed->get_error_code() : '' );
+		self::assertStringContainsString( 'Changed', (string) $GLOBALS['stonewright_test_posts'][801]->post_content );
+	}
+
+	public function test_a_dry_run_needs_no_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$result = ( new BlocksBatchMutate() )->execute(
+			[
+				'post_id'    => 801,
+				'dry_run'    => true,
+				'operations' => [ [ 'action' => 'update', 'path' => [ 0 ], 'innerHTML' => '<p>Changed</p>' ] ],
+			]
+		);
+
+		self::assertIsArray( $result, is_wp_error( $result ) ? $result->get_error_code() : '' );
+		self::assertTrue( $result['dry_run'] );
+	}
+
+	public function test_the_finalizer_queue_branch_requires_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'post_id'               => 801,
+			'expected_content_hash' => $this->current_hash(),
+			'operations'            => [
+				[
+					'action'   => 'insert',
+					'path'     => [],
+					'position' => 1,
+					'block'    => [ 'blockName' => 'vendor/alpha', 'attrs' => [ 'title' => 'A' ] ],
+				],
+			],
+		];
+
+		$blocked = ( new BlocksBatchMutate() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+		foreach ( BlockQueue::list() as $item ) {
+			self::assertNotSame( 801, (int) $item['post_id'], 'Nothing was queued without a token.' );
+		}
+
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/blocks-batch-mutate', $args );
+		$queued = ( new BlocksBatchMutate() )->execute( $args );
+		self::assertIsArray( $queued, is_wp_error( $queued ) ? $queued->get_error_code() : '' );
+		self::assertTrue( $queued['queued'] );
+	}
+
 	public function test_failed_write_restores_the_single_snapshot(): void {
 		$GLOBALS['stonewright_test_wp_update_post_return'] = new \WP_Error( 'database_failure', 'Database write failed.' );
 		$result = ( new BlocksBatchMutate() )->execute(

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -97,9 +98,15 @@ final class CreatePattern extends AbilityKernel {
 				if ( is_wp_error( $id ) ) {
 					return $id;
 				}
+				RescueGuard::note_post_created( (int) $id );
 
 				$snapshot_id = Backup::snapshot_post( (int) $id );
-				$post        = get_post( (int) $id );
+				if ( '' === $snapshot_id ) {
+					// The new pattern has no way back, so it does not stay: the write is undone.
+					wp_delete_post( (int) $id, true );
+					return $this->backup_failed_error();
+				}
+				$post = get_post( (int) $id );
 				return [
 					'id'          => (int) $id,
 					'slug'        => $post ? (string) $post->post_name : '',

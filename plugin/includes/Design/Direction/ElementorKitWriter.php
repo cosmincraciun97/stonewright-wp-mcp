@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Design\Direction;
 
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Security\Backup;
 use WP_Error;
 
@@ -118,7 +119,7 @@ final class ElementorKitWriter {
 	 *
 	 * @param int                       $kit_id     Elementor kit post id.
 	 * @param list<array<string,mixed>> $operations Operations from the planner.
-	 * @return array{snapshot_id:string,applied:int}|WP_Error
+	 * @return array{snapshot_id:string,applied:int,content_filtered?:bool}|WP_Error
 	 */
 	public static function apply( int $kit_id, array $operations ) {
 		if ( [] === $operations ) {
@@ -152,6 +153,11 @@ final class ElementorKitWriter {
 			$settings = $updated;
 		}
 
+		// For a user without unfiltered_html Elementor filters the settings when it stores them; filter first, the way its editor does.
+		$filtered         = EditorKses::filter( $settings );
+		$content_filtered = $filtered !== $settings ? [ 'content_filtered' => true ] : [];
+		$settings         = $filtered;
+
 		if ( false === update_post_meta( $kit_id, self::META_KEY, $settings ) ) {
 			return new WP_Error(
 				self::ERROR_CODE,
@@ -163,7 +169,7 @@ final class ElementorKitWriter {
 			);
 		}
 
-		return [
+		return $content_filtered + [
 			'snapshot_id' => $snapshot_id,
 			'applied'     => count( $operations ),
 		];

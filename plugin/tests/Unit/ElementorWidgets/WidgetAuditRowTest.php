@@ -122,8 +122,10 @@ final class WidgetAuditRowTest extends TestCase {
 			array_filter(
 				$GLOBALS['stonewright_test_wpdb_inserts'],
 				static fn ( array $insert ): bool => str_contains( (string) $insert['table'], 'stonewright_audit_log' )
+					&& self::REGISTER === ( $insert['data']['ability_name'] ?? '' )
 			)
 		);
+		// Writing the active file and removing the pending one are sandbox writes with rows of their own (sandbox.write, sandbox.delete).
 		self::assertCount( 1, $audit_rows );
 		self::assertSame( self::REGISTER, $audit_rows[0]['data']['ability_name'] );
 	}

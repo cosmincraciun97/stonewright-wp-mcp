@@ -17,8 +17,9 @@ final class TokenSurfaceBudgets {
 
 	/**
 	 * Bootstrap profile: progressive discovery entry surface.
-	 * Includes startup + minimal runtime/write escape hatches so agents are not
-	 * stuck without php-execute before the first task-start expansion.
+	 * Includes startup + minimal read and confirmation escape hatches so agents are
+	 * not stuck before the first task-start expansion. php-execute is on the full
+	 * profile only.
 	 */
 	public const BOOTSTRAP_MAX_TOOLS = 12;
 

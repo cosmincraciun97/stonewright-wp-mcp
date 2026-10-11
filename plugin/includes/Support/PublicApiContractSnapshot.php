@@ -357,15 +357,11 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_token( string $source ): bool {
-		return AbilitySourceFacts::has_token_gate( $source );
+		return AbilitySourceFacts::token_gate_in( $source );
 	}
 
 	private static function detect_backup( string $source ): bool {
-		return str_contains( $source, 'Backup::snapshot_post' )
-			|| str_contains( $source, 'SpecToGutenberg()' )
-			|| str_contains( $source, 'SpecToElementorV3()' )
-			|| str_contains( $source, 'ApplyToPost()' )
-			|| str_contains( $source, 'new BuildPageFromSpec()' );
+		return AbilitySourceFacts::backs_up( $source );
 	}
 
 	private static function detect_validator( string $source ): bool {
@@ -391,7 +387,9 @@ final class PublicApiContractSnapshot {
 			|| str_contains( $clean, '$this->audit_read(' )
 			|| str_contains( $clean, '->audit_read(' )
 			|| str_contains( $clean, '$this->audit(' )
-			|| str_contains( $clean, '->audit(' );
+			|| str_contains( $clean, '->audit(' )
+			// The rollback engine writes one audit row for every call, a dry run and a refusal included.
+			|| str_contains( $clean, 'ChangeRollback::run(' );
 	}
 
 	/**

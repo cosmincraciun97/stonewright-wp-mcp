@@ -17,18 +17,22 @@ use Stonewright\WpMcp\Security\Permissions;
  *  1. Validate input.
  *  2. Compile DSL → PHP via Compiler.
  *  3. Run generated PHP through StaticGuard::scan(). Reject on findings.
- *  4. Write to sandbox draft dir as widget-<slug>.pending.php.
+ *  4. Write to sandbox draft dir as widget-<slug>.pending.php (stored as
+ *     widget-<slug>.pending.draft) through SandboxFiles::write(), so the write
+ *     keeps a backup of the file it replaces, leaves a change-ledger row and
+ *     stops at the sandbox size cap.
  *  5. Return result.
  *
- * The file is NOT loaded until stonewright/elementor.widget_register is called.
+ * The file is NOT loaded until stonewright/elementor-widget-register is called.
  *
  * FILE STORAGE NOTE:
  * Widget files live in SandboxFiles::draft_dir(), NOT promoted to mu_dir via
  * SandboxFiles::activate(). Loading is handled by the dedicated widget loader
- * hook (Elementor\WidgetBuilder\Loader), which scans draft_dir for files
- * matching widget-*.php (non-pending) on the elementor/widgets/register action
- * and registers them with Elementor. This keeps widget PHP out of mu-plugins
- * and prevents auto-loading of un-reviewed code.
+ * hook (Elementor\WidgetBuilder\Loader), which loads, on the
+ * elementor/widgets/register action, the active widget-<slug>.draft file of
+ * every slug on the registered-widgets list and registers it with Elementor.
+ * This keeps widget PHP out of mu-plugins and prevents auto-loading of
+ * un-reviewed code.
  *
  * @stonewright-status sandboxed
  */
@@ -47,7 +51,7 @@ final class WidgetDefine extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Compiles a DSL template into a sandboxed Elementor widget PHP file. Requires StaticGuard to pass. File is staged as .pending.php — call widget_register to activate.', 'stonewright' );
+		return __( 'Compiles a DSL template into a sandboxed Elementor widget PHP file. Requires StaticGuard to pass. The file is staged as widget-<slug>.pending.draft in the sandbox draft directory and is not loaded until stonewright/elementor-widget-register is called.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -188,7 +192,7 @@ final class WidgetDefine extends AbilityKernel {
 					);
 				}
 
-				// 5. Write pending file to sandbox draft dir.
+				// 5. Write pending file to sandbox draft dir (backup, ledger row and size cap included).
 				$filename = 'widget-' . $slug . '.pending.php';
 				$path     = self::write_pending( $filename, $source );
 				if ( is_wp_error( $path ) ) {
@@ -213,9 +217,8 @@ final class WidgetDefine extends AbilityKernel {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Write source to `<draft_dir>/widget-<slug>.pending.draft`.
-	 * Uses raw file_put_contents because SandboxFiles::write() enforces a
-	 * strict name regex that does not allow the pending name.
+	 * Write source to `<draft_dir>/widget-<slug>.pending.draft` through SandboxFiles::write(): the file it
+	 * replaces is backed up, the write is a change-ledger row and the sandbox size cap applies.
 	 *
 	 * @return string|\WP_Error Absolute path on success.
 	 */
@@ -232,15 +235,11 @@ final class WidgetDefine extends AbilityKernel {
 		}
 
 		// Stored under a non-PHP name; the loader reads it only after approval.
-		$path   = SandboxFiles::stored_path( $filename );
-		$result = file_put_contents( $path, $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-		if ( false === $result ) {
-			return new \WP_Error(
-				'stonewright_widget_write_error',
-				sprintf( 'Could not write widget pending file: %s', $filename )
-			);
+		$written = SandboxFiles::write( $filename, $source );
+		if ( is_wp_error( $written ) ) {
+			return $written;
 		}
 
-		return $path;
+		return SandboxFiles::stored_path( $filename );
 	}
 }

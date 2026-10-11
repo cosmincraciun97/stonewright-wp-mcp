@@ -23,6 +23,7 @@ final class CommentAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']        = [
 			'moderate_comments' => true,
 			'edit_posts'        => true,
+			'edit_comment'      => true,
 		];
 		$GLOBALS['stonewright_test_user_logged_in']   = true;
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';

@@ -7,8 +7,9 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\Provider\NativeContracts;
 use Stonewright\WpMcp\Elementor\Provider\NativeElementorProvider;
+use Stonewright\WpMcp\Elementor\Provider\NativeExecuteGate;
 use Stonewright\WpMcp\Elementor\Provider\NativeInputSchema;
-use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
@@ -21,6 +22,11 @@ use Stonewright\WpMcp\Security\Permissions;
  * a write lock, is read back independently and compared recursively, and is rolled back on any
  * mismatch. Abilities that clear generated CSS site-wide are refused with their exact reason.
  * Contract decision: keep output_schema aligned to the handler response shape.
+ *
+ * Availability: the tool is available when the native Elementor state is `available` and at least one
+ * ability is certified; it does not use the experimental V4 writer flag. Reads and dry-run plans work in
+ * every mode. A real write follows the rule of the other writers: in production-safe mode it needs a
+ * confirmation token bound to its arguments, in every other mode it runs.
  *
  * @stonewright-status experimental
  */
@@ -42,7 +48,7 @@ final class NativeExecute extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Runs a certified Elementor ability (default styles, element composition, or the structure read) in-process inside Stonewright\'s snapshot, write lock, readback, rollback, and audit closure. Plans first by default. Abilities that clear generated CSS site-wide are refused. A change to a published page is reported as staged_in_autosave, never as applied.', 'stonewright' );
+		return __( 'Runs a certified Elementor ability (default styles, element composition, or the structure read) in-process inside Stonewright\'s snapshot, write lock, readback, rollback, and audit closure. Plans first by default. Abilities that clear generated CSS site-wide are refused. A change to a published page is reported as staged_in_autosave, never as applied. Reads and dry-run plans work in every mode; a real write needs a confirmation_token in production-safe mode. Prefer this tool over Elementor\'s own MCP tools: called directly, they skip the confirmation token, the write lock and the readback, and Stonewright can only record them after the fact.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -70,7 +76,7 @@ final class NativeExecute extends AbilityKernel {
 					'default'     => true,
 					'description' => 'Plan without writing. Pass false to write.',
 				],
-				'confirmation_token' => [ 'type' => 'string' ],
+				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required for a real write in production-safe mode.' ],
 				'repair_of'          => ChangeSet::input_properties()['repair_of'],
 				'supersedes'         => ChangeSet::input_properties()['supersedes'],
 			],
@@ -114,34 +120,40 @@ final class NativeExecute extends AbilityKernel {
 		$ability = (string) ( $args['ability'] ?? '' );
 		$input   = is_array( $args['input'] ?? null ) ? $args['input'] : [];
 		$family  = (string) ( NativeContracts::for_ability( $ability )['routing']['family'] ?? '' );
-		$dry_run = array_key_exists( 'dry_run', $args ) ? (bool) $args['dry_run'] : true;
-		$gate    = V4FeatureGate::check( 'structure_read' !== $family && ! $dry_run );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
-		}
-		return match ( $family ) {
+		$allowed = match ( $family ) {
 			'kit_defaults'                       => Permissions::edit_theme_options(),
 			'tree_composition', 'structure_read' => Permissions::edit_post( (int) ( $input['post_id'] ?? 0 ) ),
 			default                              => Permissions::edit_posts(),
 		};
+		if ( true !== $allowed ) {
+			return $allowed;
+		}
+		// Availability, not the experimental V4 flag: the tool exists when native Elementor is available and a certified ability is registered.
+		// The production-safe rule for a write (a confirmation token) is applied in execute(), like every other writer.
+		return NativeExecuteGate::check( $this->provider->native_report() );
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		$ability = (string) ( $args['ability'] ?? '' );
 		$read    = 'structure_read' === ( NativeContracts::for_ability( $ability )['routing']['family'] ?? '' );
+		$dry_run = array_key_exists( 'dry_run', $args ) ? (bool) $args['dry_run'] : true;
 		$run     = function ( array $args ): array|\WP_Error {
 			$input   = is_array( $args['input'] ?? null ) ? $args['input'] : [];
 			$dry_run = array_key_exists( 'dry_run', $args ) ? (bool) $args['dry_run'] : true;
 			// The provider snapshots the page or kit, takes the write lock and reads back before and after Elementor runs.
-			return $this->provider->run( (string) ( $args['ability'] ?? '' ), $input, [ 'dry_run' => $dry_run ] );
+			// The mark tells the observer of Elementor's own calls that this one records itself.
+			return NativeObserver::mark_native_execute( fn(): array|\WP_Error => $this->provider->run( (string) ( $args['ability'] ?? '' ), $input, [ 'dry_run' => $dry_run ] ) );
 		};
-		return $read ? $this->audit_read( $args, $run ) : $this->audit_write( $args, $run );
+		// A read and a dry-run plan change nothing, so they work in every mode without a token. Only a real write is a write.
+		return $read || $dry_run ? $this->audit_read( $args, $run ) : $this->audit_write( $args, $run );
 	}
 
 	/**
 	 * ChangeSetV1 of a native write: the planned changes the request names, the hashes the closure
 	 * measured, and the rollback the closure performed. A staged edit is queued, never applied; a
-	 * kit-level write reports no rollback recipe because a kit snapshot does not cover default style posts.
+	 * kit-level write names its kit snapshot as the rollback recipe only when that snapshot holds the
+	 * default styles (they are posts of their own that kit meta never shows), which is the same
+	 * condition under which the change history marks the row restorable.
 	 *
 	 * @param array<string, mixed>           $args
 	 * @param array<string, mixed>|\WP_Error $result

@@ -14,6 +14,16 @@ final class RuntimeDataPurge extends AbilityKernel {
 
 	private const ACKNOWLEDGEMENT = 'erase_runtime_history';
 
+	/**
+	 * The scopes an agent may name. The audit log is the record of what agents did, so erasing it is left to an
+	 * administrator and is not offered here.
+	 *
+	 * @return list<string>
+	 */
+	public static function agent_scopes(): array {
+		return array_values( array_diff( RuntimeDataPurger::SCOPES, [ 'audit' ] ) );
+	}
+
 	public function name(): string {
 		return 'stonewright/security-runtime-data-purge';
 	}
@@ -23,7 +33,7 @@ final class RuntimeDataPurge extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Previews count-only audit, memory, incident, and recurring-error state, then clears only an exactly reviewed state while retaining one cleanup receipt.', 'stonewright' );
+		return __( 'Previews count-only memory, incident, and recurring-error state, then clears only an exactly reviewed state. The audit log is not offered: only an administrator can erase it.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -40,8 +50,8 @@ final class RuntimeDataPurge extends AbilityKernel {
 					'type'        => 'array',
 					'minItems'    => 1,
 					'uniqueItems' => true,
-					'default'     => RuntimeDataPurger::SCOPES,
-					'items'       => [ 'type' => 'string', 'enum' => RuntimeDataPurger::SCOPES ],
+					'default'     => self::agent_scopes(),
+					'items'       => [ 'type' => 'string', 'enum' => self::agent_scopes() ],
 				],
 				'expected_state_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'approved_plan_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
@@ -99,7 +109,25 @@ final class RuntimeDataPurge extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		$action = sanitize_key( (string) ( $args['action'] ?? 'dry_run' ) );
-		$scopes = RuntimeDataPurger::normalize_scopes( (array) ( $args['scopes'] ?? RuntimeDataPurger::SCOPES ) );
+		$named  = array_map( 'strval', array_filter( (array) ( $args['scopes'] ?? [] ), 'is_scalar' ) );
+		if ( in_array( 'audit', array_map( 'sanitize_key', $named ), true ) ) {
+			// No token, acknowledgement or reviewed hash turns an agent call into the administrator's decision.
+			AuditLog::record(
+				$this->name(),
+				[
+					'action' => $action,
+					'scopes' => $named,
+					'_meta'  => [ 'error_code' => 'stonewright_runtime_data_purge_audit_requires_administrator', 'operation_class' => 'runtime_data_purge', 'execution_status' => 'blocked' ],
+				],
+				'error'
+			);
+			return new \WP_Error(
+				'stonewright_runtime_data_purge_audit_requires_administrator',
+				__( 'The audit log can be erased only by an administrator, not through this ability. Choose memory, incidents or error_patterns.', 'stonewright' ),
+				[ 'status' => 403, 'retryable' => false ]
+			);
+		}
+		$scopes = RuntimeDataPurger::normalize_scopes( (array) ( $args['scopes'] ?? self::agent_scopes() ) );
 		if ( ! in_array( $action, [ 'dry_run', 'apply' ], true ) ) {
 			return new \WP_Error( 'stonewright_runtime_data_purge_action_invalid', __( 'Runtime-data purge action must be dry_run or apply.', 'stonewright' ), [ 'status' => 400 ] );
 		}

@@ -82,6 +82,7 @@ echo json_encode(
 		'uninstaller' => class_exists( 'Stonewright\WpMcp\Core\Uninstaller', false ),
 		'journal'     => class_exists( 'Stonewright\WpMcp\Security\ChangeJournal', false ),
 		'journal_file' => class_exists( 'Stonewright\WpMcp\Security\ChangeJournalFile', false ),
+		'blob_store'  => class_exists( 'Stonewright\WpMcp\Security\BlobStore', false ),
 		'autoloaders' => count( spl_autoload_functions() ?: [] ),
 	]
 ) . "\n";

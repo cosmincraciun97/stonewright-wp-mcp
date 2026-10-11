@@ -19,7 +19,7 @@ final class SeoMetaUpdate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates a subset of normalized SEO meta after snapshotting the post.', 'stonewright' );
+		return __( 'Updates a subset of normalized SEO meta after snapshotting the post. noindex is written in the shape each plugin uses. All in One SEO v4 is written only through its own post model, and is reported as unsupported when that is not available.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -54,14 +54,21 @@ final class SeoMetaUpdate extends AbilityKernel {
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_write(
 			$args,
-			static function ( array $args ) {
+			function ( array $args ) {
 				$post_id = (int) $args['post_id'];
-				Backup::snapshot_post( $post_id );
-				$patch = [];
+				$patch   = [];
 				foreach ( [ 'title', 'description', 'focus_keyword', 'canonical', 'noindex' ] as $field ) {
 					if ( array_key_exists( $field, $args ) ) {
 						$patch[ $field ] = $args[ $field ];
 					}
+				}
+				// A plugin that cannot be written is reported before anything, a snapshot included, is stored.
+				$unsupported = SeoAdapter::write_error( $post_id, $patch );
+				if ( $unsupported instanceof \WP_Error ) {
+					return $unsupported;
+				}
+				if ( '' === Backup::snapshot_post( $post_id ) ) {
+					return $this->backup_failed_error();
 				}
 				$meta = SeoAdapter::update_meta( $post_id, $patch );
 				if ( is_wp_error( $meta ) ) {

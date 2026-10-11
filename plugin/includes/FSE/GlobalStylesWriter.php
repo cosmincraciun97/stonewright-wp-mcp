@@ -52,7 +52,14 @@ final class GlobalStylesWriter {
 		}
 
 		$snapshot_id = Backup::snapshot_post( (int) $post_id );
-		$result      = wp_update_post(
+		if ( '' === $snapshot_id ) {
+			return new \WP_Error(
+				'stonewright_backup_failed',
+				__( 'Backup snapshot failed; write aborted.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+		}
+		$result = wp_update_post(
 			wp_slash(
 				[
 					'ID'           => (int) $post_id,
@@ -154,7 +161,10 @@ final class GlobalStylesWriter {
 	 */
 	private static function merge( array $base, array $overlay ): array {
 		foreach ( $overlay as $key => $value ) {
-			if ( is_array( $value ) && isset( $base[ $key ] ) && is_array( $base[ $key ] ) ) {
+			// Objects merge key by key. A list (a palette, a list of font sizes) is replaced as a whole:
+			// merging two lists by position would mix entries of different colors and sizes.
+			$is_list = static fn( mixed $candidate ): bool => is_array( $candidate ) && [] !== $candidate && array_is_list( $candidate );
+			if ( is_array( $value ) && isset( $base[ $key ] ) && is_array( $base[ $key ] ) && ! $is_list( $value ) && ! $is_list( $base[ $key ] ) ) {
 				$base[ $key ] = self::merge( $base[ $key ], $value );
 			} else {
 				$base[ $key ] = $value;

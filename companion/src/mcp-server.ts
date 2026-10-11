@@ -37,6 +37,7 @@ import {
 	WordPressMcpHttpError,
 	isConfirmedPluginRouteAbsence,
 	isWordPressMcpAuthFailure,
+	profileOffersPhpExecute,
 } from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
 import {
@@ -52,9 +53,13 @@ import {
 import { findSiteByAlias, loadRegistry } from './cli/connect/registry.js';
 import type { SiteRecordV2 } from './cli/connect/types.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
-import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, type ProbeResult } from './direct/mode.js';
+import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, probeStonewrightPlugin, type ProbeResult } from './direct/mode.js';
+import { forgetPluginPresence, rememberPluginPresence } from './direct/plugin-guard.js';
+import { mayFallbackToDirect } from './cli/connect/mode-policy.js';
+import type { FallbackPolicy } from './cli/connect/types.js';
 import { type EndpointEvidence } from './connection/status-contract.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
+import { gateDirectWpCli, type DirectWpCliTool } from './direct/wp-cli-gate.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import {
 	PERMANENT_GATEWAY_TOOL_NAMES,
@@ -147,7 +152,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	// 1) Permanent gateways BEFORE any remote handshake (local-ready).
 	registerPermanentGateways(server, runtime);
 	// 2) WP-CLI helpers (local; not removed by profiles).
-	registerWpCliTools(server, commonInput, env, profile);
+	registerWpCliTools(server, commonInput, env, profile, () => runtime.status.mode);
 	registerCommandTools(server, env, profile);
 	runtime.refreshSurfaceFromServer();
 
@@ -174,11 +179,22 @@ async function bootstrapConnection(
 	runtime.stateMachine.transition('probing');
 	wpMcpStatus.connection_stage = runtime.stateMachine.getStage();
 
+	// A reconnect starts from a fresh answer to "is the plugin active on this site?".
+	forgetPluginPresence();
+	wpMcpStatus.mode_conflict = null;
+
+	const fallbackPolicy = sessionFallbackPolicy(env);
 	const modeProbe = await resolveRuntimeMode({
 		env,
 		fetchImpl,
 		forceProbe,
+		fallbackPolicy,
 	});
+	const probedSiteBase = siteBaseFromEnv(env);
+	if (probedSiteBase && modeProbe.stonewrightPluginDetected === true) {
+		// Direct writes on this site are refused until a later check says otherwise.
+		rememberPluginPresence(probedSiteBase, true);
+	}
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
@@ -189,13 +205,18 @@ async function bootstrapConnection(
 			: null
 		: null;
 
-	if (modeProbe.configured === 'plugin-only' && modeProbe.pluginRouteState === 'missing') {
+	// Plugin-only never uses Direct. Auto does not either when the plugin is live
+	// (or this site's fallback_policy is never): resolveRuntimeMode returns the
+	// plugin mode with a missing route, and the session stays degraded.
+	if (modeProbe.mode === 'plugin' && modeProbe.pluginRouteState === 'missing') {
 		wpMcpStatus.ok = false;
 		wpMcpStatus.connected = false;
 		wpMcpStatus.startup_ready = false;
 		wpMcpStatus.error = { message: modeProbe.reason };
 		wpMcpStatus.error_code = modeProbe.errorCode ?? 'plugin_route_missing';
-		wpMcpStatus.next_action = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.';
+		wpMcpStatus.next_action = modeProbe.configured === 'plugin-only'
+			? 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.'
+			: 'Restore the Stonewright MCP route (activate the MCP Adapter), then call stonewright-reconnect with force_probe=true. Direct writes stay refused while the plugin is active.';
 		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
 		runtime.syncLegacyStatus();
 		return;
@@ -378,6 +399,28 @@ async function bootstrapConnection(
 			return;
 		}
 		if (modeProbe.configured === 'auto' && isConfirmedPluginRouteAbsence(err)) {
+			// The route is gone, but the plugin may still be live (adapter inactive), or
+			// this site's fallback_policy may forbid Direct. Neither falls to Direct.
+			const siteBase = siteBaseFromEnv(env);
+			const surface = siteBase
+				? await probeStonewrightPlugin(siteBase, fetchImpl)
+				: { mcpSurface: null, stonewrightPlugin: null };
+			if (surface.stonewrightPlugin === true || !mayFallbackToDirect('auto', fallbackPolicy ?? 'direct-when-plugin-unavailable')) {
+				if (siteBase && surface.stonewrightPlugin === true) rememberPluginPresence(siteBase, true);
+				wpMcpStatus.ok = false;
+				wpMcpStatus.connected = false;
+				wpMcpStatus.startup_ready = false;
+				wpMcpStatus.error = { message };
+				wpMcpStatus.error_code = 'plugin_route_missing';
+				wpMcpStatus.mode = 'plugin';
+				wpMcpStatus.mode_reason = surface.stonewrightPlugin === true
+					? 'The Stonewright plugin is active on this site, but its MCP route is missing, so Direct is not used.'
+					: 'The plugin MCP route is missing and the site fallback_policy is never, so Direct is not used.';
+				wpMcpStatus.next_action = 'Restore the Stonewright MCP route (activate the MCP Adapter), then call stonewright-reconnect with force_probe=true. Direct writes stay refused while the plugin is active.';
+				runtime.stateMachine.transition('degraded', { error: 'plugin_route_missing' });
+				runtime.syncLegacyStatus();
+				return;
+			}
 			await registerDirectMode(server, env, options, runtime, {
 				...modeProbe,
 				mode: 'direct',
@@ -405,6 +448,20 @@ async function bootstrapConnection(
 		wpMcpStatus.next_action = 'Call stonewright-connect-doctor, fix credentials/URL, then stonewright-reconnect.';
 		runtime.stateMachine.transition('degraded', { error: message });
 		runtime.syncLegacyStatus();
+	}
+}
+
+/**
+ * The registry's fallback_policy for this session's site (selected by
+ * STONEWRIGHT_SITE_ALIAS). Undefined when there is no alias or no registry.
+ */
+function sessionFallbackPolicy(env: NodeJS.ProcessEnv): FallbackPolicy | undefined {
+	const alias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
+	if (!alias) return undefined;
+	try {
+		return findSiteByAlias(loadRegistry({ env }).registry, alias)?.fallback_policy;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -593,6 +650,14 @@ async function registerDirectMode(
 	wpMcpStatus.mode = 'direct';
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
+	wpMcpStatus.mode_conflict = modeProbe.modeConflict
+		? {
+			plugin_detected: true,
+			direct_writes: 'refused',
+			reads: 'allowed',
+			next_action: 'Set STONEWRIGHT_MODE=auto or plugin for this site, then call stonewright-reconnect (or restart the client) to use Plugin mode.',
+		}
+		: null;
 	wpMcpStatus.unavailable_plugin_capabilities = PLUGIN_ONLY_CAPABILITIES.map((cap) => ({
 		id: cap.id,
 		label: cap.label,
@@ -630,7 +695,7 @@ async function registerDirectMode(
 				prompt.disable?.();
 			}
 		}
-		setServerInstructions(server, companionInstructions(profile, 'direct'));
+		setServerInstructions(server, companionInstructions(profile, 'direct', modeProbe.modeConflict));
 		const localToolNames = localToolNamesForProfile(profile);
 		runtime.registry.commitDirect(
 			registered.map((name) => ({ name, source: 'direct' as const })),
@@ -707,7 +772,9 @@ async function registerDirectMode(
 		];
 		wpMcpStatus.error = null;
 		wpMcpStatus.error_code = null;
-		wpMcpStatus.next_action = 'Call stonewright-task-start (works with zero WordPress credentials).';
+		wpMcpStatus.next_action = modeProbe.modeConflict
+			? 'The Stonewright plugin is active on this site, so Direct writes are refused. Reads work. Switch this site to Plugin mode (STONEWRIGHT_MODE=auto or plugin, then stonewright-reconnect) to write.'
+			: 'Call stonewright-task-start (works with zero WordPress credentials).';
 		wpMcpStatus.agent_use_instead = [
 			'stonewright-task-start',
 			'stonewright-site-discover',
@@ -747,6 +814,7 @@ function directToolProfileFromEnv(env: NodeJS.ProcessEnv, profile: ProxyToolProf
 function companionInstructions(
 	profile: ProxyToolProfile,
 	mode: 'plugin' | 'direct' = 'plugin',
+	pluginConflict = false,
 ): string {
 	const lines = [
 		'Stonewright companion fast start:',
@@ -778,12 +846,25 @@ function companionInstructions(
 			'- Use stonewright-wordpress-mcp-status to confirm mode, version, startup readiness, and the live Direct tool surface.',
 			'- Do not run wp commands in a normal shell. Use only typed Direct tools or the tokenized companion WP-CLI tools.',
 		);
-	} else {
+		if (pluginConflict) {
+			lines.push(
+				'- The Stonewright plugin is active on this site but this session is Direct-only: Direct reads work and Direct writes are refused. Tell the user to switch this site to Plugin mode (STONEWRIGHT_MODE=auto or plugin, then stonewright-reconnect).',
+			);
+		}
+	} else if (profileOffersPhpExecute(profile)) {
 		lines.push(
 			'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 			'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
 			'- If a needed tool (e.g. php-execute) is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
 			'- Do not run wp commands in a normal shell. Use stonewright-php-execute for PHP snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.',
+		);
+	} else {
+		// php-execute is on the full profile only, so other profiles are not told to call it.
+		lines.push(
+			'- stonewright-php-execute is on the full profile only. An administrator chooses the Full surface in wp-admin and the person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full; stonewright-tool-profile does not switch to it. Ask the user when a runtime snippet is required.',
+			'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
+			'- If a needed tool is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
+			'- Do not run wp commands in a normal shell, and never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points.',
 		);
 	}
 
@@ -851,7 +932,9 @@ function registerWpCliTools(
 	commonInput: Record<string, z.ZodTypeAny>,
 	env: NodeJS.ProcessEnv,
 	profile: ProxyToolProfile,
+	sessionMode: () => 'plugin' | 'direct',
 ): void {
+	const confirmInput = z.boolean().optional().describe('Direct mode: required true for a WP-CLI write when writes are in confirm mode (remote sites).');
 	for (const name of localAliases(profile, 'stonewright-wp-cli-status', 'companion_wp_cli_status')) {
 		server.registerTool(
 			name,
@@ -886,15 +969,34 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands; use stonewright-php-execute for PHP runtime snippets instead of WP-CLI eval or shell entry points.',
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress content and cache commands; refuses eval, shell, package, config, plugin and theme install/update/delete/activate, db, user and role changes, core download/update, cron event run, and search-replace without --dry-run. In Direct mode a command that changes the site needs stonewright-task-start first, confirm:true in confirm mode, and is audited.',
 				inputSchema: {
 					...commonInput,
 					command: z.array(z.string()).min(1),
 					parseJson: z.boolean().optional(),
 					responseMode: z.enum(['full', 'summary']).optional(),
+					confirm: confirmInput,
 				},
 			},
-			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
+			async (input) => {
+				const { confirm, ...rest } = input as Record<string, unknown> & { confirm?: boolean };
+				const wpInput = toWpCliInput(rest) as WpCliRunInput;
+				return toolResponse(
+					await runGatedWpCli({
+						mode: sessionMode(),
+						env,
+						tool: 'stonewright-wp-cli-run',
+						commands: [wpInput.command],
+						confirm,
+						target: wpInput,
+						run: async (settled) => {
+							const result = await runWpCli(wpInput, undefined, env);
+							settled({ ok: result.ok === true, ...(result.ok === true ? {} : { code: 'wp_cli_failed' }) });
+							return result;
+						},
+					}),
+				);
+			},
 		);
 	}
 
@@ -902,7 +1004,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts; use stonewright-php-execute for PHP runtime snippets.',
+				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Read-oriented commands only (post, term, option, plugin, theme, user, db check, cron lists, cache and rewrite flush); the whole batch is refused before any command runs when one is not. Use the single-command runner or a typed ability for writes.',
 				inputSchema: {
 					...commonInput,
 					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),
@@ -923,7 +1025,7 @@ function registerWpCliTools(
 	server.registerTool(
 		'stonewright-wp-cli-job-start',
 		{
-			description: 'Start a tokenized WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately.',
+			description: 'Start a tokenized WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately. In Direct mode a job that changes the site needs stonewright-task-start first, confirm:true in confirm mode, and is audited when it ends.',
 			inputSchema: {
 				...commonInput,
 				command: z.array(z.string()).min(1).optional(),
@@ -931,9 +1033,28 @@ function registerWpCliTools(
 				parseJson: z.boolean().optional(),
 				stopOnError: z.boolean().optional(),
 				responseMode: z.enum(['full', 'summary']).optional(),
+				confirm: confirmInput,
 			},
 		},
-		(input) => toolResponse(startWpCliJob(toWpCliInput(input) as WpCliJobStartInput, undefined, env)),
+		async (input) => {
+			const { confirm, ...rest } = input as Record<string, unknown> & { confirm?: boolean };
+			const wpInput = toWpCliInput(rest) as WpCliJobStartInput;
+			const commands = Array.isArray(wpInput.commands) ? wpInput.commands : Array.isArray(wpInput.command) ? [wpInput.command] : [];
+			return toolResponse(
+				await runGatedWpCli({
+					mode: sessionMode(),
+					env,
+					tool: 'stonewright-wp-cli-job-start',
+					commands,
+					confirm,
+					target: wpInput,
+					// The job outlives this call: its audit row is written when it settles.
+					run: (settled) => Promise.resolve(startWpCliJob(wpInput, undefined, env, {
+						onSettled: (outcome) => settled({ ok: outcome.ok, ...(outcome.ok ? {} : { code: 'wp_cli_failed' }) }),
+					})),
+				}),
+			);
+		},
 	);
 
 	server.registerTool(
@@ -1087,6 +1208,38 @@ function registerCommandTools(server: McpServer, env: NodeJS.ProcessEnv, profile
 			}
 		},
 	);
+}
+
+/**
+ * In a Direct session a WP-CLI call that changes the site goes through the Direct write gate first
+ * (task-start latch, confirm, local-install check) and leaves an audit row. In Plugin mode, and for reads,
+ * the call runs as it always did.
+ */
+async function runGatedWpCli<T extends Record<string, unknown>>(args: {
+	mode: 'plugin' | 'direct';
+	env: NodeJS.ProcessEnv;
+	tool: DirectWpCliTool;
+	commands: string[][];
+	confirm: boolean | undefined;
+	target: { cwd?: string | undefined; path?: string | undefined; url?: string | undefined };
+	/** Runs the call; `settled` records the outcome of an allowed write (called once). */
+	run: (settled: (outcome: { ok: boolean; code?: string }) => void) => Promise<T>;
+}): Promise<T> {
+	if (args.mode !== 'direct') return args.run(() => undefined);
+	const gate = await gateDirectWpCli({
+		tool: args.tool,
+		commands: args.commands,
+		confirm: args.confirm,
+		env: args.env,
+		target: { cwd: args.target.cwd, path: args.target.path, url: args.target.url },
+	});
+	if (!gate.write) return args.run(() => undefined);
+	try {
+		return await args.run(gate.finish);
+	} catch (error) {
+		gate.finish({ ok: false, code: 'wp_cli_failed' });
+		throw error;
+	}
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {

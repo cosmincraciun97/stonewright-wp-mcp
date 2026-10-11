@@ -5,7 +5,11 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\KitRows;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -27,7 +31,7 @@ final class UpdateKitTypography extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates global typography (font family, weight, size, line height) in the Elementor active kit. Font families are plain names, weights are keywords or 1 to 1000, sizes are numbers with a supported unit; other values are refused.', 'stonewright' );
+		return __( 'Updates the custom global typography (font family, weight, size, line height) in the Elementor active kit, merging by id. Font families are plain names, weights are keywords or 1 to 1000, sizes are numbers with a supported unit; other values are refused. Run elementor-css-regenerate afterwards.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -68,6 +72,10 @@ final class UpdateKitTypography extends AbilityKernel {
 			'properties' => [
 				'kit_id'      => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'unchanged'   => [ 'type' => 'boolean', 'description' => 'True when the kit already held this typography: nothing was snapshotted or written.' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the settings before they were stored.' ],
+				'next_step'   => [ 'type' => 'object' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -106,55 +114,79 @@ final class UpdateKitTypography extends AbilityKernel {
 					return $this->error( 'no_kit', __( 'No active Elementor kit.', 'stonewright' ) );
 				}
 
-				$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
-				if ( ! is_array( $settings ) ) {
-					$settings = [];
-				}
+				// The lease is taken before the kit settings are read, so no other writer changes them between the read and the write.
+				return PostWriteLock::with_lease(
+					$kit_id,
+					'update-kit-typography',
+					function () use ( $args, $kit_id ) {
+						$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
+						if ( ! is_array( $settings ) ) {
+							$settings = [];
+						}
 
-				$existing = isset( $settings['custom_typography'] ) && is_array( $settings['custom_typography'] )
-					? $settings['custom_typography']
-					: [];
+						$existing = isset( $settings['custom_typography'] ) && is_array( $settings['custom_typography'] )
+							? $settings['custom_typography']
+							: [];
 
-				$incoming = [];
-				foreach ( (array) $args['fonts'] as $f ) {
-					$entry = [
-						'_id'   => (string) ( $f['id'] ?? '' ),
-						'title' => (string) ( $f['title'] ?? '' ),
-					];
-					foreach ( [ 'typography_typography', 'typography_font_family', 'typography_font_weight' ] as $_ ) {
-						// Elementor expects keyed control values - we pass them through verbatim.
-					}
-					if ( isset( $f['font_family'] ) ) {
-						$entry['typography_font_family'] = (string) $f['font_family'];
-						$entry['typography_typography']  = 'custom';
-					}
-					if ( isset( $f['font_weight'] ) ) {
-						$entry['typography_font_weight'] = (string) $f['font_weight'];
-					}
-					if ( isset( $f['font_size'] ) && is_array( $f['font_size'] ) ) {
-						$entry['typography_font_size'] = $f['font_size'];
-					}
-					if ( isset( $f['line_height'] ) && is_array( $f['line_height'] ) ) {
-						$entry['typography_line_height'] = $f['line_height'];
-					}
-					if ( isset( $f['letter_spacing'] ) && is_array( $f['letter_spacing'] ) ) {
-						$entry['typography_letter_spacing'] = $f['letter_spacing'];
-					}
-					$incoming[] = $entry;
-				}
+						$incoming = [];
+						foreach ( (array) $args['fonts'] as $f ) {
+							// Elementor expects keyed control values; they are passed through as sent. Only what the call sent is in the row.
+							$entry = [ '_id' => (string) ( $f['id'] ?? '' ) ];
+							if ( isset( $f['title'] ) ) {
+								$entry['title'] = (string) $f['title'];
+							}
+							if ( isset( $f['font_family'] ) ) {
+								$entry['typography_font_family'] = (string) $f['font_family'];
+								$entry['typography_typography']  = 'custom';
+							}
+							if ( isset( $f['font_weight'] ) ) {
+								$entry['typography_font_weight'] = (string) $f['font_weight'];
+							}
+							if ( isset( $f['font_size'] ) && is_array( $f['font_size'] ) ) {
+								$entry['typography_font_size'] = $f['font_size'];
+							}
+							if ( isset( $f['line_height'] ) && is_array( $f['line_height'] ) ) {
+								$entry['typography_line_height'] = $f['line_height'];
+							}
+							if ( isset( $f['letter_spacing'] ) && is_array( $f['letter_spacing'] ) ) {
+								$entry['typography_letter_spacing'] = $f['letter_spacing'];
+							}
+							$incoming[] = $entry;
+						}
 
-				$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
-				$settings['custom_typography'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
+						$mode                        = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
+						$next                        = $settings;
+						$next['custom_typography']   = KitRows::merge( $existing, $incoming, $mode );
+						// For a user without unfiltered_html Elementor filters the settings when it stores them; filter first, the way its editor does.
+						$filtered         = EditorKses::filter( $next );
+						$content_filtered = $filtered !== $next ? [ 'content_filtered' => true ] : [];
+						$next             = $filtered;
+						if ( $next === $settings ) {
+							// The kit already holds this typography; update_post_meta() reports an unchanged value as false, which is no failure.
+							return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
+						}
 
-				$snapshot_id = Backup::snapshot_post( $kit_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $settings ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
-				}
+						$snapshot_id = Backup::snapshot_post( $kit_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+						update_post_meta( $kit_id, '_elementor_page_settings', wp_slash( $next ) );
+						if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
+							return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
+						}
 
-				return [ 'kit_id' => $kit_id, 'snapshot_id' => $snapshot_id ];
+						return $content_filtered + [
+							'kit_id'      => $kit_id,
+							'snapshot_id' => $snapshot_id,
+							'next_step'   => [
+								'tool'    => 'stonewright/elementor-css-regenerate',
+								'post_id' => $kit_id,
+								'why'     => 'The kit typography is stored; regenerate the kit CSS so pages use it.',
+							],
+							'cache_purge' => PageCachePurger::purge_quietly( $kit_id ),
+						];
+					}
+				);
 			}
 		);
 	}

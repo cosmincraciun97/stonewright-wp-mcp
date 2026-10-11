@@ -13,7 +13,7 @@
     "MySQL"
   ],
   "enabled": true,
-  "updated_at": "2026-07-16T00:00:00.000Z"
+  "updated_at": "2026-10-11T00:00:00.000Z"
 }
 ---
 
@@ -38,4 +38,4 @@ If the task target is a **remote/live** site and the session is **Direct mode**:
 
 ## Plugin mode note
 
-`php-execute`, full Elementor engines, and site-hosted skills require the Stonewright **plugin** on that same site — not a local proxy for a remote hostname.
+`php-execute` (on the `full` profile), full Elementor engines, and site-hosted skills require the Stonewright **plugin** on that same site — not a local proxy for a remote hostname. On a site where the plugin is active, Direct refuses writes and says to use Plugin mode; do not look for a way around it.

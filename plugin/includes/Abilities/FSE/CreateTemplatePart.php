@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\FSE;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\FSE\TemplateStore;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\BlockMarkup;
 
@@ -29,7 +30,7 @@ final class CreateTemplatePart extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates a wp_template_part (header, footer, sidebar, uncategorized). Compatibility wrapper around fse-write-template-part sanitization and confirmation.', 'stonewright' );
+		return __( 'Creates a wp_template_part (header, footer, sidebar, uncategorized) in the active theme. Refuses a slug that already exists there (the error names the existing part). Compatibility wrapper around fse-write-template-part sanitization and confirmation.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -81,36 +82,42 @@ final class CreateTemplatePart extends AbilityKernel {
 					return $content;
 				}
 
-				$slug = sanitize_title( (string) $args['slug'] );
-				$area = isset( $args['area'] ) ? (string) $args['area'] : 'uncategorized';
+				$slug  = sanitize_title( (string) $args['slug'] );
+				$area  = isset( $args['area'] ) ? (string) $args['area'] : 'uncategorized';
+				$theme = get_stylesheet();
 
-				$post_id = wp_insert_post(
-					wp_slash(
+				// Core finds a part by theme and slug, so a second part with the same slug would be a different
+				// post that is never returned. A create does not overwrite: say where the part is.
+				$existing = TemplateStore::find( $slug, $theme, TemplateStore::TEMPLATE_PART );
+				if ( null !== $existing ) {
+					return $this->error(
+						'template_part_exists',
+						__( 'A template part with this slug already exists in the active theme. Use stonewright/fse-write-template-part or stonewright/fse-update-template to change it.', 'stonewright' ),
 						[
-							'post_type'    => 'wp_template_part',
-							'post_status'  => 'publish',
-							'post_name'    => $slug,
-							'post_title'   => sanitize_text_field( (string) $args['title'] ),
-							'post_content' => $content,
-							'tax_input'    => [
-								'wp_theme'              => [ get_stylesheet() ],
-								'wp_template_part_area' => [ $area ],
-							],
+							'status'  => 409,
+							'id'      => $theme . '//' . $slug,
+							'post_id' => (int) $existing->ID,
 						]
-					),
-					true
-				);
+					);
+				}
 
+				$post_id = TemplateStore::insert(
+					TemplateStore::TEMPLATE_PART,
+					$slug,
+					$theme,
+					[
+						'post_title'   => sanitize_text_field( (string) $args['title'] ),
+						'post_content' => $content,
+					],
+					$area
+				);
 				if ( is_wp_error( $post_id ) ) {
 					return $post_id;
 				}
 
-				wp_set_object_terms( (int) $post_id, get_stylesheet(), 'wp_theme', false );
-				wp_set_object_terms( (int) $post_id, $area, 'wp_template_part_area', false );
-
 				return [
-					'id'      => get_stylesheet() . '//' . $slug,
-					'post_id' => (int) $post_id,
+					'id'      => $theme . '//' . $slug,
+					'post_id' => $post_id,
 				];
 			}
 		);

@@ -108,7 +108,7 @@ Deterministic CI coverage for these contracts lives in:
 ## Direct mode limits (when mode is Direct)
 
 - [ ] Custom PHP/CSS/JS/HTML write is **not** available; agent reports Plugin-mode approval-gated path.
-- [ ] Destructive tools require `confirm: true` (or documented local override).
+- [ ] Destructive tools need a confirmation (a `confirmation_id` from the refused call; `confirm: true` only on a local site or with the documented legacy switch).
 - [ ] No silent upgrade to plugin-only engines.
 
 ## Evidence log

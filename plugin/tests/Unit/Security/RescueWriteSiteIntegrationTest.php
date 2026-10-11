@@ -48,6 +48,7 @@ final class RescueWriteSiteIntegrationTest extends TestCase {
 		$GLOBALS['stonewright_test_stylesheet_directory'] = $this->base . '/themes/site-a';
 		$GLOBALS['stonewright_test_upload_dir']          = [ 'basedir' => $this->base . '/uploads', 'baseurl' => 'https://example.test/uploads', 'error' => false ];
 		$GLOBALS['stonewright_test_options']             = [ 'stonewright_mode' => 'development' ];
+		$GLOBALS['stonewright_test_extra_plugins']       = [ 'hello/hello.php' => [ 'Name' => 'Hello Dolly', 'Version' => '1.7.2' ] ];
 		$GLOBALS['stonewright_test_posts']               = [];
 		$GLOBALS['stonewright_test_transients']          = [];
 		$GLOBALS['stonewright_test_filters']             = [];
@@ -69,7 +70,7 @@ final class RescueWriteSiteIntegrationTest extends TestCase {
 		} else {
 			$GLOBALS['stonewright_test_stylesheet_directory'] = $this->original_stylesheet_dir;
 		}
-		unset( $GLOBALS['stonewright_test_upload_dir'] );
+		unset( $GLOBALS['stonewright_test_upload_dir'], $GLOBALS['stonewright_test_extra_plugins'] );
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_filters']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
@@ -55,13 +56,22 @@ final class CreateTemplate extends AbilityKernel {
 			'properties' => [
 				'template_id'   => [ 'type' => 'integer' ],
 				'template_type' => [ 'type' => 'string' ],
+				'next_step'     => [ 'type' => 'object' ],
+				'cache_purge'   => [ 'type' => 'object' ],
 			],
 			'required' => [ 'template_id', 'template_type' ],
 		];
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::edit_theme_options() && Permissions::edit_posts();
+	}
+
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		if ( ! Permissions::edit_theme_options() || ! Permissions::edit_posts() ) {
+			return $this->error( 'template_forbidden', __( 'Creating Theme Builder templates needs permission to edit theme options.', 'stonewright' ), [ 'status' => 403 ] );
+		}
+		return null;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -78,6 +88,12 @@ final class CreateTemplate extends AbilityKernel {
 				return [
 					'template_id'   => $id,
 					'template_type' => (string) $args['template_type'],
+					'next_step'     => [
+						'tool'    => 'stonewright/elementor-css-regenerate',
+						'post_id' => $id,
+						'why'     => 'Once the template has content and display conditions, regenerate its CSS so the front end uses it.',
+					],
+					'cache_purge'   => PageCachePurger::purge_quietly( $id ),
 				];
 			}
 		);

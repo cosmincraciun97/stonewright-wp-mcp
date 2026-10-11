@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-07T03:07:20.309Z",
+  "generated_at": "2026-10-11T17:49:07.250Z",
   "allowlist": {
     "removed": [],
     "renamed": {},
@@ -30,6 +30,9 @@
     },
     {
       "name": "stonewright-block-patterns"
+    },
+    {
+      "name": "stonewright-blocks-batch-mutate"
     },
     {
       "name": "stonewright-blueprint-apply"
@@ -95,6 +98,12 @@
       "name": "stonewright-custom-css"
     },
     {
+      "name": "stonewright-direct-backup-list"
+    },
+    {
+      "name": "stonewright-direct-backup-restore"
+    },
+    {
       "name": "stonewright-elementor-data-get"
     },
     {
@@ -147,6 +156,9 @@
     },
     {
       "name": "stonewright-media-upload"
+    },
+    {
+      "name": "stonewright-memory-delete"
     },
     {
       "name": "stonewright-memory-list"

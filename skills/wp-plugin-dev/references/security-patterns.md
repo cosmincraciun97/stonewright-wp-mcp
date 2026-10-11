@@ -41,7 +41,8 @@ return [ 'snapshot_id' => $snapshot_id, ... ];
 ```
 
 The snapshot is stored as post meta. The returned `snapshot_id` is a string
-like `snap_{timestamp}_{post_id}`. Include it in the ability response so
+like `snap_` plus 16 hex characters; it is empty when the snapshot could not be
+stored, and then the write must not run. Include it in the ability response so
 callers can display it in confirmation tokens.
 
 ## Spec validation before render
@@ -81,12 +82,14 @@ $settings = array_intersect_key(
 
 ## Audit wrapper
 
-Wrap destructive execute logic in `$this->audit()` to get automatic audit log
-entries:
+Wrap execute logic in `$this->audit_write()` (writes) or `$this->audit_read()`
+(reads) to get automatic audit log entries. `audit_write()` also requires a valid
+`confirmation_token` in production-safe mode, so declare `confirmation_token` in
+the input schema of every write:
 
 ```php
 public function execute( array $args ): array|\WP_Error {
-    return $this->audit(
+    return $this->audit_write(
         $args,
         function ( array $args ) {
             // your logic

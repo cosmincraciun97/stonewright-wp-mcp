@@ -7,10 +7,13 @@ use Stonewright\WpMcp\DesignSpec\Migrator;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\DesignTokens\BrandKit;
 use Stonewright\WpMcp\Elementor\ElementorWriter;
+use Stonewright\WpMcp\FSE\TemplateStore;
 use Stonewright\WpMcp\Gutenberg\EditorSnapshot;
 use Stonewright\WpMcp\Gutenberg\FseTransactionQueue;
 use Stonewright\WpMcp\Renderers\GutenbergSpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Security\RuleEnforcer;
 use Stonewright\WpMcp\Support\BlockSerializer;
 
@@ -26,7 +29,7 @@ final class BlueprintApplier {
 	 * @param array<string, mixed> $args {
 	 *     @type string               $blueprint_id Required.
 	 *     @type string               $page_title   Optional page title override.
-	 *     @type string               $mode         draft|publish. Default draft.
+	 *     @type string               $mode         draft|publish. A new page defaults to draft; an existing page keeps its status unless this is passed.
 	 *     @type array<string,string> $palette_override Optional color map merged into tokens.colors.
 	 *     @type string               $brand_kit    Optional brand kit id.
 	 *     @type string               $engine       auto|gutenberg|elementor|fse. Default auto.
@@ -95,10 +98,9 @@ final class BlueprintApplier {
 		}
 		$spec = $validated;
 
-		$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'draft';
-		if ( ! in_array( $mode, [ 'draft', 'publish' ], true ) ) {
-			$mode = 'draft';
-		}
+		// A page that already exists keeps its status unless the caller names one; a new page is a draft.
+		$mode_passed = isset( $args['mode'] ) && in_array( (string) $args['mode'], [ 'draft', 'publish' ], true );
+		$mode        = $mode_passed ? (string) $args['mode'] : 'draft';
 
 		$engine_requested = isset( $args['engine'] ) ? (string) $args['engine'] : 'auto';
 		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor', 'fse' ], true ) ) {
@@ -119,6 +121,16 @@ final class BlueprintApplier {
 			);
 		}
 		if ( 'fse' === $engine ) {
+			if ( ! Permissions::can_manage_fse() ) {
+				return new \WP_Error(
+					'stonewright_forbidden',
+					__( 'The fse engine writes a template and needs the site editor capabilities (manage_options and edit_theme_options).', 'stonewright' ),
+					[
+						'status'           => 403,
+						'engine_requested' => 'fse',
+					]
+				);
+			}
 			if ( ! function_exists( 'parse_blocks' ) && ! class_exists( BlockSerializer::class ) ) {
 				return new \WP_Error(
 					'stonewright_engine_unavailable',
@@ -136,6 +148,8 @@ final class BlueprintApplier {
 		$before_snapshot_id = '';
 		$created            = false;
 		$fse_meta    = [];
+		$title_done  = false;
+		$final_status = null;
 
 		if ( $post_id > 0 ) {
 			$existing = get_post( $post_id );
@@ -158,24 +172,16 @@ final class BlueprintApplier {
 				);
 			}
 			$before_snapshot_id = $snapshot_id;
-			wp_update_post(
-				wp_slash(
-					[
-						'ID'          => $post_id,
-						'post_title'  => $page_title,
-						'post_status' => $mode,
-					]
-				),
-				true
-			);
+			// The title, and the status when the caller passed one, change after the engine has written.
+			$final_status = $mode_passed ? $mode : null;
 		} else {
-			$post_type = 'fse' === $engine ? 'page' : 'page';
-			$insert    = wp_insert_post(
+			// A new page starts as a draft: nothing is public until the render and the write have worked.
+			$insert = wp_insert_post(
 				wp_slash(
 					[
-						'post_type'    => $post_type,
+						'post_type'    => 'page',
 						'post_title'   => $page_title,
-						'post_status'  => $mode,
+						'post_status'  => 'draft',
 						'post_content' => '',
 					]
 				),
@@ -186,6 +192,8 @@ final class BlueprintApplier {
 			}
 			$post_id = (int) $insert;
 			$created = true;
+			RescueGuard::note_post_created( $post_id );
+			$final_status = 'draft' !== $mode ? $mode : null;
 			if ( 'fse' !== $engine ) {
 				// Snapshot the empty page so restore remains available after the write.
 				$snapshot_id = Backup::snapshot_post( $post_id );
@@ -196,15 +204,15 @@ final class BlueprintApplier {
 		if ( 'elementor' === $engine ) {
 			$write = ElementorWriter::write_transactional( $post_id, $spec, $diagnostics, true );
 			if ( is_wp_error( $write ) ) {
-				return $write;
+				return self::abort( $created, $post_id, $write );
 			}
 			if ( '' === $before_snapshot_id && is_array( $write ) && ! empty( $write['snapshot_id'] ) ) {
 				$snapshot_id = (string) $write['snapshot_id'];
 			}
 		} elseif ( 'fse' === $engine ) {
-			$fse_result = self::apply_fse( $post_id, $spec, $page_title, $mode, $diagnostics );
+			$fse_result = self::apply_fse( $post_id, $spec, $page_title, $diagnostics );
 			if ( is_wp_error( $fse_result ) ) {
-				return $fse_result;
+				return self::abort( $created, $post_id, $fse_result );
 			}
 			if ( '' === $before_snapshot_id ) {
 				$snapshot_id = (string) ( $fse_result['snapshot_id'] ?? '' );
@@ -213,25 +221,42 @@ final class BlueprintApplier {
 		} else {
 			$blocks = GutenbergSpecRenderer::render( $spec, $diagnostics );
 			if ( is_wp_error( $blocks ) ) {
-				return $blocks;
+				return self::abort( $created, $post_id, $blocks );
 			}
 			$content = BlockSerializer::serialize( $blocks );
 			if ( ! $created && '' === $snapshot_id ) {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 			}
-			$result = wp_update_post(
-				wp_slash(
-					[
-						'ID'           => $post_id,
-						'post_content' => $content,
-						'post_title'   => $page_title,
-						'post_status'  => $mode,
-					]
-				),
-				true
-			);
-			if ( is_wp_error( $result ) ) {
-				return $result;
+			$payload = [
+				'ID'           => $post_id,
+				'post_content' => $content,
+				'post_title'   => $page_title,
+			];
+			// An existing page takes its new status together with its content; a new page gets it below.
+			if ( ! $created && null !== $final_status ) {
+				$payload['post_status'] = $final_status;
+				$final_status           = null;
+			}
+			$failure = self::update_failure( wp_update_post( wp_slash( $payload ), true ) );
+			if ( null !== $failure ) {
+				return self::abort( $created, $post_id, $failure );
+			}
+			$title_done = true;
+		}
+
+		// The page is written: now it gets the status it was asked for (and the title, for the engines that
+		// wrote through their own transaction).
+		$finish = [ 'ID' => $post_id ];
+		if ( ! $created && ! $title_done ) {
+			$finish['post_title'] = $page_title;
+		}
+		if ( null !== $final_status ) {
+			$finish['post_status'] = $final_status;
+		}
+		if ( count( $finish ) > 1 ) {
+			$failure = self::update_failure( wp_update_post( wp_slash( $finish ), true ) );
+			if ( null !== $failure ) {
+				return self::abort( $created, $post_id, $failure );
 			}
 		}
 
@@ -251,7 +276,7 @@ final class BlueprintApplier {
 			'engine'           => $engine,
 			'engine_requested' => $engine_requested,
 			'engine_used'      => $engine,
-			'mode'             => $mode,
+			'mode'             => (string) ( get_post( $post_id )->post_status ?? $mode ),
 			'created'          => $created,
 			'snapshot_id'      => $snapshot_id,
 			'spec_sha8'        => substr( sha1( $spec_json ), 0, 8 ),
@@ -281,7 +306,7 @@ final class BlueprintApplier {
 	 * @param array<int, array<string, mixed>> $diagnostics
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private static function apply_fse( int $post_id, array $spec, string $page_title, string $mode, array &$diagnostics ) {
+	private static function apply_fse( int $post_id, array $spec, string $page_title, array &$diagnostics ) {
 		$editor_snapshot = EditorSnapshot::capture();
 
 		$blocks = GutenbergSpecRenderer::render( $spec, $diagnostics );
@@ -326,7 +351,8 @@ final class BlueprintApplier {
 			);
 		}
 
-		$template_id = self::ensure_fse_template_post( $page_title, $content );
+		$template_created = false;
+		$template_id      = self::ensure_fse_template_post( $page_title, $content, $template_created );
 
 		$queue = ( new FseTransactionQueue() )
 			->stop_on_error( true )
@@ -353,20 +379,11 @@ final class BlueprintApplier {
 
 		$txn = $queue->apply();
 		if ( is_wp_error( $txn ) ) {
+			if ( $template_created && $template_id > 0 ) {
+				wp_delete_post( $template_id, true );
+			}
 			return $txn;
 		}
-
-		// Keep page title/status in sync after content write.
-		wp_update_post(
-			wp_slash(
-				[
-					'ID'          => $post_id,
-					'post_title'  => $page_title,
-					'post_status' => $mode,
-				]
-			),
-			true
-		);
 
 		$snapshots   = is_array( $txn['snapshots'] ?? null ) ? $txn['snapshots'] : [];
 		$snapshot_id = '';
@@ -392,9 +409,45 @@ final class BlueprintApplier {
 	}
 
 	/**
-	 * Create or reuse a custom wp_template post for the blueprint (best-effort).
+	 * Returns the error of a write that failed, and removes the page this apply created: a page whose
+	 * render or write failed is not left behind. A page that existed before is never deleted.
 	 */
-	private static function ensure_fse_template_post( string $title, string $content ): int {
+	private static function abort( bool $created, int $post_id, \WP_Error $error ): \WP_Error {
+		if ( $created && $post_id > 0 ) {
+			wp_delete_post( $post_id, true );
+		}
+		return $error;
+	}
+
+	/**
+	 * The error for a wp_update_post() result that is not a saved post: a WP_Error, or the 0 it returns when
+	 * it did not save. Null when the update worked.
+	 *
+	 * @param int|\WP_Error $result
+	 */
+	private static function update_failure( $result ): ?\WP_Error {
+		if ( $result instanceof \WP_Error ) {
+			return $result;
+		}
+		if ( (int) $result < 1 ) {
+			return new \WP_Error(
+				'stonewright_blueprint_update_failed',
+				__( 'WordPress did not save the page.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+		}
+		return null;
+	}
+
+	/**
+	 * Create or reuse a custom wp_template post for the blueprint (best-effort).
+	 *
+	 * The post is stored the way core stores a customized template: post_name is the bare slug and the
+	 * wp_theme term names the theme.
+	 *
+	 * @param bool $created Set to true when this call created the template post.
+	 */
+	private static function ensure_fse_template_post( string $title, string $content, bool &$created = false ): int {
 		$slug  = sanitize_title( $title );
 		$slug  = '' !== $slug ? 'stonewright-blueprint-' . $slug : 'stonewright-blueprint';
 		$theme = function_exists( 'get_stylesheet' ) ? sanitize_key( (string) get_stylesheet() ) : 'stonewright';
@@ -402,67 +455,29 @@ final class BlueprintApplier {
 			$theme = 'stonewright';
 		}
 
-		$existing = get_posts(
-			[
-				'post_type'      => 'wp_template',
-				'name'           => $theme . '//' . $slug,
-				'posts_per_page' => 1,
-				'post_status'    => [ 'publish', 'draft', 'auto-draft' ],
-			]
-		);
-		$found = self::first_post_id( is_array( $existing ) ? $existing : [] );
-		if ( $found > 0 ) {
-			return $found;
+		// TemplateStore resolves the template through core and also finds one an earlier version stored
+		// under a composite post_name, so a repeated apply reuses it.
+		$existing = TemplateStore::find( $slug, $theme, TemplateStore::TEMPLATE );
+		if ( null !== $existing ) {
+			return (int) $existing->ID;
 		}
 
-		// Also match by post_name slug alone in unit bootstrap.
-		$by_slug = get_posts(
+		$insert = TemplateStore::insert(
+			TemplateStore::TEMPLATE,
+			$slug,
+			$theme,
 			[
-				'post_type'      => 'wp_template',
-				'name'           => $slug,
-				'posts_per_page' => 1,
-				'post_status'    => [ 'publish', 'draft', 'auto-draft' ],
+				'post_title'   => $title,
+				'post_content' => $content,
+				'post_excerpt' => 'Stonewright blueprint FSE template',
 			]
-		);
-		$found = self::first_post_id( is_array( $by_slug ) ? $by_slug : [] );
-		if ( $found > 0 ) {
-			return $found;
-		}
-
-		$insert = wp_insert_post(
-			wp_slash(
-				[
-					'post_type'    => 'wp_template',
-					'post_name'    => $theme . '//' . $slug,
-					'post_title'   => $title,
-					'post_content' => $content,
-					'post_status'  => 'publish',
-					'post_excerpt' => 'Stonewright blueprint FSE template',
-				]
-			),
-			true
 		);
 		if ( is_wp_error( $insert ) ) {
 			return 0;
 		}
-		$template_id = (int) $insert;
-		if ( $template_id > 0 ) {
-			update_post_meta( $template_id, 'theme', $theme );
-			update_post_meta( $template_id, '_stonewright_blueprint_template', '1' );
-		}
-		return $template_id;
-	}
-
-	/**
-	 * @param list<mixed> $posts
-	 */
-	private static function first_post_id( array $posts ): int {
-		if ( ! isset( $posts[0] ) || ! is_object( $posts[0] ) ) {
-			return 0;
-		}
-		/** @var object{ID?: int|string} $post */
-		$post = $posts[0];
-		return isset( $post->ID ) ? (int) $post->ID : 0;
+		$created = true;
+		update_post_meta( $insert, '_stonewright_blueprint_template', '1' );
+		return $insert;
 	}
 
 	/**

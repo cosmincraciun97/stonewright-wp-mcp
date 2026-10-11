@@ -1,6 +1,6 @@
 # V4 Atomic Troubleshooting
 
-## feature_disabled
+## stonewright_feature_disabled
 
 `permission_callback` rejected the call because `stonewright_elementor_v4_atomic`
 is not set in wp-options.

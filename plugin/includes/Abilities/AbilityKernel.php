@@ -116,7 +116,7 @@ abstract class AbilityKernel implements Ability {
 			'ability' => $this->name(),
 			'details' => [],
 		];
-		RescueGuard::enter( $this->name() );
+		RescueGuard::enter( $this->name(), $args );
 		try {
 			$result = $callback( $args );
 		} catch ( \Throwable $_throwable ) {
@@ -292,6 +292,11 @@ abstract class AbilityKernel implements Ability {
 		return $this->audit_declared(
 			$args,
 			function ( array $args ) use ( $callback ) {
+				// Refuse a call the current user may not make before the token is looked at, so a refusal never spends a token.
+				$precondition_error = $this->write_precondition_error( $args );
+				if ( $precondition_error instanceof \WP_Error ) {
+					return $precondition_error;
+				}
 				$token_error = $this->require_production_safe_token( $args );
 				if ( $token_error instanceof \WP_Error ) {
 					return $token_error;
@@ -300,6 +305,59 @@ abstract class AbilityKernel implements Ability {
 			},
 			'write'
 		);
+	}
+
+	/**
+	 * Audit wrapper for a write ability that checks its production-safe token itself, at the point where it
+	 * knows a write will follow: after its own validation, and never for a dry run or a call that changes
+	 * nothing. The call is declared a write, so every outcome (a dry run and a refusal included) gets an
+	 * audit row and a rescue frame. Unlike audit_write() it asks for no token before the callback runs;
+	 * the callback has to call confirmation_token_error() before it writes.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_write_with_own_token_gate( array $args, callable $callback ) {
+		return $this->audit_declared(
+			$args,
+			function ( array $args ) use ( $callback ) {
+				$precondition_error = $this->write_precondition_error( $args );
+				if ( $precondition_error instanceof \WP_Error ) {
+					return $precondition_error;
+				}
+				return $callback( $args );
+			},
+			'write'
+		);
+	}
+
+	/**
+	 * Checks that audit_write() runs before the production-safe token is consumed: the per-object permission
+	 * checks and the input rules whose failure must not spend a token. Returns null when the call may go on.
+	 * Abilities that need it override this.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		unset( $args );
+		return null;
+	}
+
+	/**
+	 * Audit wrapper for one write that runs inside a call whose confirmation token has already been verified for
+	 * the whole call, such as one item of a batch. It declares the call a write and records its own audit row and
+	 * ledger entry, but asks for no token: the outer call's token covers the batch, and asking again for every item
+	 * would make a production-safe batch fail on its first item.
+	 *
+	 * Only a caller that has itself passed audit_write() may use this.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_covered_write( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, 'write' );
 	}
 
 	private static function is_blocked_error_code( string $code ): bool {

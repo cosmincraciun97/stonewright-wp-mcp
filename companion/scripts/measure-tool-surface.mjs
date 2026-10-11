@@ -5,7 +5,7 @@
  * Hard budgets (CI fails when any is false):
  * - plugin essential (proxied + local) ≤ 20
  * - plugin low-tools (proxied + local) ≤ 12
- * - Direct full ≤ 101 (when companion/src/direct exists)
+ * - Direct full ≤ 105 (when companion/src/direct exists)
  * - Direct essential ≤ 22 (when Direct essential export exists)
  *
  * Usage:
@@ -22,13 +22,13 @@ const companionRoot = join(__dirname, '..');
 const srcRoot = join(companionRoot, 'src');
 
 export const TOOL_SURFACE_LIMITS = Object.freeze({
-	// Bootstrap includes runtime escape hatches (php-execute, theme-file-read, …).
+	// Bootstrap includes read escape hatches (theme-file-read, …); php-execute is on the full profile only.
 	plugin_bootstrap_proxy_max_tools: 12,
 	// +1 for stonewright-client-surface-check in local recovery diagnostics.
 	plugin_essential_max_tools: 31,
 	plugin_low_tools_max_tools: 12,
-	// Includes the verified incident-repair recorder.
-	direct_full_max_tools: 101,
+	// Includes the verified incident-repair recorder, the two backup tools (list, restore), memory delete and the block mutate tool.
+	direct_full_max_tools: 105,
 	// Includes generic CPT creation and verified incident-repair recording.
 	direct_essential_max_tools: 22,
 	direct_bootstrap_max_tools: 8,
@@ -187,7 +187,7 @@ export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS
 	};
 
 	if (metrics.direct_present) {
-		budgets.direct_full_max_101_tools =
+		budgets.direct_full_max_105_tools =
 			(metrics.direct_full_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.direct_full_max_tools;
 		if (metrics.direct_essential_present) {

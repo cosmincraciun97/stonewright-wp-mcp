@@ -66,8 +66,14 @@ terminal `.php`, and path separators are all rejected. Maximum file size is
 
 - Drafts are stored as `<name>.draft` and backups as `<name>.<unix time>.bak`.
   A backup is made before every write, edit, and rollback; the last ten are
-  kept. **Delete** removes the draft, all of its backups, and its `mu-plugins/`
-  copies.
+  kept. Two backups made in the same second never share a name: the time of
+  the later one moves on by a second. **Delete** removes the draft, all of its
+  backups, and its `mu-plugins/` copies.
+- Activation replaces the active copy in `mu-plugins/`. An active copy that is
+  already there is first copied to `<name>.active.<unix time>.bak` in the
+  sandbox folder (the last ten are kept, and **Delete** removes them with the
+  draft); when that copy cannot be written the activation stops and the active
+  copy stays as it is. These backups are not listed with the draft versions.
 - The folder carries an `.htaccess` that denies every request on Apache 2.4
   (`Require all denied`) and 2.2 (`Order deny,allow` / `Deny from all`), a
   `web.config` that denies every request on IIS, and an `index.php` whose first
@@ -100,20 +106,27 @@ terminal `.php`, and path separators are all rejected. Maximum file size is
 
 ## Static analysis gate
 
-Before a draft is copied to `mu-plugins/`, `StaticGuard::scan()` checks the
-source for dangerous constructs. Any match returns a human-readable error and
-aborts the activation. The blocked patterns are:
+Before a draft is copied to `mu-plugins/`, and again when a disabled file is
+enabled or an earlier active copy is restored from the change history,
+`StaticGuard::scan()` checks the source for dangerous constructs. Any match
+returns a human-readable error and aborts the step. The blocked patterns are:
 
 | Pattern | Detection method |
 |---|---|
 | `eval` keyword | PHP tokenizer (`T_EVAL`) |
 | `assert(string)` | Regex heuristic on `assert\s*\(\s*['"]` |
-| `create_function` | Tokenizer — `T_STRING` + `(` lookahead |
-| `exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`, `pcntl_exec` | Same as above |
+| `create_function`, `exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`, `pcntl_exec`, and any `pcntl_*` or `posix_*` function | Tokenizer: the name (also as `\name`) followed by `(` |
+| `call_user_func`, `call_user_func_array` | Same as above |
+| File changes: `file_put_contents`, `unlink`, `rename`, `copy`, `mkdir`, `rmdir`, `chmod`, `chown`, `symlink`, `link`, `tempnam`, `move_uploaded_file`, and `fopen` with a write mode | Same as above; the mode is read from a literal argument |
+| Network, sockets and mail: `curl_exec`, `curl_init`, `curl_multi_exec`, `curl_multi_init`, `fsockopen`, `pfsockopen`, `stream_socket_client`, `stream_socket_server`, `socket_create`, `socket_connect`, `mail`, `imap_open` | Same as above |
 | Short-echo tag `<?=` | Regex |
-| Backtick execution operator | Regex — backtick following whitespace/operator |
-| `include`/`require` of `http(s)://` URLs | Tokenizer + lookahead for remote URL |
-| `base64_decode` combined with any execution function | Tokenizer — 50-token lookahead |
+| Backtick execution operator | Regex: backtick following whitespace/operator |
+| `include`/`require` of `http(s)://` URLs, or with a path that is not a literal | Tokenizer + lookahead |
+| Dynamic dispatch: a variable or expression in call position (`$fn(`), variable variables (`$$name`), `new $class`, `Closure::bind`, `Closure::bindTo`, `Closure::fromCallable`, an explicit `__invoke()` call, any `Reflection*` class | Tokenizer |
+| `base64_decode` combined with any blocked function | Tokenizer: 50-token lookahead |
+
+A method call named like a blocked function, a string literal and a namespaced
+function of the same name are not flagged.
 
 Static analysis does not catch every possible obfuscation; it is one layer in
 a defence-in-depth strategy that also includes crash recovery and the
@@ -127,7 +140,11 @@ require a `confirmation_token` obtained from the
 `stonewright/security-issue-confirmation-token` ability. Attempting the
 call without a valid token returns an error. This forces a deliberate decision
 rather than an accidental call. The buttons on this page are a person's own
-action: they need `manage_options` and the page nonce, not a token.
+action: they need `manage_options` and the page nonce, not a token. The library
+actions (**Edit**, **Diff**, **Roll back**) also need `edit_plugins`.
+
+The sandbox MCP abilities need both `edit_plugins` and `manage_options`, and
+they refuse to change files while `DISALLOW_FILE_MODS` is set in `wp-config.php`.
 
 ---
 
@@ -148,7 +165,8 @@ action: they need `manage_options` and the page nonce, not a token.
 - **Active** and **Crash recovery** are tables, or an empty state that says what the
   tab will show.
 - **Approvals** (`page=stonewright-custom-code-approval`) is the human approval step.
-  The warning that only a person approves is on every view. A proposal is shown as
+  The warning that only a person approves is on every view. A proposal (a change to
+  code, or the rollback of a WPCode or Code Snippets snippet) is shown as
   the exact candidate (path, language, risk, changed bytes, SHA-256, native gap) and a
   bounded diff, with one action, **Issue one-time grant**. The grant is shown once in
   a copy field and is never masked. Agents stop at the proposal: they open or submit

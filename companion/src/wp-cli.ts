@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
+import { wpCliBatchReason, wpCliDenyReason, type WpCliPolicyLevel } from './wp-cli-policy.js';
 
 export interface WpCliRunInput {
 	command: string[];
@@ -183,8 +184,6 @@ export interface WpCliInstallResult extends Record<string, unknown> {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 const MAX_JOBS = 100;
-const BLOCKED_COMMAND_GROUPS = new Set(['eval', 'eval-file', 'shell', 'package']);
-const BLOCKED_GLOBAL_FLAGS = ['--exec', '--require', '--prompt'];
 const WP_CLI_CONTEXTS = new Set<WpCliContext>(['auto', 'admin', 'cli', 'frontend']);
 const WP_CLI_PHAR_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
 
@@ -208,7 +207,7 @@ function validCachedWpRoot(): string | undefined {
 	return existsSync(join(cachedDefaultWpRoot, 'wp-config.php')) ? cachedDefaultWpRoot : undefined;
 }
 
-export function validateWpCliCommand(command: string[]): string[] {
+export function validateWpCliCommand(command: string[], level: WpCliPolicyLevel = 'agent'): string[] {
 	if (!Array.isArray(command) || command.length === 0) {
 		throw new Error('WP-CLI command must be a non-empty argv array.');
 	}
@@ -224,17 +223,22 @@ export function validateWpCliCommand(command: string[]): string[] {
 		return trimmed;
 	});
 
-	for (const token of clean) {
-		for (const flag of BLOCKED_GLOBAL_FLAGS) {
-			if (token === flag || token.startsWith(`${flag}=`)) {
-				throw new Error(`Blocked WP-CLI flag: ${flag}`);
-			}
-		}
+	const denied = wpCliDenyReason(clean, level);
+	if (denied !== undefined) {
+		throw new Error(denied);
 	}
 
-	const commandGroup = clean.find((token) => !token.startsWith('-')) ?? '';
-	if (BLOCKED_COMMAND_GROUPS.has(commandGroup)) {
-		throw new Error(`Blocked WP-CLI command group: ${commandGroup}`);
+	return clean;
+}
+
+/**
+ * The batch runner's gate: the deny-list plus the read-oriented allowlist (see wp-cli-policy.ts).
+ */
+export function validateWpCliBatchCommand(command: string[]): string[] {
+	const clean = validateWpCliCommand(command);
+	const refused = wpCliBatchReason(clean);
+	if (refused !== undefined) {
+		throw new Error(refused);
 	}
 
 	return clean;
@@ -290,7 +294,7 @@ export function validateWpCliUrl(url: string): string {
 	return trimmed;
 }
 
-export function buildWpCliArgs(input: WpCliRunInput): string[] {
+export function buildWpCliArgs(input: WpCliRunInput, level: WpCliPolicyLevel = 'agent'): string[] {
 	const args: string[] = [];
 
 	if (input.path) args.push(`--path=${input.path}`);
@@ -299,13 +303,37 @@ export function buildWpCliArgs(input: WpCliRunInput): string[] {
 	const context = normalizeWpCliContext(input);
 	if (context) args.push(`--context=${context}`);
 
-	return [...args, ...validateWpCliCommand(input.command)];
+	return [...args, ...validateWpCliCommand(input.command, level)];
 }
 
-export async function runWpCli(
+/**
+ * The agent-facing runner: the full deny-list applies (see wp-cli-policy.ts).
+ */
+export function runWpCli(
 	input: WpCliRunInput,
 	runner: ExecFileRunner = defaultExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
+): Promise<WpCliCommandResult> {
+	return executeWpCli(input, runner, env, 'agent');
+}
+
+/**
+ * For commands the operator's own tooling builds (credential setup, rescue, approved command recipes).
+ * Only the entry points that run arbitrary code stay refused. Never route agent input through it.
+ */
+export function runWpCliOperator(
+	input: WpCliRunInput,
+	runner: ExecFileRunner = defaultExecFileRunner,
+	env: NodeJS.ProcessEnv = process.env,
+): Promise<WpCliCommandResult> {
+	return executeWpCli(input, runner, env, 'operator');
+}
+
+async function executeWpCli(
+	input: WpCliRunInput,
+	runner: ExecFileRunner,
+	env: NodeJS.ProcessEnv,
+	level: WpCliPolicyLevel,
 ): Promise<WpCliCommandResult> {
 	const started = Date.now();
 	const defaultPath = !input.path && !input.cwd && !cleanEnvPath(env['STONEWRIGHT_WP_ROOT'])
@@ -319,7 +347,7 @@ export async function runWpCli(
 		...(rawPath ? { path: cwdFromPath ?? resolveAllowedPath(rawPath, env, cwd) } : {}),
 	};
 	const invocation = resolveWpCliInvocation(env, cwd);
-	const args = [...invocation.prefixArgs, ...buildWpCliArgs(safeInput)];
+	const args = [...invocation.prefixArgs, ...buildWpCliArgs(safeInput, level)];
 
 	const options: ExecFileOptions = {
 		cwd,
@@ -354,16 +382,30 @@ export async function runWpCli(
 	return input.responseMode === 'summary' ? summarizeWpCliResult(fullResult) : fullResult;
 }
 
+export interface WpCliBatchOptions {
+	/**
+	 * read-oriented (default): the batch runner accepts read commands and flushes only.
+	 * general: the deny-list every runner applies, for the background job queue.
+	 */
+	policy?: 'read-oriented' | 'general';
+}
+
 export async function runWpCliBatch(
 	input: WpCliBatchRunInput,
 	runner: ExecFileRunner = defaultExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
+	options: WpCliBatchOptions = {},
 ): Promise<WpCliBatchResult> {
 	if (!Array.isArray(input.commands) || input.commands.length === 0) {
 		throw new Error('WP-CLI batch requires a non-empty commands array.');
 	}
 	if (input.commands.length > 100) {
 		throw new Error('WP-CLI batch supports at most 100 commands.');
+	}
+	// Every command is checked before the first one runs, so a refused batch changes nothing.
+	const validate = (options.policy ?? 'read-oriented') === 'general' ? validateWpCliCommand : validateWpCliBatchCommand;
+	for (const command of input.commands) {
+		validate(command);
 	}
 
 	const { commands, stopOnError = true, ...sharedInput } = input;
@@ -398,10 +440,16 @@ export async function runWpCliBatch(
 	};
 }
 
+export interface WpCliJobOptions {
+	/** Called once when the job has finished or failed, with its outcome. */
+	onSettled?: (outcome: { ok: boolean; error?: string }) => void;
+}
+
 export function startWpCliJob(
 	input: WpCliJobStartInput,
 	runner: ExecFileRunner = defaultExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
+	options: WpCliJobOptions = {},
 ): WpCliJobStatusResult {
 	const kind = Array.isArray(input.commands) ? 'batch' : 'command';
 	const commandCount = kind === 'batch' ? input.commands?.length ?? 0 : 1;
@@ -436,7 +484,7 @@ export function startWpCliJob(
 		try {
 			const jobInput = { ...input, responseMode: input.responseMode ?? 'summary' };
 			record.result = kind === 'batch'
-				? await runWpCliBatch(jobInput as WpCliBatchRunInput, runner, env)
+				? await runWpCliBatch(jobInput as WpCliBatchRunInput, runner, env, { policy: 'general' })
 				: await runWpCli(jobInput as WpCliRunInput, runner, env);
 			record.status = record.result.ok ? 'succeeded' : 'failed';
 			if (!record.result.ok && typeof record.result.error === 'string') {
@@ -447,6 +495,11 @@ export function startWpCliJob(
 			record.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			record.completedAt = new Date().toISOString();
+			try {
+				options.onSettled?.({ ok: record.status === 'succeeded', ...(record.error ? { error: record.error } : {}) });
+			} catch {
+				// A failing observer never changes the job.
+			}
 		}
 	})();
 

@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Design\Direction;
 
+use Stonewright\WpMcp\Security\Permissions;
 use WP_Error;
 
 /**
@@ -15,6 +16,9 @@ use WP_Error;
  * and both default to the same active kit.
  */
 final class DirectionSyncTarget {
+
+	/** @var string Structured error code for a kit_id that is not an Elementor kit. */
+	public const INVALID_KIT_CODE = 'stonewright_direction_sync_invalid_kit';
 
 	/**
 	 * Resolves the stored direction named by `id` or `slug`.
@@ -59,6 +63,10 @@ final class DirectionSyncTarget {
 	 * globals to whatever post id happens to be lying around is worse than
 	 * telling the caller Elementor is not set up.
 	 *
+	 * A kit_id that is not the active kit has to be a post of the Elementor kit
+	 * type, and the current user has to be allowed to edit the kit post, for the
+	 * plan (which reads it) as well as the apply (which writes it).
+	 *
 	 * @param array<string,mixed> $args Ability arguments.
 	 * @return int|WP_Error
 	 */
@@ -77,6 +85,40 @@ final class DirectionSyncTarget {
 			);
 		}
 
+		$active = (int) get_option( 'elementor_active_kit', 0 );
+		$post   = get_post( $kit_id );
+
+		if ( $kit_id !== $active && ( ! $post || ! self::is_kit_post( $post ) ) ) {
+			return new WP_Error(
+				self::INVALID_KIT_CODE,
+				__( 'kit_id must be the active Elementor kit or a post of the Elementor kit type.', 'stonewright' ),
+				[
+					'status' => 422,
+					'kit_id' => $kit_id,
+				]
+			);
+		}
+
+		// A kit post that does not exist is reported by the writer as a kit that cannot be snapshotted.
+		if ( $post && ! Permissions::can_edit_post( $kit_id ) ) {
+			return new WP_Error(
+				'stonewright_forbidden',
+				__( 'You are not allowed to edit this Elementor kit.', 'stonewright' ),
+				[
+					'status' => 403,
+					'kit_id' => $kit_id,
+				]
+			);
+		}
+
 		return $kit_id;
+	}
+
+	/**
+	 * Whether a post is an Elementor kit: a library post whose template type is "kit".
+	 */
+	private static function is_kit_post( object $post ): bool {
+		return 'elementor_library' === (string) ( $post->post_type ?? '' )
+			&& 'kit' === (string) get_post_meta( (int) $post->ID, '_elementor_template_type', true );
 	}
 }

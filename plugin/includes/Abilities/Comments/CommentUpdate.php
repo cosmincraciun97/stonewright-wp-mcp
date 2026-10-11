@@ -59,7 +59,10 @@ final class CommentUpdate extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::moderate_comments();
+		if ( ! Permissions::moderate_comments() ) {
+			return false;
+		}
+		return CommentAccess::refusal( (int) ( $args['id'] ?? 0 ) ) ?? true;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -67,24 +70,44 @@ final class CommentUpdate extends AbilityKernel {
 			$args,
 			static function ( array $args ) {
 				$id = (int) $args['id'];
-				if ( null === get_comment( $id ) ) {
-					return new \WP_Error( 'stonewright_comment_not_found', 'Comment not found.', [ 'id' => $id ] );
+				$refusal = CommentAccess::refusal( $id );
+				if ( null !== $refusal ) {
+					return $refusal;
+				}
+				if ( ! isset( $args['content'] ) && ! isset( $args['status'] ) ) {
+					return new \WP_Error( 'stonewright_comment_nothing_to_update', 'Send content, status, or both.', [ 'status' => 400, 'id' => $id ] );
 				}
 				if ( isset( $args['content'] ) ) {
-					wp_update_comment(
-						[
-							'comment_ID'      => $id,
-							'comment_content' => (string) $args['content'],
-						]
+					// wp_update_comment takes slashed data and filters the content like a new comment. It returns 0 when
+					// nothing changed, and false or an error when the write failed.
+					$updated = wp_update_comment(
+						wp_slash(
+							[
+								'comment_ID'      => $id,
+								'comment_content' => (string) $args['content'],
+							]
+						),
+						true
 					);
+					if ( false === $updated || $updated instanceof \WP_Error ) {
+						return new \WP_Error( 'stonewright_comment_update_failed', 'The comment content could not be saved.', [ 'status' => 500, 'id' => $id ] );
+					}
 				}
 				if ( isset( $args['status'] ) ) {
-					wp_set_comment_status( $id, (string) $args['status'] );
+					$set = wp_set_comment_status( $id, (string) $args['status'], true );
+					if ( false === $set || $set instanceof \WP_Error ) {
+						return new \WP_Error( 'stonewright_comment_update_failed', 'The comment status could not be changed.', [ 'status' => 500, 'id' => $id ] );
+					}
 				}
-				$comment = get_comment( $id );
-				$status  = isset( $args['status'] )
-					? (string) $args['status']
-					: ( is_object( $comment ) ? (string) $comment->comment_approved : '' );
+				// Report what is stored, not what was asked for.
+				$status = CommentStatus::of( get_comment( $id ) );
+				if ( isset( $args['status'] ) && $status !== (string) $args['status'] ) {
+					return new \WP_Error(
+						'stonewright_comment_update_failed',
+						'The comment status did not change to the requested value.',
+						[ 'status' => 500, 'id' => $id, 'requested_status' => (string) $args['status'], 'stored_status' => $status ]
+					);
+				}
 				return [
 					'id'     => $id,
 					'status' => $status,

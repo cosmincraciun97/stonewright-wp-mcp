@@ -19,22 +19,22 @@
 </p>
 
 <!-- supported-release:start -->
-<p align="center"><strong>Current release: 1.0.0-beta.14 — Public Beta</strong></p>
+<p align="center"><strong>Current release: 1.0.0-beta.15 — Public Beta</strong></p>
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.14/stonewright-1.0.0-beta.14.zip">Download Plugin</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.15/stonewright-1.0.0-beta.15.zip">Download Plugin</a>
   ·
   <a href="docs/installation.md">Installation guide</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.14/stonewright-companion-1.0.0-beta.14.tgz">Companion</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.15/stonewright-companion-1.0.0-beta.15.tgz">Companion</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.14/SHA256SUMS.txt">Checksums</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.15/SHA256SUMS.txt">Checksums</a>
   ·
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.14">Release notes</a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.15">Release notes</a>
 </p>
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **394 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **397 Plugin abilities** and **105 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **394** abilities
+### Plugin mode — **397** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -102,7 +102,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Elementor V3 | 35 | Structure edit, batch-mutate, CSS regenerate, observation-only post-write verification, performance audit, legacy-debt report, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 33 | DesignSpec validate/render, native plan, intent, versioned Design Directions, motion plans, manifests, comparison, guarded kit sync, rendered quality checks |
-| Elementor native | 2 | Provider discovery and certified native execution inside the snapshot, lock, readback, and rollback closure |
+| Elementor native | 2 | Provider discovery and certified native execution inside the snapshot, lock, readback, and rollback closure; see [Elementor MCP](docs/elementor-mcp.md) |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
 | Gutenberg | 13 | Parse, insert, update, batch-mutate, query-loop, render/apply |
 | Finalizer abilities | 6 | Queue, runtime, pending, finalize, cancel, and finalizer URL for static/third-party blocks |
@@ -115,27 +115,30 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
 | Section reuse | 2 | Find sections the site already has and extract one as a portable payload; the copy is an insert operation of the V3, V4 and block batch writers |
-| Security + sandbox | 15 | Tokens, one-time links, incident repair receipts, rescue status and rollback, sandbox lifecycle |
+| Security + sandbox | 18 | Tokens, one-time links, incident repair receipts, rescue status and rollback, change history list, diff and rollback, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
 | System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
 | Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
-### Direct mode — **101** tools (pluginless)
+### Direct mode — **105** tools (pluginless)
+
+The 105 are the Direct tools. A companion session also lists its own local tools (connection and diagnostics tools and the WP-CLI tools: 20 with the `full` profile), so `tools/list` shows 125 in Direct mode with `full`, and 37 with `essential` (22 Direct tools and 15 local tools).
 
 | Area | Tools (group) | Notes |
 |---|---|---|
-| Content & Gutenberg | list/get/create/update + compose + **validate** | Round-trip heuristics after writes |
-| Elementor (local WP-CLI) | **status / data-get / data-update** | Mandatory file backup; preserve CSS metadata, run no CSS flush, and require Plugin-mode guarded CSS closure |
-| Media, menus, taxonomy, templates, global styles | REST | Core endpoints |
+| Content & Gutenberg | list/get/create/update + compose + **validate** + **blocks-batch-mutate** | Block-level validation (balanced comments, JSON attributes, block names, custom code); path-based block edits with a content hash, a saved copy and a readback |
+| Elementor (local WP-CLI) | **status / data-get / data-update** | File backup before every write, restorable with `stonewright-direct-backup-restore`; the document is read back after the write; refuses custom CSS and HTML widgets; preserves CSS metadata, runs no CSS flush, and requires Plugin-mode guarded CSS closure |
+| Media, menus, taxonomy, templates, global styles | REST | Core endpoints; template, template-part and global-styles updates save a pre-image first; every typed write is read back |
+| Backups | **direct-backup-list / direct-backup-restore** | List and restore the saved copies (hash-checked, needs a confirmation, undoable) |
 | Comments, users, app passwords, widgets | REST | Write-gated |
 | Plugins, themes, settings, health | REST | Destructive confirms |
 | WooCommerce | products/orders/sales | Read-only; catalog writes require Plugin mode |
 | ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
-| Self-improvement | skill-*, memory, verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage |
+| Self-improvement | skill-*, memory (scored, with **memory-delete**), **learning-record**, verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage; a saved skill is a disabled candidate; a lesson that tells an agent to override the rules is kept as `needs_review` and never offered at task start |
 | Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
-| WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
-| Safety | write gating, confirm, audit JSONL, backups | Task-start required before writes (default) |
+| WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv; `batch-run` is read-oriented only; a command that changes the site is a gated Direct write (task-start, confirmation, plugin guard, audit row) |
+| Safety | write gating, confirmations bound to the call, plugin guard, custom-code screening, audit JSONL, pre-images and Elementor file backups | Task-start required before writes (default); no change sets or Plugin-mode confirmation tokens (saved copies are restorable, typed writes are read back, and a destructive call needs the `confirmation_id` a refused call returns, or `confirm:true` on a local site) |
 
 ## What you can do with Stonewright
 
@@ -143,7 +146,9 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Create or update Gutenberg content and block-theme structures (Plugin mode; partial Direct mode for core posts/pages)
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
 - Close Elementor writes with post-scoped HTML-cache invalidation, then
-  `stonewright-elementor-css-regenerate` for the resolved post or loop target,
+  `stonewright-elementor-css-regenerate` for the resolved post or loop target
+  (it also purges the cached page of that one post in the supported page-cache
+  plugins once the stylesheet version moves),
   then observation-only `stonewright-elementor-post-write-verify`, then an
   explicit browser verification recipe
 - Wire licensed Elementor Loop Grid/Carousel widgets transactionally from an
@@ -166,7 +171,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - **Controlled schema learning** — only verified repairs become active, scoped
   to matching Elementor runtimes
 - **Validation and readback** on DesignSpec and major write paths
-- **Audit logging and change history** (Plugin mode)
+- **Audit logging and change history** (Plugin mode): the audit log records what agents did; the change history keeps the content before and after each change, shows it as a diff on **Stonewright > Activity > Changes**, and undoes or redoes a recorded change
 - **Backups and restore workflows** for supported post mutations
 - **Tool-surface and token-budget management** (profiles, priorities, client caps)
 - **Native WooCommerce catalog workflows** with dry-run, permission,
@@ -184,13 +189,13 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **101** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **105** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/` that `stonewright-direct-backup-restore` restores). This path has no Elementor schema validation and refuses custom CSS and HTML widgets — use Plugin mode `elementor-v3-batch-mutate` for production engines. What Direct mode protects, and what it does not do yet, is listed in [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md#what-direct-mode-protects). DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Advanced connection options
 
 The four-step Plugin path above is the default. The sections below are for local WP-CLI, explicit Application Password configuration, Direct mode, multiple sites, and clients that need manual profile control.
 
-MCP surface modes (`bootstrap` / `essential-static` / `essential` / `low-tools` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. Opt-in **`inspect`** is a read-only profile of discovery, read, and verify tools with no `php-execute` and no write tool; auto routing never selects it either, and activating it never widens the saved surface. `stonewright-php-execute` is **full-profile only**. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `low-tools` / `full`) control how many abilities appear to clients. Opt-in **`discover-execute`** is a companion profile for catalog + gated execute without the full tool list; auto routing never selects it. Opt-in **`inspect`** is a read-only profile of discovery, read, and verify tools with no `php-execute` and no write tool; auto routing never selects it either, and activating it never widens the saved surface. `stonewright-php-execute` is **full-profile only**, and the Full surface is chosen only by an administrator in wp-admin (**Stonewright > Setup > Settings > MCP tool surface**); `stonewright-tool-profile` and the settings route cannot switch an agent to it, and the abilities that run or write code are never added to another profile through `extras`. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -277,7 +282,7 @@ Example env for Direct mode:
 }
 ```
 
-Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode does not write custom PHP/CSS/JS/HTML (no authenticated wp-admin grant boundary).
+Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode refuses custom PHP/CSS/JS/HTML in every write tool, before anything is sent (no authenticated wp-admin grant boundary), and refuses writes on a site where the Stonewright plugin is active.
 
 </details>
 
@@ -304,12 +309,13 @@ for the plugin/companion matrix and exact steps.
 
 Stonewright is designed to make agent-driven WordPress changes safer and more recoverable, not to provide a perfect security sandbox. Most typed mutation workflows pass through combinations of permission checks, operating modes, confirmations, backups, validation, readback, and audit logging.
 
-`stonewright/php-execute` is an advanced full WordPress-runtime capability. It is permission- and mode-gated, audited, and subject to targeted restrictions, but it is not a strict sandbox and does not receive the same structural guarantees as typed DesignSpec or validated mutation workflows.
+`stonewright/php-execute` is an advanced full WordPress-runtime capability. It is on the `full` profile only, which an administrator chooses in wp-admin and an agent cannot switch to; it needs an administrator who can edit plugins (`edit_plugins` and `manage_options`, a super admin on multisite), and where `DISALLOW_FILE_MODS` is set it refuses code that calls file-modification APIs. It is permission- and mode-gated, audited, and subject to targeted restrictions, but it is not a strict sandbox and does not receive the same structural guarantees as typed DesignSpec or validated mutation workflows. The other abilities that run or write code (sandbox writers, WP-CLI runners, the custom-code provider, custom widget definers) are never added to a surface by name; only the `full` profile or the profile built for them (`wp-cli`, `content-model`) lists them.
 
 Typed mutation paths may use combinations of:
 
 - Stonewright operating modes (`development`, `staging`, `production-safe`)
-- WordPress permissions and capability checks
+- WordPress permissions and capability checks, made against the object a call touches (the post, user, comment, template or option) and not only the role
+- Human approval for what an agent must not decide alone: custom code and snippet rollback (a one-time grant on **Stonewright > Custom code > Approvals**), promotion of skills and expertise (**Stonewright > Knowledge > Skills**), memory flagged `needs_review` (**Stonewright > Knowledge > Memory**), and undo of code from the Changes page. An approval link comes back in the MCP error, and the agent stops
 - Confirmation tokens for destructive operations in production-safe mode
 - Backups or revisions before supported Elementor/theme/content mutations
 - Schema and DesignSpec validation before render
@@ -318,6 +324,7 @@ Typed mutation paths may use combinations of:
 - Rollback or restore workflows where supported
 - Change sets: one `change_set` shape for what a write planned, applied, and missed, with before and after hashes and a rollback reference ([Change set](docs/transactions.md#change-set-changesetv1))
 - Rescue: a change journal, a health probe after risky writes, and an automatic rollback when the site stops loading
+- Change history: the content before and after each change, kept for 90 days, 500 changes and 100 MB by default, with a diff view and undo or redo of any restorable change ([Rescue](docs/rescue.md#change-history-ledger))
 
 Not every surface uses every gate. Prefer typed abilities over unrestricted PHP when a typed path exists. Read [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 
@@ -326,6 +333,14 @@ Not every surface uses every gate. Prefer typed abilities over unrestricted PHP 
 Before a risky change, Stonewright records how to undo it. Afterwards it asks the site whether it still loads, rolls the change back when it does not, and tells the agent what happened. A change it cannot undo stays open as an incident that an administrator or an agent can finish from **Stonewright > Activity > Rescue**, `stonewright-rescue-rollback`, or `wp stonewright rescue`.
 
 Rescue covers post, option, theme-file, plugin, sandbox, and custom-code writes made through Stonewright abilities. A health probe that cannot reach the site reports it as unavailable and never as healthy. Rescue cannot fix a fatal in WordPress core or `wp-config.php`, or a database that is down. See [Rescue](docs/rescue.md).
+
+### Change history
+
+Stonewright records each change it makes to posts, Elementor documents, options, menus, widgets, theme and custom code, users, comments, media, WooCommerce items, skills, design directions and memory, with the content before and after it. Secrets are never stored and other credentials are masked. **Stonewright > Activity > Changes** lists the history with filters, shows one change as a diff, and undoes it or redoes an undo; the undo writes the content back through the path the original write used and probes the site afterwards, and puts the earlier state back if the site stops loading. An administrator at the page approves the undo of code; an agent or WP-CLI call gets an approval-required answer. `stonewright-change-history-list`, `stonewright-change-diff-get`, `stonewright-change-rollback` and `wp stonewright changes` do the same for agents and operators. History is kept for 90 days, 500 changes and 100 MB by default. See [Rescue](docs/rescue.md#change-history-ledger) and [Changes](docs/admin/changes.md).
+
+### Elementor MCP
+
+Elementor 4.3 has an MCP module of its own that registers `elementor/*` abilities. Turn it on in wp-admin (**Elementor > Elementor MCP**) and Stonewright discovers them, certifies each one against a contract, and runs the certified ones through `stonewright-elementor-native-execute` inside its snapshot, lock, readback, rollback and audit closure. Connect only Stonewright to your AI client: a call on Elementor's own MCP server skips that closure. Elementor has announced V3 support; V3 documents stay on the Stonewright V3 writers until their abilities are verified. See [Elementor MCP with Stonewright](docs/elementor-mcp.md).
 
 ### Section reuse
 
@@ -390,6 +405,7 @@ flowchart TD
     CompFilter["Companion profile: bootstrap, essential-static, essential, low-tools, full"]
     Direct["Pluginless Direct adapters"]
     DirectState["Private Direct skills, memory, and redacted audit"]
+    DirectGuards["Direct guards: session site, plugin guard, custom-code screen, bound confirmation_id, saved copies and restore, readback, WP-CLI gate"]
   end
 
   subgraph PluginMode["Plugin mode"]
@@ -402,6 +418,8 @@ flowchart TD
     Code["Typed custom-code providers"]
     Approval["Dry run, human grant, confirmation, snapshot, readback"]
     Elementor["Elementor V3 / V4 / kit schema routing"]
+    Native["Native Elementor MCP: certified elementor/* abilities run by native-execute"]
+    Observer["Observer: records Elementor ability calls made outside native-execute"]
     Closure["Lease, snapshot, validate, write, readback, rollback, visual QA"]
     Audit["Coalesced audit with actor attribution"]
     Incidents["Incident lifecycle"]
@@ -414,6 +432,10 @@ flowchart TD
     RescueIncident["Rescue incident: rollback failed or PHP fatal recorded"]
     Helper["Must-use rescue helper: fatal capture and safe mode"]
     Undo["Undo of the last 50 verified changes, code only by an administrator in wp-admin"]
+    Ledger["Change history: content before and after each change, 90 days, 500 changes, 100 MB"]
+    ChangesPage["Changes page: filters, diff, Undo and Redo"]
+    ChangeUndo["Undo or redo of any recorded change, code only by an administrator in wp-admin"]
+    ChangeTools["Change abilities and WP-CLI: list, diff, rollback"]
   end
 
   WordPress["WordPress core, REST, Gutenberg/FSE, content, WooCommerce"]
@@ -427,7 +449,7 @@ flowchart TD
   Companion --> CompFilter
   CompFilter -->|"Plugin mode"| Auth
   CompFilter -->|"Direct mode"| Direct
-  Direct --> WordPress
+  Direct --> DirectGuards -->|"REST, local WP-CLI"| WordPress
   Direct --> DirectState
   Auth --> Plugin
   Step1 --> Surface --> Session --> Plugin
@@ -435,6 +457,9 @@ flowchart TD
   Plugin --> WordPress
   Plugin --> Code --> Approval --> Journal
   Plugin --> Elementor --> Closure --> Journal
+  Elementor -->|"certified ability"| Native -->|"inside the same closure"| Closure
+  Observer -. "snapshot, change row, audit row" .-> Ledger
+  Observer -. "audit row" .-> Audit
   Plugin --> Audit --> Incidents --> Memory
   Plugin -->|"write receipt"| Sets
   Sets -->|"change_set_id, repair_of"| Audit
@@ -452,6 +477,16 @@ flowchart TD
   RescueIncident -->|"audit row"| Audit
   Journal -. "last 50 changes" .-> Undo
   Undo -->|"same recipe"| Rollback
+  Plugin -->|"records before and after"| Ledger
+  Journal -. "state of each change" .-> Ledger
+  Ledger --> ChangesPage --> ChangeUndo
+  Plugin --> ChangeTools
+  ChangeTools -->|"history, diff"| Ledger
+  ChangeTools -->|"rollback, code is refused"| ChangeUndo
+  ChangeUndo -->|"original write path, then probe"| WordPress
+  ChangeUndo -->|"rollback or redo row"| Ledger
+  ChangeUndo -->|"one audit row per call"| Audit
+  ChangeUndo -. "open Rescue entry: Rescue rollback" .-> Rollback
   Client -. "provider choice plus scan/install consent" .-> Browser
   Browser -. "rendered verification or approved dashboard action" .-> WordPress
 ```
@@ -469,8 +504,10 @@ profile for known clients.
 OAuth credentials remain inside the plugin grant/token boundary. Application
 Passwords stay in private client configuration or the OS-backed site registry;
 paste-to-agent prompts contain placeholders. Direct mode has no plugin approval
-boundary, so it cannot write arbitrary PHP, CSS, JavaScript, HTML, WPCode, Code
-Snippets, or theme files. Plugin-mode custom-code providers always stop after a
+boundary and no tool for WPCode, Code Snippets, or theme files, and its content,
+template, blueprint, widget, global-styles, Elementor data, ACF, media, menu,
+comment, taxonomy-term, settings, and user writes refuse custom CSS, script,
+and HTML-type markup. Plugin-mode custom-code providers always stop after a
 typed dry run until the user issues the exact one-time grant. Generic
 create/update/duplicate/bulk writers reject executable-code post types and
 route them to the approval-gated provider pipeline.
@@ -487,7 +524,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **394** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **105 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator, change sets, confirmation tokens, and Rescue; it saves a copy before whole-document writes and restores it on request (`stonewright-direct-backup-list` / `-restore`), reads every typed write back and compares it, can check the public page after a page, post or template write, binds each destructive confirmation to the exact call (`confirmation_id`), acts on the session's site (`STONEWRIGHT_SITE_ALIAS`), and refuses writes on a site where the plugin is active; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -505,8 +542,9 @@ Companion status, doctor, and task-start reports use **schema version 3**.
 `stonewright-task-start` is the first call; on a degraded session it reconnects
 once and either continues or returns a truthful local result. Terminal OAuth
 failures set `reauthentication_required` with a model-visible `user_action`.
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+request once after some network errors.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more, a tool call included.
 
 Direct mode is a capability mode inside the companion, not a third transport.
@@ -531,7 +569,7 @@ repository follow the common MCP server JSON shape used by several clients.
 Plugin mode admin pages are grouped into six hubs under **Stonewright**: Overview,
 Setup (Setup and Troubleshoot), AI Abilities, Knowledge (Skills, Memory, Context,
 Design and Prompt library), Custom code (Drafts, Library, Active, Crash recovery and
-Approvals) and Activity (Audit log, Block queue and Rescue); see
+Approvals) and Activity (Audit log, Block queue, Rescue and Changes); see
 [docs/admin/navigation.md](docs/admin/navigation.md). The Audit log is the single
 responsive incident view; Custom code does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,
@@ -573,6 +611,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Rescue](docs/rescue.md)
+- [Elementor MCP with Stonewright](docs/elementor-mcp.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
 - [Beta.13 runtime evidence template](docs/testing/beta13-runtime-evidence-template.md)
 - [Motion and UI excellence](docs/motion-and-ui-excellence.md)

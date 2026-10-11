@@ -24,7 +24,7 @@ final class ChangeRestoreEvictionTest extends TestCase {
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
-		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true, 'edit_posts' => true, 'edit_pages' => true, 'edit_post' => true ];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true, 'edit_posts' => true, 'edit_pages' => true, 'edit_post' => true, 'publish_posts' => true ];
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_posts']           = [
 			self::POST_ID => (object) [

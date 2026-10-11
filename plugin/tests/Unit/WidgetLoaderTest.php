@@ -29,6 +29,8 @@ final class WidgetLoaderTest extends TestCase {
 			mkdir( $this->temp_dir, 0700, true );
 		}
 
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [];
+
 		// Clean any stale widget files.
 		foreach ( glob( $this->temp_dir . '/widget-*.draft' ) ?: [] as $f ) {
 			@unlink( $f );
@@ -46,6 +48,7 @@ final class WidgetLoaderTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] );
 		foreach ( glob( $this->temp_dir . '/widget-*.draft' ) ?: [] as $f ) {
 			@unlink( $f );
 		}
@@ -55,10 +58,18 @@ final class WidgetLoaderTest extends TestCase {
 	// Helpers
 	// -------------------------------------------------------------------------
 
-	/** Create a file that, when require_once'd, sets a marker in $GLOBALS. */
-	private function make_widget_file( string $filename ): void {
+	/** The Loader only loads widgets the registered-widgets option lists. */
+	private function register_slug( string $slug ): void {
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'][] = $slug;
+	}
+
+	/** Create a file that, when require_once'd, sets a marker in $GLOBALS; an active (non-pending) one is registered. */
+	private function make_widget_file( string $filename, bool $register = true ): void {
 		$path = SandboxFiles::stored_path( $filename );
 		file_put_contents( $path, "<?php \$GLOBALS['loader_loaded'][] = " . var_export( $filename, true ) . ";\n" );
+		if ( $register && 1 === preg_match( '/^widget-([a-z0-9_-]+)\.php$/', $filename, $m ) ) {
+			$this->register_slug( $m[1] );
+		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -152,6 +163,7 @@ final class WidgetLoaderTest extends TestCase {
 
 		$filename = 'widget-' . $slug . '.php';
 		file_put_contents( SandboxFiles::stored_path( $filename ), $source );
+		$this->register_slug( $slug );
 
 		$spy = new class() extends \Elementor\Widgets_Manager {
 			/** @var array<int, \Elementor\Widget_Base> */
@@ -180,6 +192,7 @@ final class WidgetLoaderTest extends TestCase {
 		$content = "<?php \$GLOBALS['loader_loaded'][] = 'evil-guard.php'; {$bad_seq}('1+1');\n";
 		$path    = SandboxFiles::stored_path( 'widget-evil-guard.php' );
 		file_put_contents( $path, $content );
+		$this->register_slug( 'evil-guard' );
 
 		Loader::load_widgets( $this->manager_spy );
 
@@ -202,6 +215,7 @@ final class WidgetLoaderTest extends TestCase {
 		// Syntactically broken PHP triggers ParseError on require_once.
 		$bad_path = SandboxFiles::stored_path( 'widget-parse-err.php' );
 		file_put_contents( $bad_path, "<?php class { broken syntax\n" );
+		$this->register_slug( 'parse-err' );
 
 		// A valid sibling written after the bad file (glob order may vary).
 		$this->make_widget_file( 'widget-after-err.php' );
@@ -211,9 +225,58 @@ final class WidgetLoaderTest extends TestCase {
 
 		// No fatal means the test passes. Optionally verify the valid sibling loaded.
 		$loaded = (array) ( $GLOBALS['loader_loaded'] ?? [] );
+		$this->assertContains( 'widget-after-err.php', $loaded, 'The valid sibling still loads after the broken file.' );
 		$this->assertNotContains( 'widget-parse-err.php', $loaded, 'Broken file must not set the marker.' );
 		$this->assertTrue( true, 'No Throwable escaped from Loader.' );
 
 		@unlink( $bad_path );
+	}
+
+	// -------------------------------------------------------------------------
+	// Only registered widgets load
+	// -------------------------------------------------------------------------
+
+	public function test_an_active_file_whose_slug_is_not_registered_is_not_loaded(): void {
+		$GLOBALS['loader_loaded'] = [];
+		$this->make_widget_file( 'widget-not-registered.php', false );
+		$this->make_widget_file( 'widget-registered-one.php' );
+
+		Loader::load_widgets( $this->manager_spy );
+
+		$loaded = (array) ( $GLOBALS['loader_loaded'] ?? [] );
+		$this->assertNotContains( 'widget-not-registered.php', $loaded, 'A file dropped into the draft folder is not a registered widget.' );
+		$this->assertContains( 'widget-registered-one.php', $loaded );
+	}
+
+	public function test_nothing_is_loaded_while_the_registered_list_is_empty(): void {
+		$GLOBALS['loader_loaded'] = [];
+		$this->make_widget_file( 'widget-unlisted.php', false );
+
+		Loader::load_widgets( $this->manager_spy );
+
+		$this->assertSame( [], (array) ( $GLOBALS['loader_loaded'] ?? [] ) );
+	}
+
+	public function test_a_registered_slug_with_only_a_pending_file_loads_nothing(): void {
+		$GLOBALS['loader_loaded'] = [];
+		$this->register_slug( 'only-pending' );
+		$this->make_widget_file( 'widget-only-pending.pending.php' );
+
+		Loader::load_widgets( $this->manager_spy );
+
+		$this->assertSame( [], (array) ( $GLOBALS['loader_loaded'] ?? [] ) );
+	}
+
+	public function test_an_invalid_slug_in_the_registered_list_is_ignored(): void {
+		$GLOBALS['loader_loaded'] = [];
+		$this->register_slug( '../escape' );
+		$this->register_slug( 'Bad Slug' );
+		$this->register_slug( '' );
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'][] = [ 'nested' ];
+		$this->make_widget_file( 'widget-fine-one.php' );
+
+		Loader::load_widgets( $this->manager_spy );
+
+		$this->assertSame( [ 'widget-fine-one.php' ], (array) ( $GLOBALS['loader_loaded'] ?? [] ) );
 	}
 }

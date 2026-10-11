@@ -270,6 +270,25 @@ final class ProviderRouterTest extends TestCase {
 		self::assertStringNotContainsString( 'Acme\\Atomic\\BrokenDescriptor', (string) wp_json_encode( $report ) );
 	}
 
+	public function test_a_descriptor_issue_group_says_what_it_means_so_thirty_of_them_are_not_a_mystery(): void {
+		$issues = [];
+		foreach ( [ 'e-div-block', 'e-flexbox', 'e-grid', 'e-tabs' ] as $type ) {
+			$issues[] = [ 'code' => 'descriptor_unavailable', 'provider' => 'atomic', 'atomic_type' => $type, 'prop' => 'tag', 'error_class' => '' ];
+		}
+		$issues[] = [ 'code' => 'schema_issue_other', 'atomic_type' => 'e-other' ];
+
+		$report = $this->router( 'v4', [], [ 'items' => [], 'issues' => $issues ] )->inspect();
+
+		$group = $report['issues'][0];
+		self::assertSame( 'descriptor_unavailable', $group['code'] );
+		self::assertSame( 4, $group['count'], 'the count of the types is unchanged' );
+		self::assertSame( 'inventory_only', $group['effect'] );
+		self::assertStringContainsString( 'inventory', $group['note'] );
+		self::assertStringContainsString( 'no native write', $group['note'] );
+		self::assertStringNotContainsString( 'e-div-block', $group['note'], 'the note is general text, the samples name the types' );
+		self::assertArrayNotHasKey( 'note', $report['issues'][1], 'a code without a known explanation gets none' );
+	}
+
 	public function test_duplicate_issues_from_one_extension_do_not_hide_another_provider(): void {
 		$issues = [];
 		for ( $index = 0; $index < 21; ++$index ) {
@@ -474,7 +493,7 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $preference['contract']['responsive_css'] );
 		self::assertTrue( $preference['contract']['pseudo_states'] );
 		self::assertSame( $ability['description'], $preference['description'] );
-		self::assertFalse( $preference['routable_write'] );
+		self::assertTrue( $preference['routable_write'] );
 		self::assertTrue( $preference['safety_closure_required'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $preference['schema_fingerprint'] );
 		$provider = self::index_by( $result['providers'], 'id' )['elementor-core'];

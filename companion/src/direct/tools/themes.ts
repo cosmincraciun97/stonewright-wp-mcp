@@ -1,5 +1,5 @@
-import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
-import { appendDirectAudit } from "../audit.js";
+import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpTheme = {
@@ -26,6 +26,8 @@ function compactTheme(theme: WpTheme) {
     template: theme.template ?? "",
     name: textOf(theme.name),
     status: theme.status ?? "",
+    // The plugin's flag for the same fact as status.
+    active: (theme.status ?? "") === "active",
     version: theme.version ?? "",
     author: textOf(theme.author),
     description: textOf(theme.description),
@@ -61,27 +63,25 @@ export async function themeActivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-theme-activate",
     env: ctx.env ?? process.env,
+    // Asks for a confirmation in every write mode.
+    alwaysConfirm: true,
   });
-  if (input.confirm !== true) {
-    throw new DirectSafetyBlockedError(
-      "confirmation_required",
-      "confirm:true is required for this tool (stonewright-theme-activate)",
-      "stonewright-theme-activate",
-      ctx.site.alias,
-    );
-  }
   const result = await ctx.client.post<WpTheme>(
     `/wp/v2/themes/${encodeURIComponent(input.stylesheet)}`,
     { body: { status: "active" } },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-theme-activate",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `themes/${input.stylesheet}`,
-    status: "ok",
+    resourceType: "themes",
+    readPath: `/wp/v2/themes/${encodeURIComponent(input.stylesheet)}`,
+    readQuery: {},
+    sent: { status: "active" },
   });
-  return compactTheme(result);
+  return attachVerification(compactTheme(result), verification);
 }
 
 export async function customCss(

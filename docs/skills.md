@@ -15,8 +15,8 @@ Pluginless installs store skills and memory on the companion host under
 | `stonewright-task-start` | Returns matched skill refs + memory highlights (no bodies) |
 | `stonewright-skill-list` | Compact index |
 | `stonewright-skill-get` | Load one body on demand |
-| `stonewright-skill-save` / `delete` | Create/update/delete local playbooks |
-| `stonewright-memory-list` / `learning-record` | List and record corrections |
+| `stonewright-skill-save` / `delete` | Save a local playbook as a disabled candidate (Direct cannot activate a skill; activation is Plugin mode) / delete one |
+| `stonewright-memory-list` / `learning-record` / `memory-delete` | List (newest first, or by score), record and delete corrections; a lesson has a confidence and a last-verified time |
 
 These are per-machine, not shared across operators like the plugin Admin UI skills.
 
@@ -28,7 +28,7 @@ The companion package ships `companion/skills-builtin/` and seeds them into
 | Skill | Purpose |
 |---|---|
 | `elementor-direct-editing` | Local WP-CLI Elementor data edit protocol |
-| `gutenberg-authoring` | Compose + validate block content |
+| `gutenberg-authoring` | Compose, validate and edit block content |
 | `no-hallucination-protocol` | Read before write; fix errors; never invent schemas |
 | `content-model-additive` | Add or edit one content type at a time; never full-import CPT UI options on a live site |
 | `http-first-admin` | Automate wp-admin through REST and form POST with nonces; browser clicks are the last resort |
@@ -68,7 +68,7 @@ Each skill has a master active toggle and two exposure flags:
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
 | `visual-direction` | `skills/visual-direction/` | Decide and prove visual direction: capture, reviewed kit sync, first-section checkpoint, rendered evidence |
 | `how-to-write-skills` | `skills/how-to-write-skills/` | Write, review, import, and test site skills: trigger descriptions, version constraints, exposure flags, and the import review |
-| `stonewright-rescue` | `skills/stonewright-rescue/` | Recover from a change that left the site failing: read the rescue status, plan and run the rollback, and re-check after a fix by hand |
+| `stonewright-rescue` | `skills/stonewright-rescue/` | Recover from a change that left the site failing: read the rescue status, plan and run the rollback, and re-check after a fix by hand; find a change in the history, read its diff and undo or redo it (code needs the administrator) |
 | `stonewright-section-reuse` | `skills/stonewright-section-reuse/` | Find sections the site already has for a new page, offer them in one short question, then copy and adapt the picked ones in the same batch |
 
 `visual-direction` is loaded for new or changed visual direction — a rebrand, a
@@ -118,6 +118,8 @@ Already-seeded playbook rows for those slugs are retired on seed. The task
 playbooks in `skills/playbooks/<name>.md` (for example `playbook-about-page`)
 ship with source `playbook`. Presence-gated
 Blocksy, Kadence, GenerateBlocks, and Spectra build-page skills remain.
+
+**Pending approvals.** An agent cannot turn researched knowledge into an active skill, or an expertise pack into a `verified` or `stable` one. It asks, and the request waits in a **Pending approvals** card on this screen, with what the approval would do. An administrator approves or rejects it (`manage_options` and a nonce; no ability exposes the decision). An approval works once, for that exact candidate or pack and target, and expires after an hour; a request that nobody decides expires after seven days. When the evidence is thin (a candidate with fewer than two verified successes, a stable pack from one runtime) the administrator must write a note to approve it. See [Knowledge and learning lifecycle](knowledge-learning-lifecycle.md) and [Expertise Engine](expertise-engine.md).
 
 **Editor.** Creating and editing a skill is a nonce-checked form that works
 with JavaScript disabled. It is the only write path on the page that does not

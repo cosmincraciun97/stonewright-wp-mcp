@@ -6,11 +6,16 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode
  */
 final class V4UpdateNodeTest extends TestCase {
+	use ElementorKsesSimulation;
 
 	private const POST_V4    = 9101;
 	private const POST_V3    = 9102;
@@ -97,6 +102,7 @@ final class V4UpdateNodeTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		\Stonewright\WpMcp\Elementor\V4\V4FeatureGate::set_atomic_module_present_for_tests( null );
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
@@ -163,6 +169,98 @@ final class V4UpdateNodeTest extends TestCase {
 		self::assertSame( 'e-heading', $tree[0]['elements'][0]['widgetType'] );
 	}
 
+	public function test_a_user_without_unfiltered_html_gets_the_filtered_node_verified_against_what_was_stored(): void {
+		$this->simulate_elementor_kses();
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'title' => [ '$$type' => 'html-v3', 'value' => [ 'content' => [ '$$type' => 'string', 'value' => '<b>Hi</b><script>alert(1)</script>' ], 'children' => [] ] ] ],
+				'mode'       => 'merge',
+				'dry_run'    => false,
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['content_filtered'] );
+		$tree = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] ), true );
+		self::assertSame( '<b>Hi</b>', $tree[0]['elements'][0]['settings']['title']['value']['content']['value'] );
+	}
+
+	public function test_a_write_is_refused_while_another_transaction_holds_the_page_lock(): void {
+		self::assertIsArray( PostWriteLock::acquire( self::POST_V4, 'other-writer', 30 ) );
+		$before = (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'];
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'tag' => [ '$$type' => 'heading-level', 'value' => 'h3' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'no snapshot and no write while the page is locked' );
+		self::assertSame( $before, (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] );
+	}
+
+	public function test_a_write_rechecks_the_page_after_taking_the_lock(): void {
+		$GLOBALS['stonewright_test_after_add_option'] = function (): void {
+			$post = $GLOBALS['stonewright_test_posts'][ self::POST_V4 ];
+			$tree = json_decode( (string) $post->meta['_elementor_data'], true );
+			$tree[0]['elements'][0]['settings']['tag'] = [ '$$type' => 'string', 'value' => 'h6' ];
+			$post->meta['_elementor_data'] = wp_json_encode( $tree );
+		};
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'tag' => [ '$$type' => 'heading-level', 'value' => 'h3' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_revision_conflict', $result->get_error_code() );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result->get_error_data()['current_tree_hash'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'the stale plan takes no snapshot and writes nothing' );
+		$tree = json_decode( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'], true );
+		self::assertSame( 'h6', $tree[0]['elements'][0]['settings']['tag']['value'], 'the intervening change is left as it is' );
+	}
+
+	public function test_the_lock_is_released_after_a_single_write(): void {
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'tag' => [ '$$type' => 'heading-level', 'value' => 'h3' ] ],
+			]
+		);
+		self::assertIsArray( $result );
+
+		$again = PostWriteLock::acquire( self::POST_V4, 'next-writer', 30 );
+		self::assertIsArray( $again, 'a finished write leaves no lock behind' );
+	}
+
+	public function test_a_single_node_update_with_custom_css_needs_the_custom_css_approval(): void {
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'custom_css' => [ '$$type' => 'string', 'value' => 'selector { color: red; }' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( \Stonewright\WpMcp\Elementor\ElementorCustomCssGate::ERROR_CODE, $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'the refusal comes before any snapshot' );
+	}
+	public function test_the_description_states_that_dry_run_defaults_to_false(): void {
+		self::assertStringContainsString( 'dry_run defaults to false', ( new UpdateNode() )->description() );
+		self::assertFalse( ( new UpdateNode() )->input_schema()['properties']['dry_run']['default'] );
+	}
 	public function test_unknown_node_id_returns_structured_error_with_live_ids(): void {
 		$result = ( new UpdateNode() )->execute(
 			[

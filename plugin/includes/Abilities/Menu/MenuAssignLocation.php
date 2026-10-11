@@ -37,7 +37,7 @@ final class MenuAssignLocation extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Assigns a nav menu to a theme location slot (primary / footer / mobile / etc.).', 'stonewright' );
+		return __( 'Assigns a nav menu to a theme location slot (primary / footer / mobile / etc.). The location has to be one the active theme registered; the answer lists available_locations, and an unregistered slug is refused with the same list.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -81,6 +81,20 @@ final class MenuAssignLocation extends AbilityKernel {
 				$location = (string) $args['location'];
 				$menu_id  = (int) $args['menu_id'];
 
+				// A slug the theme did not register would be stored in the theme mod and never shown anywhere.
+				$available = MenuStore::get_registered_locations();
+				if ( ! array_key_exists( $location, $available ) ) {
+					return $this->error(
+						'location_unregistered',
+						__( 'The active theme has no menu location with that slug. Pick one of available_locations.', 'stonewright' ),
+						[
+							'status'              => 400,
+							'location'            => $location,
+							'available_locations' => $available,
+						]
+					);
+				}
+
 				if ( ! is_nav_menu( $menu_id ) ) {
 					return $this->error(
 						'menu_not_found',
@@ -101,7 +115,7 @@ final class MenuAssignLocation extends AbilityKernel {
 					'location'            => $location,
 					'menu_id'             => $menu_id,
 					'previous_menu_id'    => $previous_menu_id,
-					'available_locations' => MenuStore::get_registered_locations(),
+					'available_locations' => $available,
 				];
 			}
 		);

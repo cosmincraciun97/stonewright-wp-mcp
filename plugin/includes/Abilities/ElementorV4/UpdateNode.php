@@ -53,7 +53,7 @@ final class UpdateNode extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Patches settings of one atomic Elementor node by id. Snapshots before write. Use dry_run first. With operations it applies a batch of insert_section (copy a section returned by stonewright-section-reuse-extract under fresh ids and remapped local style ids) and update_node operations to the document in one dry run and one apply; address new nodes as @op_id.placeholder.', 'stonewright' );
+		return __( 'Patches settings of one atomic Elementor node by id. Snapshots before write. dry_run defaults to false, so a call without it writes; use dry_run first. With operations it applies a batch of insert_section (copy a section returned by stonewright-section-reuse-extract under fresh ids and remapped local style ids) and update_node operations to the document in one dry run and one apply; address new nodes as @op_id.placeholder.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -127,6 +127,7 @@ final class UpdateNode extends AbilityKernel {
 				'architecture' => [ 'type' => 'string', 'enum' => [ 'empty', 'v3', 'v4', 'mixed' ] ],
 				'warnings'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'readback'     => [ 'type' => 'object' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; it was verified against the filtered tree.' ],
 				'items'        => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'refs'         => [ 'type' => 'object' ],
 				'route'        => [ 'type' => 'object' ],
@@ -175,8 +176,9 @@ final class UpdateNode extends AbilityKernel {
 				}
 
 				// Full document only — never write AtomicTreeInspector::atomic_tree back.
-				$tree    = ElementorData::read( $post_id );
-				$inspect = AtomicTreeInspector::inspect( $tree );
+				$tree         = ElementorData::read( $post_id );
+				$planned_hash = TreeHasher::hash( $tree );
+				$inspect      = AtomicTreeInspector::inspect( $tree );
 				$architecture = (string) ( $inspect['architecture'] ?? 'empty' );
 
 				if ( in_array( $architecture, [ 'v3', 'empty' ], true ) ) {
@@ -228,6 +230,12 @@ final class UpdateNode extends AbilityKernel {
 					);
 				}
 
+				// Custom CSS or HTML styles in a setting need the same approval as in the other Elementor writers.
+				$css_gate = ElementorCustomCssGate::assert_incoming( $incoming, $args, (string) ( $existing['widgetType'] ?? $existing['elType'] ?? '' ) );
+				if ( $css_gate instanceof \WP_Error ) {
+					return $css_gate;
+				}
+
 				// Settings-only: never mutate id / elType / widgetType / version / styles tree.
 				$current_settings = isset( $existing['settings'] ) && is_array( $existing['settings'] )
 					? $existing['settings']
@@ -260,21 +268,40 @@ final class UpdateNode extends AbilityKernel {
 				$existing['settings'] = $next;
 				$new_tree             = ElementorData::set( $tree, $path, $existing );
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
+				// The plan above read the page without a lock. The write takes the lock, reads the page again and
+				// goes on only when it is still the page the plan was made on.
+				$owner = 'v4-node-' . substr( hash( 'sha256', $post_id . '|' . $element_id . '|' . hrtime( true ) ), 0, 24 );
+				$lease = PostWriteLock::acquire( $post_id, $owner );
+				if ( $lease instanceof \WP_Error ) {
+					return $lease;
+				}
+				try {
+					$current = TreeHasher::hash( ElementorData::read( $post_id ) );
+					if ( ! hash_equals( $planned_hash, $current ) ) {
+						return $this->error(
+							'elementor_revision_conflict',
+							__( 'The page changed before the update took its write lock; read it again and retry.', 'stonewright' ),
+							[ 'status' => 409, 'expected_tree_hash' => $planned_hash, 'current_tree_hash' => $current, 'retryable' => true ]
+						);
+					}
+					$snapshot_id = Backup::snapshot_post( $post_id );
+					if ( '' === $snapshot_id ) {
+						return $this->backup_failed_error();
+					}
+
+					if ( ! ElementorData::write( $post_id, $new_tree, [ 'lock_owner' => $owner ] ) ) {
+						return ElementorData::write_error_for_ability();
+					}
+					$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'update_node', [ 'ids' => [ $element_id ], 'before' => $tree ] );
+					if ( $readback instanceof \WP_Error ) {
+						return $readback;
+					}
+					self::clear_cached_local_styles( $post_id );
+				} finally {
+					PostWriteLock::release( $post_id, $owner );
 				}
 
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return ElementorData::write_error_for_ability();
-				}
-				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'update_node', [ 'ids' => [ $element_id ], 'before' => $tree ] );
-				if ( $readback instanceof \WP_Error ) {
-					return $readback;
-				}
-				self::clear_cached_local_styles( $post_id );
-
-				return [
+				return ( ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [] ) + [
 					'post_id'      => $post_id,
 					'snapshot_id'  => $snapshot_id,
 					'element_id'   => $element_id,
@@ -427,7 +454,7 @@ final class UpdateNode extends AbilityKernel {
 			}
 			$snapshot_id = Backup::snapshot_post( $post_id );
 			if ( '' === $snapshot_id ) {
-				return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
+				return $this->backup_failed_error();
 			}
 			if ( ! ElementorData::write( $post_id, $tree, [ 'touched_ids' => $touched, 'lock_owner' => $owner ] ) ) {
 				return ElementorData::write_error_for_ability();
@@ -443,6 +470,7 @@ final class UpdateNode extends AbilityKernel {
 
 		return array_merge(
 			$response,
+			ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [],
 			[
 				'snapshot_id'         => $snapshot_id,
 				'readback'            => $readback,

@@ -55,6 +55,11 @@ final class AtomicVariableRepositoryAdapter {
 			return new \WP_Error( 'stonewright_v4_variables_api_mismatch', 'Variables mutation API does not match the verified adapter.' );
 		}
 		try {
+			$previous = null;
+			if ( 'update' === $operation ) {
+				$before   = $this->all();
+				$previous = is_array( $before ) && isset( $before[ $id ] ) && is_array( $before[ $id ] ) ? $before[ $id ] : null;
+			}
 			$result = 'create' === $operation ? $this->service->create( $data ) : $this->service->update( $id, $data );
 			$variable = is_array( $result ) && isset( $result['variable'] ) && is_array( $result['variable'] ) ? $result['variable'] : null;
 			if ( null === $variable ) {
@@ -71,15 +76,16 @@ final class AtomicVariableRepositoryAdapter {
 			$stored = array_merge( [ 'id' => $target_id ], $all[ $target_id ] );
 			foreach ( [ 'label', 'type', 'value' ] as $field ) {
 				if ( array_key_exists( $field, $data ) && self::lost( $field, $data[ $field ], $stored ) ) {
+					$rolled_back = $this->roll_back( $operation, $target_id, $previous );
 					return new \WP_Error(
 						'stonewright_atomic_readback_mismatch',
-						'The stored variable does not contain everything that was written: ' . $field . '.',
+						'The stored variable does not contain everything that was written: ' . $field . '; ' . ( $rolled_back ? 'the write was rolled back.' : 'the rollback could not be confirmed, restore the returned snapshot.' ),
 						[
 							'status'              => 409,
 							'execution_status'    => 'failed',
 							'verification_status' => 'failed',
 							'readback_context'    => 'global_variable',
-							'rollback_status'     => 'not_attempted',
+							'rollback_status'     => $rolled_back ? 'succeeded' : 'failed',
 							'problems'            => [ [ 'code' => 'variable_mismatch', 'id' => $target_id, 'path' => '/' . $target_id . '/' . $field ] ],
 						]
 					);
@@ -91,6 +97,42 @@ final class AtomicVariableRepositoryAdapter {
 		}
 	}
 
+	/**
+	 * Undoes a write whose readback did not match: a created variable is deleted, an updated one gets its
+	 * previous label, type and value back. The answer is true only when the readback confirms it.
+	 *
+	 * @param array<string, mixed>|null $previous The variable as it was before an update.
+	 */
+	private function roll_back( string $operation, string $id, ?array $previous ): bool {
+		try {
+			if ( 'create' === $operation ) {
+				if ( ! method_exists( $this->service, 'delete' ) ) {
+					return false;
+				}
+				$this->service->delete( $id );
+				$all = $this->all();
+				// Elementor may keep a deleted variable with a deleted marker instead of dropping it.
+				return is_array( $all ) && ( ! isset( $all[ $id ] ) || ! empty( $all[ $id ]['deleted'] ) );
+			}
+			if ( null === $previous ) {
+				return false;
+			}
+			$restore = array_intersect_key( $previous, array_flip( [ 'label', 'type', 'value' ] ) );
+			$this->service->update( $id, $restore );
+			$all = $this->all();
+			if ( ! is_array( $all ) || ! isset( $all[ $id ] ) ) {
+				return false;
+			}
+			foreach ( $restore as $field => $value ) {
+				if ( ! array_key_exists( $field, $all[ $id ] ) || $all[ $id ][ $field ] != $value ) { // phpcs:ignore Universal.Operators.StrictComparisons.LooseNotEqual -- Elementor may re-type a scalar on storage.
+					return false;
+				}
+			}
+			return true;
+		} catch ( \Throwable $error ) {
+			return false;
+		}
+	}
 	/**
 	 * Label and type must come back as written; a value may be normalized by Elementor but must not come back empty.
 	 *

@@ -30,10 +30,25 @@ if ( ! function_exists( '__' ) ) {
 /** @var list<class-string> $classes */
 $classes = include $class_list;
 $rows    = [];
+$sunsets = [];
 foreach ( $classes as $class ) {
 	$ability = new $class();
+	$meta    = $ability->meta();
+	$sunsets[ is_string( $meta['sunset'] ?? null ) ? $meta['sunset'] : '' ] = true;
+	if ( 'stonewright/elementor-add-inner-section' === $ability->name() ) {
+		// An inner section is a layout element, not a widget: it has no schema to read and its own batch action.
+		$rows[] = '| `' . $ability->name() . '` | `stonewright/elementor-v3-batch-mutate` with `action: add_inner_section` | Inner container in a container, inner section with one column in a column, grouped write, mandatory readback |';
+		continue;
+	}
 	$rows[]  = '| `' . $ability->name() . '` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |';
 }
+
+// The removal version is the one the abilities report in their own metadata.
+if ( 1 !== count( $sunsets ) || isset( $sunsets[''] ) ) {
+	fwrite( STDERR, "The widget abilities must report one sunset version in their metadata.\n" );
+	exit( 1 );
+}
+$sunset = (string) array_key_first( $sunsets );
 
 $body = <<<'MARKDOWN'
 # Elementor V3 Legacy Tool Migration
@@ -51,15 +66,17 @@ live Elementor runtime, including third-party add-ons. Then write through
 supports references and rollback, and verifies readback. For complete initial
 pages, use `stonewright/elementor-v3-build-page-from-spec` before batch polish.
 
-The first public beta is warning release N. Removal cannot happen before two
-additional published warnings, so the earliest eligible removal is beta.3.
-Internal adapters and live schema discovery remain after public aliases are
-removed.
+The first public beta started the warning window, and the minimum of two further
+published warnings has passed. The deprecated abilities are removed in
+{{SUNSET}}, the sunset version they report in their metadata, and the changelog
+announces the removal before it ships. Internal adapters and live schema
+discovery remain after public aliases are removed.
 
 | Deprecated ability | Exact replacement | Preserved behavior |
 |---|---|---|
 MARKDOWN;
 
+$body  = str_replace( '{{SUNSET}}', $sunset, $body );
 $body .= "\n" . implode( "\n", $rows ) . "\n";
 if ( false === file_put_contents( $output, $body ) ) {
 	fwrite( STDERR, "Could not write {$output}.\n" );

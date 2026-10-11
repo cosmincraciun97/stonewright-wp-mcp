@@ -10,8 +10,10 @@ use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\CustomCode\Providers\CodeSnippetsProvider;
 use Stonewright\WpMcp\CustomCode\Providers\WpCodeProvider;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
+use Stonewright\WpMcp\Tests\Support\McpToolCall;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
 
+require_once dirname( __DIR__, 2 ) . '/Support/McpToolCall.php';
 require_once dirname( __DIR__ ) . '/Security/ChangeSetAssertions.php';
 
 /**
@@ -337,7 +339,8 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertSame( 'custom_code_grant', $change_set['approval_reason'] );
 		self::assertStringNotContainsString( $grant['token'], (string) wp_json_encode( $change_set ) );
 
-		$rolled_back = $ops->execute( [ 'action' => 'rollback', 'provider' => 'wpcode', 'target_id' => '12', 'snapshot_id' => $applied['snapshot_id'] ] );
+		$rollback_args = [ 'action' => 'rollback', 'provider' => 'wpcode', 'target_id' => '12', 'snapshot_id' => $applied['snapshot_id'] ];
+		$rolled_back   = $ops->execute( $rollback_args + [ 'custom_code_grant' => $this->rollback_grant( $ops, $rollback_args ) ] );
 		self::assertIsArray( $rolled_back, $rolled_back instanceof \WP_Error ? $rolled_back->get_error_message() : '' );
 		$restored = $rolled_back['change_set'];
 		self::assertValidChangeSet( $restored );
@@ -597,6 +600,162 @@ final class ProviderPipelineTest extends TestCase {
 			self::assertInstanceOf( \WP_Error::class, $result, $action );
 			self::assertSame( 'stonewright_confirmation_required', $result->get_error_code(), $action );
 		}
+	}
+
+	/** @return array<string, array{string, string, string}> */
+	public static function snippet_providers(): array {
+		return [
+			'wpcode'        => [ 'wpcode', '12', 'wpcode/snippet/12' ],
+			'code-snippets' => [ 'code-snippets', '7', 'code-snippets/snippet/7' ],
+		];
+	}
+
+	/** @dataProvider snippet_providers */
+	public function test_rollback_without_a_grant_stops_for_human_approval( string $provider, string $target, string $path ): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, $provider, $target );
+		$current = $this->stored_code( $provider, $target );
+
+		$result = $ops->execute( [ 'action' => 'rollback', 'provider' => $provider, 'target_id' => $target, 'snapshot_id' => $applied['snapshot_id'] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_grant_required', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertTrue( $data['approval_required'] );
+		self::assertTrue( $data['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', (string) $data['approval_url'] );
+		self::assertStringContainsString( 'proposal_id=', (string) $data['approval_url'] );
+		self::assertSame( $path, $data['path'] );
+		self::assertSame( $current, $this->stored_code( $provider, $target ), 'Nothing is written without the grant.' );
+	}
+
+	/** @dataProvider snippet_providers */
+	public function test_rollback_dry_run_needs_no_grant_and_writes_nothing( string $provider, string $target, string $path ): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, $provider, $target );
+		$current = $this->stored_code( $provider, $target );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$plan = $ops->execute( [ 'action' => 'rollback', 'provider' => $provider, 'target_id' => $target, 'snapshot_id' => $applied['snapshot_id'], 'dry_run' => true ] );
+
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_code() : '' );
+		self::assertTrue( $plan['dry_run'] );
+		self::assertTrue( $plan['approval_required'] );
+		self::assertTrue( $plan['agent_must_stop'] );
+		self::assertSame( $path, $plan['path'] );
+		self::assertStringContainsString( 'proposal_id=', (string) $plan['approval_url'] );
+		self::assertSame( $current, $this->stored_code( $provider, $target ) );
+	}
+
+	/** @dataProvider snippet_providers */
+	public function test_the_approval_link_of_a_snippet_rollback_reaches_the_mcp_client( string $provider, string $target, string $path ): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, $provider, $target );
+
+		$reply = McpToolCall::call( $ops, [ 'action' => 'rollback', 'provider' => $provider, 'target_id' => $target, 'snapshot_id' => $applied['snapshot_id'] ] );
+
+		self::assertTrue( $reply['is_error'] );
+		self::assertSame( 1, preg_match( '/(\{.*\})\s*$/', $reply['text'], $match ), $reply['text'] );
+		$payload = json_decode( $match[1], true );
+		self::assertSame( 'stonewright_custom_code_grant_required', $payload['code'] );
+		self::assertTrue( $payload['approval_required'] );
+		self::assertTrue( $payload['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', $payload['approval_url'] );
+		self::assertStringContainsString( 'proposal_id=', $payload['approval_url'] );
+	}
+
+	public function test_the_approval_link_of_an_apply_without_a_grant_reaches_the_mcp_client(): void {
+		$ops = new ProviderOps();
+
+		$reply = McpToolCall::call( $ops, [ 'action' => 'apply', 'provider' => 'wpcode', 'target_id' => '12', 'code' => self::CANDIDATE, 'language' => 'php' ] );
+
+		self::assertTrue( $reply['is_error'] );
+		self::assertSame( 1, preg_match( '/(\{.*\})\s*$/', $reply['text'], $match ), $reply['text'] );
+		$payload = json_decode( $match[1], true );
+		self::assertSame( 'stonewright_custom_code_grant_required', $payload['code'] );
+		self::assertTrue( $payload['approval_required'] );
+		self::assertTrue( $payload['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', $payload['approval_url'] );
+	}
+
+	/** @dataProvider snippet_providers */
+	public function test_rollback_with_the_human_grant_restores_once( string $provider, string $target ): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, $provider, $target );
+		$args    = [ 'action' => 'rollback', 'provider' => $provider, 'target_id' => $target, 'snapshot_id' => $applied['snapshot_id'] ];
+		$grant   = $this->rollback_grant( $ops, $args );
+
+		$restored = $ops->execute( $args + [ 'custom_code_grant' => $grant ] );
+		self::assertIsArray( $restored, $restored instanceof \WP_Error ? $restored->get_error_message() : '' );
+		self::assertTrue( $restored['rolled_back'] );
+		self::assertNotSame( self::CANDIDATE, $this->stored_code( $provider, $target ) );
+
+		// The snippet changes again; the spent grant does not unlock a second restore.
+		if ( 'wpcode' === $provider ) {
+			$this->wpcode_store[ $target ]['code'] = self::CANDIDATE;
+		} else {
+			$this->snippets_store[ $target ]['code'] = self::CANDIDATE;
+		}
+		$again = $ops->execute( $args + [ 'custom_code_grant' => $grant ] );
+		self::assertInstanceOf( \WP_Error::class, $again );
+		self::assertSame( 'stonewright_custom_code_grant_reused', $again->get_error_code() );
+		self::assertSame( self::CANDIDATE, $this->stored_code( $provider, $target ) );
+	}
+
+	public function test_a_grant_for_other_code_does_not_unlock_a_rollback(): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, 'wpcode', '12' );
+		$other   = CustomCodeGrant::issue( [ 'path' => 'wpcode/snippet/12', 'after_sha256' => hash( 'sha256', 'something else' ), 'language' => 'php' ] );
+		self::assertIsArray( $other );
+
+		$result = $ops->execute( [ 'action' => 'rollback', 'provider' => 'wpcode', 'target_id' => '12', 'snapshot_id' => $applied['snapshot_id'], 'custom_code_grant' => $other['token'] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_grant_hash_mismatch', $result->get_error_code() );
+		self::assertSame( self::CANDIDATE, $this->stored_code( 'wpcode', '12' ) );
+	}
+
+	public function test_a_rollback_that_needs_approval_is_answered_before_the_confirmation_token(): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, 'wpcode', '12' );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = $ops->execute( [ 'action' => 'rollback', 'provider' => 'wpcode', 'target_id' => '12', 'snapshot_id' => $applied['snapshot_id'] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_grant_required', $result->get_error_code() );
+	}
+
+	private const CANDIDATE = "<?php\necho 'candidate';\n";
+
+	/** @return array<string, mixed> The apply result, with its snapshot_id. */
+	private function apply_through_ops( ProviderOps $ops, string $provider, string $target ): array {
+		$base = [ 'provider' => $provider, 'target_id' => $target, 'code' => self::CANDIDATE, 'language' => 'php' ];
+		$dry  = $ops->execute( $base + [ 'action' => 'dry-run' ] );
+		self::assertIsArray( $dry );
+		$grant = CustomCodeGrant::issue( [ 'path' => (string) $dry['path'], 'after_sha256' => $dry['after_sha256'], 'language' => 'php' ] );
+		self::assertIsArray( $grant );
+		$applied = $ops->execute( $base + [ 'action' => 'apply', 'custom_code_grant' => $grant['token'], 'expected_before_sha256' => $dry['before_sha256'] ] );
+		self::assertIsArray( $applied, $applied instanceof \WP_Error ? $applied->get_error_message() : '' );
+		self::assertSame( self::CANDIDATE, $this->stored_code( $provider, $target ) );
+		return $applied;
+	}
+
+	/**
+	 * What a person does at the approval page: opens the staged proposal and issues the grant.
+	 *
+	 * @param array<string, mixed> $args The rollback arguments without a grant.
+	 */
+	private function rollback_grant( ProviderOps $ops, array $args ): string {
+		$plan = $ops->execute( $args + [ 'dry_run' => true ] );
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
+		$issued = CustomCodeGrant::approve_proposal( (string) $plan['proposal_id'] );
+		self::assertIsArray( $issued, $issued instanceof \WP_Error ? $issued->get_error_message() : '' );
+		return (string) $issued['token'];
+	}
+
+	private function stored_code( string $provider, string $target ): string {
+		return 'wpcode' === $provider ? $this->wpcode_store[ $target ]['code'] : $this->snippets_store[ $target ]['code'];
 	}
 
 	/** @return callable */

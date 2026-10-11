@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor;
 
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -30,11 +31,30 @@ final class ElementorTransactionRunner {
 	 *
 	 * Blueprint apply and DesignSpec writes use this path (not BatchMutate ops).
 	 *
+	 * The tree passes the HTML widget policy and the custom code gate first, whoever the caller is.
+	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<string, mixed>             $expected_readback
+	 * @param array<string, mixed>             $gate_args allow_html_widget and custom_code_grant of the call that asked for the write.
+	 * @param string                           $precondition_hash When set, the tree the post holds when the transaction starts must hash to this value, or nothing is written.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true ) {
+	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true, array $gate_args = [], string $precondition_hash = '' ) {
+		$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $gate_args );
+		if ( $code_gate instanceof \WP_Error ) {
+			return $code_gate;
+		}
+
+		return self::write_full_tree( $post_id, $tree, $expected_readback, $rollback_on_error, $precondition_hash );
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $expected_readback
+	 * @param string                           $precondition_hash When set, the tree the post holds when the transaction starts must hash to this value, or nothing is written. A caller that built the tree from what it read earlier (an append) passes the hash of what it read.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function write_full_tree( int $post_id, array $tree, array $expected_readback, bool $rollback_on_error, string $precondition_hash = '' ) {
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_transaction_not_found',
@@ -51,97 +71,127 @@ final class ElementorTransactionRunner {
 			);
 		}
 
-		$before_tree = ElementorData::read( $post_id );
-		$before_hash = TreeHasher::hash( $before_tree );
+		// The lease is taken before the document is read, so the precondition check, the snapshot and the write all see the
+		// same document and no other writer changes it in between.
+		return PostWriteLock::with_lease(
+			$post_id,
+			'full-tree',
+			function ( string $lock_owner ) use ( $post_id, $tree, $expected_readback, $rollback_on_error, $precondition_hash ) {
+				$before_tree = ElementorData::read( $post_id );
+				$before_hash = TreeHasher::hash( $before_tree );
 
-		$snapshot_id = Backup::snapshot_post( $post_id );
-		if ( '' === $snapshot_id ) {
-			return new \WP_Error(
-				'stonewright_transaction_snapshot_failed',
-				__( 'Could not create a pre-write snapshot for the Elementor full-tree transaction.', 'stonewright' ),
-				[ 'status' => 500 ]
-			);
-		}
+				if ( '' !== $precondition_hash && ! hash_equals( $precondition_hash, $before_hash ) ) {
+					return new \WP_Error(
+						'stonewright_transaction_precondition',
+						__( 'The Elementor tree changed since it was read; nothing was written. Read it again and retry.', 'stonewright' ),
+						[
+							'status'        => 409,
+							'retryable'     => true,
+							'expected_hash' => $precondition_hash,
+							'actual_hash'   => $before_hash,
+						]
+					);
+				}
 
-		$written = ElementorData::write( $post_id, $tree );
-		if ( ! $written ) {
-			// Integrity and schema gates are the only path to _elementor_data.
-			$gate_error = ElementorData::last_write_error();
-			if ( $rollback_on_error ) {
-				Backup::restore( $post_id, $snapshot_id );
+				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return new \WP_Error(
+						'stonewright_transaction_snapshot_failed',
+						__( 'Could not create a pre-write snapshot for the Elementor full-tree transaction.', 'stonewright' ),
+						[ 'status' => 500 ]
+					);
+				}
+
+				$written = ElementorData::write( $post_id, $tree, [ 'lock_owner' => $lock_owner ] );
+				if ( ! $written ) {
+					// Integrity and schema gates are the only path to _elementor_data. A refused or busy write stored nothing, and
+					// ElementorData put back what it had when it failed after storing; the snapshot is restored only when that did not work.
+					$gate_error = ElementorData::last_write_error();
+					if ( $rollback_on_error && self::left_changes( $gate_error ) ) {
+						Backup::restore( $post_id, $snapshot_id );
+					}
+					return $gate_error instanceof \WP_Error
+						? $gate_error
+						: new \WP_Error(
+							'stonewright_transaction_write_rejected',
+							__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
+							[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => false ]
+						);
+				}
+
+				$read_tree = is_callable( self::$read_override )
+					? (array) ( self::$read_override )( $post_id )
+					: ElementorData::read( $post_id );
+				$read_hash = TreeHasher::hash( $read_tree );
+				$flat      = ElementorData::flatten( $read_tree );
+
+				if ( [] === $read_tree || [] === $flat ) {
+					$restored = false;
+					if ( $rollback_on_error ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+					}
+					return new \WP_Error(
+						'stonewright_transaction_readback_failed',
+						__( 'Elementor full-tree readback failed: empty tree after persist.', 'stonewright' ),
+						[
+							'status'      => 500,
+							'snapshot_id' => $snapshot_id,
+							'rolled_back' => $rollback_on_error,
+							'restored'    => $restored,
+						]
+					);
+				}
+
+				// For a user without unfiltered_html Elementor stores the tree after its own filtering. A tree_hash the caller computed from the
+				// tree it sent is met by the hash of the tree that was stored.
+				$content_filtered = ElementorData::last_write_content_filtered();
+				if ( $content_filtered && isset( $expected_readback['tree_hash'] ) && hash_equals( TreeHasher::hash( $tree ), (string) $expected_readback['tree_hash'] ) ) {
+					$expected_readback['tree_hash'] = TreeHasher::hash( ElementorData::tree_as_written( $tree ) );
+				}
+				$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
+				if ( null !== $readback_error ) {
+					$restored = false;
+					if ( $rollback_on_error ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+					}
+					return new \WP_Error(
+						'stonewright_transaction_readback_failed',
+						$readback_error,
+						[
+							'status'      => 500,
+							'snapshot_id' => $snapshot_id,
+							'rolled_back' => $rollback_on_error,
+							'restored'    => $restored,
+							'readback'    => [
+								'tree_hash'     => $read_hash,
+								'element_count' => count( $flat ),
+							],
+						]
+					);
+				}
+
+				return ( $content_filtered ? [ 'content_filtered' => true ] : [] ) + [
+					'ok'            => true,
+					'post_id'       => $post_id,
+					'mode'          => 'full_tree',
+					'snapshot_id'   => $snapshot_id,
+					'before_hash'   => $before_hash,
+					'after_hash'    => $read_hash,
+					'readback_hash' => $read_hash,
+					'element_count' => count( $flat ),
+					'rolled_back'   => false,
+				];
 			}
-			return $gate_error instanceof \WP_Error
-				? $gate_error
-				: new \WP_Error(
-					'stonewright_transaction_write_rejected',
-					__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
-					[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => $rollback_on_error ]
-				);
-		}
-
-		$read_tree = is_callable( self::$read_override )
-			? (array) ( self::$read_override )( $post_id )
-			: ElementorData::read( $post_id );
-		$read_hash = TreeHasher::hash( $read_tree );
-		$flat      = ElementorData::flatten( $read_tree );
-
-		if ( [] === $read_tree || [] === $flat ) {
-			$restored = false;
-			if ( $rollback_on_error ) {
-				$restored = Backup::restore( $post_id, $snapshot_id );
-			}
-			return new \WP_Error(
-				'stonewright_transaction_readback_failed',
-				__( 'Elementor full-tree readback failed: empty tree after persist.', 'stonewright' ),
-				[
-					'status'      => 500,
-					'snapshot_id' => $snapshot_id,
-					'rolled_back' => $rollback_on_error,
-					'restored'    => $restored,
-				]
-			);
-		}
-
-		$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
-		if ( null !== $readback_error ) {
-			$restored = false;
-			if ( $rollback_on_error ) {
-				$restored = Backup::restore( $post_id, $snapshot_id );
-			}
-			return new \WP_Error(
-				'stonewright_transaction_readback_failed',
-				$readback_error,
-				[
-					'status'      => 500,
-					'snapshot_id' => $snapshot_id,
-					'rolled_back' => $rollback_on_error,
-					'restored'    => $restored,
-					'readback'    => [
-						'tree_hash'     => $read_hash,
-						'element_count' => count( $flat ),
-					],
-				]
-			);
-		}
-
-		return [
-			'ok'            => true,
-			'post_id'       => $post_id,
-			'mode'          => 'full_tree',
-			'snapshot_id'   => $snapshot_id,
-			'before_hash'   => $before_hash,
-			'after_hash'    => $read_hash,
-			'readback_hash' => $read_hash,
-			'element_count' => count( $flat ),
-			'rolled_back'   => false,
-		];
+		);
 	}
 
 	/**
 	 * @param array<string, mixed> $raw_envelope
+	 * @param array<string, mixed> $gate_args    allow_html_widget and custom_code_grant of the call that asked for the write; they
+	 *                                           apply to the tree of a replace_tree, which passes the code gates for every caller.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function run( int $post_id, array $raw_envelope, bool $dry_run = false ) {
+	public static function run( int $post_id, array $raw_envelope, bool $dry_run = false, array $gate_args = [] ) {
 		// Full-tree shortcut: operations: [{ action: replace_tree, tree: [...] }]
 		$ops = $raw_envelope['operations'] ?? null;
 		if ( is_array( $ops ) && 1 === count( $ops ) && is_array( $ops[0] ?? null ) && ( $ops[0]['action'] ?? '' ) === 'replace_tree' ) {
@@ -150,7 +200,16 @@ final class ElementorTransactionRunner {
 				? $raw_envelope['expected_readback']
 				: [];
 			$rollback = ! array_key_exists( 'rollback_on_error', $raw_envelope ) || (bool) $raw_envelope['rollback_on_error'];
+			$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $gate_args, $dry_run );
+			if ( $code_gate instanceof \WP_Error ) {
+				return $code_gate;
+			}
 			if ( $dry_run ) {
+				// The checks the write runs against the stored document, so the dry run reports what the apply would.
+				$preflight = ElementorData::preflight( ElementorData::read( $post_id ), $tree, [ 'force_destructive' => true ] );
+				if ( $preflight instanceof \WP_Error ) {
+					return $preflight;
+				}
 				return [
 					'ok'          => true,
 					'dry_run'     => true,
@@ -160,7 +219,7 @@ final class ElementorTransactionRunner {
 					'snapshot_id' => '',
 				];
 			}
-			return self::run_full_tree( $post_id, $tree, $expected, $rollback );
+			return self::write_full_tree( $post_id, $tree, $expected, $rollback );
 		}
 
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
@@ -206,24 +265,31 @@ final class ElementorTransactionRunner {
 		}
 
 		// The transaction-run ability verifies its own confirmation token before calling the runner.
-		$batch = new BatchMutate();
-		$result = $batch->execute_with_verified_token(
-			[
-				'post_id'       => $post_id,
-				'operations'    => $envelope['operations'],
-				'stop_on_error' => $envelope['stop_on_error'],
-				'dry_run'       => $dry_run,
-			]
-		);
+		// The batch takes the write lease itself, so it is told which document the snapshot above describes and refuses
+		// to write when the page is no longer that document.
+		$batch_args = [
+			'post_id'       => $post_id,
+			'operations'    => $envelope['operations'],
+			'stop_on_error' => $envelope['stop_on_error'],
+			'dry_run'       => $dry_run,
+		];
+		if ( ! $dry_run ) {
+			$batch_args['expected_tree_hash'] = $before_hash;
+		}
+		$batch  = new BatchMutate();
+		$result = $batch->execute_with_verified_token( $batch_args );
 
 		if ( $result instanceof \WP_Error ) {
-			if ( ! $dry_run && $envelope['rollback_on_error'] && '' !== $snapshot_id ) {
+			// A batch that failed before it wrote, or that was refused because another writer holds the lock, left this
+			// document as it was, and the snapshot is never restored over it. The batch puts back what it wrote itself;
+			// the snapshot is restored only when that rollback did not work.
+			if ( ! $dry_run && $envelope['rollback_on_error'] && '' !== $snapshot_id && self::left_changes( $result ) ) {
 				$restored = Backup::restore( $post_id, $snapshot_id );
 				$result->add_data(
 					array_merge(
 						(array) $result->get_error_data(),
 						[
-							'rolled_back' => true,
+							'rolled_back' => $restored,
 							'restored'    => $restored,
 							'snapshot_id' => $snapshot_id,
 						]
@@ -278,6 +344,25 @@ final class ElementorTransactionRunner {
 			],
 			'rolled_back'     => false,
 		];
+	}
+
+	/**
+	 * Whether a failed write left the document changed: the rollback of the write itself did not succeed.
+	 *
+	 * ElementorData and the batch writer put back what they stored when a write fails after storing it, and
+	 * report the result in the write receipt. A write that was refused or never started (a busy lock, a
+	 * conflict, a gate) stored nothing, so there is nothing to restore, and a restore would overwrite the
+	 * work of whoever else wrote in the meantime.
+	 */
+	private static function left_changes( ?\WP_Error $error ): bool {
+		if ( null === $error ) {
+			return false;
+		}
+		$data    = $error->get_error_data();
+		$data    = is_array( $data ) ? $data : [];
+		$receipt = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+
+		return 'failed' === (string) ( $receipt['rollback_status'] ?? $data['rollback_status'] ?? '' );
 	}
 
 	/**

@@ -7,6 +7,8 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV4\RenderFromSpec;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /** @covers \Stonewright\WpMcp\Abilities\ElementorV4\RenderFromSpec */
 final class RenderFromSpecTest extends TestCase {
@@ -63,6 +65,7 @@ final class RenderFromSpecTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_backup_failed', $result->get_error_code() );
+		self::assertSame( 500, $result->get_error_data()['status'] );
 		self::assertNotContains( '_elementor_data', array_column( $GLOBALS['stonewright_test_post_meta_calls'], 'meta_key' ) );
 	}
 
@@ -147,6 +150,111 @@ final class RenderFromSpecTest extends TestCase {
 		self::assertSame( [ 'sections', 0, 'blocks', 1 ], $data['path'] );
 		self::assertSame( 'list', $data['received'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function write_args( bool $replace = false ): array {
+		return [
+			'post_id' => self::POST_ID,
+			'dry_run' => false,
+			'replace' => $replace,
+			'spec'    => [
+				'page'     => [ 'title' => 'Synthetic page' ],
+				'sections' => [
+					[
+						'id'     => 'hero',
+						'blocks' => [ [ 'type' => 'heading', 'text' => 'Appended heading', 'level' => 2 ] ],
+					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function existing_node( string $id ): array {
+		return [
+			'id'              => $id,
+			'version'         => '0.0',
+			'elType'          => 'e-div-block',
+			'isInner'         => false,
+			'settings'        => [],
+			'editor_settings' => [],
+			'interactions'    => [],
+			'styles'          => [],
+			'elements'        => [],
+		];
+	}
+
+	/**
+	 * @return list<string> Root element ids of the stored tree.
+	 */
+	private function stored_root_ids(): array {
+		$tree = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'] ), true );
+		return array_map( static fn( array $node ): string => (string) $node['id'], is_array( $tree ) ? $tree : [] );
+	}
+
+	/** @return array<string, array{0:bool}> */
+	public static function write_modes(): iterable {
+		yield 'append' => [ false ];
+		yield 'replace' => [ true ];
+	}
+
+	/** @dataProvider write_modes */
+	public function test_a_write_is_refused_as_busy_while_another_writer_holds_the_page_lease( bool $replace ): void {
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
+		$GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'] = wp_json_encode( [ $this->existing_node( 'keep1' ) ] );
+		$before = (string) $GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'];
+		PostWriteLock::acquire( self::POST_ID, 'other-writer', 30 );
+		$args = $this->write_args( $replace );
+		if ( $replace ) {
+			$args['confirmation_token'] = ConfirmationToken::issue( ( new RenderFromSpec() )->name(), $args );
+		}
+
+		$result = ( new RenderFromSpec() )->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertSame( $before, (string) $GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'] );
+		self::assertTrue( PostWriteLock::owned_by( self::POST_ID, 'other-writer' ), 'The other writer keeps its lease.' );
+	}
+
+	public function test_an_append_keeps_an_element_another_writer_added_while_the_call_was_starting(): void {
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
+		$GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'] = wp_json_encode( [ $this->existing_node( 'keep1' ) ] );
+		// Fires right after this call takes the page lease, which is where an unlocked read would already be stale.
+		$GLOBALS['stonewright_test_after_add_option'] = function (): void {
+			$GLOBALS['stonewright_test_posts'][ self::POST_ID ]->meta['_elementor_data'] = wp_json_encode( [ $this->existing_node( 'keep1' ), $this->existing_node( 'added-by-other' ) ] );
+		};
+
+		$result = ( new RenderFromSpec() )->execute( $this->write_args() );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['ok'] );
+		$ids = $this->stored_root_ids();
+		self::assertCount( 3, $ids );
+		self::assertSame( [ 'keep1', 'added-by-other' ], array_slice( $ids, 0, 2 ), 'The other writer\'s element is not lost.' );
+	}
+
+	public function test_the_page_lease_is_released_after_a_write(): void {
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
+
+		$result = ( new RenderFromSpec() )->execute( $this->write_args() );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertIsArray( PostWriteLock::acquire( self::POST_ID, 'next-writer', 30 ), 'The lease is free afterwards.' );
+	}
+
+	public function test_the_page_lease_is_released_after_a_refused_write(): void {
+		$result = ( new RenderFromSpec() )->execute( $this->write_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_backup_failed', $result->get_error_code() );
+		self::assertIsArray( PostWriteLock::acquire( self::POST_ID, 'next-writer', 30 ), 'The lease is free afterwards.' );
 	}
 
 	public function test_class_docblock_describes_the_validated_spec_to_atomic_renderer_pipeline(): void {

@@ -64,6 +64,20 @@ final class Permissions {
 	}
 
 	/**
+	 * Permission gate for abilities that run code on the server: runtime PHP and the WP-CLI runners.
+	 *
+	 * The sandbox capability pair, and on multisite a super admin: code run there reaches every site
+	 * of the network, which a site administrator may not.
+	 */
+	public static function can_run_code(): bool {
+		if ( ! self::can_manage_sandbox() ) {
+			return false;
+		}
+
+		return ! is_multisite() || is_super_admin();
+	}
+
+	/**
 	 * Read-only gate for sandbox/widget listing. Requires manage_options so that
 	 * subscriber/editor-level users cannot enumerate staged PHP files.
 	 */
@@ -78,6 +92,27 @@ final class Permissions {
 	 */
 	public static function file_mods_allowed(): bool {
 		return ! ( defined( 'DISALLOW_FILE_MODS' ) && true === constant( 'DISALLOW_FILE_MODS' ) );
+	}
+
+	/**
+	 * Returns false when wp-config.php sets DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS. WordPress then
+	 * withdraws the theme and plugin editors (and, with the second constant, file changes altogether), so a
+	 * tool that writes theme files must not write them either.
+	 */
+	public static function theme_file_writes_allowed(): bool {
+		return ! ( defined( 'DISALLOW_FILE_EDIT' ) && true === constant( 'DISALLOW_FILE_EDIT' ) )
+			&& self::file_mods_allowed();
+	}
+
+	/**
+	 * The refusal for a theme file write while wp-config.php disallows file editing.
+	 */
+	public static function theme_file_writes_refusal(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_file_edit_disabled',
+			__( 'Theme files cannot be written because DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS is set in wp-config.php.', 'stonewright' ),
+			[ 'status' => 403 ]
+		);
 	}
 
 	public static function destructive(): bool {
@@ -192,6 +227,20 @@ final class Permissions {
 		return current_user_can( 'moderate_comments' );
 	}
 
+	/**
+	 * Whether the user may edit one comment. Core maps this to the comment's post, and denies a comment that does not exist.
+	 */
+	public static function edit_comment( int $comment_id ): bool {
+		return $comment_id > 0 && current_user_can( 'edit_comment', $comment_id );
+	}
+
+	/**
+	 * Whether the user may read one post or attachment.
+	 */
+	public static function read_post( int $post_id ): bool {
+		return $post_id > 0 && current_user_can( 'read_post', $post_id );
+	}
+
 	public static function list_users(): bool {
 		return current_user_can( 'list_users' );
 	}
@@ -206,6 +255,10 @@ final class Permissions {
 
 	public static function delete_users(): bool {
 		return current_user_can( 'delete_users' );
+	}
+
+	public static function promote_users(): bool {
+		return current_user_can( 'promote_users' );
 	}
 
 	public static function switch_themes(): bool {

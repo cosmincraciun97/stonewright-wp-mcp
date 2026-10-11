@@ -19,6 +19,7 @@ use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
+use Stonewright\WpMcp\Tests\Unit\Admin\Fixtures\LedgerFixture;
 
 /**
  * @covers \Stonewright\WpMcp\Core\AbilityRegistry
@@ -26,7 +27,17 @@ use Stonewright\WpMcp\Support\ErrorEnvelope;
  */
 final class ContractTest extends TestCase {
 
+	use LedgerFixture;
+
 	private const FIXTURE_DIR = __DIR__ . '/../fixtures/abilities';
+
+	/** Abilities that read or act on the change ledger, which a fixture needs a change in. */
+	private const LEDGER_ABILITIES = [ 'stonewright/change-history-list', 'stonewright/change-diff-get', 'stonewright/change-rollback' ];
+
+	/** Change id created by seed_ledger_change(). */
+	private string $ledger_change_id = '';
+
+	private bool $ledger_seeded = false;
 
 	/** Change id created by seed_finalizer_cancel_record(). */
 	private string $finalizer_cancel_change_id = '';
@@ -52,9 +63,18 @@ final class ContractTest extends TestCase {
 				'edit_theme_options',
 				'publish_posts',
 				'publish_pages',
+				'read_post',
+				'edit_comment',
+				'delete_post',
+				'edit_user',
+				'delete_user',
+				'list_app_passwords',
+				'create_app_password',
+				'delete_app_password',
 			],
 			true
 		);
+		$GLOBALS['stonewright_test_extra_plugins']   = [ 'akismet/akismet.php' => [ 'Name' => 'Akismet', 'Version' => '5.0' ] ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 42;
 		$GLOBALS['stonewright_test_options']         = [
@@ -115,6 +135,12 @@ final class ContractTest extends TestCase {
 			[ 'key' => 'group_test', 'title' => 'Test', 'active' => true, 'location' => [] ],
 		];
 		$GLOBALS['stonewright_test_seo_plugin']  = 'yoast';
+		// A stock image import reads the type of the file it downloads, so a stock URL serves a real 1x1 PNG.
+		$GLOBALS['stonewright_test_download_url'] = static function ( string $url ) {
+			$path = tempnam( sys_get_temp_dir(), 'stonewright-download-' );
+			file_put_contents( $path, str_contains( $url, '/stock/' ) ? (string) base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' ) : 'test' );
+			return $path;
+		};
 		$GLOBALS['stonewright_test_post_types']  = [
 			'post' => (object) [ 'name' => 'post', 'label' => 'Posts', 'public' => true ],
 			'page' => (object) [ 'name' => 'page', 'label' => 'Pages', 'public' => true ],
@@ -176,11 +202,17 @@ final class ContractTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		if ( $this->ledger_seeded ) {
+			$this->ledger_down();
+			$this->ledger_seeded    = false;
+			$this->ledger_change_id = '';
+		}
 		WidgetAvailability::override_plugins( null, null );
 		Post::$factory = null;
 		$this->remove_elementor_css_fixtures();
 		unset( $GLOBALS['stonewright_test_home_url'] );
-		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		unset( $GLOBALS['stonewright_test_registered_blocks'], $GLOBALS['stonewright_test_extra_plugins'] );
+		unset( $GLOBALS['stonewright_test_download_url'] );
 	}
 
 	private function remove_elementor_css_fixtures(): void {
@@ -465,8 +497,12 @@ final class ContractTest extends TestCase {
 	 * @param class-string<Ability> $class
 	 */
 	public function test_ability_response_matches_declared_contract( string $class, string $slug ): void {
-		$fixture = $this->load_fixture( $slug . '.json' );
 		$ability = new $class();
+		if ( in_array( $ability->name(), self::LEDGER_ABILITIES, true ) ) {
+			// The fixture names the change through a placeholder that only resolves once the change exists.
+			$this->seed_ledger_change();
+		}
+		$fixture = $this->load_fixture( $slug . '.json' );
 		$args    = (array) ( $fixture['args'] ?? $fixture );
 
 		$this->assertArrayNotHasKey( 'skip', $fixture, $slug . '.json must not skip contract coverage.' );
@@ -483,8 +519,18 @@ final class ContractTest extends TestCase {
 			// The source must be one the user may read and edit, checked again when the ability runs.
 			$GLOBALS['stonewright_test_user_caps'] = array_merge( $caps_before, [ 'read_post' => true, 'edit_post' => true ] );
 		}
+		$template_before = $GLOBALS['stonewright_test_template'] ?? null;
+		if ( 'stonewright/theme-json-handoff' === $ability->name() ) {
+			// The handoff writes to a child theme only, so the fixture runs with one active.
+			$GLOBALS['stonewright_test_template'] = 'contract-parent-theme';
+		}
 		$result = $ability->execute( $args );
 		$GLOBALS['stonewright_test_user_caps'] = $caps_before;
+		if ( null === $template_before ) {
+			unset( $GLOBALS['stonewright_test_template'] );
+		} else {
+			$GLOBALS['stonewright_test_template'] = $template_before;
+		}
 
 		$failure = $ability->name();
 		if ( $result instanceof \WP_Error ) {
@@ -529,6 +575,18 @@ final class ContractTest extends TestCase {
 
 	private static function fixture_slug( string $ability_name ): string {
 		return str_replace( [ 'stonewright/', '/', '.' ], [ '', '-', '-' ], $ability_name );
+	}
+
+	/** A settled change of a page, with its before and after content, for the change history fixtures. */
+	private function seed_ledger_change(): void {
+		$this->ledger_up();
+		$this->ledger_seeded = true;
+		$row                 = $this->seed_change(
+			[ 'resource_id' => '1' ],
+			[ 'post_title' => 'Contract page', 'post_content' => 'Before the change' ],
+			[ 'post_title' => 'Contract page', 'post_content' => 'After the change' ]
+		);
+		$this->ledger_change_id = (string) $row['change_id'];
 	}
 
 	/** An open incident for the rescue-rollback fixture to plan a rollback for. */
@@ -685,6 +743,9 @@ final class ContractTest extends TestCase {
 				}
 				if ( '{{finalizer_cancel_change_id}}' === $value ) {
 					$value = $this->finalizer_cancel_change_id;
+				}
+				if ( '{{ledger_change_id}}' === $value ) {
+					$value = $this->ledger_change_id;
 				}
 			}
 		);

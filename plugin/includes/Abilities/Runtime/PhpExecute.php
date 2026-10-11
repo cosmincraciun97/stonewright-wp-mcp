@@ -35,7 +35,7 @@ final class PhpExecute extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. Never writes theme/plugin/core code files (use theme-file-patch). Raw Elementor document writes are never allowed: use typed Elementor abilities. Requires manage_options, is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
+		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. The snippet runs with the full authority of the site. A static scan refuses common patterns that write theme, plugin or core files, raw Elementor documents and custom CSS; it is a best-effort guard, not a sandbox, so use theme-file-patch for theme code and the typed Elementor abilities for documents. Requires edit_plugins and manage_options (a super admin on multisite), is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -132,7 +132,7 @@ final class PhpExecute extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::manage_options();
+		return Permissions::can_run_code();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -165,6 +165,13 @@ final class PhpExecute extends AbilityKernel {
 				$fs_guard = ProtectedFilesystemWriteGuard::inspect( $code_body );
 				if ( $fs_guard instanceof \WP_Error ) {
 					return $fs_guard;
+				}
+
+				if ( ! Permissions::file_mods_allowed() ) {
+					$file_mods_guard = ProtectedFilesystemWriteGuard::inspect_file_mod_apis( $code_body );
+					if ( $file_mods_guard instanceof \WP_Error ) {
+						return $file_mods_guard;
+					}
 				}
 
 				$css_guard = ProtectedCustomCssWriteGuard::inspect( $code_body );

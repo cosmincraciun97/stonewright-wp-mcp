@@ -85,9 +85,11 @@ official source URL and SHA-256, fetch/expiry dates, Core/Pro/add-on version
 constraints, evidence type, and confidence. Then dry-run the recipe and verify
 the editor plus logged-out frontend against the exact runtime fingerprint.
 
-One successful use is not training. Promotion requires either two distinct
-verified task successes or explicit user approval with a note. Same-topic
-conflicts require an explicit replace decision. Elementor upgrades mark only
+One successful use is not training. A promotion always needs an administrator
+to approve it in wp-admin: the call stages a request and returns an
+`approval_url`; show it to the user and stop, and never approve it yourself.
+With fewer than two distinct verified task successes the approver must also
+write a note. Same-topic conflicts require an explicit replace decision. Elementor upgrades mark only
 incompatible verified candidates and their linked skills stale; stale knowledge
 must be researched again. Load candidate or memory bodies only when their compact
 refs match the current task.
@@ -102,7 +104,7 @@ If an ability returns no `snapshot_id`, call
 Never write raw `_elementor_data` with `update_post_meta()` or create revision
 meta manually. Every container, section, column, and widget node must have a
 non-empty ID unique across the tree. Prefer typed Elementor abilities. For an
-explicit runtime repair through `stonewright/php-execute`, call
+explicit runtime repair through `stonewright/php-execute` (`full` profile only), call
 `Backup::snapshot_post( $post_id )`, generate missing IDs with
 `ElementorData::generate_id()`, and persist only through
 `ElementorData::write()`. Stop when its tree validator rejects the payload.
@@ -220,7 +222,10 @@ Call `stonewright/elementor-css-regenerate` when generated CSS must be rebuilt
 `stonewright/elementor-post-write-verify` with all touched element IDs. A result
 with `ok:true`, `delivery_status:blocked` and a warning means the CSS file was
 written and its `?ver=` changed but the anonymous check was redirected: do not
-rebuild the layout for it. Never
+rebuild the layout for it. The same call purges that post in the page cache
+plugins it finds (`cache_purge.ran` lists them); its `repair` text names what
+was purged before it asks for a manual purge of any other host, CDN or page
+cache. Never
 pass `regenerate_css`; that input does not exist. The verifier is
 observation-only: it warms the official frontend builder renderer with CSS
 generation disabled and asserts the IDs without returning page HTML,
@@ -315,8 +320,10 @@ headings inside loop templates; do not rely on many manual meta updates.
   shorthands (`gap`, `background`, `justify_content`) apply to containers.
 - A widget goes inside a container, a section or a column, never inside another
   widget. An inner section goes inside a column (it is stored with one column)
-  or inside a container (stored as an inner container). Elementor Pro and
-  WooCommerce widgets are refused on a site where that plugin is not active.
+  or inside a container (stored as an inner container); add it with the
+  `add_inner_section` batch action and address its column as `<op_id>.column`.
+  Elementor Pro and WooCommerce widgets are refused on a site where that
+  plugin is not active.
 - Configure all relevant tabs. Content holds source data, items, media, links,
   and semantic choices. Style holds typography, colors, spacing, states,
   borders, shadows, and widget-specific presentation. Advanced can use

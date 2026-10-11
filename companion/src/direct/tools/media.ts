@@ -6,14 +6,33 @@ import {
   assertWriteAllowed,
   type DirectWriteMode,
 } from "../writes.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { ResolvedSite } from "../sites-config.js";
+import {
+  assertMediaContent,
+  chooseMediaFilename,
+  mediaMaxBytes,
+  mediaTooLarge,
+  mediaTypeFor,
+} from "../media-limits.js";
+import {
+  downloadMediaUrl,
+  resolveLocalMediaPath,
+  type MediaLookup,
+} from "../media-source.js";
 
 export interface MediaToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
   fetchImpl?: typeof fetch | undefined;
+  env?: NodeJS.ProcessEnv | undefined;
+  /** Working directory for relative upload paths; defaults to the process cwd. */
+  cwd?: string | undefined;
+  /** DNS lookup for url uploads; defaults to the system resolver. */
+  lookupImpl?: MediaLookup | undefined;
 }
 
 type WpMedia = {
@@ -24,6 +43,7 @@ type WpMedia = {
   alt_text?: string | undefined;
   title?: { rendered?: string; raw?: string } | string;
   caption?: { rendered?: string; raw?: string } | string;
+  post?: number | null | undefined;
   media_details?: Record<string, unknown> | undefined;
 };
 
@@ -40,13 +60,28 @@ function compactMedia(item: WpMedia) {
     source_url: item.source_url ?? "",
     mime_type: item.mime_type ?? "",
     alt_text: item.alt_text ?? "",
+    // The plugin's names for the same three fields.
+    url: item.source_url ?? "",
+    mime: item.mime_type ?? "",
+    alt: item.alt_text ?? "",
   };
+}
+
+/**
+ * The plugin's mime_type filter: a family ("image") or one type ("application/pdf"). Core REST filters a
+ * family with media_type and one type with mime_type. Empty means every attachment.
+ */
+function mimeFilter(mimeType: string | undefined): Record<string, string | undefined> {
+  const value = (mimeType ?? "").trim().toLowerCase();
+  if (!value) return {};
+  return value.includes("/") ? { mime_type: value } : { media_type: value };
 }
 
 export async function mediaList(
   ctx: MediaToolContext,
   input: {
     search?: string | undefined;
+    mime_type?: string | undefined;
     per_page?: number | undefined;
     page?: number | undefined;
   },
@@ -57,6 +92,7 @@ export async function mediaList(
   const items = await ctx.client.get<WpMedia[]>("/wp/v2/media", {
     query: {
       search: input.search,
+      ...mimeFilter(input.mime_type),
       per_page: perPage,
       page,
       _fields: "id,title,slug,source_url,mime_type,alt_text",
@@ -82,7 +118,20 @@ export async function mediaGet(ctx: MediaToolContext, input: { id: number }) {
         ? item.caption
         : (item.caption?.raw ?? item.caption?.rendered ?? ""),
     media_details: item.media_details ?? {},
+    // The plugin's names for the parent and the pixel size.
+    parent: item.post ?? 0,
+    width: Number(item.media_details?.["width"] ?? 0) || 0,
+    height: Number(item.media_details?.["height"] ?? 0) || 0,
   };
+}
+
+function decodedBasename(pathname: string): string {
+  const last = basename(pathname);
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
 }
 
 export async function mediaUpload(
@@ -94,6 +143,9 @@ export async function mediaUpload(
     title?: string | undefined;
     alt_text?: string | undefined;
     caption?: string | undefined;
+    /** The post the attachment belongs to. */
+    parent_post_id?: number | undefined;
+    confirm?: boolean | undefined;
   },
 ) {
   assertToolEnabled(ctx.site, "stonewright-media-upload");
@@ -103,51 +155,77 @@ export async function mediaUpload(
     destructive: false,
     tool: "stonewright-media-upload",
   });
+  // Refuse on a plugin site before reading a local file or downloading a URL.
+  await ctx.client.assertWritable();
 
+  const env = ctx.env ?? process.env;
+  // The text goes first: a refused upload downloads and reads nothing.
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-media-upload",
+    "media",
+    scanTextFields({
+      title: input.title,
+      alt_text: input.alt_text,
+      caption: input.caption,
+    }),
+    env,
+  );
+  if (refusal) return refusal;
+  const maxBytes = mediaMaxBytes(env);
   let bytes: Buffer;
-  let filename = input.filename ?? "upload.bin";
+  let chosen: { filename: string; extension: string };
 
   if (input.path) {
-    bytes = readFileSync(input.path);
-    filename = input.filename ?? basename(input.path);
+    const real = resolveLocalMediaPath(input.path, {
+      env,
+      cwd: ctx.cwd ?? process.cwd(),
+      confirm: input.confirm,
+      maxBytes,
+    });
+    // The type is decided from the name before any byte is read.
+    chosen = chooseMediaFilename({
+      supplied: input.filename,
+      source: basename(real),
+    });
+    bytes = readFileSync(real);
+    if (bytes.length > maxBytes) throw mediaTooLarge(maxBytes);
   } else if (input.url) {
-    const fetchImpl = ctx.fetchImpl ?? fetch;
-    const response = await fetchImpl(input.url);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to download media from URL (HTTP ${response.status})`,
-      );
-    }
-    bytes = Buffer.from(await response.arrayBuffer());
-    const fromUrl = basename(new URL(input.url).pathname);
-    filename = input.filename ?? (fromUrl || "download.bin");
+    const downloaded = await downloadMediaUrl(input.url, {
+      fetchImpl: ctx.fetchImpl,
+      lookupImpl: ctx.lookupImpl,
+      maxBytes,
+    });
+    bytes = downloaded.bytes;
+    chosen = chooseMediaFilename({
+      supplied: input.filename,
+      source: decodedBasename(downloaded.finalUrl.pathname),
+      contentType: downloaded.contentType,
+    });
   } else {
     throw new Error("media-upload requires path or url");
   }
+  assertMediaContent(chosen.extension, bytes);
 
   const form = new FormData();
-  form.append("file", new Blob([new Uint8Array(bytes)]), filename);
+  form.append(
+    "file",
+    new Blob([new Uint8Array(bytes)], {
+      type: mediaTypeFor(chosen.extension) ?? "",
+    }),
+    chosen.filename,
+  );
   if (input.title) form.append("title", input.title);
   if (input.alt_text) form.append("alt_text", input.alt_text);
   if (input.caption) form.append("caption", input.caption);
+  if (input.parent_post_id) form.append("post", String(input.parent_post_id));
 
+  let item: WpMedia;
   try {
-    const item = await ctx.client.post<WpMedia>("/wp/v2/media", {
+    item = await ctx.client.post<WpMedia>("/wp/v2/media", {
       body: form,
       rawBody: true,
     });
-    appendDirectAudit({
-      tool: "stonewright-media-upload",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `media/${item.id}`,
-      status: "ok",
-    });
-    const compact = compactMedia(item);
-    return {
-      ...compact,
-      alt_text_recommended: !compact.alt_text,
-    };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-media-upload",
@@ -158,6 +236,29 @@ export async function mediaUpload(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-media-upload",
+    resource: `media/${item.id}`,
+    resourceType: "media",
+    readPath: `/wp/v2/media/${item.id}`,
+    expect: "present",
+    sent: {
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.alt_text ? { alt_text: input.alt_text } : {}),
+      ...(input.caption ? { caption: input.caption } : {}),
+    },
+  });
+  const compact = compactMedia(item);
+  return attachVerification(
+    {
+      ...compact,
+      alt_text_recommended: !compact.alt_text,
+    },
+    verification,
+  );
 }
 
 export async function mediaUpdate(
@@ -176,23 +277,28 @@ export async function mediaUpdate(
     destructive: false,
     tool: "stonewright-media-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-media-update",
+    `media/${input.id}`,
+    scanTextFields({
+      title: input.title,
+      alt_text: input.alt_text,
+      caption: input.caption,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.title !== undefined) body.title = input.title;
   if (input.alt_text !== undefined) body.alt_text = input.alt_text;
   if (input.caption !== undefined) body.caption = input.caption;
 
+  let item: WpMedia;
   try {
-    const item = await ctx.client.put<WpMedia>(`/wp/v2/media/${input.id}`, {
+    item = await ctx.client.put<WpMedia>(`/wp/v2/media/${input.id}`, {
       body,
     });
-    appendDirectAudit({
-      tool: "stonewright-media-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `media/${input.id}`,
-      status: "ok",
-    });
-    return compactMedia(item);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-media-update",
@@ -203,6 +309,17 @@ export async function mediaUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-media-update",
+    resource: `media/${input.id}`,
+    resourceType: "media",
+    readPath: `/wp/v2/media/${input.id}`,
+    sent: body,
+  });
+  return attachVerification(compactMedia(item), verification);
 }
 
 export async function mediaDelete(
@@ -224,12 +341,20 @@ export async function mediaDelete(
   const result = await ctx.client.del(`/wp/v2/media/${input.id}`, {
     query: { force: input.force === true },
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-media-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `media/${input.id}`,
-    status: "ok",
+    resourceType: "media",
+    readPath: `/wp/v2/media/${input.id}`,
+    ...(input.force === true
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }

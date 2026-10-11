@@ -31,6 +31,13 @@ use Stonewright\WpMcp\Support\Logger;
 final class BlocksBatchMutate extends AbilityKernel {
 	use ConfirmationGuard;
 
+	/**
+	 * Set while execute_with_verified_token() runs: the caller has already verified the token for the whole request.
+	 *
+	 * @var bool
+	 */
+	private bool $token_already_verified = false;
+
 	public function name(): string {
 		return 'stonewright/blocks-batch-mutate';
 	}
@@ -146,6 +153,24 @@ final class BlocksBatchMutate extends AbilityKernel {
 		return Permissions::edit_post( (int) ( $args['post_id'] ?? 0 ) );
 	}
 
+	/**
+	 * Runs a write for a caller that has already verified a confirmation token for the request it
+	 * serves, such as the motion ability that builds these operations. The token gate of this ability
+	 * is skipped; every other gate applies.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function execute_with_verified_token( array $args ): array|\WP_Error {
+		unset( $args['confirmation_token'] );
+		$this->token_already_verified = true;
+		try {
+			return $this->execute( $args );
+		} finally {
+			$this->token_already_verified = false;
+		}
+	}
+
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit(
 			$args,
@@ -192,7 +217,9 @@ final class BlocksBatchMutate extends AbilityKernel {
 						]
 					);
 				}
-				if ( ! $dry_run && $this->has_remove( $operations ) ) {
+				// Every write needs the token in production-safe mode, the finalizer-queue branch below
+				// included; only a dry run is free of it.
+				if ( ! $dry_run && ! $this->token_already_verified ) {
 					$token_error = $this->confirmation_token_error( $args, $args );
 					if ( null !== $token_error ) {
 						return $token_error;
@@ -665,16 +692,6 @@ final class BlocksBatchMutate extends AbilityKernel {
 		}
 
 		return $blocks;
-	}
-
-	/** @param array<int,mixed> $operations */
-	private function has_remove( array $operations ): bool {
-		foreach ( $operations as $operation ) {
-			if ( is_array( $operation ) && 'remove' === (string) ( $operation['action'] ?? '' ) ) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**

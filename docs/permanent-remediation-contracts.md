@@ -58,18 +58,22 @@ promotion reopens the incident, increments its reopen count, and makes the
 linked lesson stale.
 
 Direct mode keeps the same state names and action shape in a private per-site
-store. It closes only when local persisted audit contains equivalent
-correlation and independent verification. Missing proof returns
-`guidance_only: true`, leaves the incident open, and creates no lesson. See
+store. It closes through a verified repair only when local persisted audit
+contains equivalent correlation and independent verification; missing proof
+returns `guidance_only: true`, leaves the incident open, and creates no lesson.
+Task start asks for `repair_open_incidents_first` only for an open incident
+whose failure row carries a resource and a change set. Any other Direct incident
+closes after seven days without a new occurrence. See
 [Verified learning](verified-learning.md).
 
-`stonewright/security-runtime-data-purge` is the only supported runtime-history
-reset. Its dry run returns counts, hashes, and numeric watermarks without row
-bodies. Apply requires the exact reviewed state and plan hashes, an explicit
-acknowledgement, and a confirmation token in `production-safe` mode. Database
-deletes stop at the reviewed watermarks, so concurrently created rows survive
-and force a visible partial-failure result. A successful audit purge retains
-one redacted cleanup receipt.
+`stonewright/security-runtime-data-purge` is the only supported agent-side reset
+of memory, incident, and recurring-error history. Its dry run returns counts,
+hashes, and numeric watermarks without row bodies. Apply requires the exact
+reviewed state and plan hashes, an explicit acknowledgement, and a confirmation
+token in `production-safe` mode. Database deletes stop at the reviewed
+watermarks, so concurrently created rows survive and force a visible
+partial-failure result. The audit log is not a scope of the ability; a call
+that names it is refused, and erasing the log is left to an administrator.
 
 ## OAuth failure and rate-limit contract
 

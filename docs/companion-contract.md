@@ -106,13 +106,16 @@ Runs up to 100 WP-CLI commands from one UTF-8 JSON request.
 | `stopOnError` | boolean | No | Defaults to true. Stop after the first failed command. |
 
 Each command is still validated and executed through `execFile` with shell
-disabled. Use this endpoint for repeated operations with UTF-8 data instead of
-large inline shell scripts.
+disabled. A batch accepts read-oriented commands only (reads, `db check`, cron
+lists, cache and rewrite flushes); a command off that list refuses the whole
+batch before any command runs. Use this endpoint for repeated reads with UTF-8
+data instead of large inline shell scripts.
 
 ### POST /wp-cli/job-start
 
 Starts one command or one batch in the companion background queue. The job uses
-the same tokenized `execFile` runner as `/wp-cli/run` and `/wp-cli/batch`.
+the same tokenized `execFile` runner and blocked-command checks as `/wp-cli/run`;
+a job batch is not limited to the read-oriented list of `/wp-cli/batch`.
 
 Request fields combine `/wp-cli/run` and `/wp-cli/batch`: provide either
 `command` or `commands`, plus optional `path`, `url`, `user`, `context`,
@@ -169,11 +172,45 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
 3. WP-CLI PHP and shell-oriented groups are blocked: `eval`, `eval-file`,
    `shell`, and `package`.
 4. Blocked flags are rejected: `--exec`, `--require`, and `--prompt`.
+   The agent-facing runners (run, batch, jobs and their HTTP routes) also refuse
+   `config`, `scaffold`, plugin and theme installs, updates, deletes and
+   activations, user and role changes, `core` downloads, updates and installs,
+   and `search-replace` without `--dry-run` (see the
+   [companion README](../companion/README.md#mcp-tools)).
 5. `path`/cwd must resolve inside `STONEWRIGHT_WP_ROOT`,
    `STONEWRIGHT_WP_ALLOWED_ROOTS`, or the companion process cwd fallback.
    `STONEWRIGHT_WP_ROOT` is optional and, when configured, is the absolute
    WordPress install folder containing `wp-config.php`.
-6. The companion never calls WordPress REST write endpoints.
+6. In Plugin mode the companion never calls WordPress REST write endpoints; it
+   proxies to the plugin's MCP endpoint. Direct mode (no plugin) is the
+   exception: it writes through core WordPress REST, and through local WP-CLI
+   where the target check passes, only through its typed Direct tools. It acts
+   on the session's site only, and it refuses to write on a site where the
+   Stonewright plugin is active. See
+   [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
+7. In a Direct MCP session, `stonewright-wp-cli-run` and
+   `stonewright-wp-cli-job-start` hold a command that is not read-oriented to the
+   Direct write gate (task-start for the site, `confirm: true` in `confirm`
+   mode, a local install that is the Direct site) and write an audit row;
+   `stonewright-wp-cli-batch-run` accepts read-oriented commands only. The HTTP
+   routes above are unchanged.
+8. A Direct typed write returns `verification` (`verified`, `mismatch` or
+   `not_checked`) from a read of the resource after the write; a mismatch is
+   `ok:false`, `error:"verification_mismatch"`. A slug that WordPress stored with
+   a numeric suffix (`-2`, `-3`) because the one sent is taken is `verified` and
+   reported as `verification.slug_adjusted` (`requested`, `stored`). Direct lists and restores its saved
+   copies with `stonewright-direct-backup-list` and
+   `stonewright-direct-backup-restore` (confirmation, hash-checked, undoable); the
+   names differ from the Plugin abilities. A page, post or template write may be
+   followed by a public-page probe and, only on `rollback_on_probe_failure:true`,
+   an automatic restore.
+9. `stonewright-blocks-batch-mutate` (Direct) takes the Plugin ability's arguments
+   `post_id`, `operations`, `expected_content_hash` and `dry_run`. A write is
+   refused as `content_conflict` unless `expected_content_hash` equals the hash
+   of the current raw content, checked again just before the write, and applies
+   all operations or none. `stonewright-memory-delete` takes `id` and needs
+   a confirmation (`confirmation_id` from a first call, or `confirm:true` on a local
+   site). In `confirm` mode a block write needs one too. A Direct skill is saved disabled; `enabled:true` is refused.
 
 ## Command Recipes v1
 
@@ -249,7 +286,9 @@ rolled back.
    `0` = done, `1` = failed, `2` = a confirmation token is required.
 6. One local audit row (`stonewright-rescue-status` or
    `stonewright-rescue-rollback`) records the site, the incident id, the outcome
-   and the duration, never arguments, a token or output.
+   and the duration, never arguments, a token or output. The row carries
+   `backend: local` and `mode: local`: it is not a Direct backend write, so it never
+   opens a Direct incident and is not counted in task-start's recurring errors.
 
 ## Connection status v3
 

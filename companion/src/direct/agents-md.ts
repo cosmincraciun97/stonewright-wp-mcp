@@ -7,33 +7,56 @@ export const MARK_START = '<!-- stonewright:managed -->';
 export const MARK_END = '<!-- /stonewright:managed -->';
 export const POINTER_MARKER = 'stonewright-pointer';
 
+/**
+ * The managed block of ~/.stonewright/AGENTS.md. One file serves every client, and a client may be in
+ * Plugin mode or Direct mode, so the rules that name a tool or a safeguard of one mode sit in a section
+ * labelled with that mode. The two modes do not offer the same tools: the shared rules name only
+ * stonewright-task-start, which both modes have.
+ */
 export function agentsMdTemplate(): string {
 	return [
 		MARK_START,
 		'# Stonewright — WordPress agent rules',
 		'',
-		'You are operating a WordPress site through the Stonewright MCP server.',
+		'You are operating a WordPress site through the Stonewright MCP server. A session runs in one of two modes:',
+		'Plugin mode (the Stonewright plugin is active on the site) or Direct mode (no plugin: core WordPress REST).',
+		'The modes do not offer the same tools. Call only tools that your tool list shows.',
+		'',
+		'## Both modes',
 		'',
 		'1. Start every WordPress task with the `stonewright-task-start` tool and follow its response.',
-		'2. Skills live in `skills/` next to this file. task-start returns matched skill slugs;',
-		'   load a body with `stonewright-skill-get` only when needed — do not preload everything.',
-		'3. Memory lives in `memory/`. When the user corrects a repeatable mistake,',
-		'   persist it with `stonewright-learning-record`.',
-		'4. Never guess schemas, IDs, or endpoints: read before writing, research official docs',
-		'   for unknowns, verify after writes, and fix recurring_errors from task-start first.',
-		'5. Destructive tools need confirm:true; never work around write gating.',
-		'6. Change ONLY the environment the user named — no parallel local/staging edits unless asked.',
-		'7. Remote Direct work uses that site\'s REST/admin-HTTP only — never local WP-CLI/MySQL for a remote task.',
-		'8. Never scaffold/install ad-hoc plugins as a workaround; registration of new models needs server PHP or existing admin tools.',
-		'9. Automate HTTP-first (REST → APIs → form POST); browser admin clicks are last resort.',
-		'10. Content-model changes are additive — never CPT UI full import that replaces all types.',
-		'11. Direct mode is first-class. Use its typed tools, confirmations, backups, audit, readback,',
-		'    local memory, and local skills; never abandon it just because Plugin mode has a broader surface.',
-		'12. Never store credentials, Application Passwords, API keys, tokens, private customer names,',
-		'    project domains, usernames, raw logs, screenshots, or site IDs in memory, skills, or AGENTS.md.',
-		'    Generalize reusable lessons and keep private runtime state outside public repositories.',
-		'13. Companion updates must preserve ~/.stonewright memory, user skills, audit, and sites.json.',
-		'    Never reset or seed user data during an update; packaged _builtin skills are product assets.',
+		'   Its `mode` and `backend` fields say which mode and which store answered; read the section for that mode below.',
+		'2. Never guess schemas, IDs, or endpoints: read before writing, research official docs',
+		'   for unknowns, verify after writes, and fix the recurring errors task-start reports first.',
+		'3. Never work around write gating; use the confirmation a tool asks for.',
+		'4. Change ONLY the environment the user named — no parallel local/staging edits unless asked.',
+		'5. Never scaffold/install ad-hoc plugins as a workaround; registration of new models needs server PHP or existing admin tools.',
+		'6. Automate HTTP-first (REST → APIs → form POST); browser admin clicks are last resort.',
+		'7. Content-model changes are additive — never CPT UI full import that replaces all types.',
+		'8. Never store credentials, Application Passwords, API keys, tokens, private customer names,',
+		'   project domains, usernames, raw logs, screenshots, or site IDs in memory, skills, or AGENTS.md.',
+		'   Generalize reusable lessons and keep private runtime state outside public repositories.',
+		'9. Companion updates must preserve ~/.stonewright memory, user skills, audit, and sites.json.',
+		'   Never reset or seed user data during an update; packaged _builtin skills are product assets.',
+		'',
+		'## Direct mode only (task-start reports mode: direct)',
+		'',
+		'10. Skills live in `skills/` next to this file. task-start returns matched skill slugs;',
+		'    load a body with `stonewright-skill-get` only when needed — do not preload everything.',
+		'    A skill you save is a disabled candidate; never try to enable one (activation is Plugin mode).',
+		'11. Memory lives in `memory/`. When the user corrects a repeatable mistake,',
+		'    persist it with `stonewright-learning-record` and report its memory_id and scope.',
+		'    When a write that failed is fixed on the same resource, the answer carries a learning_offer: ask the user first.',
+		'12. Destructive tools need a confirmation: repeat the refused call with its `confirmation_id` (`confirm: true` counts on a local site only). Read the result back after a write;',
+		'    a tool keeps a pre-image only when its description says so.',
+		'13. Remote Direct work uses that site\'s REST/admin-HTTP only — never local WP-CLI/MySQL for a remote task.',
+		'14. If task-start says the plugin is active on the site, Direct writes are refused: switch the session to Plugin mode.',
+		'',
+		'## Plugin mode only (task-start reports mode: plugin)',
+		'',
+		'15. Pass the `context_token` that task-start returns to each write ability, and a confirmation token',
+		'    when the site is in production-safe mode.',
+		'16. Use the plugin\'s own skill and memory abilities that your tool list shows; their names differ from Direct\'s.',
 		MARK_END,
 		'',
 	].join('\n');
@@ -74,7 +97,7 @@ export function ensureStonewrightAgentsMd(baseDir?: string, env: NodeJS.ProcessE
 export function pointerSnippet(): string {
 	return [
 		`<!-- ${POINTER_MARKER} -->`,
-		'For any WordPress task: read ~/.stonewright/AGENTS.md and start with the stonewright-task-start MCP tool.',
+		'For any WordPress task: read ~/.stonewright/AGENTS.md (follow the section for the mode task-start reports) and start with the stonewright-task-start MCP tool.',
 		`<!-- /${POINTER_MARKER} -->`,
 	].join('\n');
 }

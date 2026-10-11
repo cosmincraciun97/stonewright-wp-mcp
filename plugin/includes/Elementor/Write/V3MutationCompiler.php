@@ -91,7 +91,7 @@ final class V3MutationCompiler {
 		if ( 'inner-section' === $widget_type ) {
 			return self::error(
 				'inner_section_is_layout',
-				__( 'An inner section is a layout element, not a widget. Add a container with a container parent instead.', 'stonewright' ),
+				__( 'An inner section is a layout element, not a widget. Use the add_inner_section action, or add a container with a container parent.', 'stonewright' ),
 				[ 'status' => 400, 'widget_type' => $widget_type ]
 			);
 		}
@@ -104,6 +104,10 @@ final class V3MutationCompiler {
 				__( 'Mixed Elementor documents require an existing V3-only parent.', 'stonewright' ),
 				[ 'status' => 409, 'architecture' => $architecture ]
 			);
+		}
+
+		if ( '' === $parent_id ) {
+			return ElementorData::widget_at_root_error();
 		}
 
 		$parent_path = [];

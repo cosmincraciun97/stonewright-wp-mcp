@@ -129,7 +129,15 @@ check fails verification.
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
-explicit rather than silently emulated.
+explicit rather than silently emulated. Direct mode writes through core REST
+(and local WP-CLI for Elementor data) with companion-side protections only; it
+has no change sets, no plugin confirmation tokens and no Rescue journal. A
+destructive tool needs a `confirmation_id` bound to the call's arguments (a plain
+`confirm: true` only on a local site). It saves a copy before whole-document
+writes and restores it on request, reads every typed write back, and can check
+the public page after a page, post or template write.
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) lists what
+it does not do yet.
 
 Direct aliases are routing labels, not security identities. Task-start latches,
 terminal idempotency, and incident partitions bind to the resolved canonical
@@ -173,8 +181,9 @@ the last good remote catalog, and either continues with the remote task-start
 call or returns a truthful local gateway result. Plugin-only mode never
 silently enables Direct writes on a transport failure.
 
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+read once after a network error and never retries a write.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more with the new token, a tool call
 included.
 
@@ -210,13 +219,17 @@ Plugin mode exposes typed providers for WPCode, Code Snippets, Customizer CSS,
 and allowlisted theme files. A provider first returns a dry-run receipt and the
 exact approval URL, then stops. Apply and rollback require the matching human
 grant plus their normal permission, concurrency, backup, readback, audit, and
-production confirmation gates. Direct mode cannot write arbitrary custom code:
-without the plugin there is no authenticated wp-admin one-time-grant boundary.
+production confirmation gates. Direct mode refuses custom code: without the
+plugin there is no authenticated wp-admin one-time-grant boundary. It has no
+provider tools, and its global-styles, Elementor data, content, template,
+blueprint, and widget writes refuse CSS, script, and HTML-type markup, and its
+ACF, media, menu, comment, taxonomy-term, settings, user, and Application Password
+writes refuse the same markup and `javascript:` URLs in the text they send.
 
 Generic content create, update, duplicate, bulk create, and bulk upsert reject
 provider-owned executable-code post types before sanitization with
 `stonewright_custom_code_provider_required` and
-`next_ability: stonewright-custom-code-provider-ops`. They never skip KSES to
+`next_ability: stonewright-custom-code-provider`. They never skip KSES to
 preserve PHP. WPCode active PHP uses the provider's public `save()` path, lints
 candidate and assembled runtime when that contract is available, rebuilds the
 provider cache, and rolls back on verification failure. Inactive drafts must
@@ -247,9 +260,10 @@ WordPress keeps its data as well, so a reinstall or a rollback finds OAuth
 grants and keys, memory, skills, audit history, and settings as they were. Only
 defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
 every plugin table, every `stonewright_` option (the OAuth keys included),
-every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up
-and audit retention events, on every site of a network, and the change journal
-files in `uploads/stonewright-state/`. See
+every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up,
+audit retention and change history retention events, on every site of a network,
+and the change journal files and change history blobs in
+`uploads/stonewright-state/`. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 The rescue helper in `wp-content/mu-plugins/` is code, not data, and deleting the
 plugin always removes it.
@@ -270,7 +284,7 @@ Repair validation returns a generation, update-time, and occurrence token.
 Resolution and learning each compare that token atomically; a failure recorded
 after validation wins and stale evidence cannot close or teach from the incident.
 
-Direct mode mirrors the lifecycle in a private file namespaced by the site
+Direct mode stores incidents in a private file namespaced by the site
 binding fingerprint. Terminal idempotency is site-bound, and its bounded marker
 index is compacted under the audit interprocess lock. Malformed locks are
 recovered only after bounded age and lease checks. Host, boot, and real
@@ -278,7 +292,8 @@ process-start identity are validated where the platform exposes them, so a
 live decoy or reused PID cannot hold the store indefinitely. It stores bounded classifications and hashes, writes by atomic
 replacement, and never copies runtime state into the companion package.
 When Direct audit lacks independent resource/change-set proof, the recorder
-returns guidance only and does not resolve or learn. See
+returns guidance only and does not resolve or learn. No Direct tool writes that
+proof today, so Direct incidents are not closed by a verified repair. See
 [Verified learning](verified-learning.md).
 
 ## WordPress Writes
@@ -286,10 +301,14 @@ returns guidance only and does not resolve or learn. See
 The plugin owns direct PHP runtime execution, permission checks,
 production-safe confirmation tokens, backups, validation, and audit logging.
 The companion can write by running tokenized WP-CLI commands requested by the
-plugin or MCP client.
+plugin or MCP client. In Plugin mode it does not call WordPress REST write
+endpoints. In Direct mode, where there is no plugin, it writes through core REST
+with the companion-side protections listed in
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects). It does so only
+for the session's site, and not on a site where the Stonewright plugin is active.
 
 Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
-**full-profile** tool, not part of bootstrap or essential. WP-CLI execution is
+**full-profile** tool; no other profile lists it. WP-CLI execution is
 tokenized and runs through `execFile`; WP-CLI PHP and shell entry points are
 blocked. Runtime `$wpdb` writes to core tables, concatenated protected meta
 keys, and Elementor document meta are intercepted. The install-time guard is a
@@ -308,8 +327,9 @@ Risky writes run inside a frame. `AbilityKernel` opens a `RescueGuard` frame aro
 4. A failed check turns the result into a `WP_Error` (`stonewright_rescue_write_rolled_back` or `stonewright_rescue_rollback_failed`) whose message and data carry the compact evidence, because a client that only reads the message must still see it.
 5. `ChangeJournal` keeps two copies in step under one critical section: a compact file in `uploads/stonewright-state/` that the rescue MU-plugin and WP-CLI read without the plugin, and a database option with the detail the file never holds. `AgentNotices` carries the open incident to agents as `pending_incident` on every ability response, and `AbilityRegistry` adds the two Rescue abilities to the tool list while one is open.
 6. A verified change can be undone later, from the Rescue page or with `stonewright/rescue-rollback`, for any of the last 50 changes the journal keeps. The undo saves the current state first and probes the site before and after. When the undo makes a site that worked fail to load, the saved state is put back, the change stays verified with the note `undo_reverted`, and the call answers `stonewright_rescue_undo_reverted`. When the current state cannot be saved, the undo is refused with `stonewright_rescue_undo_capture_failed` before anything changes. A verified change to a theme file, custom code, a sandbox file, or the Customizer CSS is undone only from the Rescue page, by an administrator: the ability answers `stonewright_rescue_approval_required` with the approval URL and stops.
+7. The change history is a second, longer record. Ability writes record the content before and after each change in the `stonewright_changes` table, with the content kept as hashed blobs in `uploads/stonewright-state/`, and the journal states are mirrored into it. **Stonewright > Activity > Changes** lists the history and shows a diff, and Undo and Redo restore a recorded change through the path of the original write, probe the site, and write a rollback or redo row. `ChangeRollback` is the one engine behind the page, `stonewright/change-rollback` and `wp stonewright changes rollback`; it writes one audit row per call, and an open Rescue entry is rolled back through the Rescue path. Code is undone only by an administrator at the page.
 
-See [Rescue](rescue.md) for the journal format, the probe, and the limits.
+See [Rescue](rescue.md) for the journal format, the probe, the change history, and the limits.
 
 ### Audit error codes
 
@@ -385,7 +405,8 @@ visible client tool surface/private config and permission to install or
 configure a missing provider are separate decisions. Browser automation may
 verify rendered output or perform an explicitly approved dashboard interaction;
 it does not replace custom-code dry-run/approval, backup, permission, audit, or
-confirmation-token gates in Plugin or Direct mode.
+confirmation-token gates (Direct mode has no plugin confirmation tokens; its
+destructive tools use a `confirmation_id` bound to the call).
 
 ### Elementor write closure
 
@@ -425,13 +446,21 @@ exact input, output, and description fingerprints for the observed Elementor
 version, the registered runtime class, an official owner, the annotations, and
 the runtime operation limit. For `manage-default-styles` the contract also
 names probes for the update/delete and tag semantics, raw CSS responsive and
-pseudo-state behavior, and patch/replace/null behavior. `elementor/manage-elements`
-and `elementor/build-composition` are `unsupported` with machine-readable reasons
-(`upstream_global_clear_cache`, `staged_in_autosave`). Any mismatch rejects the
-ability and lists each exact reason; an Elementor version outside the verified
-range is a mismatch. Discovery never routes a write: permission, mode,
-confirmation token, backup, validation, write lock, readback, frontend
-verification, rollback, and audit gates must all exist first.
+pseudo-state behavior, and patch/replace/null behavior. `elementor/build-composition`
+is certifiable too, and its contract allows a native write (a change to a published
+page lands in an autosave and is reported as `staged_in_autosave`);
+`elementor/manage-elements` is `unsupported` with machine-readable reasons
+(`upstream_global_clear_cache`, `staged_in_autosave`), and `manage-classes` and
+`manage-global-variable` are certified with the native write refused. Any mismatch
+rejects the ability and lists each exact reason; an Elementor version outside the
+verified range (4.3.0 to 4.3.*) is a mismatch, reported as
+`elementor_version_out_of_range` with the observed version and the certified range
+in `native_elementor.version_issue` and `native_elementor.guidance`. Discovery
+never runs a write; it reports which certified abilities are routable
+(`routable_writes`, `writes_enabled`). A write runs only through
+`stonewright/elementor-native-execute`, where permission, mode, confirmation
+token, backup, validation, write lock, readback, frontend verification, rollback,
+and audit gates all apply.
 
 The router also reports `native_elementor`: the Elementor version, the
 requirements of Elementor's MCP module (WordPress Abilities API, WordPress MCP
@@ -439,9 +468,15 @@ Adapter, Elementor's MCP Composer, the site switch, and the Atomic Editor), the
 registered `elementor/*` abilities, their ownership and schema fingerprints, and
 the certification result per contract. `stonewright/site-capabilities` and
 `stonewright/elementor-v3-status` return the full block, and
-`stonewright-task-start` returns only its `state`. Reading it calls no Elementor
-ability. Elementor's own MCP server can stay connected next to Stonewright;
-Stonewright does not disable or replace it. See
+`stonewright-task-start` returns its `state` and one short hint (`native_hint`).
+Reading it calls no Elementor ability. Connect only Stonewright to the AI client
+([Elementor MCP](elementor-mcp.md)): a write made through Elementor's own server
+skips the tool's closure, so an
+observer on core's `wp_before_execute_ability` and `wp_after_execute_ability`
+snapshots the affected post or kit before the call and records a change-history
+row and an audit row (`observed_native`) after it. It never blocks or changes the
+call, and a call made through `stonewright/elementor-native-execute` is recorded
+once, by that tool. See
 [Elementor V4 engine](elementor-v4-engine.md#native-elementor-abilities).
 
 `NativeElementorProvider` executes a certified ability in-process, but only for
@@ -449,7 +484,10 @@ a contract that allows a native write and only through
 `stonewright/elementor-native-execute`. `NativeRoute` decides the route: the
 ability must be certified for the live Elementor version, and the document is
 routed per subtree (V3 subtrees to the Stonewright V3 writers, Atomic subtrees
-native, never a conversion). The closure is permission, mode and token gates,
+native, never a conversion). The tool is available when the native state is
+`available` and an ability is certified; it does not use the experimental V4 flag.
+Reads and dry-run plans work in every mode, and a write needs a confirmation token
+in `production-safe` mode like the other writers. The closure is permission, mode and token gates,
 Atomic type exposure, `Backup::snapshot_post()` of the page or kit, the per-post
 write lock, the Elementor ability, an independent readback compared recursively
 by `AtomicReadbackVerifier`, rollback on any mismatch, post-scoped CSS only
@@ -473,6 +511,14 @@ types including nullability and unions, constants, and versions are checked
 before invocation. Stonewright registers `mcp_adapter_init` early and boots
 `McpAdapter::instance()` on `plugins_loaded` 99 so another plugin can load a
 supported adapter first; it does not call `init()` a second time.
+When another plugin's copy of the adapter is the one loaded, the preflight judges it by the
+server API Stonewright calls: version 0.5.0 or newer, the `instance()` and 13-argument
+`create_server()` signatures, and the server, transport and handler classes the adapter builds a
+server from (the `McpServer` constructor included). Such a copy is used without a Jetpack manifest
+and is reported as `foreign_adapter`, and a mixed family (the adapter class from one copy, the rest
+from another) is reported as a warning. A copy that fails the check leaves the route unregistered:
+the owner and version are shown in an admin notice, on Troubleshoot, in `site-capabilities` and
+`task-start`, and both MCP routes answer HTTP 503 with the same explanation.
 The same preflight runs again inside the actual `mcp_adapter_init` server
 registration callback. Its target is the exact runtime adapter object's class;
 the Ability and Registry targets remain the canonical runtime classes. Filters
@@ -527,7 +573,15 @@ is refused before any write. A page whose anonymous request is redirected to a
 login page or to another page that is not the CSS can still have verified
 generation with `delivery_status: blocked`; the ability then answers `ok: true`
 with a warning, because the file is written and the version changed. That is
-not CSS health from a login or home page HTML body.
+not CSS health from a login or home page HTML body. After a regeneration that
+wrote the file, did not roll back and moved the version, `PageCachePurger` calls
+the post-scoped purge of the page cache plugins that are present (LiteSpeed
+Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest Cache, SiteGround
+Optimizer, the Cloudflare plugin, then core's `clean_post_cache`) and the answer
+reports them in `cache_purge`. The `stonewright_css_regenerate_purge` filter
+turns it off or adds a site purger, and a purger that fails becomes a warning,
+never a failed write. See
+[Elementor write verification](elementor-write-verification.md#page-cache-purge).
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-observation
 ability. It calls `get_builder_content_for_display( $post_id, false )` so the
@@ -552,7 +606,7 @@ Section reuse copies a section from a saved page into the page being built. It i
 3. **Extract.** `PortableSection` builds `SectionPortableV1`: the section in its own format with element ids (and V4 local style ids) replaced by placeholders, Gutenberg anchors listed, and `references` reported by `SectionInspector` and resolved by `ReferenceCatalog` (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, nested templates, global widgets, third-party widgets). A synced pattern stays a `core/block` reference. For Gutenberg, `LegacyBlockAttributes` first moves the `textAlign` attribute of the blocks whose core deprecations move it to `style.typography.textAlign` (only where the site registers the block with that support and no `textAlign` attribute), so a section saved by an older WordPress is not refused by the strict attribute check of the insert, and reports it as a `legacy_attributes` warning; `SourceWarnings` adds `draft_source`, `pending_source`, `scheduled_source`, `private_source` and `password_protected_source` when the source is not public. A locator that matches nothing answers `stonewright_section_not_found`, `stonewright_section_not_copyable` (the element exists and is not a copy root) or `stonewright_no_elementor_document`, each with a `reason`; `SectionSource::resolve()` tells them apart.
 4. **Insert.** An `insert_section` operation of `elementor-v3-batch-mutate`, `elementor-v4-update-node` (`operations`), or `blocks-batch-mutate` validates the payload (shape and size only; it is untrusted), and `ElementorSectionInserter` or `GutenbergSectionInserter` builds the copy: fresh unique element ids, V4 local style ids that name their new element with every class list rewritten, existing global references kept and a missing one reported as the exact reference, dynamic tags kept and flagged, widget types never changed, settings never stripped (an Elementor V3 caller can approve removing exactly the settings the live schema rejects with `drop_settings`), duplicate Gutenberg anchors renamed with their `#links`, synced patterns kept as references unless `detach_patterns` (`true`, `false`, or a list of pattern ids) asks for a local copy, which gets the same legacy attribute move. The copy and the adaptations are applied to the document in memory, so one dry run and one apply cover them: one snapshot, one write lock, one write, the batch's readback (a recursive nested comparison for V4), post-scoped CSS only through `elementor-css-regenerate`, a ChangeSetV1 whose `reuse_source` names the source post and section locator, and the audit row. The custom CSS gate, the HTML widget policy, and the raw HTML gate see the copied content as they see content written by hand.
 
-A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. An `elementor-v3-batch-mutate` insert needs a confirmation token in `production-safe` like every write of that ability that is not a dry run; a `blocks-batch-mutate` insert needs one only when the same batch removes a block.
+A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. An `elementor-v3-batch-mutate` insert needs a confirmation token in `production-safe` like every write of that ability that is not a dry run; a `blocks-batch-mutate` insert needs one as well, because every write of that ability that is not a dry run does.
 
 What an Elementor copy is checked for, in the dry run as in the apply: a V3 section holding a setting the live Elementor schema does not list is refused with the exact setting, because the document write refuses an unknown setting on a new element and Stonewright never strips one on its own. `ElementorSectionInserter` checks each new element the way the write does, takes a rejected setting out of a working copy and checks again until nothing is rejected, so one refusal names every rejected setting (up to 25 in `violations`, five in the message) and the list that `drop_settings_proposal` offers is complete; the same pass reports CSS classes the site has not approved and custom CSS that needs a grant, by key. The `drop_settings` option of the operation is applied only when it equals that list: the copy is then made without exactly those settings and reports them as removed (`removed_settings`, the `settings_removed` warning, the write receipt and the audit row); a list that differs is refused with `stonewright_section_drop_settings_mismatch` and nothing is removed. The custom code gate of the batch does not read a setting the operation lists, and still refuses every other one. A stored select or choose value the live control no longer lists but still maps through its `selectors_dictionary` (a heading `align` of `left`) is accepted and kept as stored; any other unlisted value is refused naming the setting. A widget that Elementor registers as a placeholder because its plugin is not active (`WidgetAvailability::registration()` reads the live registry) is refused with `stonewright_section_placeholder_widget`, and a widget that is not registered with `stonewright_section_widget_unregistered`, with or without settings. CSS classes that are not in `stonewright_approved_css_classes`, custom CSS, and HTML widgets are refused as they are for a hand-written write, and `section-reuse-extract` warns about each (`ElementorInsertWarnings`) so the dead end shows before the question is asked. An id attribute the copy shares with the page or with another copy (`_element_id` in V3, `_cssid` in V4) is renamed `name-2`, `name-3` with the `#name` links of the copy and an `anchors_renamed` warning. A batch with a duplicate `op_id` is refused in the three batch writers, and the `insert_section` operations of one Elementor batch may add no more elements than the element cap of one write (`stonewright_section_batch_too_large`). V4 text (the title, paragraph and button text of the Atomic widgets) is written with the text prop type the live widget declares in its props schema; the bundled `html-v3` map applies only without a live schema, and the readback refuses text the live widget would render empty.
 
@@ -774,15 +828,15 @@ the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
-| `stonewright/design-direction-list` | Read | `Permissions::read()` |
-| `stonewright/design-direction-get` | Read | `Permissions::read()` |
-| `stonewright/design-direction-brief` | Read | `Permissions::read()`, context token (list and get need none) |
+| `stonewright/design-direction-list` | Read | `can_view_design()` |
+| `stonewright/design-direction-get` | Read | `can_view_design()` |
+| `stonewright/design-direction-brief` | Read | `can_view_design()`, context token (list and get need none) |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
 | `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
-| `stonewright/design-direction-sync-plan` | Read | `can_manage_design()`, context token |
-| `stonewright/design-direction-sync-apply` | Write | `can_manage_design()`, context token, confirmation token, `Backup::snapshot_post()` |
+| `stonewright/design-direction-sync-plan` | Read | `can_manage_design()` and `edit_post()` on the kit, context token |
+| `stonewright/design-direction-sync-apply` | Write | `can_manage_design()` and `edit_post()` on the kit, context token, confirmation token, `Backup::snapshot_post()` |
 | `stonewright/design-quality-check` | Read, or Write with `persist` | `can_view_design()`; `can_manage_design()` to persist, context token, `QualityEvidenceValidator` |
 | `stonewright/design-checkpoint-record` | Read | `can_manage_design()` and `edit_post()`, context token, live section and direction must both resolve |
 
@@ -1073,12 +1127,14 @@ Profile and surface switching is transport-specific. Agents should treat
   token; the hint never blocks discovery tools.
 - **Bootstrap surface** includes confirmation token, content/Elementor reads,
   and `theme-file-read` — not only four startup tools. `php-execute` is
-  **full-profile only**; expand with `stonewright-tool-profile` `full` when a
-  snippet is required.
+  **full-profile only**; an administrator chooses the Full surface in wp-admin
+  (`stonewright-tool-profile` refuses `full` with `approval_required`).
 - **`discover-execute`**: opt-in profile with `discover-abilities`,
   `get-ability-info`, and `execute-ability`. Auto routing never selects it.
   `execute-ability` uses the same permission, confirmation, backup, and audit
-  gates as a direct MCP call and does not bypass php-execute read-only guards.
+  gates as a direct MCP call, validates the arguments against the target's
+  input schema, and runs an ability that runs or writes code (php-execute, the
+  sandbox writers, the WP-CLI runners) only when the current profile lists it.
 - **`inspect`**: opt-in read-only profile: the startup set plus discovery,
   read, and verify tools, within the 30-tool essential cap. It carries no `php-execute`,
   `execute-ability`, blueprint, direction-write, or other write tool, and auto

@@ -5,11 +5,15 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\ElementorTreeCodeGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -48,6 +52,15 @@ final class BuildTree extends AbilityKernel {
 					'description' => 'Elementor elements array (top-level sections/containers).',
 				],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+				'allow_html_widget'  => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Explicit approval for HTML widgets in the tree. Ignored unless the site allows HTML widgets in Stonewright settings.',
+				],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in the tree, bound to the exact candidate code.',
+				],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
 		];
@@ -83,15 +96,18 @@ final class BuildTree extends AbilityKernel {
 				$tree    = isset( $args['tree'] ) && is_array( $args['tree'] ) ? $args['tree'] : null;
 				$dry_run = ! empty( $args['dry_run'] );
 
-				$token_error = $this->confirmation_token_error(
-					$args,
-					[
-						'post_id' => $post_id,
-						'dry_run' => $dry_run,
-					]
-				);
-				if ( null !== $token_error ) {
-					return $token_error;
+				// A dry run writes nothing, so it needs no token. The token of a write is bound to every argument of the call,
+				// the tree included, so it authorises that tree and no other.
+				if ( ! $dry_run ) {
+					$verify_args = array_filter(
+						$args,
+						static fn( string $key ): bool => 'confirmation_token' !== $key,
+						ARRAY_FILTER_USE_KEY
+					);
+					$token_error = $this->confirmation_token_error( $args, $verify_args );
+					if ( null !== $token_error ) {
+						return $token_error;
+					}
 				}
 
 				if ( ! get_post( $post_id ) ) {
@@ -114,9 +130,30 @@ final class BuildTree extends AbilityKernel {
 					);
 				}
 
+				$stored       = ElementorData::read( $post_id );
+				$architecture = (string) ( AtomicTreeInspector::inspect( $stored )['architecture'] ?? 'empty' );
+				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
+					return $this->error(
+						'v3_architecture_mismatch',
+						__( 'This document contains Elementor V4 Atomic nodes. A V3 tree is not written over it.', 'stonewright' ),
+						[
+							'status'       => 409,
+							'architecture' => $architecture,
+							'before_hash'  => TreeHasher::hash( $stored ),
+							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+						]
+					);
+				}
+
+				// HTML widgets and custom code are gated over the whole tree, as add-widget and batch-mutate gate each operation.
+				$code_gate = ElementorTreeCodeGate::assert_tree( $normalized, $args, $dry_run );
+				if ( $code_gate instanceof \WP_Error ) {
+					return $code_gate;
+				}
+
 				if ( $dry_run ) {
 					// The same checks the write runs against the stored document, so the dry run reports what the apply would.
-					$preflight = ElementorData::preflight( ElementorData::read( $post_id ), $normalized, [ 'force_destructive' => true ] );
+					$preflight = ElementorData::preflight( $stored, $normalized, [ 'force_destructive' => true ] );
 					if ( $preflight instanceof \WP_Error ) {
 						return $preflight;
 					}
@@ -226,20 +263,17 @@ final class BuildTree extends AbilityKernel {
 				if ( '' === $widget_type ) {
 					return $this->path_error( array_merge( $here, [ 'widgetType' ] ), 'missing_widgetType', 'widgetType is required for widgets.' );
 				}
-				// Soft validate when schema available; unknown widgets still allowed with warning path.
+				// A widget the live runtime does not register has no schema to validate against, and the write refuses it too, so
+				// it is reported here with its path like any other invalid widget.
 				$validated = SettingsValidator::validate( $widget_type, $settings, false, false );
 				if ( is_wp_error( $validated ) ) {
-					// Schema missing is non-fatal in composite builds; structural write still proceeds.
-					$code = $validated->get_error_code();
-					if ( 'unknown_widget' !== $code && 'schema_unavailable' !== $code ) {
-						$data = $validated->get_error_data();
-						$path_hint = is_array( $data ) && isset( $data['path'] ) ? (string) $data['path'] : 'settings';
-						return $this->path_error(
-							array_merge( $here, [ $path_hint ] ),
-							(string) $code,
-							$validated->get_error_message()
-						);
-					}
+					$data      = $validated->get_error_data();
+					$path_hint = is_array( $data ) && isset( $data['path'] ) ? (string) $data['path'] : 'settings';
+					return $this->path_error(
+						array_merge( $here, [ $path_hint ] ),
+						(string) $validated->get_error_code(),
+						$validated->get_error_message()
+					);
 				} elseif ( is_array( $validated ) && isset( $validated['settings'] ) && is_array( $validated['settings'] ) ) {
 					$settings = $validated['settings'];
 				}

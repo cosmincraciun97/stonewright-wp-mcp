@@ -4,6 +4,7 @@ The Stonewright Design Spec is a renderer-agnostic JSON format that describes a 
 
 Schema location: `plugin/schemas/stonewright.schema.json`
 Schema ID: `https://stonewright.dev/schemas/design-spec/1.0.0.json`
+Version 2.0.0 schema: `plugin/schemas/stonewright.schema.v2.json`, ID `https://stonewright.dev/schemas/design-spec/2.0.0.json`
 JSON Schema draft: 2020-12
 
 ---
@@ -25,7 +26,7 @@ JSON Schema draft: 2020-12
 
 | Field | Type | Description |
 |---|---|---|
-| `version` | `"1.0.0"` | Must be the literal string `"1.0.0"`. |
+| `version` | `"1.0.0"` or `"2.0.0"` | The literal string of a supported version. See [Spec versions](#spec-versions). |
 | `sections` | array | One or more section objects. |
 
 ### Optional top-level fields
@@ -252,6 +253,31 @@ Responsive two-column layouts use one map instead of separate rewrites:
 Elementor Pro widget names in the offline catalog are documentation only. CTA,
 carousel, and button-icon rendering consults the live runtime schema and emits a
 structured diagnostic when the widget or required control is unavailable.
+
+---
+
+## Spec versions
+
+The validator accepts two versions: `1.0.0` and `2.0.0`. It picks the schema from the `version` string.
+
+| `version` | What the validator does |
+|---|---|
+| `1.0.0`, missing, or a string that does not start with `1.` or `2.` | Normalizes it to `1.0.0` and validates against the 1.0.0 schema. |
+| `2.0.0` | Validates against the 2.0.0 schema. |
+| Any other string that starts with `1.` or `2.`, such as `1.2.0` or `2.1.0` | Rejected with `stonewright_spec_invalid`: the schema allows only the literal `1.0.0` or `2.0.0`. |
+
+A 2.0.0 spec has the same page model as 1.0.0. It adds:
+
+- Top-level `content_facts`, `design_system`, `page_intent`, `native_policy`, `verification_policy`, and `motion_policy`. The 1.0.0 schema allows no top-level keys beyond the ones above, so a 1.0.0 spec that carries any of these is rejected.
+- On every section and block, a `motion` list of up to 24 items. On a block, `custom_css` and `native_gap` (an object with a required `reason`, and optional `scoped_selectors` and `attempted_native_controls`).
+- The block types `query`, `navigation`, `html`, `html-widget`, `custom-html`, and `raw-html`.
+
+On top of the schema, the validator enforces these rules on a spec that declares the keys involved:
+
+- **Native policy.** With a `native_policy` object, HTML block types are rejected unless `block_html_widgets` is `false`, and a block with `custom_css` needs a `native_gap.reason` unless `require_native_gap_for_custom_css` is `false`. With `"strict": true`, both rules apply and heading levels may not jump down by more than one level (an h1 followed by an h3 is rejected). `enforce_heading_hierarchy` turns on the heading rule alone. A spec with a missing or empty `native_policy` is not checked for any of this.
+- **Motion.** Every `motion` item needs a unique `id`, an `effect` that is in the motion preset registry, and a `target_id` that resolves to exactly one spec ID within its scope. A looping item may not be decorative and needs a `control_target_id` and `control_label` that resolve to a control in the spec. `stagger-reveal` needs a `stagger` configuration, and a hover motion needs a focus-visible motion with the same effect on the same target.
+
+The rest of the rules (the `stonewright_spec_invalid` error, the error entries, and normalization) are the same for both versions.
 
 ---
 

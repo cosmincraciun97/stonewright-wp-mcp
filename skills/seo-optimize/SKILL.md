@@ -34,9 +34,9 @@ If `active` is false, stop. There is no typed core-sitemap meta writer.
 | `stonewright-seo-meta-update` | `stonewright/seo-meta-update` | Patch title / description / focus_keyword / canonical / noindex |
 
 `stonewright-seo-meta-update` snapshots the post, then writes the adapter
-meta keys. Pass only fields you are changing. Production-safe still uses
-the usual post-edit permission; this ability is not confirmation-token
-gated in code.
+meta keys. Pass only fields you are changing. It needs the usual per-post
+edit permission, and in production-safe mode a `confirmation_token` issued for
+the exact call with `stonewright-security-issue-confirmation-token`.
 
 Related: `stonewright-settings-get` / `stonewright-settings-update` for
 allowlisted **WordPress** options only. `stonewright-content-get-page` to
@@ -54,12 +54,22 @@ Normalized fields always are: `title`, `description`, `focus_keyword`,
 | `aioseo` | `_aioseo_title` | `_aioseo_description` | `_aioseo_keywords` | `_aioseo_canonical_url` | `_aioseo_noindex` |
 | `seopress` | `_seopress_titles_title` | `_seopress_titles_desc` | `_seopress_analysis_target_kw` | `_seopress_robots_canonical` | `_seopress_robots_index` |
 
-`noindex` readback is true when the raw meta is `1` / `true` / `noindex` /
-`on`, or when an unserialized array contains `noindex`. Update writes
-`'1'` or `'0'` into that key. Rank Math normally stores an array in
-`rank_math_robots`; the adapter still writes the scalar. After update,
-read `stonewright-seo-meta-get`. If the plugin UI disagrees, stop and
-report the adapter limit — do not invent a robots-array writer.
+`noindex` is written in the shape each plugin uses. Yoast: `'1'` for noindex,
+`'0'` to follow the site default. Rank Math: the `rank_math_robots` array,
+where only `index` / `noindex` is swapped and the other values (`nofollow`,
+`noarchive`) stay. SEOPress: `'yes'` for noindex, and the key is deleted
+otherwise. After update, read `stonewright-seo-meta-get`; when the value does
+not read back as requested the call fails with
+`stonewright_seo_noindex_not_applied`. If the plugin UI still disagrees, stop and
+report the adapter limit.
+
+All in One SEO v4 keeps its data in its own table, so the `_aioseo_*` keys above
+are only the legacy fallback for a read. Update goes through the AIOSEO post
+model. When that model is not available the update is refused with
+`stonewright_seo_write_unsupported` and nothing is written, and
+`stonewright-seo-meta-get` reports `write_supported: false` and `noindex: null`.
+`focus_keyword` cannot be written on AIOSEO (it stores structured keyphrases);
+`stonewright_seo_write_unsupported` says so. Use the AIOSEO screens for those.
 
 Do not guess other keys (`_yoast_wpseo_metakeywords`, Open Graph, Twitter,
 schema graphs). They are not in this adapter.
@@ -87,7 +97,8 @@ Site identity that SEO plugins often inherit (`blogname`,
 `default_comment_status`, `default_ping_status`, `users_can_register`,
 `default_role`, `show_on_front`, `page_on_front`, `page_for_posts`.
 
-`siteurl` / `home` are blocked. Unknown keys are skipped, not stored.
+`siteurl` / `home` are blocked, and `default_role` refuses `administrator` and any
+role with administrative capabilities. Unknown keys are skipped, not stored.
 
 ## Honest limits — no typed AIOSEO schema writes
 

@@ -5,10 +5,14 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\FullProfileOnlyAbilities;
+use Stonewright\WpMcp\Elementor\Provider\NativeAvailability;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\FullSurfaceGuard;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Compact MCP tool profiles for low-token, tool-cap aware clients.
@@ -134,7 +138,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design.', 'stonewright' );
+		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design. The full profile (php-execute and the other abilities that run or write code) is never switched on through this ability: an administrator chooses the Full surface in wp-admin under Stonewright > Setup > Settings, and a request for full is refused with approval_required and agent_must_stop.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -171,7 +175,7 @@ final class ToolProfile extends AbilityKernel {
 					'type'        => 'string',
 					'default'     => 'auto',
 					'enum'        => self::profile_names(),
-					'description' => 'Tool profile to return. Use auto for task-aware routing. inspect lists read-only discovery, read, and verify tools; auto never selects it.',
+					'description' => 'Tool profile to return. Use auto for task-aware routing. inspect lists read-only discovery, read, and verify tools; auto never selects it. full is chosen by an administrator in wp-admin (Stonewright > Setup > Settings > MCP tool surface), never through this ability: activate with full is refused unless the site already uses the Full surface; resolve can still describe it.',
 				],
 				'task'      => [
 					'type'        => 'string',
@@ -199,7 +203,7 @@ final class ToolProfile extends AbilityKernel {
 					'type'        => 'array',
 					'items'       => [ 'type' => 'string' ],
 					'default'     => [],
-					'description' => 'Extra stonewright/* ability names to pin into the essential surface for this site.',
+					'description' => 'Extra stonewright/* ability names to pin into the essential surface for this site. Abilities that run or write code (php-execute, the sandbox writers, the WP-CLI runners, custom-code-provider) are refused; they come only from the profile that lists them.',
 				],
 			],
 		];
@@ -393,7 +397,7 @@ final class ToolProfile extends AbilityKernel {
 				'discovery_policy'      => self::discovery_policy(),
 				'profiles_available'    => self::profile_names(),
 				'workflow_rules'        => self::workflow_rules( $profile ),
-				'token_rules'           => self::token_rules(),
+				'token_rules'           => self::token_rules( $profile ),
 				'ordered'              => true,
 				'source'               => 'plugin',
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
@@ -409,24 +413,44 @@ final class ToolProfile extends AbilityKernel {
 			];
 		}
 
+		// The full profile lists php-execute and the other abilities that run or write code. Only an administrator
+		// in wp-admin chooses it; no mode, token or caller changes that here. A site whose administrator already
+		// chose the Full surface has nothing to switch, so the call goes on.
+		if ( 'full' === $profile && 'full' !== AbilityRegistry::mcp_surface() ) {
+			return self::full_requires_admin_error();
+		}
+
 		$token_error = $this->require_production_safe_token( $args );
 		if ( $token_error instanceof \WP_Error ) {
 			return $token_error;
 		}
 
-		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
-		if ( $extras_result instanceof \WP_Error ) {
-			return $extras_result;
-		}
+		// The options this writes are recorded in the change ledger; the call has no audit frame of its own.
+		$extras_result = [];
+		$tools_changed = false;
+		$write_error   = RescueGuard::within(
+			$this->name(),
+			$args,
+			function () use ( $args, $profile, &$extras_result, &$tools_changed ): ?\WP_Error {
+				$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
+				if ( $extras_result instanceof \WP_Error ) {
+					return $extras_result;
+				}
 
-		$tools_changed = (bool) ( $extras_result['changed'] ?? false )
-			|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
-		if ( $tools_changed ) {
-			update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
-			update_option( 'stonewright_last_tool_profile', $profile, false );
-			// Progressive discovery: activating a non-bootstrap profile must expand
-			// the public tools/list surface so recommended tools become visible.
-			self::expand_mcp_surface_for_profile( $profile );
+				$tools_changed = (bool) ( $extras_result['changed'] ?? false )
+					|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
+				if ( $tools_changed ) {
+					update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
+					update_option( 'stonewright_last_tool_profile', $profile, false );
+					// Progressive discovery: activating a non-bootstrap profile must expand
+					// the public tools/list surface so recommended tools become visible.
+					self::expand_mcp_surface_for_profile( $profile );
+				}
+				return null;
+			}
+		);
+		if ( $write_error instanceof \WP_Error ) {
+			return $write_error;
 		}
 
 		// Activation must change what this session can call. The option surface
@@ -513,7 +537,7 @@ final class ToolProfile extends AbilityKernel {
 			'recovery_hints'        => self::recovery_hints( $missing_names ),
 			'discovery_policy'      => self::discovery_policy(),
 			'workflow_rules'        => self::workflow_rules( $profile ),
-			'token_rules'           => self::token_rules(),
+			'token_rules'           => self::token_rules( $profile ),
 			'counts'                => [
 				'all_registered' => count( AbilityRegistry::list() ),
 				'visible'        => count( $all_visible ),
@@ -529,13 +553,23 @@ final class ToolProfile extends AbilityKernel {
 			// Always emit a re-list instruction on activate so stdio companions that
 			// missed tools_changed still expand (Grok / Cursor cache quirks).
 			're_list_instruction'   => $tools_changed
-				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing. If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.'
+				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing. If a tool is still missing after re-list, restart the MCP client — do not call /abilities/run.'
 				: ( 'activate' === (string) ( $args['action'] ?? 'activate' )
 					? 'Re-list tools now (tools/list) to confirm the active profile surface matches the server.'
 					: '' ),
 			'source'                => 'plugin',
 			'ordered'               => true,
 		];
+	}
+
+	/**
+	 * The refusal of an activation of the full profile: it carries the wp-admin address where an administrator chooses it.
+	 */
+	private static function full_requires_admin_error(): \WP_Error {
+		return FullSurfaceGuard::refusal(
+			'stonewright_tool_profile_full_requires_admin',
+			__( 'The full profile (php-execute and the other abilities that run or write code) can only be chosen by an administrator in wp-admin, under Stonewright > Setup > Settings > MCP tool surface. Show the user the settings link and stop. Do not retry, and do not look for another way to switch the profile.', 'stonewright' )
+		);
 	}
 
 	/**
@@ -608,6 +642,17 @@ final class ToolProfile extends AbilityKernel {
 						$name
 					),
 					[ 'status' => 400, 'ability' => $name ]
+				);
+			}
+			if ( FullProfileOnlyAbilities::is_restricted( $name ) ) {
+				return new \WP_Error(
+					'stonewright_tool_profile_extras_restricted',
+					sprintf(
+						/* translators: %s: ability name */
+						__( 'Extra ability "%s" runs or writes code and cannot be added through extras. Use the profile that lists it (full for php-execute).', 'stonewright' ),
+						$name
+					),
+					[ 'status' => 403, 'ability' => $name ]
 				);
 			}
 			if ( ! isset( $registered[ $name ] ) ) {
@@ -804,8 +849,17 @@ final class ToolProfile extends AbilityKernel {
 			'content-model' => [
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/content-model-loop-grid-flow',
+				'stonewright/content-create-post',
+				'stonewright/content-update-post',
+				'stonewright/content-bulk-create',
+				'stonewright/content-duplicate-page',
 				'stonewright/media-list',
+				'stonewright/media-get',
+				'stonewright/media-set-alt',
+				'stonewright/media-optimize',
 				'stonewright/media-upload-batch',
+				'stonewright/seo-meta-get',
+				'stonewright/seo-meta-update',
 				'stonewright/site-capabilities',
 				'stonewright/site-plugins-list',
 				'stonewright/system-abilities-list',
@@ -816,23 +870,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
-				'stonewright/wc-status',
-				'stonewright/wc-product-list',
-				'stonewright/wc-product-get',
-				'stonewright/wc-product-save',
-				'stonewright/wc-product-delete',
-				'stonewright/wc-variation-list',
-				'stonewright/wc-variation-save',
-				'stonewright/wc-variation-delete',
-				'stonewright/wc-term-list',
-				'stonewright/wc-term-save',
-				'stonewright/wc-term-delete',
-				'stonewright/wc-attribute-list',
-				'stonewright/wc-attribute-save',
-				'stonewright/wc-attribute-delete',
-				'stonewright/wc-catalog-audit',
-				'stonewright/wc-order-list',
-				'stonewright/wc-sales-report',
 				'stonewright/acf-field-group-list',
 				'stonewright/acf-field-group-get',
 				'stonewright/acf-field-group-save',
@@ -841,11 +878,36 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/cpt-register',
 				'stonewright/cpt-list',
 				'stonewright/taxonomy-register',
+				'stonewright/wc-status',
+				'stonewright/wc-product-list',
+				'stonewright/wc-product-get',
+				'stonewright/wc-product-save',
+				'stonewright/wc-order-list',
+				'stonewright/wc-sales-report',
+				'stonewright/wc-catalog-audit',
+				// The profile lists more than 50 tools. A client cap of 50 trims from here down (WooCommerce variation, term and
+				// attribute upkeep, then the deletes) and keeps the content, custom post type, ACF and WooCommerce read and product tools.
+				'stonewright/wc-variation-list',
+				'stonewright/wc-variation-save',
+				'stonewright/wc-term-list',
+				'stonewright/wc-term-save',
+				'stonewright/wc-attribute-list',
+				'stonewright/wc-attribute-save',
+				'stonewright/wc-product-delete',
+				'stonewright/wc-variation-delete',
+				'stonewright/wc-term-delete',
+				'stonewright/wc-attribute-delete',
 			],
 			'gutenberg' => [
 				'stonewright/blocks-batch-mutate',
+				'stonewright/blocks-insert',
+				'stonewright/blocks-update',
+				'stonewright/blocks-remove',
 				'stonewright/section-reuse-find',
 				'stonewright/section-reuse-extract',
+				'stonewright/blocks-finalizer-runtime',
+				'stonewright/blocks-pending-batch',
+				'stonewright/blocks-finalize-batch',
 				'stonewright/blocks-finalizer-cancel',
 				'stonewright/design-section-manifest',
 				'stonewright/design-visual-compare',
@@ -859,6 +921,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/fse-read-template',
 				'stonewright/fse-write-template',
 				'stonewright/fse-write-global-styles',
+				'stonewright/patterns-list',
+				'stonewright/patterns-create',
+				'stonewright/patterns-update',
+				'stonewright/patterns-delete',
+				'stonewright/patterns-categories',
 				'stonewright/blocks-list-registered',
 				'stonewright/blocks-get-schema',
 				'stonewright/blocks-parse',
@@ -928,9 +995,16 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/site-theme',
 					'stonewright/change-log',
 					'stonewright/change-restore',
+					'stonewright/change-history-list',
+					'stonewright/change-diff-get',
+					'stonewright/change-rollback',
 					'stonewright/security-create-one-time-link',
 					'stonewright/system-abilities-list',
 					'stonewright/menu-list',
+					'stonewright/menu-create',
+					'stonewright/menu-add-item',
+					'stonewright/menu-delete',
+					'stonewright/menu-assign-location',
 					'stonewright/wp-cli-status',
 					// Wave-3 admin ops (REST parity).
 					'stonewright/comment-list',
@@ -963,6 +1037,9 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/search-query',
 					'stonewright/oembed-resolve',
 					'stonewright/seo-status',
+					// Last: menus are routed here by task, theme chrome is rarer, and the profile is past a client cap of 50.
+					'stonewright/theme-chrome-get',
+					'stonewright/theme-chrome-update',
 				],
 			// essential and unknown aliases: compact public surface from AbilityRegistry.
 			default => ( static function () use ( $startup, $blueprints ): array {
@@ -976,6 +1053,13 @@ final class ToolProfile extends AbilityKernel {
 				return $out;
 			} )(),
 		};
+
+		if ( 'elementor-design' === $profile && NativeAvailability::is_available() ) {
+			// Native Elementor is available and certified: the gated route to it sits right after provider discovery, ahead of the builders.
+			$rest = array_values( array_diff( $rest, [ 'stonewright/elementor-native-execute' ] ) );
+			$at   = (int) array_search( 'stonewright/elementor-provider-discovery', $rest, true );
+			array_splice( $rest, $at + 1, 0, [ 'stonewright/elementor-native-execute' ] );
+		}
 
 		// Direction writes are the point of a design-system task, so they sit right
 		// after startup rather than at the tail where a low max_tools cap trims.
@@ -1058,7 +1142,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/security-audit-reconcile' => 'Preview count-only legacy audit reconciliation, then apply it explicitly with production-safe confirmation and verification.',
-			'stonewright/security-runtime-data-purge' => 'Preview count-only audit, memory, incident, and recurring-error state; purge only an exactly reviewed state and retain one cleanup receipt.',
+			'stonewright/security-runtime-data-purge' => 'Preview count-only memory, incident, and recurring-error state; purge only an exactly reviewed state. The audit log cannot be purged from here.',
 			'stonewright/incident-repair-record' => 'Resolve an incident and promote one reusable lesson only after persisted failure and verifier events prove the repair.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/design-native-plan' => 'Validate compact DesignEvidence and map semantic nodes to live native schemas without writing.',
@@ -1093,7 +1177,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',
-			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
+			'stonewright/wp-cli-batch-run' => 'Run repeated read-oriented tokenized WP-CLI argv commands (reads and cache flushes) with compact output.',
 			'stonewright/wp-cli-job-start' => 'Start long WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
 			'stonewright/comment-update' => 'Moderate comments via status enum (approve/hold/spam/trash) without separate tools.',
@@ -1175,8 +1259,12 @@ final class ToolProfile extends AbilityKernel {
 			return 'site_admin';
 		}
 
-		if ( str_starts_with( $name, 'stonewright/wc-' ) ) {
+		if ( str_starts_with( $name, 'stonewright/wc-' ) || str_starts_with( $name, 'stonewright/seo-' ) ) {
 			return 'content_media';
+		}
+
+		if ( str_starts_with( $name, 'stonewright/patterns-' ) ) {
+			return 'gutenberg_fse';
 		}
 
 		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) || str_contains( $name, 'theme-builder' ) ) {
@@ -1229,7 +1317,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-job-start',
 			] ),
 			'content-model' => [
-				'stonewright/php-execute',
 				'stonewright/content-model-loop-grid-flow',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/wp-cli-discover',
@@ -1340,14 +1427,20 @@ final class ToolProfile extends AbilityKernel {
 			'Start with task-start; use context-bootstrap or workflow-preflight only for compatibility, then keep the same compact profile for the task.',
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Prefer batch abilities over repeated single-item calls once the target shape is known.',
-			'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.',
 		];
+
+		// php-execute is on the full profile only, so no other profile is told to use it.
+		if ( 'full' === $profile ) {
+			$rules[] = 'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.';
+		}
 
 		if ( 'elementor-design' === $profile ) {
 			$rules[] = 'Set global colors and typography first when site-wide style changes are approved.';
 			$rules[] = 'Implement one visual section per write-and-verify pass, or two only when simple and coupled.';
 			$rules[] = 'Use native Elementor widgets and schema-confirmed Content, Style, and Advanced controls.';
 			$rules[] = 'Use get-page-structure summary before existing-page edits; request full tree only when raw settings are needed.';
+			$rules[] = 'For a V4 (Atomic) document, prefer stonewright-elementor-native-execute for the abilities certified in native_elementor (it plans first, then writes inside backup, lock, readback and audit); fall back to the Stonewright V4 writers when it refuses or the ability is not certified. V3 documents stay on the V3 writers.';
+			$rules[] = 'Never call elementor/* tools on Elementor\'s own MCP server: that skips the backup, the change history and the audit. Run the same ability through stonewright-elementor-native-execute instead.';
 		}
 
 		if ( 'low-tools' === $profile ) {
@@ -1381,19 +1474,26 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	/**
+	 * @param string $profile Named profile.
 	 * @return list<string>
 	 */
-	private static function token_rules(): array {
-		return [
+	private static function token_rules( string $profile ): array {
+		$rules = [
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.',
 			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
-			'Use php-execute for short runtime snippets instead of full ability discovery when the needed WordPress/plugin API call is already known.',
 			'Use WP-CLI background jobs only for long-running commands; keep short commands synchronous.',
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',
 		];
+
+		if ( 'full' === $profile ) {
+			// php-execute is on the full profile only; the rule keeps its place in the list.
+			array_splice( $rules, 3, 0, [ 'Use php-execute for short runtime snippets instead of full ability discovery when the needed WordPress/plugin API call is already known.' ] );
+		}
+
+		return $rules;
 	}
 
 	/**

@@ -90,8 +90,8 @@ final class WpCliAbilitiesTest extends TestCase {
 		$result = ( new BatchRun() )->execute(
 			[
 				'commands'     => [
-					[ 'post', 'create', '--post_type=page', '--post_title=Home' ],
-					[ 'post', 'meta', 'update', '42', '_elementor_edit_mode', 'builder' ],
+					[ 'post', 'list', '--post_type=page', '--format=json' ],
+					[ 'post', 'meta', 'get', '42', '_elementor_edit_mode' ],
 				],
 				'path'         => 'D:/Sites/site',
 				'responseMode' => 'summary',
@@ -102,7 +102,7 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertTrue( $result['ok'] );
 		$this->assertSame( '/wp-cli/batch', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
 		$this->assertSame( 'summary', $GLOBALS['stonewright_test_companion_requests'][1]['body']['responseMode'] );
-		$this->assertSame( [ 'post', 'meta', 'update', '42', '_elementor_edit_mode', 'builder' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['commands'][1] );
+		$this->assertSame( [ 'post', 'meta', 'get', '42', '_elementor_edit_mode' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['commands'][1] );
 	}
 
 	public function test_run_requires_confirmation_in_production_safe_mode_and_does_not_forward_token(): void {
@@ -137,8 +137,8 @@ final class WpCliAbilitiesTest extends TestCase {
 
 		$args = [
 			'commands' => [
-				[ 'option', 'update', 'cptui_post_types', '{"speaker":{"name":"speaker"}}', '--format=json' ],
-				[ 'post', 'delete', '42' ],
+				[ 'option', 'get', 'cptui_post_types', '--format=json' ],
+				[ 'post', 'list', '--post_type=speaker' ],
 			],
 		];
 
@@ -293,6 +293,39 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertFalse( $run['ok'] );
 		$this->assertFalse( $run['available'] );
 		$this->assertSame( [ 'post', 'list' ], $run['command'] );
+	}
+
+	public function test_batch_run_without_a_companion_answers_in_the_shape_its_output_schema_declares(): void {
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/batch'] = new \WP_Error(
+			'http_request_failed',
+			'Connection refused'
+		);
+
+		$ability = new BatchRun();
+		$result  = $ability->execute(
+			[
+				'commands' => [
+					[ 'option', 'get', 'blogname' ],
+					[ 'plugin', 'list', '--format=json' ],
+				],
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['ok'] );
+		$this->assertFalse( $result['available'] );
+		$this->assertSame( 2, $result['count'] );
+		$this->assertSame( 0, $result['succeeded'] );
+		$this->assertSame( 0, $result['failed'] );
+		$this->assertFalse( $result['stopped'] );
+		$this->assertSame( [], $result['results'] );
+		$this->assertSame( 'Connection refused', $result['error'] );
+		$this->assertSame( 'http://127.0.0.1:8765', $result['companion_url'] );
+
+		$schema = $ability->output_schema();
+		foreach ( $schema['required'] as $key ) {
+			$this->assertArrayHasKey( $key, $result, 'The batch output schema requires ' . $key . '.' );
+		}
 	}
 
 	public function test_invalid_url_is_rejected_before_companion_spawn(): void {

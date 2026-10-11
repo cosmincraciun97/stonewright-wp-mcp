@@ -23,7 +23,7 @@ export {
 	readBoundedBody,
 } from './wordpress-mcp-http.js';
 import { OAuthTokenManager, OAuthTokenStore, OAuthReauthRequiredError, OAuthTransientError } from './oauth-token-manager.js';
-import { runWpCli, type ExecFileRunner } from './wp-cli.js';
+import { runWpCliOperator, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
 
 export interface WordPressMcpOAuthConfig {
@@ -158,17 +158,22 @@ export const NEVER_DISABLE_TOOL_NAMES = new Set([
 	'stonewright-php-execute',
 ]);
 
-const INSPECT_NEVER_DISABLE_TOOL_NAMES: ReadonlySet<string> = new Set(
+const WITHOUT_PHP_EXECUTE_NEVER_DISABLE_TOOL_NAMES: ReadonlySet<string> = new Set(
 	[...NEVER_DISABLE_TOOL_NAMES].filter((name) => name !== 'stonewright-php-execute'),
 );
 
+/** php-execute is on the full profile only, as in the plugin. */
+export function profileOffersPhpExecute(profile: ProxyToolProfile): boolean {
+	return profile === 'full';
+}
+
 /**
- * The tools the companion keeps registered whenever the remote lists them. The
- * read-only inspect profile does not pin php-execute, so a remote that lists it
- * (an operator surface of full) still leaves it out of an inspect session.
+ * The tools the companion keeps registered whenever the remote lists them.
+ * php-execute is pinned on the full profile only, so a remote that lists it (an
+ * operator surface of full) still leaves it out of every other profile's session.
  */
 export function neverDisableToolNamesFor(profile: ProxyToolProfile): ReadonlySet<string> {
-	return profile === 'inspect' ? INSPECT_NEVER_DISABLE_TOOL_NAMES : NEVER_DISABLE_TOOL_NAMES;
+	return profileOffersPhpExecute(profile) ? NEVER_DISABLE_TOOL_NAMES : WITHOUT_PHP_EXECUTE_NEVER_DISABLE_TOOL_NAMES;
 }
 
 /**
@@ -203,7 +208,6 @@ export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 const BASE_PROXY_TOOL_NAMES = [
 	...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	'stonewright-tool-profile',
-	'stonewright-php-execute',
 ] as const;
 
 const BLUEPRINT_PROXY_TOOL_NAMES = [
@@ -219,12 +223,12 @@ const BLUEPRINT_PROXY_TOOL_NAMES = [
  * single source of truth when WordPress is reachable.
  */
 const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
-	// Cold-start surface: always include runtime + confirmation + minimal reads so
-	// agents are not stuck waiting for task-start expansion on strict clients.
+	// Cold-start surface: always include confirmation + minimal reads so agents are
+	// not stuck waiting for task-start expansion on strict clients. php-execute is
+	// on the full profile only, as in the plugin.
 	bootstrap: [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 		'stonewright-tool-profile',
-		'stonewright-php-execute',
 		'stonewright-security-issue-confirmation-token',
 		'stonewright-site-info',
 		'stonewright-content-get-page',
@@ -260,7 +264,6 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 	],
 	'low-tools': [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
-		'stonewright-php-execute',
 		'stonewright-security-issue-confirmation-token',
 		'stonewright-tool-profile',
 	],
@@ -802,7 +805,7 @@ async function generateAndStoreCredential(
 }
 
 async function discoverAdminUsername(env: NodeJS.ProcessEnv, runner?: ExecFileRunner): Promise<string | null> {
-	const result = await runWpCli(
+	const result = await runWpCliOperator(
 		{
 			command: ['user', 'list', '--role=administrator', '--field=user_login', '--number=1'],
 			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),
@@ -821,7 +824,7 @@ async function createApplicationPassword(
 	env: NodeJS.ProcessEnv,
 	runner?: ExecFileRunner,
 ): Promise<string | null> {
-	const result = await runWpCli(
+	const result = await runWpCliOperator(
 		{
 			command: ['user', 'application-password', 'create', username, appPasswordName(env), '--porcelain'],
 			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),
@@ -983,7 +986,7 @@ export async function registerWordPressMcpTools(
 		// transports only return JSON in content[].text without structuredContent).
 		const structured = asRecord(response.structuredContent)
 			?? parseStructuredFromContent(response.content);
-		const hintedProfile = profileHintFromStructured(structured);
+		const hintedProfile = adoptableProfileHint(structured, activeProfile);
 		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
 		const revisionChanged = structuredIndicatesToolsChanged(structured, lastSeenSurfaceRevision);
 		const responseRevision = surfaceRevisionFromStructured(structured);
@@ -1188,11 +1191,27 @@ export function effectiveInitialProxyProfile(
 	return configuredSurface;
 }
 
-function profileHintFromStructured(structured: Record<string, unknown> | null | undefined): string | null {
+const PROFILE_HINT_KEYS = ['session_tool_profile', 'tool_profile', 'profile', 'configured_mcp_surface', 'requested_profile'] as const;
+
+/**
+ * The profile a tool result asks the companion to move to, or null. The full profile lists php-execute and the other
+ * code-running tools, so it is chosen by a person: the one who runs the companion (STONEWRIGHT_MCP_TOOL_PROFILE, which
+ * is the profile the companion already has) or an administrator who sets the site's tool surface to Full in wp-admin.
+ * A result that only asks for full, as the answer to a tool call can, does not move the companion there.
+ */
+export function adoptableProfileHint(
+	structured: Record<string, unknown> | null | undefined,
+	currentProfile: ProxyToolProfile,
+): string | null {
 	if (!structured) return null;
-	for (const key of ['session_tool_profile', 'tool_profile', 'profile', 'configured_mcp_surface', 'requested_profile']) {
+	const siteSurface = [structured['configured_mcp_surface'], structured['mcp_surface']]
+		.find((value): value is string => typeof value === 'string' && value.trim() !== '');
+	const siteIsFull = siteSurface !== undefined && coerceProxyToolProfile(siteSurface) === 'full';
+	for (const key of PROFILE_HINT_KEYS) {
 		const value = structured[key];
-		if (typeof value === 'string' && value.trim() !== '') return value;
+		if (typeof value !== 'string' || value.trim() === '') continue;
+		if (coerceProxyToolProfile(value) === 'full' && currentProfile !== 'full' && !siteIsFull) continue;
+		return value;
 	}
 	return null;
 }
@@ -1351,7 +1370,7 @@ export async function handleToolsChangedResponse(options: {
 	} = options;
 
 	let activeProfile = options.activeProfile;
-	const profileHint = profileHintFromStructured(structured);
+	const profileHint = adoptableProfileHint(structured, activeProfile);
 	if (profileHint) {
 		activeProfile = coerceProxyToolProfile(profileHint);
 	}

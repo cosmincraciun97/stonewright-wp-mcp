@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\WpCli;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\WpCliCommandPolicy;
 use Stonewright\WpMcp\Support\CompanionClient;
 
 abstract class WpCliAbility extends AbilityKernel {
@@ -15,6 +16,36 @@ abstract class WpCliAbility extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		return Permissions::manage_options();
+	}
+
+	/**
+	 * Refuse commands the policy denies, and the ones that write files while DISALLOW_FILE_MODS is set,
+	 * before anything is sent to the companion.
+	 *
+	 * @param array<int, mixed> $commands      Argv arrays.
+	 * @param bool              $read_oriented The batch runner's allowlist applies on top of the deny-list.
+	 */
+	protected function command_policy_error( array $commands, bool $read_oriented = false ): ?\WP_Error {
+		foreach ( $commands as $command ) {
+			$argv   = is_array( $command ) ? $command : [];
+			$reason = $read_oriented ? WpCliCommandPolicy::batch_reason( $argv ) : WpCliCommandPolicy::deny_reason( $argv );
+			if ( null !== $reason ) {
+				return $this->error( 'wp_cli_command_blocked', $reason, [ 'status' => 403 ] );
+			}
+		}
+		if ( ! Permissions::file_mods_allowed() ) {
+			foreach ( $commands as $command ) {
+				if ( is_array( $command ) && WpCliCommandPolicy::writes_files( $command ) ) {
+					return $this->error(
+						'wp_cli_file_mods_disabled',
+						__( 'This WP-CLI command writes files and is refused because DISALLOW_FILE_MODS is set in wp-config.php.', 'stonewright' ),
+						[ 'status' => 403 ]
+					);
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -172,6 +203,29 @@ abstract class WpCliAbility extends AbilityKernel {
 					'Use direct companion WP-CLI tools when they are visible in the MCP client.',
 				],
 				'setup_hint'            => 'For WordPress-side WP-CLI job abilities, start the optional companion HTTP bridge with STONEWRIGHT_HTTP_ENABLE=1, PORT, and matching COMPANION_BEARER_TOKEN, or use direct companion MCP tools.',
+			];
+		}
+
+		// A batch answers with the counters its output schema requires; nothing ran, so none succeeded or failed.
+		if ( '/wp-cli/batch' === $endpoint ) {
+			$commands = isset( $body['commands'] ) && is_array( $body['commands'] ) ? $body['commands'] : [];
+			return [
+				'ok'                    => false,
+				'available'             => false,
+				'count'                 => count( $commands ),
+				'succeeded'             => 0,
+				'failed'                => 0,
+				'stopped'               => false,
+				'results'               => [],
+				'error'                 => $error->get_error_message(),
+				'companion_url'         => $base,
+				'recommended_fallbacks' => [
+					'companion_wp_cli_status',
+					'companion_wp_cli_run',
+					'If the MCP client exposes companion_wp_cli_status / companion_wp_cli_run, use those direct companion tools.',
+					'If direct companion WP-CLI tools are unavailable, use normal Stonewright REST abilities for page/content/template writes.',
+				],
+				'setup_hint'            => 'Start the companion HTTP bridge with STONEWRIGHT_HTTP_ENABLE=1, PORT=8765, and matching COMPANION_BEARER_TOKEN, or set stonewright_companion_url to the actual companion port.',
 			];
 		}
 

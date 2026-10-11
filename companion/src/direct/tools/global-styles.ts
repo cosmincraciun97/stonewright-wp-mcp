@@ -1,5 +1,8 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanGlobalStyles } from "../custom-code-guard.js";
+import { storePreImage } from "../preimage.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpGlobalStyles = {
@@ -52,27 +55,29 @@ export async function globalStylesUpdate(
     tool: "stonewright-global-styles-update",
   });
   const id = (input.id ?? "themes").trim() || "themes";
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-global-styles-update",
+    `global-styles/${id}`,
+    scanGlobalStyles({ settings: input.settings, styles: input.styles }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  const restPath = `/wp/v2/global-styles/${encodeURIComponent(id)}`;
+  const preImage = await storePreImage({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-global-styles-update",
+    restPath,
+    resourceId: id,
+  });
   const body: Record<string, unknown> = {};
   if (input.settings !== undefined) body.settings = input.settings;
   if (input.styles !== undefined) body.styles = input.styles;
+  let styles: WpGlobalStyles;
   try {
-    const styles = await ctx.client.post<WpGlobalStyles>(
-      `/wp/v2/global-styles/${encodeURIComponent(id)}`,
-      { body },
-    );
-    appendDirectAudit({
-      tool: "stonewright-global-styles-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `global-styles/${id}`,
-      status: "ok",
-    });
-    return {
-      id: styles.id,
-      title: titleOf(styles),
-      settings: styles.settings ?? {},
-      styles: styles.styles ?? {},
-    };
+    styles = await ctx.client.post<WpGlobalStyles>(restPath, { body });
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-global-styles-update",
@@ -83,6 +88,29 @@ export async function globalStylesUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-global-styles-update",
+    resource: `global-styles/${id}`,
+    resourceType: "global-styles",
+    readPath: restPath,
+    sent: body,
+    beforeSha256: preImage.before_sha256,
+    backupId: preImage.backup_id,
+  });
+  return attachVerification(
+    {
+      id: styles.id,
+      title: titleOf(styles),
+      settings: styles.settings ?? {},
+      styles: styles.styles ?? {},
+      ...preImage,
+    },
+    verification,
+    { backupId: preImage.backup_id },
+  );
 }
 
 export async function globalStylesTheme(

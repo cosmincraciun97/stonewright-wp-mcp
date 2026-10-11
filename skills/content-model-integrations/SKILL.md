@@ -22,15 +22,15 @@ Then call:
 - `stonewright-wp-cli-discover` with `responseMode: "summary"` and
   `commandFilter` such as `["acf","cpt","post","term","option","pod"]`
 
-Use `stonewright/php-execute` for short plugin API or `$wpdb` snippets when
-schema inspection is faster in PHP. Use `stonewright-wp-cli-run` only with argv
+On the `full` profile only, use `stonewright/php-execute` for short plugin API or
+`$wpdb` snippets when schema inspection is faster in PHP. Use `stonewright-wp-cli-run` only with argv
 tokens. Do not run `wp ...` in a normal shell as recovery, and do not use
 another PHP adapter to replace Stonewright tools. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
 When the companion exposes `stonewright-wp-cli-batch-run`, prefer it for many
-post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
-inline shell scripts to simulate batching.
-For long imports, cache rebuilds, or plugin maintenance commands, use
+post/meta/term/option reads or Romanian/non-ASCII values; it runs read-oriented
+commands only. Do not paste large inline shell scripts to simulate batching.
+For many post/meta/term/option writes, long imports, or cache rebuilds, use
 `stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
 For CPT/ACF-backed Elementor Loop Grid sections, prefer the one-call
 `stonewright/content-model-loop-grid-flow` path. It registers or updates the

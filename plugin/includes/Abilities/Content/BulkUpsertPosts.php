@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Fast structured content writer for repeated MCP page-build workflows.
@@ -59,6 +60,7 @@ final class BulkUpsertPosts extends AbilityKernel {
 								'enum'        => [ 'draft', 'publish', 'private', 'pending', 'future' ],
 								'description' => 'Alias for status; accepted for WordPress payload alignment.',
 							],
+							'date'       => PostDate::schema(),
 							'parent'     => [ 'type' => 'integer', 'minimum' => 0 ],
 							'menu_order' => [ 'type' => 'integer' ],
 							'meta'       => [ 'type' => 'object' ],
@@ -100,6 +102,10 @@ final class BulkUpsertPosts extends AbilityKernel {
 				__( 'Unknown post_type.', 'stonewright' ),
 				[ 'status' => 400, 'post_type' => $post_type ]
 			);
+		}
+		$invalid = PostTypeGuard::error( $post_type );
+		if ( $invalid instanceof \WP_Error ) {
+			return $invalid;
 		}
 
 		foreach ( (array) ( $args['items'] ?? [] ) as $index => $item ) {
@@ -143,6 +149,31 @@ final class BulkUpsertPosts extends AbilityKernel {
 				if ( ! self::post_type_is_available( $post_type ) ) {
 					return $this->error( 'invalid_post_type', __( 'Unknown post_type.', 'stonewright' ), [ 'status' => 400, 'post_type' => $post_type ] );
 				}
+				$invalid = PostTypeGuard::error( $post_type );
+				if ( $invalid instanceof \WP_Error ) {
+					return $invalid;
+				}
+				$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
+				if ( $blocked instanceof \WP_Error ) {
+					return $blocked;
+				}
+
+				// Check every item before the first write, so a bad item stops the call with nothing written.
+				$dates = [];
+				foreach ( (array) ( $args['items'] ?? [] ) as $index => $item ) {
+					$item       = is_array( $item ) ? $item : [];
+					$validation = self::validate_item( $item, $index );
+					if ( is_wp_error( $validation ) ) {
+						return $validation;
+					}
+					$existing_id = $this->target_post_id( $item, $post_type );
+					$date        = PostDate::resolve( $item['date'] ?? null, self::item_status( $item ), $existing_id > 0 ? get_post( $existing_id ) : null );
+					if ( is_wp_error( $date ) ) {
+						$date->add_data( [ 'status' => 400, 'failed_index' => $index ] );
+						return $date;
+					}
+					$dates[ $index ] = $date;
+				}
 
 				$created = 0;
 				$updated = 0;
@@ -151,14 +182,6 @@ final class BulkUpsertPosts extends AbilityKernel {
 
 				foreach ( (array) ( $args['items'] ?? [] ) as $index => $item ) {
 					$item = is_array( $item ) ? $item : [];
-					$validation = self::validate_item( $item, $index );
-					if ( is_wp_error( $validation ) ) {
-						return $validation;
-					}
-					$blocked = ContentSurfacePolicy::assert_generic_write_allowed( $post_type );
-					if ( $blocked instanceof \WP_Error ) {
-						return $blocked;
-					}
 					$id   = $this->target_post_id( $item, $post_type );
 					$slug = sanitize_title( (string) ( $item['slug'] ?? '' ) );
 					$status = self::item_status( $item );
@@ -168,6 +191,14 @@ final class BulkUpsertPosts extends AbilityKernel {
 						'post_name'  => $slug,
 						'post_title' => sanitize_text_field( (string) ( $item['title'] ?? '' ) ),
 					];
+					// A new post has no stored date, so only an existing post is edited in place.
+					$date = $dates[ $index ] ?? [];
+					if ( 0 === $id ) {
+						unset( $date['edit_date'] );
+					} elseif ( [] !== $date ) {
+						$date['edit_date'] = true;
+					}
+					$payload += $date;
 
 					if ( array_key_exists( 'content', $item ) ) {
 						$payload['post_content'] = wp_kses_post( (string) $item['content'] );
@@ -189,11 +220,16 @@ final class BulkUpsertPosts extends AbilityKernel {
 
 					$action = 'created';
 					if ( $id > 0 ) {
+						// This write takes no snapshot: the change ledger keeps the post as it is, with the custom fields the item sets.
+						RescueGuard::note_post_overwrite( $id, array_map( 'sanitize_key', array_map( 'strval', array_keys( (array) ( $item['meta'] ?? [] ) ) ) ) );
 						$payload['ID'] = $id;
 						$result        = wp_update_post( wp_slash( $payload ), true );
 						$action        = 'updated';
 					} else {
 						$result = wp_insert_post( wp_slash( $payload ), true );
+						if ( ! is_wp_error( $result ) ) {
+							RescueGuard::note_post_created( (int) $result );
+						}
 					}
 
 					if ( is_wp_error( $result ) ) {
@@ -295,7 +331,9 @@ final class BulkUpsertPosts extends AbilityKernel {
 	private static function find_post_by_slug( string $slug, string $post_type ): int {
 		if ( function_exists( 'get_page_by_path' ) ) {
 			$post = get_page_by_path( $slug, OBJECT, $post_type );
-			if ( null !== $post ) {
+			// Core's lookup for a post type also matches an attachment with the same slug. Only a post of the
+			// requested type counts, so an update never turns another kind of post into this one.
+			if ( null !== $post && $post_type === (string) $post->post_type ) {
 				return (int) $post->ID;
 			}
 		}

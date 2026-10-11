@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -66,57 +67,79 @@ final class MoveElement extends AbilityKernel {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$post_id     = (int) $args['post_id'];
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				$tree        = ElementorData::read( $post_id );
-
-				$src_path = ElementorData::find_path( $tree, (string) $args['element_id'] );
-				if ( null === $src_path ) {
-					return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
-				}
-
-				$element = $this->resolve( $tree, $src_path );
-				if ( null === $element ) {
-					return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
-				}
-
-				$tree = ElementorData::set( $tree, $src_path, null );
-
-				$parent_path = [];
-				if ( ! empty( $args['new_parent_id'] ) ) {
-					$parent_path = ElementorData::find_path( $tree, (string) $args['new_parent_id'] );
-					if ( null === $parent_path ) {
-						return $this->error( 'parent_not_found', __( 'New parent not found.', 'stonewright' ) );
-					}
-					if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
-						return $this->error(
-							'parent_not_container',
-							__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
-							[
-								'status'         => 400,
-								'parent_id'      => (string) $args['new_parent_id'],
-								'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
-							]
-						);
-					}
-				}
-
-				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
-				$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
-
-				if ( ! ElementorData::write( $post_id, $tree ) ) {
-					return ElementorData::write_error_for_ability();
-				}
-
-				return [
-					'post_id'     => $post_id,
-					'snapshot_id' => $snapshot_id,
-				];
+				$post_id = (int) $args['post_id'];
+				// The lease is taken before the snapshot and the read, so no other writer changes the document in between.
+				return PostWriteLock::with_lease(
+					$post_id,
+					'move-element',
+					fn ( string $lock_owner ) => $this->move( $args, $post_id, $lock_owner )
+				);
 			}
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function move( array $args, int $post_id, string $lock_owner ): array|\WP_Error {
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		if ( '' === $snapshot_id ) {
+			return $this->backup_failed_error();
+		}
+		$tree        = ElementorData::read( $post_id );
+
+		$src_path = ElementorData::find_path( $tree, (string) $args['element_id'] );
+		if ( null === $src_path ) {
+			return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
+		}
+
+		$element = $this->resolve( $tree, $src_path );
+		if ( null === $element ) {
+			return $this->error( 'element_not_found', __( 'Element not found.', 'stonewright' ) );
+		}
+
+		$tree = ElementorData::set( $tree, $src_path, null );
+
+		if ( empty( $args['new_parent_id'] ) && 'widget' === (string) ( $element['elType'] ?? '' ) ) {
+			return ElementorData::widget_at_root_error( (string) $args['element_id'] );
+		}
+
+		$parent_path = [];
+		if ( ! empty( $args['new_parent_id'] ) ) {
+			$parent_path = ElementorData::find_path( $tree, (string) $args['new_parent_id'] );
+			if ( null === $parent_path ) {
+				return $this->error( 'parent_not_found', __( 'New parent not found.', 'stonewright' ) );
+			}
+			if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+				return $this->error(
+					'parent_not_container',
+					__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+					[
+						'status'         => 400,
+						'parent_id'      => (string) $args['new_parent_id'],
+						'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+					]
+				);
+			}
+		}
+
+		// A container or section inside another element is an inner one; at the root it is not.
+		if ( in_array( (string) ( $element['elType'] ?? '' ), [ 'container', 'section' ], true ) ) {
+			$element['isInner'] = [] !== $parent_path;
+		}
+
+		$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
+		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
+
+		if ( ! ElementorData::write( $post_id, $tree, [ 'lock_owner' => $lock_owner ] ) ) {
+			return ElementorData::write_error_for_ability();
+		}
+
+		return [
+			'post_id'     => $post_id,
+			'snapshot_id' => $snapshot_id,
+		];
 	}
 
 	private function resolve( array $tree, array $path ): ?array {

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
@@ -124,8 +125,14 @@ final class Navigation extends AbilityKernel {
 		if ( is_wp_error( $id ) ) {
 			return $id;
 		}
+		RescueGuard::note_post_created( (int) $id );
 
 		$snapshot_id = Backup::snapshot_post( (int) $id );
+		if ( '' === $snapshot_id ) {
+			// The new navigation has no way back, so it does not stay: the write is undone.
+			wp_delete_post( (int) $id, true );
+			return $this->backup_failed_error();
+		}
 		return $this->payload( (int) $id, $snapshot_id );
 	}
 
@@ -152,7 +159,10 @@ final class Navigation extends AbilityKernel {
 		}
 
 		$snapshot_id = Backup::snapshot_post( (int) $post->ID );
-		$result      = wp_update_post( wp_slash( $payload ), true );
+		if ( '' === $snapshot_id ) {
+			return $this->backup_failed_error();
+		}
+		$result = wp_update_post( wp_slash( $payload ), true );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}

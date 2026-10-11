@@ -86,6 +86,56 @@ final class AbilitySourceFactsTest extends TestCase {
 		self::assertFalse( AbilitySourceFacts::has_token_gate( 'audit_read( $args, $callback )' ) );
 	}
 
+	/**
+	 * @return array<string, array{string, bool}>
+	 */
+	public static function backup_sources(): array {
+		return [
+			'a direct snapshot'                => [ '<?php Backup::snapshot_post( $id );', true ],
+			'the Elementor writer'             => [ '<?php ElementorWriter::write( $id, $spec, $d );', true ],
+			'the Elementor transaction runner' => [ '<?php return ElementorTransactionRunner::run( $id, $raw, $dry );', true ],
+			'the full tree runner'             => [ '<?php return ElementorTransactionRunner::run_full_tree( $id, $tree );', true ],
+			'the loop transaction'             => [ '<?php return LoopTransaction::run( $args );', true ],
+			'the kit writer'                   => [ '<?php ElementorKitWriter::apply( $kit, $ops );', true ],
+			'the native provider'              => [ '<?php $p = new NativeElementorProvider();', true ],
+			'the blueprint applier'            => [ '<?php return BlueprintApplier::apply( $args );', true ],
+			'the brand kit applier'            => [ '<?php return BrandKit::apply( $id, $preview );', true ],
+			'the global styles writer'         => [ '<?php return GlobalStylesWriter::write( $json, $grant );', true ],
+			'a delegate that snapshots'        => [ '<?php return ( new BatchMutate() )->execute( $args );', true ],
+			'the page builder worker'          => [ '<?php $w = new BuildPageFromSpec();', true ],
+			'a read of the brand kit'          => [ '<?php return BrandKit::list();', false ],
+			'no write helper at all'           => [ '<?php return get_option( "a" );', false ],
+			'a helper named only in a string'  => [ '<?php return "Backup::snapshot_post( $id )";', false ],
+			'a helper named only in a comment' => [ "<?php\n// ElementorWriter::write( \$id );\n/* Backup::snapshot_post( \$id ); */\nreturn 1;", false ],
+		];
+	}
+
+	/**
+	 * @dataProvider backup_sources
+	 */
+	public function test_a_source_that_snapshots_before_it_writes_is_backed_up( string $source, bool $expected ): void {
+		self::assertSame( $expected, AbilitySourceFacts::backs_up( $source ) );
+	}
+
+	public function test_a_token_gate_named_only_in_a_string_or_comment_is_not_a_gate(): void {
+		self::assertTrue( AbilitySourceFacts::token_gate_in( '<?php return $this->audit_write( $args, fn() => [] );' ) );
+		self::assertFalse( AbilitySourceFacts::token_gate_in( '<?php return "audit_write( $args )";' ) );
+		self::assertFalse( AbilitySourceFacts::token_gate_in( "<?php\n// confirmation_token_error( \$a );\nreturn 1;" ) );
+		self::assertFalse( AbilitySourceFacts::token_gate_in( '<?php return $this->audit( $args, fn() => [] );' ) );
+	}
+
+	public function test_a_call_that_verifies_the_token_inside_a_helper_is_a_write_with_a_gate(): void {
+		$reconcile = '<?php return AuditReconciler::migrate( $limit, $token, $args );';
+		self::assertTrue( AbilitySourceFacts::is_write( $reconcile ) );
+		self::assertTrue( AbilitySourceFacts::token_gate_in( $reconcile ) );
+	}
+
+	public function test_issuing_a_token_stores_one_and_is_a_write_without_a_gate(): void {
+		$issue = '<?php return [ "token" => ConfirmationToken::issue( $ability, $args, $ttl ) ];';
+		self::assertTrue( AbilitySourceFacts::is_write( $issue ) );
+		self::assertFalse( AbilitySourceFacts::token_gate_in( $issue ) );
+	}
+
 	public function test_the_source_of_an_ability_includes_its_parent_classes(): void {
 		$source = AbilitySourceFacts::source_with_parents( AddButton::class );
 

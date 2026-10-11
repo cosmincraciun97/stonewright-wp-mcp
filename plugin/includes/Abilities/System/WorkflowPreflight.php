@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Core\McpRuntimeStatus;
 use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
@@ -187,6 +188,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				're_list_instruction' => [ 'type' => 'string' ],
 				'write_target_url' => [ 'type' => 'string' ],
 				'target_context'   => [ 'type' => 'object' ],
+				'mcp_runtime'      => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'schema_version', 'ok', 'context_token', 'mode', 'saved_wordpress_mode', 'effective_wordpress_mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -307,7 +309,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( $tools_changed ) {
 			$re_list = 'Re-list tools now (tools/list). New tools are available for this session. '
 				. 'If your client ignores tools/list_changed, call tools/list again before continuing. '
-				. 'If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.';
+				. 'If a needed tool is still missing after re-list, restart the MCP client — do not call /abilities/run.';
 		} else {
 			$re_list = '';
 		}
@@ -392,6 +394,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
 		];
+
+		// Present only while no adapter serves the MCP route: the owner, the version and what the site owner can do.
+		$mcp_runtime = McpRuntimeStatus::agent_notice( McpRuntimeStatus::current() );
+		if ( [] !== $mcp_runtime ) {
+			$response['mcp_runtime'] = $mcp_runtime;
+		}
 
 		if ( is_array( $context['design_direction_ref'] ?? null ) ) {
 			$response['context']['design_direction_ref'] = $context['design_direction_ref'];
@@ -496,7 +504,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( is_array( $elementor['status'] ?? null ) ) {
 			$compact_elementor['status'] = array_intersect_key(
 				$elementor['status'],
-				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status', 'native_elementor' ] )
+				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status', 'native_elementor', 'native_hint' ] )
 			);
 		}
 
@@ -647,6 +655,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
 			],
 		];
+		if ( is_array( $response['mcp_runtime'] ?? null ) ) {
+			$compact_response['mcp_runtime'] = $response['mcp_runtime'];
+		}
 		if ( false === $compact_response['elementor']['included'] ) {
 			unset( $compact_response['elementor'] );
 		}
@@ -1039,7 +1050,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			self::batching_rule_body(),
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
-			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
+			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated read-oriented WP-CLI commands (post, term, option, plugin reads and cache flushes); write through typed abilities or stonewright-wp-cli-run.',
 			'Use stonewright-wp-cli-job-start plus stonewright-wp-cli-job-status for long WP-CLI work so MCP requests do not block.',
 			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
 			'After each Elementor apply, call stonewright/elementor-css-regenerate when generated CSS must be rebuilt, then stonewright/elementor-post-write-verify with touched ids before browser acceptance. The verifier is observation-only and never regenerates CSS.',
@@ -1250,15 +1261,6 @@ final class WorkflowPreflight extends AbilityKernel {
 				'stonewright/site-plugins-list',
 				'Confirm installed plugins before choosing plugin-specific surfaces.',
 				[]
-			);
-			$out[] = self::call_step(
-				'stonewright/php-execute',
-				'Use direct WordPress runtime access for compact plugin API inspection or one-off fixes when typed abilities or WP-CLI would take many calls.',
-				[
-					'code'                     => '<short PHP body; return structured data>',
-					'return_mode'              => 'auto',
-					'stonewright_context_token' => '<context_token>',
-				]
 			);
 			$out[] = self::call_step(
 				'stonewright/wp-cli-status',

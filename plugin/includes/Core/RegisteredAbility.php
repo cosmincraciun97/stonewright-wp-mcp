@@ -24,10 +24,6 @@ namespace Stonewright\WpMcp\Core;
  */
 final class RegisteredAbility extends \WP_Ability {
 
-	private const PERMISSIVE_REST_SCHEMA = [
-		'type' => [ 'array', 'object', 'string', 'number', 'integer', 'boolean', 'null' ],
-	];
-
 	/**
 	 * Calls of execute() in progress on this object.
 	 *
@@ -274,22 +270,6 @@ final class RegisteredAbility extends \WP_Ability {
 	 * @return mixed
 	 */
 	private static function schema_for_rest_validation( mixed $schema, string $parent_key = '' ): mixed {
-		if ( $schema instanceof \stdClass ) {
-			return self::is_schema_object_map_key( $parent_key ) ? [] : self::PERMISSIVE_REST_SCHEMA;
-		}
-
-		if ( ! is_array( $schema ) ) {
-			return $schema;
-		}
-
-		foreach ( $schema as $key => $value ) {
-			$schema[ $key ] = self::schema_for_rest_validation( $value, (string) $key );
-		}
-
-		return $schema;
-	}
-
-	private static function is_schema_object_map_key( string $key ): bool {
-		return in_array( $key, [ '$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties' ], true );
+		return AbilityInputValidator::rest_schema( $schema, $parent_key );
 	}
 }
