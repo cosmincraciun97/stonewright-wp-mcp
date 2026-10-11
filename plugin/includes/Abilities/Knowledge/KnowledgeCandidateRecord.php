@@ -9,7 +9,8 @@ use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
- * Mutates candidates and promotes only verified or user-approved skills.
+ * Mutates candidates. A candidate becomes an active skill only after an administrator approved that exact
+ * candidate in wp-admin, and a verified success counts only when a stored audit event proves it.
  *
  * @stonewright-status experimental
  */
@@ -24,7 +25,7 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates, verifies, promotes, rejects, or stales a site knowledge candidate, and rolls back versioned site skills. New research creates only a disabled draft.', 'stonewright' );
+		return __( 'Creates, verifies, promotes, rejects, or stales a site knowledge candidate, and rolls back versioned site skills. New research creates only a disabled draft. Verify counts a success only for the event_id of a verified audit event. Promote needs an administrator to approve the candidate in wp-admin; without that approval it returns an approval link and stops.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -53,11 +54,11 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 				'confidence'          => [ 'type' => 'number', 'minimum' => 0, 'maximum' => 1 ],
 				'expires_at'          => [ 'type' => 'string' ],
 				'create_draft_skill'  => [ 'type' => 'boolean', 'default' => true ],
-				'task_id'             => [ 'type' => 'string' ],
-				'runtime_fingerprint' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
+				'task_id'             => [ 'type' => 'string', 'description' => 'For verify: the event_id of a successful audit event whose effect was verified.' ],
+				'runtime_fingerprint' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$', 'description' => 'Ignored for a successful verify; the plugin records the live runtime fingerprint.' ],
 				'success'             => [ 'type' => 'boolean' ],
-				'user_approved'       => [ 'type' => 'boolean', 'default' => false ],
-				'approval_note'       => [ 'type' => 'string' ],
+				'user_approved'       => [ 'type' => 'boolean', 'default' => false, 'description' => 'Ignored. Promotion needs an administrator approval in wp-admin.' ],
+				'approval_note'       => [ 'type' => 'string', 'description' => 'Ignored. The approving administrator writes the note in wp-admin.' ],
 				'conflict_resolution' => [ 'type' => 'string', 'enum' => [ 'reject', 'replace' ], 'default' => 'reject' ],
 				'skill_slug'          => [ 'type' => 'string' ],
 				'revision'            => [ 'type' => 'integer', 'minimum' => 1 ],
@@ -89,8 +90,8 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 				$action = (string) ( $input['action'] ?? '' );
 				$result = match ( $action ) {
 					'create'         => CandidateRepository::create( $input ),
-					'verify'         => CandidateRepository::verify( (int) ( $input['id'] ?? 0 ), (string) ( $input['task_id'] ?? '' ), (string) ( $input['runtime_fingerprint'] ?? '' ), (bool) ( $input['success'] ?? false ) ),
-					'promote'        => CandidateRepository::promote( (int) ( $input['id'] ?? 0 ), (bool) ( $input['user_approved'] ?? false ), (string) ( $input['approval_note'] ?? '' ), (string) ( $input['conflict_resolution'] ?? 'reject' ) ),
+					'verify'         => self::verify( $input ),
+					'promote'        => CandidateRepository::promote( (int) ( $input['id'] ?? 0 ), (string) ( $input['conflict_resolution'] ?? 'reject' ) ),
 					'reject'         => CandidateRepository::set_status( (int) ( $input['id'] ?? 0 ), 'rejected' ),
 					'mark_stale'     => CandidateRepository::set_status( (int) ( $input['id'] ?? 0 ), 'stale' ),
 					'skill_rollback' => self::rollback( (string) ( $input['skill_slug'] ?? '' ), (int) ( $input['revision'] ?? 0 ) ),
@@ -102,6 +103,21 @@ final class KnowledgeCandidateRecord extends AbilityKernel {
 				return [ 'ok' => true, 'action' => $action, 'result' => $result ];
 			}
 		);
+	}
+
+	/**
+	 * A failed attempt is recorded as given. A success needs a stored audit event.
+	 *
+	 * @param array<string, mixed> $input
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function verify( array $input ): array|\WP_Error {
+		$id = (int) ( $input['id'] ?? 0 );
+		if ( true === ( $input['success'] ?? false ) ) {
+			return CandidateRepository::verify_from_event( $id, (string) ( $input['task_id'] ?? '' ) );
+		}
+
+		return CandidateRepository::verify( $id, (string) ( $input['task_id'] ?? '' ), (string) ( $input['runtime_fingerprint'] ?? '' ), false );
 	}
 
 	/** @return array<string, mixed>|\WP_Error */

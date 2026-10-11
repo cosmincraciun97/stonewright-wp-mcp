@@ -19,6 +19,9 @@ use Stonewright\WpMcp\Security\Permissions;
  * active, so a restore switches back with switch_theme(). The theme's own settings are kept by WordPress
  * for each theme and are not touched.
  *
+ * A plugin that was activated or deactivated (resource type plugin, family plugin). It is recorded when the state
+ * changed, with the plugin path only, and is not restored from the ledger (plugin_state_not_restored).
+ *
  * A plugin that was deleted (resource type plugin, family plugin). It is recorded and not restorable: Stonewright cannot
  * bring back the files of a plugin, so the row says plugin_files_deleted. It holds no image.
  *
@@ -40,7 +43,7 @@ final class SiteAdapter extends FamilyAdapter {
 	/** Ability name of a row that an admin screen or a route wrote. */
 	public const ADMIN_ABILITY = 'stonewright/admin-settings-write';
 
-	protected const ABILITIES = [ 'stonewright/theme-activate', 'stonewright/plugin-delete', 'stonewright/php-execute' ];
+	protected const ABILITIES = [ 'stonewright/theme-activate', 'stonewright/plugin-delete', 'stonewright/plugin-activate', 'stonewright/plugin-deactivate', 'stonewright/php-execute' ];
 
 	public static function types(): array {
 		return [ 'theme_switch', 'plugin', 'php_execute', 'admin_setting' ];
@@ -74,6 +77,17 @@ final class SiteAdapter extends FamilyAdapter {
 			$plugin = isset( $args['plugin'] ) && is_string( $args['plugin'] ) ? $args['plugin'] : '';
 			return [ 'plugin' => 1 === preg_match( '#^[A-Za-z0-9._/-]{1,140}$#D', $plugin ) && ! str_contains( $plugin, '..' ) ? $plugin : '' ];
 		}
+		if ( in_array( $ability, [ 'stonewright/plugin-activate', 'stonewright/plugin-deactivate' ], true ) ) {
+			$plugin = isset( $args['plugin'] ) && is_string( $args['plugin'] ) ? ltrim( str_replace( '\\', '/', trim( $args['plugin'] ) ), '/' ) : '';
+			$plugin = 1 === preg_match( '#^[A-Za-z0-9._/-]{1,140}$#D', $plugin ) && ! str_contains( $plugin, '..' ) ? $plugin : '';
+			if ( '' !== $plugin && ! function_exists( 'is_plugin_active' ) && defined( 'ABSPATH' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+			return [
+				'plugin'     => $plugin,
+				'was_active' => '' !== $plugin && function_exists( 'is_plugin_active' ) && is_plugin_active( $plugin ),
+			];
+		}
 		if ( 'stonewright/php-execute' === $ability ) {
 			$code = isset( $args['code'] ) && is_string( $args['code'] ) ? $args['code'] : '';
 			return [
@@ -93,6 +107,21 @@ final class SiteAdapter extends FamilyAdapter {
 					'id'      => (string) $context['plugin'],
 					'summary' => 'Deleted plugin ' . $context['plugin'] . '; its files cannot be restored by Stonewright',
 					'reason'  => 'plugin_files_deleted',
+					'failed'  => false,
+				],
+			];
+		}
+		if ( in_array( $ability, [ 'stonewright/plugin-activate', 'stonewright/plugin-deactivate' ], true ) && FamilyLedger::succeeded( $result ) && is_array( $result ) && array_key_exists( 'active', $result ) && '' !== (string) ( $context['plugin'] ?? '' ) ) {
+			$now = true === $result['active'];
+			if ( $now === ( $context['was_active'] ?? $now ) ) {
+				return [];
+			}
+			return [
+				[
+					'type'    => 'plugin',
+					'id'      => (string) $context['plugin'],
+					'summary' => ( $now ? 'Activated plugin ' : 'Deactivated plugin ' ) . $context['plugin'],
+					'reason'  => 'plugin_state_not_restored',
 					'failed'  => false,
 				],
 			];

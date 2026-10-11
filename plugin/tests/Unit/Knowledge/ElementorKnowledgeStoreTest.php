@@ -408,6 +408,61 @@ final class ElementorKnowledgeStoreTest extends TestCase {
 	}
 
 	// ---------------------------------------------------------------------
+	// Frontmatter values.
+	// ---------------------------------------------------------------------
+
+	/** @return array<string, array{string}> */
+	public static function urls_with_line_breaks_or_markup(): array {
+		return [
+			'line feed'       => [ "https://elementor.com/help/a-page
+harvest_source: injected" ],
+			'carriage return' => [ "https://elementor.com/help/a-pageharvest_source: injected" ],
+			'space'           => [ 'https://elementor.com/help/a page' ],
+			'double quote'    => [ 'https://elementor.com/help/a"page' ],
+			'backslash'       => [ 'https://elementor.com/help/a\page' ],
+		];
+	}
+
+	/** @dataProvider urls_with_line_breaks_or_markup */
+	public function test_a_url_that_could_break_out_of_its_frontmatter_line_is_refused( string $url ): void {
+		$result = $this->refresh( [ 'url' => $url, 'body' => "## Navigator
+The navigator panel lists every element on the page.
+" ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_invalid_url', $result->get_error_code() );
+		self::assertSame( [], $this->files_under( $this->store_dir() . '/help-root' ) );
+	}
+
+	public function test_the_source_url_is_written_as_a_quoted_scalar_and_reads_back_unchanged(): void {
+		$url    = 'https://elementor.com/help/a-page?x=1#frag:with-colon';
+		$result = $this->refresh_ok( $url, 'editor' );
+
+		$file = (string) file_get_contents( $this->uploads . '/' . $result['file_path'] );
+		self::assertStringContainsString( 'source_url: "https://elementor.com/help/a-page?x=1#frag:with-colon"', $file );
+	}
+
+	public function test_a_title_with_line_breaks_cannot_add_frontmatter_keys(): void {
+		$result = $this->refresh( [
+			'url'   => 'https://elementor.com/help/a-page',
+			'hub'   => 'editor',
+			'body'  => "## Navigator
+The navigator panel lists every element on the page.
+",
+			'title' => "Navigator
+harvest_source: injected",
+		] );
+
+		self::assertIsArray( $result );
+		$file  = (string) file_get_contents( $this->uploads . '/' . $result['file_path'] );
+		$front = substr( $file, 0, (int) strpos( $file, "
+---
+", 4 ) );
+		self::assertSame( 1, preg_match_all( '/^harvest_source:/m', $front ) );
+		self::assertStringContainsString( 'harvest_source: caller-rendered', $front );
+	}
+
+	// ---------------------------------------------------------------------
 	// Path containment.
 	// ---------------------------------------------------------------------
 

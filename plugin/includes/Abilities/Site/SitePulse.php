@@ -13,6 +13,27 @@ use Stonewright\WpMcp\Security\Permissions;
  */
 final class SitePulse extends AbilityKernel {
 
+	/** Most orphan rows the scan counts; a site with more reports this number. */
+	private const ORPHAN_SCAN_LIMIT = 1000;
+
+	/**
+	 * Fixed measurements that replace the live ones: autoload_bytes, admin_count, plugin_updates and
+	 * orphan_postmeta. Only tests set them, through use_metrics().
+	 *
+	 * @var array<string, int>|null
+	 */
+	private static ?array $metric_overrides = null;
+
+	/**
+	 * Replace the live measurements with fixed ones, or pass null to measure the site again. A key that is
+	 * left out is measured as usual.
+	 *
+	 * @param array<string, int>|null $metrics
+	 */
+	public static function use_metrics( ?array $metrics ): void {
+		self::$metric_overrides = $metrics;
+	}
+
 	public function name(): string {
 		return 'stonewright/site-pulse';
 	}
@@ -405,8 +426,8 @@ final class SitePulse extends AbilityKernel {
 	}
 
 	private function autoload_size_bytes(): int {
-		if ( isset( $GLOBALS['stonewright_test_autoload_bytes'] ) ) {
-			return (int) $GLOBALS['stonewright_test_autoload_bytes'];
+		if ( isset( self::$metric_overrides['autoload_bytes'] ) ) {
+			return (int) self::$metric_overrides['autoload_bytes'];
 		}
 
 		global $wpdb;
@@ -430,8 +451,8 @@ final class SitePulse extends AbilityKernel {
 	}
 
 	private function admin_user_count(): int {
-		if ( isset( $GLOBALS['stonewright_test_admin_count'] ) ) {
-			return max( 0, (int) $GLOBALS['stonewright_test_admin_count'] );
+		if ( isset( self::$metric_overrides['admin_count'] ) ) {
+			return max( 0, (int) self::$metric_overrides['admin_count'] );
 		}
 
 		if ( function_exists( 'count_users' ) ) {
@@ -455,8 +476,8 @@ final class SitePulse extends AbilityKernel {
 	}
 
 	private function plugin_update_count(): int {
-		if ( isset( $GLOBALS['stonewright_test_plugin_updates'] ) ) {
-			return max( 0, (int) $GLOBALS['stonewright_test_plugin_updates'] );
+		if ( isset( self::$metric_overrides['plugin_updates'] ) ) {
+			return max( 0, (int) self::$metric_overrides['plugin_updates'] );
 		}
 
 		$transient = function_exists( 'get_site_transient' )
@@ -471,8 +492,8 @@ final class SitePulse extends AbilityKernel {
 	}
 
 	private function orphan_postmeta_count(): int {
-		if ( isset( $GLOBALS['stonewright_test_orphan_postmeta'] ) ) {
-			return max( 0, (int) $GLOBALS['stonewright_test_orphan_postmeta'] );
+		if ( isset( self::$metric_overrides['orphan_postmeta'] ) ) {
+			return max( 0, (int) self::$metric_overrides['orphan_postmeta'] );
 		}
 
 		global $wpdb;
@@ -486,13 +507,14 @@ final class SitePulse extends AbilityKernel {
 			return 0;
 		}
 
-		// Targeted sample: count of postmeta rows without a matching post.
+		// Bounded sample: counts postmeta rows without a matching post, and stops at ORPHAN_SCAN_LIMIT rows.
 		// Table names come from $wpdb (trusted), not user input.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$limit = self::ORPHAN_SCAN_LIMIT;
 		$value = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$postmeta} pm
+			"SELECT COUNT(*) FROM ( SELECT pm.post_id FROM {$postmeta} pm
 			LEFT JOIN {$posts} p ON p.ID = pm.post_id
-			WHERE p.ID IS NULL"
+			WHERE p.ID IS NULL LIMIT {$limit} ) AS orphans"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 

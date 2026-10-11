@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T10:14:11+00:00",
+    "generated_at": "2026-10-11T12:26:46+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -51,7 +51,12 @@
             "stonewright/settings-update",
             "stonewright/theme-builder-delete-template",
             "stonewright/theme-builder-set-conditions",
-            "stonewright/user-list"
+            "stonewright/user-list",
+            "stonewright/expertise-promote",
+            "stonewright/knowledge-candidate-record",
+            "stonewright/media-optimize",
+            "stonewright/memory-save",
+            "stonewright/search-query"
         ]
     },
     "abilities": [
@@ -543,7 +548,7 @@
             "output_schema_hash": "6b04cca8a8207178eb294ddb2f5db65f728619cc5b8e0e06cb2595cc9301a5e0",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -603,7 +608,7 @@
             "output_schema_hash": "f217c8feab78b08d2fdab7b72cc13a80e1b31ec0678ea98c8dd2aae83a986cfb",
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -781,7 +786,7 @@
             "kind": "Write",
             "input_schema_hash": "43d72ebb33e300b65f5a98b89caf88d930b9456271ac67ea8c01a38d9f56bb47",
             "output_schema_hash": "8da44f0978ac3f583dd92eb213e633d6b612d1d307007fc06b8ab1042302130c",
-            "permission_class": "Permissions::moderate_comments()",
+            "permission_class": "Permissions::moderate_comments() (compound)",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -801,7 +806,7 @@
             "kind": "Read",
             "input_schema_hash": "3df2a0bb6e1f22f70958c255cc83d22d5502335e5bbbd790956bf8a17a3fb48d",
             "output_schema_hash": "35297846d0a3122abed38c35f40589be2d1190c6e9145df9ad14b4c01291b6a5",
-            "permission_class": "Permissions::edit_posts()",
+            "permission_class": "Permissions::edit_posts() (compound)",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -841,7 +846,7 @@
             "kind": "Write",
             "input_schema_hash": "5a2307ebe61ba798aeb87e5e5c7239f42dac8a6d229c1b0dbfdebd3feced2244",
             "output_schema_hash": "c49b985ee9699ca84b854108922fd8947dd24bdc7add27419487f2103decd08b",
-            "permission_class": "Permissions::moderate_comments()",
+            "permission_class": "Permissions::moderate_comments() (compound)",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -1143,7 +1148,7 @@
             "output_schema_hash": "eee4256308c48c1bec94223ea0eb9c4138190782365fb009c31d8d002adf3089",
             "permission_class": "Permissions::can_edit_post( $post_id )",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": true,
                 "audit": true
@@ -1363,7 +1368,7 @@
             "output_schema_hash": "6bd870defa4090dc0e99da4879ec4c806028209c3cb06351ef9d99b09d3bc685",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -1483,7 +1488,7 @@
             "output_schema_hash": "0ee32e624fd3f539a8a5bc56958ff02f46b3395d013d71d6248fab5e95825ebb",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": false
@@ -1503,7 +1508,7 @@
             "output_schema_hash": "b82957f9c2fc736c18a654b3f6dca483a39ad0f18b2740f80d6087765c01f92c",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": false
@@ -3863,7 +3868,7 @@
             "output_schema_hash": "77cb7b7efa5af52372fe030d41dfb6a5aeb957cf07281d196cc67429e7988c0a",
             "permission_class": "Permissions::edit_theme_options() (compound)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -4243,7 +4248,7 @@
             "output_schema_hash": "bf85c7f0451767217662afcfa768ab44d9e4b691e19dead4c3ebea9476622899",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": false
@@ -4370,7 +4375,7 @@
             },
             "annotations": {
                 "readonly": false,
-                "destructive": true,
+                "destructive": false,
                 "idempotent": false,
                 "openWorldHint": false
             }
@@ -4403,7 +4408,7 @@
             "output_schema_hash": "2a82ccf6afb939ef441c6dd34131cd5837e665df69d0ad74b903cb6f9086d9a2",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -4863,7 +4868,7 @@
             "output_schema_hash": "c12acf0927b2f959b990134f289e33fc94a0b8b747f33f0f371c2e94323af9f4",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -4959,7 +4964,7 @@
             "ability_name": "stonewright/expertise-promote",
             "mcp_name": "stonewright-expertise-promote",
             "kind": "Write",
-            "input_schema_hash": "951537784ff10e4746a508877e007cd8e69b04f4367afd51b25037c6ff22f263",
+            "input_schema_hash": "4758eaa908fb6cf080765c2a058c7630db053fba48e3ff2260cb4fcd56352518",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -5143,7 +5148,7 @@
             "output_schema_hash": "fc0b8586f2ecd533b44498dd5095de4503fc810256e9c723ea6215f396f60316",
             "permission_class": "Permissions::can_manage_fse()",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -5183,7 +5188,7 @@
             "output_schema_hash": "8307f29b55c270a7e4e472d0f5ed2838fd6148d7593d045d860d3b64423bcbaf",
             "permission_class": "Permissions::can_manage_fse()",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": true,
                 "audit": true
@@ -5339,7 +5344,7 @@
             "ability_name": "stonewright/knowledge-candidate-record",
             "mcp_name": "stonewright-knowledge-candidate-record",
             "kind": "Write",
-            "input_schema_hash": "64b7907e757419d97b5a07159eec5d7024e2948cf6afff7c4e79dd817f59ae4b",
+            "input_schema_hash": "5457a55a1c9e761563019fb82865f798c6165aa809350e733f49899c635a74db",
             "output_schema_hash": "d33107bd679fbbd80de3db79363f04873505236208ec3357577f740f57ed86c8",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -5480,7 +5485,7 @@
             "mcp_name": "stonewright-media-optimize",
             "kind": "Write",
             "input_schema_hash": "9b386e3d92664ef8a963d11ddc8239e4cd9fb39bb9d2f338a16392db12bff90d",
-            "output_schema_hash": "628662f736c2ada576f159ca89fb91366b62ce3f958c3e64ec1b2a59abf4567a",
+            "output_schema_hash": "922e2356e90a9e8f0420da0e63c88d5a0aad472959c84f8842dff52070fa7b06",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
                 "backup": false,
@@ -5639,7 +5644,7 @@
             "ability_name": "stonewright/memory-save",
             "mcp_name": "stonewright-memory-save",
             "kind": "Write",
-            "input_schema_hash": "5443b1e079e6f09e231d5cb68aed07e0f40d77f8c2065a9c74e1e47a66a56f6d",
+            "input_schema_hash": "f90bc49f897ad18542f6da69f79910ec4fa5c4c1b5f7772ce89c8fdcd4d3b034",
             "output_schema_hash": "51c8b80e7152a8c239b3ccddd5bf26eecb566b1aeef378455d46d4f6c2b8e2bd",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -6279,8 +6284,8 @@
             "ability_name": "stonewright/search-query",
             "mcp_name": "stonewright-search-query",
             "kind": "Read",
-            "input_schema_hash": "2153c818288c9c5692212157e6dbd6f41ae3e4247108fdb5efc62b5a08400971",
-            "output_schema_hash": "2ac6b81acaceb13ee8547ea97845b00f6d3b45c68716e34997fc18816d09eda1",
+            "input_schema_hash": "22ee8a9dd022a0a6e025c5fa76d87e868f8a28c4e3d5dd2e207ca2db7bfa00a3",
+            "output_schema_hash": "b01840bc75a943bacff205e17ea07f6ace8a7c6827bfeae6e737ed3f84180fe8",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -6338,13 +6343,13 @@
         {
             "ability_name": "stonewright/security-audit-reconcile",
             "mcp_name": "stonewright-security-audit-reconcile",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "7442754713999ce4f360d88f4720427ebdcd5a497de6d0b6a8ccab32675ab2c1",
             "output_schema_hash": "26d04eae31808d8747a6a0e76bdbdebc2ff8bbf3e123a4e6000e59ae02430fdd",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             },
@@ -6378,7 +6383,7 @@
         {
             "ability_name": "stonewright/security-issue-confirmation-token",
             "mcp_name": "stonewright-security-issue-confirmation-token",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "7eab3576a3603b9e97c0dea1d5745dcca168d8512385f4ec4ebb3701e6a5d393",
             "output_schema_hash": "c0f6bff0fccae52c6931b4e7c8ce7d2284c4b6f158788513eb26edc7e5b829a0",
             "permission_class": "Permissions::manage_options()",
@@ -6386,7 +6391,7 @@
                 "backup": false,
                 "token": false,
                 "validator": false,
-                "audit": false
+                "audit": true
             },
             "annotations": {
                 "readonly": false,
@@ -6526,7 +6531,7 @@
                 "backup": true,
                 "token": false,
                 "validator": false,
-                "audit": false
+                "audit": true
             },
             "annotations": {
                 "readonly": false,

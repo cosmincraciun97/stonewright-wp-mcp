@@ -17,14 +17,15 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 /**
  * Reads the source of an ability class, and of the classes it extends up to the ability kernel,
  * and reports what the ability does: whether it can change state (`write`), whether it has a
- * production-safe confirmation gate (`token`) and whether it reaches hosts outside the site
- * (`external`). Strings and comments are never searched, so text that only names a function does
- * not count.
+ * production-safe confirmation gate (`token`), whether it snapshots before it writes (`backup`)
+ * and whether it reaches hosts outside the site (`external`). Strings and comments are never
+ * searched, so text that only names a function does not count.
  *
  * The ability truth matrix (plugin/bin/generate-ability-matrix.php) and the public API contract
- * snapshot use these facts for their read/write column and `kind`, and the matrix generator
- * records them in plugin/data/ability-traits.php, from which AbilityAnnotations derives the MCP
- * tool annotations of every ability.
+ * snapshot use these facts for their read/write, token and backup columns, so the two can never
+ * disagree. The matrix generator records the write and external facts in
+ * plugin/data/ability-traits.php, from which AbilityAnnotations derives the MCP tool annotations
+ * of every ability.
  */
 final class AbilitySourceFacts {
 
@@ -87,6 +88,10 @@ final class AbilitySourceFacts {
 		'QualityReportStore::save(',
 		'RuntimeDataPurger::purge(',
 		'ChangeRollback::run(',
+		// The reconciler verifies the token and rewrites the stored audit rows.
+		'AuditReconciler::migrate(',
+		// Issuing a token stores it, so the call is a write although it needs no token itself.
+		'ConfirmationToken::issue(',
 		'new UploadMedia()',
 		'new BuildPageFromSpec()',
 		'ConfirmationGuard',
@@ -109,6 +114,44 @@ final class AbilitySourceFacts {
 		'new BuildPageFromSpec()',
 		// The rollback engine verifies the token itself, so the ability that calls it must not verify it again.
 		'ChangeRollback::run(',
+		// The reconciler verifies the token inside its migration.
+		'AuditReconciler::migrate(',
+	];
+
+	/**
+	 * Calls and names that mark an ability that snapshots the post, kit or template it is about to
+	 * write. An ability either calls `Backup::snapshot_post` itself or hands the write to one of the
+	 * classes below, which call it before they mutate anything, or to an ability that does.
+	 *
+	 * Helpers that snapshot:
+	 * - ElementorWriter, ElementorTransactionRunner (`run`, `run_full_tree`), LoopTransaction: the
+	 *   Elementor page writers;
+	 * - ElementorKitWriter::apply and BrandKit::apply: the Elementor kit writers;
+	 * - NativeElementorProvider: the native Elementor bridge, which snapshots the page or kit;
+	 * - BlueprintApplier::apply: every page a blueprint touches;
+	 * - GlobalStylesWriter::write: the global styles post.
+	 *
+	 * Abilities that snapshot for their callers: BuildPageFromSpec, BatchMutate (Elementor) and
+	 * BlocksBatchMutate (Gutenberg), and the design renderers that write through them.
+	 *
+	 * @var list<string>
+	 */
+	private const BACKUP_MARKERS = [
+		'Backup::snapshot_post',
+		'ElementorWriter::write',
+		'ElementorTransactionRunner::run',
+		'LoopTransaction::run',
+		'ElementorKitWriter::apply',
+		'NativeElementorProvider',
+		'BlueprintApplier::apply',
+		'BrandKit::apply',
+		'GlobalStylesWriter::write',
+		'new BatchMutate(',
+		'new BlocksBatchMutate(',
+		'SpecToGutenberg()',
+		'SpecToElementorV3()',
+		'ApplyToPost()',
+		'new BuildPageFromSpec()',
 	];
 
 	/**
@@ -179,6 +222,31 @@ final class AbilitySourceFacts {
 		}
 
 		return str_contains( $code, '->audit_write(' ) || self::has_token_gate( $code );
+	}
+
+	/**
+	 * Whether the source of an ability carries a production-safe confirmation gate. Strings and
+	 * comments are left out.
+	 */
+	public static function token_gate_in( string $source ): bool {
+		return self::has_token_gate( self::code_only( $source ) );
+	}
+
+	/**
+	 * Whether the source of an ability snapshots before it writes: it calls `Backup::snapshot_post`,
+	 * or hands the write to a helper or ability that does (see BACKUP_MARKERS). Strings and comments
+	 * are left out.
+	 */
+	public static function backs_up( string $source ): bool {
+		$code = self::code_only( $source );
+
+		foreach ( self::BACKUP_MARKERS as $marker ) {
+			if ( str_contains( $code, $marker ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

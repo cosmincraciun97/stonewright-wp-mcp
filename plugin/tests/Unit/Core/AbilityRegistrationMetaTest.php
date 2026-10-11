@@ -59,8 +59,10 @@ final class AbilityRegistrationMetaTest extends TestCase {
 		'stonewright/elementor-create-custom-widget'    => [ false, true, false, false ],
 		// It only adds media files and attachments, and fetches them from the web.
 		'stonewright/design-normalize-assets'           => [ false, false, false, true ],
-		// It writes, but the kernel wrapper it records through declares no nature, so its source shows no write.
+		// It rewrites stored audit rows in place, and repeating it with the same arguments changes nothing more.
 		'stonewright/security-audit-reconcile'          => [ false, true, true, false ],
+		// Every call creates a new library template; the source page and earlier templates stay as they are.
+		'stonewright/elementor-v3-save-template'        => [ false, false, false, false ],
 	];
 
 	protected function setUp(): void {

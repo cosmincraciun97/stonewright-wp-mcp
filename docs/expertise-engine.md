@@ -17,8 +17,14 @@ The lifecycle is `draft → candidate → verified → stable → stale → reti
 Verified requires a persisted compatible runtime scorecard, exact fixture and
 schema hashes, editor/frontend/readback evidence, a curriculum score of at
 least 90, and zero critical failures. Stable requires evidence from two distinct runtime
-fingerprints or explicit maintainer approval with a note. A stale or retired
+fingerprints, or one runtime and a note from the approving administrator. A stale or retired
 pack cannot enter task context.
+
+Promotion to verified or stable also needs an administrator. The promotion call
+stages a request and returns an approval link; an administrator approves or
+rejects it on the Skills screen in wp-admin. An approval works once, for that
+exact pack and target, and expires after an hour. The `maintainer_approved` and
+`approval_note` arguments are ignored.
 
 ## Runtime activation
 

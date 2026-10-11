@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\Tests\Unit\SkillLibrary\Site\SkillTablesDouble;
 
 /**
@@ -263,6 +264,93 @@ final class SkillsPageTest extends TestCase {
 		self::assertTrue( $payload['can']['manageOptions'] );
 	}
 
+	public function test_pending_promotions_are_listed_with_an_approve_and_a_reject_form(): void {
+		self::assertStringNotContainsString( 'Pending approvals', $this->render(), 'Nothing is shown when nothing waits.' );
+
+		$request = $this->stage_promotion( true );
+		$html    = $this->render();
+
+		self::assertStringContainsString( 'Pending approvals', $html );
+		self::assertStringContainsString( 'Button URL control', $html );
+		self::assertStringContainsString( 'Verified successes', $html );
+		self::assertStringContainsString( 'value="stonewright_promotion_decide"', $html );
+		self::assertStringContainsString( '<input type="hidden" name="request_id" value="' . $request['request_id'] . '">', $html );
+		self::assertStringContainsString( 'name="_wpnonce"', $html );
+		self::assertMatchesRegularExpression( '/<textarea[^>]*name="note"/', $html );
+		self::assertMatchesRegularExpression( '/name="decision" value="approve"[^>]*>\s*Approve|>Approve<\/button>/', $html );
+		self::assertStringContainsString( '>Reject<', $html );
+		self::assertStringContainsString( 'The evidence is thin', $html );
+	}
+
+	public function test_an_administrator_approves_a_promotion_from_the_screen(): void {
+		$request = $this->stage_promotion( false );
+
+		$url = SkillsPage::decide_submission( [ 'request_id' => $request['request_id'], 'decision' => 'approve', 'note' => 'Checked on the site.' ] );
+
+		self::assertStringContainsString( 'promotion=approved', $url );
+		self::assertStringNotContainsString( 'error=', $url );
+		self::assertSame( [], PromotionGrant::pending() );
+		$grant = PromotionGrant::consume( PromotionGrant::KIND_KNOWLEDGE, '12', str_repeat( 'a1', 32 ), 'activate' );
+		self::assertIsArray( $grant );
+		self::assertSame( 'Checked on the site.', $grant['note'] );
+	}
+
+	public function test_an_administrator_rejects_a_promotion_from_the_screen(): void {
+		$request = $this->stage_promotion( false );
+
+		$url = SkillsPage::decide_submission( [ 'request_id' => $request['request_id'], 'decision' => 'reject' ] );
+
+		self::assertStringContainsString( 'promotion=rejected', $url );
+		$result = PromotionGrant::consume( PromotionGrant::KIND_KNOWLEDGE, '12', str_repeat( 'a1', 32 ), 'activate' );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_promotion_rejected', $result->get_error_code() );
+	}
+
+	public function test_a_decision_without_the_required_note_or_without_the_capability_changes_nothing(): void {
+		$request = $this->stage_promotion( true );
+
+		$url = SkillsPage::decide_submission( [ 'request_id' => $request['request_id'], 'decision' => 'approve', 'note' => '' ] );
+		self::assertStringContainsString( 'error=stonewright_promotion_note_required', $url );
+		self::assertCount( 1, PromotionGrant::pending() );
+
+		$GLOBALS['stonewright_test_user_caps'] = [];
+		$url = SkillsPage::decide_submission( [ 'request_id' => $request['request_id'], 'decision' => 'approve', 'note' => 'Because.' ] );
+		self::assertStringContainsString( 'error=stonewright_promotion_forbidden', $url );
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		self::assertCount( 1, PromotionGrant::pending() );
+	}
+
+	public function test_the_result_of_a_decision_is_a_notice_and_never_reflects_the_request(): void {
+		$_GET = [ 'promotion' => 'approved' ];
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*Promotion approved\./s', $this->render() );
+
+		$_GET = [ 'promotion' => 'rejected' ];
+		self::assertMatchesRegularExpression( '/role="status"[^>]*>.*Promotion rejected\./s', $this->render() );
+
+		$_GET = [ 'error' => 'stonewright_promotion_note_required' ];
+		self::assertStringContainsString( 'Say why you approve it', $this->render() );
+
+		$_GET = [ 'promotion' => '<b>forged</b>' ];
+		self::assertStringNotContainsString( 'forged', $this->render() );
+	}
+
+	/** @return array<string, mixed> */
+	private function stage_promotion( bool $thin_evidence ): array {
+		$request = PromotionGrant::request(
+			PromotionGrant::KIND_KNOWLEDGE,
+			'12',
+			str_repeat( 'a1', 32 ),
+			'activate',
+			[
+				'title'   => 'Button URL control',
+				'details' => [ 'Verified successes' => $thin_evidence ? '0' : '2' ],
+			],
+			$thin_evidence
+		);
+		self::assertIsArray( $request );
+
+		return $request;
+	}
 	private function render(): string {
 		ob_start();
 		SkillsPage::render();

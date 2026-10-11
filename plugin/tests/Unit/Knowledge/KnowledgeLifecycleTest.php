@@ -4,9 +4,12 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Knowledge;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeCandidateRecord;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
+use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
+use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
 
@@ -22,6 +25,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['wpdb'] = self::wpdb();
 	}
@@ -33,6 +37,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 			unset( $GLOBALS['wpdb'] );
 		}
 		$GLOBALS['stonewright_test_options'] = [];
+		unset( $GLOBALS['stonewright_test_user_caps'] );
 	}
 
 	public function test_schema_contains_provenance_ttl_verification_and_status_indexes(): void {
@@ -65,9 +70,10 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertIsArray( $second );
 		self::assertSame( 2, $second['verification_count'] );
 
-		$promoted = CandidateRepository::promote( (int) $created['id'], false, '' );
+		$promoted = self::promote_with_grant( (int) $created['id'], '' );
 		self::assertIsArray( $promoted );
-		self::assertSame( 'verified_successes', $promoted['promotion_gate'] );
+		self::assertSame( 'administrator_approval', $promoted['promotion_gate'] );
+		self::assertSame( 2, $promoted['candidate']['verification_count'] );
 		self::assertSame( 'approved', $promoted['candidate']['status'] );
 		$active = SkillLibraryService::open()->find( (string) $promoted['skill_slug'] );
 		self::assertNotNull( $active );
@@ -75,17 +81,164 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertSame( '1', (string) $active['enabled'] );
 	}
 
-	public function test_early_promotion_requires_user_approval_note(): void {
+	public function test_thin_evidence_needs_a_note_from_the_administrator_who_approves(): void {
 		$created = CandidateRepository::create( self::candidate( 'Form actions', 'Forms need an explicit success behavior.' ) );
 		self::assertIsArray( $created );
 
-		$blocked = CandidateRepository::promote( (int) $created['id'], true, '' );
+		$blocked = self::promote_with_grant( (int) $created['id'], '' );
 		self::assertInstanceOf( \WP_Error::class, $blocked );
-		self::assertSame( 'stonewright_knowledge_promotion_gate', $blocked->get_error_code() );
+		self::assertSame( 'stonewright_promotion_note_required', $blocked->get_error_code() );
 
-		$approved = CandidateRepository::promote( (int) $created['id'], true, 'User approved this exact candidate.' );
+		$approved = self::promote_with_grant( (int) $created['id'], 'User approved this exact candidate.' );
 		self::assertIsArray( $approved );
-		self::assertSame( 'user_approval', $approved['promotion_gate'] );
+		self::assertSame( 'administrator_approval', $approved['promotion_gate'] );
+		self::assertSame( 'User approved this exact candidate.', $approved['approval_note'] );
+	}
+
+	public function test_an_agent_cannot_promote_without_a_grant(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+		$fingerprint = str_repeat( 'a', 64 );
+		CandidateRepository::verify( (int) $created['id'], 'task-one', $fingerprint, true );
+		CandidateRepository::verify( (int) $created['id'], 'task-two', $fingerprint, true );
+
+		$blocked = CandidateRepository::promote( (int) $created['id'] );
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_promotion_approval_required', $blocked->get_error_code() );
+		self::assertTrue( $blocked->get_error_data()['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-skills', (string) $blocked->get_error_data()['approval_url'] );
+		self::assertSame( 'verified', CandidateRepository::get( (int) $created['id'] )['status'] );
+		$skill = SkillLibraryService::open()->find( (string) $created['skill_slug'] );
+		self::assertNotNull( $skill );
+		self::assertSame( 'draft', $skill['status'] );
+		self::assertCount( 1, PromotionGrant::pending() );
+
+		// Asking again does not stack requests or promote.
+		$again = CandidateRepository::promote( (int) $created['id'] );
+		self::assertInstanceOf( \WP_Error::class, $again );
+		self::assertCount( 1, PromotionGrant::pending() );
+	}
+
+	public function test_a_grant_is_single_use_and_bound_to_its_candidate(): void {
+		$first  = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		$second = CandidateRepository::create( self::candidate( 'Icon box layout', 'The icon box keeps the icon above the title.' ) );
+		self::assertIsArray( $first );
+		self::assertIsArray( $second );
+
+		$request = CandidateRepository::request_promotion( (int) $first['id'] );
+		self::assertIsArray( $request );
+		self::assertIsArray( PromotionGrant::approve( (string) $request['request_id'], 'Reviewed the first candidate.' ) );
+
+		// The grant belongs to the first candidate; the second one is still blocked.
+		$other = CandidateRepository::promote( (int) $second['id'] );
+		self::assertInstanceOf( \WP_Error::class, $other );
+		self::assertSame( 'stonewright_promotion_approval_required', $other->get_error_code() );
+
+		$promoted = CandidateRepository::promote( (int) $first['id'] );
+		self::assertIsArray( $promoted );
+		self::assertSame( 'approved', $promoted['candidate']['status'] );
+
+		// Once spent, the same grant promotes nothing again.
+		$GLOBALS['wpdb']->candidates[ (int) $first['id'] ]['status'] = 'candidate';
+		$spent = CandidateRepository::promote( (int) $first['id'] );
+		self::assertInstanceOf( \WP_Error::class, $spent );
+		self::assertSame( 'stonewright_promotion_approval_required', $spent->get_error_code() );
+	}
+
+	public function test_a_success_counts_only_when_it_is_a_verified_audit_event_the_plugin_wrote(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+		$id = (int) $created['id'];
+
+		// The caller invents an event id: nothing counts.
+		$unknown = CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' );
+		self::assertInstanceOf( \WP_Error::class, $unknown );
+		self::assertSame( 'stonewright_knowledge_verification_unproven', $unknown->get_error_code() );
+		self::assertSame( 0, CandidateRepository::get( $id )['verification_count'] );
+
+		// A real event, but its effect was not verified.
+		$GLOBALS['wpdb']->audit_rows = [ self::audit_event( [ 'effect_verified' => 0 ] ) ];
+		self::assertInstanceOf( \WP_Error::class, CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' ) );
+
+		// A failed call.
+		$GLOBALS['wpdb']->audit_rows = [ self::audit_event( [ 'outcome' => 'FAILED' ] ) ];
+		self::assertInstanceOf( \WP_Error::class, CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' ) );
+
+		// Knowledge calls cannot verify knowledge.
+		$GLOBALS['wpdb']->audit_rows = [ self::audit_event( [ 'ability_name' => 'stonewright/knowledge-candidate-record' ] ) ];
+		self::assertInstanceOf( \WP_Error::class, CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' ) );
+
+		// An event from long ago.
+		$GLOBALS['wpdb']->audit_rows = [ self::audit_event( [ 'created_at' => gmdate( 'Y-m-d H:i:s', time() - 90 * DAY_IN_SECONDS ) ] ) ];
+		self::assertInstanceOf( \WP_Error::class, CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' ) );
+		self::assertSame( 0, CandidateRepository::get( $id )['verification_count'] );
+
+		$GLOBALS['wpdb']->audit_rows = [ self::audit_event( [] ) ];
+		$counted = CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' );
+		self::assertIsArray( $counted );
+		self::assertSame( 1, $counted['verification_count'] );
+		self::assertSame( [ '11111111-1111-4111-8111-111111111111' ], $counted['verification_task_ids'] );
+		self::assertSame( [ RuntimeFingerprint::describe()['hash'] ], $counted['verified_fingerprints'] );
+
+		// The same event is one success, however often it is named.
+		$repeat = CandidateRepository::verify_from_event( $id, '11111111-1111-4111-8111-111111111111' );
+		self::assertIsArray( $repeat );
+		self::assertSame( 1, $repeat['verification_count'] );
+	}
+	public function test_the_ability_ignores_an_approval_the_agent_supplies_itself(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+
+		$result = ( new KnowledgeCandidateRecord() )->execute(
+			[
+				'action'        => 'promote',
+				'id'            => (int) $created['id'],
+				'user_approved' => true,
+				'approval_note' => 'The user said yes.',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_promotion_approval_required', $result->get_error_code() );
+		self::assertSame( 'candidate', CandidateRepository::get( (int) $created['id'] )['status'] );
+		self::assertSame( 'draft', SkillLibraryService::open()->find( (string) $created['skill_slug'] )['status'] );
+	}
+
+	public function test_the_ability_promotes_once_an_administrator_approved_the_request(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+		$args = [ 'action' => 'promote', 'id' => (int) $created['id'] ];
+
+		$blocked = ( new KnowledgeCandidateRecord() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertIsArray( PromotionGrant::approve( (string) $blocked->get_error_data()['request_id'], 'Reviewed on the site.' ) );
+
+		$result = ( new KnowledgeCandidateRecord() )->execute( $args );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'approved', $result['result']['candidate']['status'] );
+		self::assertSame( 'Reviewed on the site.', $result['result']['approval_note'] );
+		self::assertSame( 'active', SkillLibraryService::open()->find( (string) $created['skill_slug'] )['status'] );
+	}
+
+	public function test_the_verify_ability_refuses_a_task_id_the_agent_made_up(): void {
+		$created = CandidateRepository::create( self::candidate( 'Button URL control', 'The URL control uses a structured link value.' ) );
+		self::assertIsArray( $created );
+
+		$result = ( new KnowledgeCandidateRecord() )->execute(
+			[
+				'action'              => 'verify',
+				'id'                  => (int) $created['id'],
+				'task_id'             => 'task-one',
+				'runtime_fingerprint' => str_repeat( 'a', 64 ),
+				'success'             => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_knowledge_verification_unproven', $result->get_error_code() );
+		self::assertSame( 0, CandidateRepository::get( (int) $created['id'] )['verification_count'] );
 	}
 
 	public function test_conflicting_active_topic_is_not_silently_replaced(): void {
@@ -94,8 +247,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 		self::assertIsArray( $first );
 		self::assertIsArray( $second );
 
-		CandidateRepository::promote( (int) $first['id'], true, 'Approved first candidate.' );
-		$conflict = CandidateRepository::promote( (int) $second['id'], true, 'Approved second candidate.' );
+		self::promote_with_grant( (int) $first['id'], 'Approved first candidate.' );
+		$conflict = self::promote_with_grant( (int) $second['id'], 'Approved second candidate.' );
 
 		self::assertInstanceOf( \WP_Error::class, $conflict );
 		self::assertSame( 'stonewright_knowledge_conflict', $conflict->get_error_code() );
@@ -106,10 +259,10 @@ final class KnowledgeLifecycleTest extends TestCase {
 		$second = CandidateRepository::create( self::candidate( 'Responsive button recipe', 'Use a different, verified control.' ) );
 		self::assertIsArray( $first );
 		self::assertIsArray( $second );
-		$current = CandidateRepository::promote( (int) $first['id'], true, 'Approved first candidate.' );
+		$current = self::promote_with_grant( (int) $first['id'], 'Approved first candidate.' );
 		self::assertIsArray( $current );
 
-		$replacement = CandidateRepository::promote( (int) $second['id'], true, 'Approved replacement.', 'replace' );
+		$replacement = self::promote_with_grant( (int) $second['id'], 'Approved replacement.', 'replace' );
 
 		self::assertIsArray( $replacement );
 		self::assertSame( [ $current['skill_slug'] ], $replacement['replaced'] );
@@ -131,13 +284,13 @@ final class KnowledgeLifecycleTest extends TestCase {
 		$second           = CandidateRepository::create( $flawed );
 		self::assertIsArray( $first );
 		self::assertIsArray( $second );
-		$current = CandidateRepository::promote( (int) $first['id'], true, 'Approved first candidate.' );
+		$current = self::promote_with_grant( (int) $first['id'], 'Approved first candidate.' );
 		self::assertIsArray( $current );
 		$before = SkillLibraryService::open()->find( (string) $current['skill_slug'] );
 		self::assertNotNull( $before );
 		self::assertSame( 'active', $before['status'] );
 
-		$refused = CandidateRepository::promote( (int) $second['id'], true, 'Approved replacement.', 'replace' );
+		$refused = self::promote_with_grant( (int) $second['id'], 'Approved replacement.', 'replace' );
 
 		self::assertInstanceOf( \WP_Error::class, $refused );
 		self::assertSame( 'stonewright_skill_lint_failed', $refused->get_error_code() );
@@ -167,7 +320,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 	public function test_skill_versions_can_be_linted_and_rolled_back(): void {
 		$created = CandidateRepository::create( self::candidate( 'Elementor button rollback', 'Use the live link control.' ) );
 		self::assertIsArray( $created );
-		$promoted = CandidateRepository::promote( (int) $created['id'], true, 'Approved exact runtime recipe.' );
+		$promoted = self::promote_with_grant( (int) $created['id'], 'Approved exact runtime recipe.' );
 		self::assertIsArray( $promoted );
 
 		$slug     = (string) $promoted['skill_slug'];
@@ -202,8 +355,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 		$old     = str_repeat( 'b', 64 );
 		CandidateRepository::verify( (int) $compatible['id'], 'compatible-task', $runtime, true );
 		CandidateRepository::verify( (int) $incompatible['id'], 'old-task', $old, true );
-		$compatible_promotion   = CandidateRepository::promote( (int) $compatible['id'], true, 'Approved compatible recipe.' );
-		$incompatible_promotion = CandidateRepository::promote( (int) $incompatible['id'], true, 'Approved old recipe.' );
+		$compatible_promotion   = self::promote_with_grant( (int) $compatible['id'], 'Approved compatible recipe.' );
+		$incompatible_promotion = self::promote_with_grant( (int) $incompatible['id'], 'Approved old recipe.' );
 		self::assertIsArray( $compatible_promotion );
 		self::assertIsArray( $incompatible_promotion );
 
@@ -231,7 +384,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 		);
 	}
 
-	public function test_two_distinct_verified_tasks_promote_one_deduplicated_candidate(): void {
+	public function test_two_distinct_verified_tasks_wait_for_approval_on_one_deduplicated_candidate(): void {
 		$schema = self::repair_schema();
 		SchemaRepairLearning::observe_failure(
 			'loop-carousel',
@@ -260,13 +413,48 @@ final class KnowledgeLifecycleTest extends TestCase {
 
 		self::assertSame( 1, $first[0]['candidate']['verification_count'] );
 		self::assertSame( 1, $repeat[0]['candidate']['verification_count'] );
-		self::assertSame( 'approved', $second[0]['candidate']['status'] );
+		self::assertSame( 'verified', $second[0]['candidate']['status'] );
+		self::assertSame( 2, $second[0]['candidate']['verification_count'] );
+		self::assertCount( 1, PromotionGrant::pending() );
 		self::assertCount(
 			1,
 			CandidateRepository::list( [ 'topic' => 'Elementor schema repair: loop-carousel/slides_to_show' ] )
 		);
 		self::assertStringNotContainsString( '"size":3', (string) $second[0]['candidate']['recipe'] );
 		self::assertStringNotContainsString( '5', (string) $second[0]['candidate']['fact'] );
+	}
+
+	/**
+	 * @param array<string, mixed> $overrides
+	 * @return array<string, mixed>
+	 */
+	private static function audit_event( array $overrides ): array {
+		return $overrides + [
+			'event_id'            => '11111111-1111-4111-8111-111111111111',
+			'ability_name'        => 'stonewright/elementor-v3-update-element',
+			'outcome'             => 'SUCCESS',
+			'effect_verified'     => 1,
+			'verification_status' => 'verified',
+			'created_at'          => gmdate( 'Y-m-d H:i:s' ),
+		];
+	}
+
+	/**
+	 * Stands in for the administrator: stages the request, approves it as the administrator, then promotes.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function promote_with_grant( int $id, string $note, string $conflict = 'reject' ): array|\WP_Error {
+		$request = CandidateRepository::request_promotion( $id, $conflict );
+		if ( $request instanceof \WP_Error ) {
+			return $request;
+		}
+		$approved = PromotionGrant::approve( (string) $request['request_id'], $note );
+		if ( $approved instanceof \WP_Error ) {
+			return $approved;
+		}
+
+		return CandidateRepository::promote( $id, $conflict );
 	}
 
 	private static function schema_error(): \WP_Error {
@@ -328,6 +516,8 @@ final class KnowledgeLifecycleTest extends TestCase {
 			public array $skills = [];
 			/** @var list<array<string, mixed>> */
 			public array $history = [];
+			/** @var list<array<string, mixed>> */
+			public array $audit_rows = [];
 
 			public function get_charset_collate(): string {
 				return 'DEFAULT CHARACTER SET utf8mb4';
@@ -375,6 +565,9 @@ final class KnowledgeLifecycleTest extends TestCase {
 
 			/** @return list<array<string, mixed>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				if ( str_contains( $query, 'stonewright_audit_log' ) ) {
+					return $this->audit_rows;
+				}
 				if ( str_contains( $query, 'stonewright_skill_versions' ) ) {
 					return $this->history;
 				}

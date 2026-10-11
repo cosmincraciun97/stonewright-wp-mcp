@@ -31,6 +31,21 @@ final class SaveTemplate extends AbilityKernel {
 		return 'elementor';
 	}
 
+	/**
+	 * Every call creates a new library template and leaves the source page and earlier templates as they are.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function meta(): array {
+		return [
+			'annotations' => [
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			],
+		];
+	}
+
 	public function input_schema(): array {
 		return [
 			'type'                 => 'object',

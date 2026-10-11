@@ -31,7 +31,7 @@ final class MediaFixesTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_user_logged_in']      = true;
 		$GLOBALS['stonewright_test_current_user_id']     = 1;
-		$GLOBALS['stonewright_test_user_caps']           = [ 'upload_files' => true, 'edit_posts' => true, 'read' => true ];
+		$GLOBALS['stonewright_test_user_caps']           = [ 'upload_files' => true, 'edit_posts' => true, 'read' => true, 'read_post' => true ];
 		$GLOBALS['stonewright_test_user_can_callback']   = null;
 		$GLOBALS['stonewright_test_options']             = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_transients']          = [];

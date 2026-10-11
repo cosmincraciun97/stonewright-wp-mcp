@@ -23,7 +23,7 @@ final class PluginDeactivate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Deactivates a plugin. Cannot deactivate Stonewright itself.', 'stonewright' );
+		return __( 'Deactivates a plugin. Cannot deactivate Stonewright itself. Requires a confirmation token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {

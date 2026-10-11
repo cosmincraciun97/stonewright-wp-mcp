@@ -10,16 +10,23 @@ of automatic task context until it passes a promotion gate.
 2. If behavior is still unclear, use official Elementor documentation.
 3. Create a candidate with `stonewright/knowledge-candidate-record`.
 4. Dry-run the recipe, then verify editor and logged-out frontend behavior.
-5. Record successful verification against the exact runtime fingerprint.
-6. Promote after two distinct successful tasks, or after explicit user approval
-   with an approval note.
+5. Record successful verification with the `event_id` of a verified audit event.
+   A success counts only when a stored audit event of a real ability call shows
+   it succeeded with its effect verified; the plugin records the live runtime
+   fingerprint itself.
+6. Ask for promotion. The call stages a request and returns an approval link.
+   An administrator reviews it on the Skills screen and approves or rejects it.
+   With fewer than two verified successes the approver must also write a note.
+   An approval works once, for that exact candidate, and expires after an hour.
+   The `user_approved` and `approval_note` arguments are ignored.
 7. Resolve a conflicting active topic explicitly; Stonewright never silently
-   replaces it.
+   replaces it. A replacement needs its own approval.
 
 Candidate states are `candidate`, `verified`, `approved`, `stale`, and
 `rejected`. Creation may generate a site skill, but that skill is a disabled
-draft. Research never creates an active skill directly. Promotion runs the
-candidate skill's lint first and withdraws the skills it replaces only after it
+draft. Research never creates an active skill directly, and the plugin never
+promotes a candidate by itself, even after two verified successes. Promotion runs
+the candidate skill's lint first and withdraws the skills it replaces only after it
 passes, so a candidate that fails lint leaves them in service.
 
 ## Required evidence
@@ -31,8 +38,8 @@ An Elementor candidate requires:
 - explicit Core, Pro, and add-on version constraints where relevant;
 - evidence type and confidence;
 - expiry time;
-- verification task IDs and exact runtime fingerprints before automatic
-  promotion.
+- verification event IDs and exact runtime fingerprints before an administrator is
+  asked to promote.
 
 Use `stonewright/knowledge-candidates` for compact refs or one full record. Keep
 candidate bodies on demand; do not inject the complete research archive into

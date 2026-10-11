@@ -209,6 +209,29 @@ final class OptionsAdapterTest extends FamilyLedgerTestCase {
 		self::assertStringNotContainsString( 'synthetic-key', $this->everything_stored() );
 	}
 
+	public function test_a_knowledge_import_that_rewrites_the_instructions_is_recorded_and_restorable(): void {
+		update_option( 'stonewright_custom_instructions', 'Be kind.' );
+		update_option( 'stonewright_custom_instructions_enabled', false );
+
+		$row = $this->recorded(
+			'stonewright/knowledge-import',
+			[ 'bundle' => [] ],
+			static function (): void {
+				update_option( 'stonewright_custom_instructions', 'Imported text.' );
+				update_option( 'stonewright_custom_instructions_enabled', true );
+			}
+		);
+
+		self::assertSame( 'stonewright/knowledge-import', $row['ability'] );
+		self::assertTrue( $row['restorable'] );
+		$before = ChangeLedger::read_image( $row['change_id'], 'before' );
+		$result = OptionsAdapter::restore( $before, 'stonewright/knowledge-import' );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'Be kind.', get_option( 'stonewright_custom_instructions' ) );
+		self::assertFalse( get_option( 'stonewright_custom_instructions_enabled' ) );
+	}
+
 	public function test_a_credential_inside_an_allowlisted_value_masks_the_image_and_blocks_the_restore(): void {
 		update_option( 'stonewright_custom_instructions', "Be kind.\npassword: hunter2-synthetic" );
 

@@ -35,9 +35,18 @@ final class CommentDelete extends AbilityKernel {
 		return [ 'additionalProperties' => true, 'type' => 'object', 'properties' => [ 'deleted' => [ 'type' => 'boolean', 'description' => 'True when the comment was removed for good.' ], 'trashed' => [ 'type' => 'boolean', 'description' => 'True when the comment was moved to the trash and can still be restored.' ], 'id' => [ 'type' => 'integer' ] ], 'required' => [ 'deleted', 'trashed', 'id' ] ];
 	}
 	public function permission_callback( array $args ): bool|\WP_Error {
- return Permissions::moderate_comments(); }
+		if ( ! Permissions::moderate_comments() ) {
+			return false;
+		}
+		return CommentAccess::refusal( (int) ( $args['id'] ?? 0 ) ) ?? true;
+	}
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit( $args, function ( array $args ) {
+			// Before the token is checked, so a refused call does not spend it.
+			$refusal = CommentAccess::refusal( (int) ( $args['id'] ?? 0 ) );
+			if ( null !== $refusal ) {
+				return $refusal;
+			}
 			$verify = $args;
 			unset( $verify['confirmation_token'] );
 			$token_error = $this->confirmation_token_error( $args, $verify );
@@ -47,9 +56,6 @@ final class CommentDelete extends AbilityKernel {
 			$id      = (int) $args['id'];
 			$force   = ! empty( $args['force'] );
 			$comment = get_comment( $id );
-			if ( null === $comment ) {
-				return new \WP_Error( 'stonewright_comment_not_found', 'Comment not found.', [ 'status' => 404, 'id' => $id ] );
-			}
 			// Core deletes a comment for good when it is already in the trash or spam, whatever force says.
 			// That is not what a caller who did not ask for force expects, so it is refused.
 			if ( ! $force && in_array( CommentStatus::of( $comment ), [ 'trash', 'spam' ], true ) ) {

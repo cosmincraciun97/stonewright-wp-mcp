@@ -76,6 +76,38 @@ final class SiteAdapterTest extends OtherFamilyLedgerTestCase {
 		self::assertSame( [ 'failed', 'not_restorable' ], [ $restore['status'], $restore['detail'] ] );
 	}
 
+	public function test_a_plugin_activation_and_deactivation_are_recorded_as_events(): void {
+		$GLOBALS['stonewright_test_plugin_state_visible'] = true;
+		$plugin = 'hello-dolly/hello.php';
+
+		$this->call( 'stonewright/plugin-activate', [ 'plugin' => $plugin, 'confirmation_token' => 'sentinel-token-for-the-call-7c1d' ], static function () use ( $plugin ): void {
+			activate_plugin( $plugin );
+		}, [ 'plugin' => $plugin, 'active' => true ] );
+		$this->call( 'stonewright/plugin-deactivate', [ 'plugin' => $plugin ], static function () use ( $plugin ): void {
+			deactivate_plugins( $plugin );
+		}, [ 'plugin' => $plugin, 'active' => false ] );
+		unset( $GLOBALS['stonewright_test_plugin_state_visible'] );
+
+		$rows = array_values( array_filter( $this->ledger_rows(), static fn ( array $row ): bool => 'plugin' === $row['resource_type'] ) );
+		self::assertCount( 2, $rows );
+		$by_ability = array_column( $rows, null, 'ability' );
+		self::assertStringStartsWith( 'Activated plugin ' . $plugin, $by_ability['stonewright/plugin-activate']['summary'] );
+		self::assertStringStartsWith( 'Deactivated plugin ' . $plugin, $by_ability['stonewright/plugin-deactivate']['summary'] );
+		self::assertSame( $plugin, $by_ability['stonewright/plugin-activate']['resource_id'] );
+		self::assertStringNotContainsString( 'sentinel-token-for-the-call-7c1d', $this->stored_text() );
+	}
+
+	public function test_activating_a_plugin_that_is_already_active_records_nothing(): void {
+		$GLOBALS['stonewright_test_plugin_state_visible'] = true;
+		$GLOBALS['stonewright_test_active_plugins']       = [ 'hello-dolly/hello.php' => true ];
+
+		$this->call( 'stonewright/plugin-activate', [ 'plugin' => 'hello-dolly/hello.php' ], static function (): void {}, [ 'plugin' => 'hello-dolly/hello.php', 'active' => true ] );
+		unset( $GLOBALS['stonewright_test_plugin_state_visible'] );
+		$GLOBALS['stonewright_test_active_plugins'] = [];
+
+		self::assertSame( [], $this->ledger_rows() );
+	}
+
 	public function test_a_plugin_delete_that_failed_records_nothing(): void {
 		$this->call( 'stonewright/plugin-delete', [ 'plugin' => 'hello-dolly/hello.php' ], static function (): void {}, new \WP_Error( 'stonewright_plugin_active', 'No.' ) );
 

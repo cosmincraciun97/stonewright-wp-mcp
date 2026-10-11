@@ -1126,6 +1126,13 @@ final class AbilityRegistry {
 			// A bulk rewrite of stored memory. Category "memory" is exempt and
 			// "generalize" is in no keyword list, so it must be named here.
 			'stonewright/memory-generalize',
+			// Mutations in exempt categories whose verbs ("restore", "import", "refresh",
+			// "capture", "backup") are in no keyword list.
+			'stonewright/change-restore',
+			'stonewright/knowledge-import',
+			'stonewright/elementor-knowledge-refresh',
+			'stonewright/feedback-capture',
+			'stonewright/site-backup-page',
 		];
 	}
 

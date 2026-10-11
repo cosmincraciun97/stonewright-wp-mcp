@@ -89,6 +89,22 @@ final class PluginManageGuardsTest extends TestCase {
 	}
 
 	/** @return array<string, array{0: class-string<\Stonewright\WpMcp\Abilities\AbilityKernel>}> */
+	public static function token_gated_abilities(): array {
+		return [
+			'plugin-activate'   => [ PluginActivate::class ],
+			'plugin-deactivate' => [ PluginDeactivate::class ],
+		];
+	}
+
+	/**
+	 * @param class-string<\Stonewright\WpMcp\Abilities\AbilityKernel> $class
+	 * @dataProvider token_gated_abilities
+	 */
+	public function test_the_description_names_the_production_safe_token( string $class ): void {
+		self::assertStringContainsString( 'confirmation token in production-safe mode', ( new $class() )->description() );
+	}
+
+	/** @return array<string, array{0: class-string<\Stonewright\WpMcp\Abilities\AbilityKernel>}> */
 	public static function destructive_abilities(): array {
 		return [
 			'plugin-deactivate' => [ PluginDeactivate::class ],

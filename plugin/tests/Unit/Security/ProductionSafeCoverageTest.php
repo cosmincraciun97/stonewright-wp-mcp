@@ -36,6 +36,7 @@ final class ProductionSafeCoverageTest extends TestCase {
 	private const LOW_RISK_ALLOWLIST = [
 		'stonewright/site-backup-page' => 'Creates a restore snapshot; does not change live post content.',
 		'stonewright/elementor-v3-backup-page' => 'Creates an Elementor restore snapshot; does not change live post content.',
+		'stonewright/security-issue-confirmation-token' => 'Mints the token the other writers need, so it cannot ask for one; it stores one expiring entry and changes no site content.',
 	];
 
 	/**
@@ -234,7 +235,9 @@ final class ProductionSafeCoverageTest extends TestCase {
 			|| str_contains( $source, 'require_production_safe_token(' )
 			|| str_contains( $source, 'audit_write(' )
 			// The rollback engine verifies the token itself (ChangeRollbackTest), once, so its ability must not.
-			|| str_contains( $source, 'ChangeRollback::run(' );
+			|| str_contains( $source, 'ChangeRollback::run(' )
+			// The reconciler verifies the token inside its migration, once, so its ability must not.
+			|| str_contains( $source, 'AuditReconciler::migrate(' );
 	}
 
 	private function is_hard_blocked_in_production_safe( string $source ): bool {

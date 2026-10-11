@@ -92,12 +92,23 @@ final class IssueConfirmationToken extends AbilityKernel {
 			return $inner_args;
 		}
 
-		$token      = ConfirmationToken::issue( $ability, $inner_args, $ttl );
-		$expires_at = gmdate( 'c', time() + max( 60, min( 3600, $ttl ) ) );
+		// The row names the ability and holds a hash of the arguments, never the arguments or the token. It is
+		// audited without the production-safe gate: issuing a token cannot require one.
+		return $this->audit(
+			[
+				'ability'     => $ability,
+				'args_sha256' => hash( 'sha256', (string) wp_json_encode( $inner_args ) ),
+				'ttl_seconds' => $ttl,
+			],
+			static function () use ( $ability, $inner_args, $ttl ): array {
+				$token      = ConfirmationToken::issue( $ability, $inner_args, $ttl );
+				$expires_at = gmdate( 'c', time() + max( 60, min( 3600, $ttl ) ) );
 
-		return [
-			'token'      => $token,
-			'expires_at' => $expires_at,
-		];
+				return [
+					'token'      => $token,
+					'expires_at' => $expires_at,
+				];
+			}
+		);
 	}
 }

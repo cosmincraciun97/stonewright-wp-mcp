@@ -149,7 +149,7 @@ final class ListMedia extends AbilityKernel {
 
 		$items = [];
 		foreach ( get_posts( $page_args ) as $post ) {
-			if ( is_object( $post ) ) {
+			if ( is_object( $post ) && Permissions::read_post( (int) $post->ID ) ) {
 				$items[] = self::attachment_row( $post );
 			}
 		}

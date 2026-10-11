@@ -13,6 +13,12 @@ use Stonewright\WpMcp\Security\Permissions;
  */
 final class CommentList extends AbilityKernel {
 
+	/** Comments read per query when the user can edit only some of them. */
+	private const SCAN_BATCH = 100;
+
+	/** Most comments looked at to build a list for a user who can edit only some of them. */
+	private const MAX_SCAN = 2000;
+
 	public function name(): string {
 		return 'stonewright/comment-list';
 	}
@@ -73,15 +79,24 @@ final class CommentList extends AbilityKernel {
 				if ( isset( $args['search'] ) ) {
 					$filters['search'] = (string) $args['search'];
 				}
-				$query    = $filters + [
-					'number' => min( (int) ( $args['per_page'] ?? 20 ), 50 ),
-					'paged'  => max( 1, (int) ( $args['page'] ?? 1 ) ),
-				];
-				$comments = get_comments( $query );
-				// The total counts every match, not only this page.
-				$total = get_comments( $filters + [ 'count' => true ] );
-				$items    = [];
-				foreach ( (array) $comments as $c ) {
+				$per_page = max( 1, min( (int) ( $args['per_page'] ?? 20 ), 50 ) );
+				$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+
+				if ( self::can_edit_every_post() ) {
+					// A user who can edit every post can edit every comment on them, so core can count and page.
+					$comments = get_comments( $filters + [ 'number' => $per_page, 'paged' => $page ] );
+					$count    = get_comments( $filters + [ 'count' => true ] );
+					$rows     = array_values( array_filter( (array) $comments, static fn ( $c ): bool => is_object( $c ) && Permissions::edit_comment( (int) $c->comment_ID ) ) );
+					$total    = is_int( $count ) ? $count : count( $rows );
+				} else {
+					// Otherwise every comment is checked, so the total counts only the ones this user may edit.
+					$allowed = self::editable_comments( $filters );
+					$total   = count( $allowed );
+					$rows    = array_slice( $allowed, ( $page - 1 ) * $per_page, $per_page );
+				}
+
+				$items = [];
+				foreach ( $rows as $c ) {
 					$content = (string) ( $c->comment_content ?? '' );
 					$items[] = [
 						'id'          => (int) $c->comment_ID,
@@ -92,8 +107,40 @@ final class CommentList extends AbilityKernel {
 						'excerpt'     => mb_substr( $content, 0, 200 ),
 					];
 				}
-				return [ 'items' => $items, 'total' => is_int( $total ) ? $total : count( $items ) ];
+				return [ 'items' => $items, 'total' => $total ];
 			}
 		);
+	}
+
+	/**
+	 * Whether the user can edit posts of every author and state, which makes edit_comment true for any
+	 * comment on an existing post.
+	 */
+	private static function can_edit_every_post(): bool {
+		return current_user_can( 'edit_others_posts' ) && current_user_can( 'edit_published_posts' ) && current_user_can( 'edit_private_posts' );
+	}
+
+	/**
+	 * The comments that match the filters and that the user may edit, read in batches up to a bound.
+	 *
+	 * @param array<string, mixed> $filters Comment query filters.
+	 * @return list<object>
+	 */
+	private static function editable_comments( array $filters ): array {
+		$allowed = [];
+		$scanned = 0;
+		for ( $paged = 1; $scanned < self::MAX_SCAN; ++$paged ) {
+			$batch = (array) get_comments( $filters + [ 'number' => self::SCAN_BATCH, 'paged' => $paged ] );
+			foreach ( $batch as $c ) {
+				if ( is_object( $c ) && Permissions::edit_comment( (int) $c->comment_ID ) ) {
+					$allowed[] = $c;
+				}
+			}
+			$scanned += count( $batch );
+			if ( count( $batch ) < self::SCAN_BATCH ) {
+				break;
+			}
+		}
+		return $allowed;
 	}
 }

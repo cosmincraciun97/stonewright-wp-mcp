@@ -28,7 +28,7 @@ final class CommentFixesTest extends TestCase {
 		$GLOBALS['stonewright_test_next_comment_id'] = 5001;
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_user_can_callback'] = null;
-		$GLOBALS['stonewright_test_user_caps']       = [ 'moderate_comments' => true, 'edit_posts' => true, 'edit_post' => true ];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'moderate_comments' => true, 'edit_posts' => true, 'edit_post' => true, 'edit_comment' => true ];
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
 		$GLOBALS['stonewright_test_posts']           = [
 			10 => (object) [ 'ID' => 10, 'post_type' => 'post', 'post_status' => 'publish', 'comment_status' => 'open' ],

@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Knowledge\Lifecycle;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
 /**
- * Promotes schema knowledge only after a failed shape is followed by verified readback.
+ * Turns a failed shape that is followed by verified readback into a candidate, and stages it for an administrator once two tasks verified it.
  */
 final class SchemaRepairLearning {
 
@@ -115,10 +115,8 @@ final class SchemaRepairLearning {
 				continue;
 			}
 			if ( (int) $verified['verification_count'] >= 2 ) {
-				$promoted = CandidateRepository::promote( (int) $verified['id'], false, '' );
-				if ( is_array( $promoted ) && is_array( $promoted['candidate'] ?? null ) ) {
-					$verified = $promoted['candidate'];
-				}
+				// Two verified repairs make the candidate ready for a person to approve; the plugin never activates it by itself.
+				CandidateRepository::request_promotion( (int) $verified['id'] );
 			}
 			$results[] = [
 				'candidate' => $verified,

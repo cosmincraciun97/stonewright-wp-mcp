@@ -140,6 +140,30 @@ final class ContextGateTest extends TestCase {
 		self::assertSame( 'stonewright_context_required', $result->get_error_code() );
 	}
 
+	/**
+	 * @return array<string, array{class-string}>
+	 */
+	public static function mutations_named_like_reads(): array {
+		return [
+			'change-restore'              => [ \Stonewright\WpMcp\Abilities\Site\ChangeRestore::class ],
+			'knowledge-import'            => [ \Stonewright\WpMcp\Abilities\System\KnowledgeImport::class ],
+			'elementor-knowledge-refresh' => [ \Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh::class ],
+			'feedback-capture'            => [ \Stonewright\WpMcp\Abilities\Memory\FeedbackCapture::class ],
+			'site-backup-page'            => [ \Stonewright\WpMcp\Abilities\Site\BackupPage::class ],
+		];
+	}
+
+	/**
+	 * @dataProvider mutations_named_like_reads
+	 * @param class-string<\Stonewright\WpMcp\Abilities\Ability> $class
+	 */
+	public function test_mutations_whose_names_do_not_read_as_writes_still_need_a_context_token( string $class ): void {
+		$result = AbilityRegistry::execute_with_context_guard( new $class(), [] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_context_required', $result->get_error_code() );
+	}
+
 	public function test_wp_cli_run_requires_context_token_but_status_and_discover_are_discovery(): void {
 		$run = AbilityRegistry::execute_with_context_guard(
 			new WpCliRun(),

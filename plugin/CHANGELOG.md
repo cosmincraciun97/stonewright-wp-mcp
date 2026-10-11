@@ -129,6 +129,10 @@
 - Add a size cap of 25 MB to `media-upload`, `media-upload-batch` and
   `stock-image-import` (the `stonewright_media_max_bytes` filter changes it), and
   check edit access to the parent post when a `parent_post_id` is given.
+- Add the Pending approvals card to the Skills screen. An administrator sees
+  each request to promote researched knowledge or an expertise pack there, with
+  the evidence and a note field, and approves or rejects it with a nonce-checked
+  form that needs `manage_options`.
 
 ### Changed
 
@@ -190,6 +194,24 @@
   does not read back as sent is an error.
 - `media-list` searches the whole library (title, caption, description, alt text
   and file name) instead of the newest 200 items.
+- Accept a `page` argument in `stonewright-search-query` and return `page`,
+  `per_page` and `total_pages` next to `total`.
+- Add the block insert, update and remove, finalizer and pattern tools to the
+  `gutenberg` tool profile, the content, media and SEO tools to the
+  `content-model` profile, and the menu and theme chrome tools to the
+  `site-admin` profile. The `content-model` and `site-admin` profiles list more
+  than the default client cap of 50 tools, so the cap trims the last tools of
+  those two lists.
+- Stop promoting a knowledge candidate by itself after two verified successes.
+  The plugin now stages the candidate for an administrator instead. The
+  `user_approved`, `approval_note` and `maintainer_approved` arguments of
+  `stonewright-knowledge-candidate-record` and `stonewright-expertise-promote`
+  are ignored.
+- Record the live runtime fingerprint itself when a verified success is counted
+  for a knowledge candidate, instead of taking it from the caller.
+- Write `source_url` and titles of `stonewright-elementor-knowledge-refresh` as
+  escaped frontmatter values.
+- Bound the orphan postmeta check of `stonewright-site-pulse` to 1000 rows.
 
 ### Fixed
 
@@ -276,6 +298,32 @@
 - Fix `stock-image-import` rejecting image URLs that have no file extension. It
   downloads the file, reads its type, and sideloads it with the type's extension;
   a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
+- Check the capability for the individual comment in `comment-get`,
+  `comment-update` and `comment-delete` (`edit_comment`), and list and count only
+  the comments the user may edit in `comment-list`.
+- Save the attachment metadata before `media-optimize` rewrites it, merge the
+  regenerated metadata into the existing metadata instead of replacing it, and
+  return the snapshot as `snapshot_id`.
+- Check read access for each attachment in `media-get` and `media-list`.
+- Require the task context token for `change-restore`, `knowledge-import`,
+  `elementor-knowledge-refresh`, `feedback-capture` and `site-backup-page`, as
+  for the other write abilities.
+- Record memory saves, knowledge imports, and plugin activation and
+  deactivation in the change history. A memory save can be undone from it.
+- Return "not found" from `memory-delete` for an id that does not exist, and
+  limit `scope`, `key` and `name` of `memory-save` to the stored column widths.
+- Write an audit row for `site-backup-page` and for
+  `security-issue-confirmation-token`; the token is never stored in it.
+- Say in the descriptions of `plugin-activate` and `plugin-deactivate` that a
+  confirmation token is required in production-safe mode.
+- Take the Backup, Token and read/write columns of the ability truth matrix from
+  the same source facts as the public API contract, and cite in its Tests column
+  only test files that name the ability (`none` when no test does).
+  `security-audit-reconcile` and `security-issue-confirmation-token` are listed
+  as writes, `security-audit-reconcile` as gated, and abilities that snapshot
+  through a shared writer as backed up.
+- Annotate `elementor-v3-save-template` as additive, since every call creates a
+  new template.
 
 ### Security
 
@@ -409,6 +457,15 @@
   `stonewright_runtime_data_purge_audit_requires_administrator`, whatever the
   confirmation token or acknowledgement, and the default scopes are memory,
   incidents and error patterns. Erasing the audit log is left to an administrator.
+- Require an administrator's approval in wp-admin before researched knowledge
+  becomes an active site skill, or an expertise pack becomes verified or stable.
+  The promotion call stages a request and returns an approval link. An approval
+  works once, for that exact candidate or pack, and expires after an hour. A
+  verified success counts only when it names a stored audit event of a call that
+  succeeded with its effect verified.
+- Reject URLs with control characters, spaces or quote characters in
+  `stonewright-elementor-knowledge-refresh`.
+- Run the static guard again when a disabled sandbox file is enabled.
 
 ### Documentation
 

@@ -52,18 +52,22 @@ final class CommentGet extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		if ( ! Permissions::edit_posts() ) {
+			return false;
+		}
+		return CommentAccess::refusal( (int) ( $args['id'] ?? 0 ) ) ?? true;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
-				$id = (int) $args['id'];
-				$c  = get_comment( $id );
-				if ( null === $c ) {
-					return new \WP_Error( 'stonewright_comment_not_found', 'Comment not found.', [ 'id' => $id ] );
+				$id      = (int) $args['id'];
+				$refusal = CommentAccess::refusal( $id );
+				if ( null !== $refusal ) {
+					return $refusal;
 				}
+				$c = get_comment( $id );
 				return [
 					'id'          => (int) $c->comment_ID,
 					'post'        => (int) $c->comment_post_ID,

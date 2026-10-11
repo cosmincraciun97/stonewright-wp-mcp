@@ -2110,7 +2110,7 @@ if ( ! function_exists( 'get_post_mime_type' ) ) {
 
 if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
 	function wp_get_attachment_metadata( int $attachment_id, bool $unfiltered = false ): array|false {
-		return [];
+		return $GLOBALS['stonewright_test_attachment_meta'][ $attachment_id ] ?? [];
 	}
 }
 
@@ -2125,12 +2125,16 @@ if ( ! function_exists( 'get_attached_file' ) ) {
 
 if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
 	function wp_generate_attachment_metadata( int $attachment_id, string $file ): array {
+		if ( isset( $GLOBALS['stonewright_test_generated_attachment_meta'] ) ) {
+			return $GLOBALS['stonewright_test_generated_attachment_meta'];
+		}
 		return [ 'file' => basename( $file ) ];
 	}
 }
 
 if ( ! function_exists( 'wp_update_attachment_metadata' ) ) {
 	function wp_update_attachment_metadata( int $attachment_id, array $data ): bool {
+		$GLOBALS['stonewright_test_attachment_meta'][ $attachment_id ] = $data;
 		return true;
 	}
 }
@@ -4096,6 +4100,7 @@ if ( ! class_exists( 'WP_Query', false ) ) {
 		public array $posts = [];
 		public int $found_posts = 0;
 		public function __construct( $args = [] ) {
+			$GLOBALS['stonewright_test_last_wp_query_args'] = $args;
 			$this->posts       = array_values( $GLOBALS['stonewright_test_search_posts'] ?? [] );
 			$this->found_posts = (int) ( $GLOBALS['stonewright_test_search_found_posts'] ?? count( $this->posts ) );
 		}

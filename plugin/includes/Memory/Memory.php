@@ -185,11 +185,16 @@ final class Memory {
 			'updated_at' => current_time( 'mysql', true ),
 		];
 
+		$held = MemoryAdapter::before_write( (int) $existing );
 		if ( $existing ) {
 			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], [ '%s', '%s', '%s', '%f', '%d', '%s' ], [ '%d' ] );
+			MemoryAdapter::after_write( (int) $existing, $held );
 		} else {
 			$data['created_at'] = $data['updated_at'];
-			$wpdb->insert( $table, $data, [ '%s', '%s', '%s', '%f', '%d', '%s', '%s' ] );
+			$inserted           = $wpdb->insert( $table, $data, [ '%s', '%s', '%s', '%f', '%d', '%s', '%s' ] );
+			if ( false !== $inserted ) {
+				MemoryAdapter::after_write( (int) $wpdb->insert_id, $held );
+			}
 		}
 	}
 
@@ -380,9 +385,13 @@ final class Memory {
 		$data['updated_at'] = current_time( 'mysql', true );
 		$formats[]          = '%s';
 
+		// The change ledger keeps the entry as it was, so that a save can be undone.
+		$held = MemoryAdapter::before_write( $existing_id );
+
 		if ( $existing_id > 0 ) {
 			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
 			if ( false !== $result ) {
+				MemoryAdapter::after_write( $existing_id, $held );
 				return $existing_id;
 			}
 			Logger::error(
@@ -402,7 +411,9 @@ final class Memory {
 		$formats[]          = '%s';
 		$result             = $wpdb->insert( $table, $data, $formats );
 		if ( false !== $result ) {
-			return (int) $wpdb->insert_id;
+			$new_id = (int) $wpdb->insert_id;
+			MemoryAdapter::after_write( $new_id, $held );
+			return $new_id;
 		}
 		Logger::error(
 			'memory_put_failed',

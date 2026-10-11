@@ -57,6 +57,14 @@ final class MemorySaveTest extends TestCase {
 		);
 	}
 
+	public function test_the_text_inputs_are_bounded_by_the_column_widths(): void {
+		$properties = ( new MemorySave() )->input_schema()['properties'];
+
+		self::assertSame( 64, $properties['scope']['maxLength'] );
+		self::assertSame( 190, $properties['key']['maxLength'] );
+		self::assertSame( 190, $properties['name']['maxLength'] );
+	}
+
 	public function test_insert_failure_returns_memory_save_failed_not_ok_id_zero(): void {
 		$original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb'] = new class() {

@@ -63,12 +63,15 @@ final class MemoryDelete extends AbilityKernel {
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_write(
 			$args,
-			function ( array $a ): array {
+			function ( array $a ): array|\WP_Error {
 				$result = Memory::delete_by_id( (int) $a['id'] );
+				if ( ! $result ) {
+					return $this->error( 'memory_not_found', __( 'No memory entry has that id.', 'stonewright' ), [ 'status' => 404 ] );
+				}
 
 				return [
 					'ok'      => true,
-					'deleted' => $result,
+					'deleted' => true,
 				];
 			}
 		);

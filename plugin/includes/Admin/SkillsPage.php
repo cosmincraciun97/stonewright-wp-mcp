@@ -10,9 +10,11 @@ use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\FormField;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
+use Stonewright\WpMcp\Admin\Ui\KvList;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
 
@@ -23,6 +25,9 @@ use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
  * boots into. Reading the catalog, importing, exporting, trashing, restoring,
  * and destroying all happen over `SkillsRestApi`, which delegates to the skill
  * library service — so no lifecycle rule lives here.
+ *
+ * The Pending approvals card is where an administrator approves or rejects an agent's request to turn researched
+ * knowledge into an active skill or pack. It is a plain nonce-checked form post, like the editor.
  *
  * The editor view stays a plain nonce-checked form post. It is the write path
  * that still works with JavaScript switched off, and it is the only form on
@@ -45,6 +50,7 @@ final class SkillsPage {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_skill_save', [ self::class, 'handle_save' ] );
 		add_action( 'admin_post_stonewright_skill_toggle', [ self::class, 'handle_toggle' ] );
+		add_action( 'admin_post_stonewright_promotion_decide', [ self::class, 'handle_promotion_decision' ] );
 	}
 
 	public static function add_submenu(): void {
@@ -79,6 +85,39 @@ final class SkillsPage {
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- toggle_submission() sanitizes each field it reads.
 		wp_safe_redirect( self::toggle_submission( (array) wp_unslash( $_POST ) ) );
 		exit;
+	}
+
+	public static function handle_promotion_decision(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_promotion_decide' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- decide_submission() sanitizes each field it reads.
+		wp_safe_redirect( self::decide_submission( (array) wp_unslash( $_POST ) ) );
+		exit;
+	}
+
+	/**
+	 * Approves or rejects one pending promotion and returns where the browser goes next.
+	 *
+	 * @param array<string, mixed> $form Unslashed form fields; the caller has checked the capability and nonce.
+	 */
+	public static function decide_submission( array $form ): string {
+		$request_id = sanitize_text_field( is_string( $form['request_id'] ?? null ) ? $form['request_id'] : '' );
+		$decision   = is_string( $form['decision'] ?? null ) ? $form['decision'] : '';
+		$note       = is_string( $form['note'] ?? null ) ? $form['note'] : '';
+
+		if ( ! in_array( $decision, [ 'approve', 'reject' ], true ) ) {
+			return self::redirect_url( 'catalog', [ 'error' => 'stonewright_promotion_not_pending' ] );
+		}
+
+		$result = 'approve' === $decision ? PromotionGrant::approve( $request_id, $note ) : PromotionGrant::reject( $request_id );
+		if ( is_wp_error( $result ) ) {
+			return self::redirect_url( 'catalog', [ 'error' => sanitize_key( (string) $result->get_error_code() ) ] );
+		}
+
+		return self::redirect_url( 'catalog', [ 'promotion' => 'approve' === $decision ? 'approved' : 'rejected' ] );
 	}
 
 	/**
@@ -227,6 +266,7 @@ final class SkillsPage {
 		) . '</noscript>';
 
 		$inner = self::notices_html()
+			. self::promotions_html()
 			. self::how_it_works_html()
 			. Html::element( 'div', [ 'class' => 'sw-ui-tabs', 'role' => 'tablist', 'aria-label' => __( 'Skill views', 'stonewright' ) ], $tabs )
 			. Html::element( 'div', [ 'class' => 'sw-skills__status', 'data-sw-skills-status' => true ], '' )
@@ -245,6 +285,85 @@ final class SkillsPage {
 		AdminShell::open( self::SLUG );
 		echo $page; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
+	}
+
+	/**
+	 * The requests that wait for an administrator. Nothing is shown when nothing waits.
+	 */
+	private static function promotions_html(): string {
+		$pending = PromotionGrant::pending();
+		if ( [] === $pending ) {
+			return '';
+		}
+
+		$items = '';
+		foreach ( $pending as $request ) {
+			$items .= self::promotion_request_html( $request );
+		}
+
+		return Card::render(
+			__( 'Pending approvals', 'stonewright' ),
+			Html::element(
+				'div',
+				[ 'class' => 'sw-ui-stack' ],
+				Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], Html::text( __( 'An agent asked to turn researched knowledge into guidance that agents follow. Nothing changes until you approve it here. An approval works once, for this item only, and expires after an hour.', 'stonewright' ) ) )
+				. $items
+			),
+			[ 'id' => 'sw-skills-promotions' ]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $request One pending request.
+	 */
+	private static function promotion_request_html( array $request ): string {
+		$summary = is_array( $request['summary'] ?? null ) ? $request['summary'] : [];
+		$kind    = PromotionGrant::KIND_EXPERTISE === ( $request['kind'] ?? '' ) ? __( 'Expertise pack', 'stonewright' ) : __( 'Skill', 'stonewright' );
+		$id      = (string) ( $request['request_id'] ?? '' );
+		$note_id = 'sw-promotion-note-' . substr( $id, 0, 8 );
+
+		$facts = [];
+		foreach ( is_array( $summary['details'] ?? null ) ? $summary['details'] : [] as $label => $value ) {
+			$facts[] = [
+				'label' => (string) $label,
+				'value' => (string) $value,
+			];
+		}
+
+		$form = FormField::post_form(
+			'stonewright_promotion_decide',
+			'stonewright_promotion_decide',
+			'_wpnonce',
+			FormField::textarea(
+				__( 'Note', 'stonewright' ),
+				'note',
+				[
+					'id'   => $note_id,
+					'rows' => 2,
+					'help' => ! empty( $request['requires_note'] )
+						? __( 'The evidence is thin. Say why you approve this; a note is required to approve it.', 'stonewright' )
+						: __( 'Optional. Kept with the approval.', 'stonewright' ),
+				]
+			)
+			. Button::group(
+				[
+					Button::render( __( 'Approve', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'primary', 'name' => 'decision', 'value' => 'approve' ] ),
+					Button::render( __( 'Reject', 'stonewright' ), [ 'type' => 'submit', 'name' => 'decision', 'value' => 'reject' ] ),
+				]
+			),
+			[
+				'class'  => 'sw-ui-stack',
+				'hidden' => [ 'request_id' => $id ],
+			]
+		);
+
+		return Html::element(
+			'div',
+			[ 'class' => 'sw-ui-stack' ],
+			Html::element( 'h3', [ 'class' => 'sw-ui-card__title' ], Html::text( (string) ( $summary['title'] ?? '' ) ) . ' ' . Badge::render( $kind, [ 'variant' => 'info' ] ) )
+			. KvList::render( $facts, [ 'label' => __( 'What would be activated', 'stonewright' ) ] )
+			. $form
+		);
 	}
 
 	private static function how_it_works_html(): string {
@@ -516,6 +635,13 @@ final class SkillsPage {
 		if ( ! empty( $_GET['toggled'] ) ) {
 			$html .= Notice::render( 'ok', __( 'Skill updated.', 'stonewright' ) );
 		}
+		$promotion = isset( $_GET['promotion'] ) ? sanitize_key( (string) wp_unslash( $_GET['promotion'] ) ) : '';
+		if ( 'approved' === $promotion ) {
+			$html .= Notice::render( 'ok', __( 'Promotion approved.', 'stonewright' ), __( 'The agent can repeat the promotion once. The approval expires in an hour.', 'stonewright' ) );
+		}
+		if ( 'rejected' === $promotion ) {
+			$html .= Notice::render( 'ok', __( 'Promotion rejected.', 'stonewright' ) );
+		}
 		$error = isset( $_GET['error'] ) ? sanitize_key( (string) wp_unslash( $_GET['error'] ) ) : '';
 		// phpcs:enable
 		if ( '' !== $error ) {
@@ -538,6 +664,10 @@ final class SkillsPage {
 			'stonewright_skill_authority_claim'   => __( 'That slug belongs to a skill that ships with Stonewright or comes from another source. Choose a different slug.', 'stonewright' ),
 			'stonewright_skill_sensitive_content' => __( 'Remove credentials and other secrets from the skill before saving it.', 'stonewright' ),
 			'stonewright_skill_toggle_invalid'    => __( 'A stale or retired skill cannot be enabled again.', 'stonewright' ),
+			'stonewright_promotion_note_required' => __( 'The evidence for this promotion is thin. Say why you approve it, then approve again.', 'stonewright' ),
+			'stonewright_promotion_forbidden'     => __( 'Only administrators can decide a promotion.', 'stonewright' ),
+			'stonewright_promotion_not_found',
+			'stonewright_promotion_not_pending'   => __( 'That promotion was already decided or has expired.', 'stonewright' ),
 			'stonewright_skill_write_conflict'    => __( 'The skill changed after you opened it, so nothing was saved. The editor shows the current version; apply your edits to it again.', 'stonewright' ),
 			default                               => __( 'The skill was not saved. Check the fields and try again.', 'stonewright' ),
 		};
