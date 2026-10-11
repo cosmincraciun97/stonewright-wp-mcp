@@ -24,6 +24,7 @@ import {
 import { APP_VERSION, companionPackageSpec } from '../version.js';
 import type { DirectSessionControls, DirectToolProfile } from '../direct/registry.js';
 import * as selfImprove from '../direct/tools/self-improve.js';
+import { DirectSafetyBlockedError } from '../direct/writes.js';
 import {
 	ActiveClientCallSequence,
 	REQUIRED_ACTIVE_HOST_CALLS,
@@ -104,6 +105,13 @@ export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	client_visibility: { state: string; reason: string };
 	error_code: string | null;
 	next_action: string | null;
+	/** Set when Direct is the session mode but the Stonewright plugin is active on the site. */
+	mode_conflict: {
+		plugin_detected: boolean;
+		direct_writes: 'refused';
+		reads: 'allowed';
+		next_action: string;
+	} | null;
 }
 
 export interface ConnectionRuntime {
@@ -531,6 +539,7 @@ function createInitialStatus(profile: ProxyToolProfile): WordPressMcpConnectionS
 		client_visibility: defaultClientVisibility(),
 		error_code: null,
 		next_action: 'Call stonewright-task-start or stonewright-connect-doctor to diagnose connectivity.',
+		mode_conflict: null,
 	};
 }
 
@@ -1077,7 +1086,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				site_alias: z.string().optional(),
 			},
 		},
-		wrap('stonewright-task-start', async (input) => {
+		wrap('stonewright-task-start', async function taskStartHandler(input: Record<string, unknown>, promotionTried = false): Promise<Record<string, unknown>> {
 			const task = String(input['task'] ?? '');
 			const site = typeof input['site'] === 'string'
 				? input['site']
@@ -1342,12 +1351,40 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				...(runtime.fetchImpl ? { fetchImpl: runtime.fetchImpl } : {}),
 				directToolCount: runtime.status.direct_tool_count,
 			};
-			const local = await selfImprove.taskStartAuthoritative(selfCtx, {
-				task,
-				...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
-				...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
-				...(site ? { site } : {}),
-			});
+			let local: Awaited<ReturnType<typeof selfImprove.taskStartAuthoritative>>;
+			try {
+				local = await selfImprove.taskStartAuthoritative(selfCtx, {
+					task,
+					...(typeof input['surface'] === 'string' ? { surface: input['surface'] } : {}),
+					...(typeof input['intent'] === 'string' ? { intent: input['intent'] } : {}),
+					...(site ? { site } : {}),
+				});
+			} catch (error) {
+				if (error instanceof DirectSafetyBlockedError) {
+					return {
+						ok: false,
+						isError: true,
+						blocked: true,
+						source: 'direct',
+						error: error.code,
+						error_code: error.code,
+						message: error.message,
+					};
+				}
+				throw error;
+			}
+
+			// The Direct task-start reached the Stonewright plugin, so the plugin was
+			// installed (or enabled) after this session picked Direct. An auto session
+			// moves to Plugin mode now; any other session is told how to switch.
+			const pluginDetected = (local as { plugin_detected?: unknown }).plugin_detected === true;
+			if (pluginDetected && !promotionTried && runtime.status.configured_mode === 'auto') {
+				await runtime.reconnectCoordinator.run('plugin-detected');
+				runtime.syncLegacyStatus();
+				if (runtime.status.mode === 'plugin' && runtime.status.connected && runtime.callRemoteTool) {
+					return taskStartHandler(input, true);
+				}
+			}
 
 			let sessionProfile: DirectToolProfile | ProxyToolProfile = runtime.profile;
 			let surfaceRevision = runtime.surface.getRevision();
@@ -1411,9 +1448,13 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					: '',
 				client_visibility: v3.client_visibility,
 				error_code: v3.error_code,
-				next_action: v3.startup_ready
-					? 'Use only tools present in the current MCP list / session_tools.'
-					: 'startup_ready is false (registry barrier incomplete). Permanent gateways remain callable; do not invent missing tools.',
+				next_action: pluginDetected
+					? (runtime.status.mode === 'plugin' && runtime.status.next_action
+						? runtime.status.next_action
+						: String((local as { next_action?: unknown }).next_action ?? ''))
+					: v3.startup_ready
+						? 'Use only tools present in the current MCP list / session_tools.'
+						: 'startup_ready is false (registry barrier incomplete). Permanent gateways remain callable; do not invent missing tools.',
 				guidance,
 				registered_gateway_tools: [...PERMANENT_GATEWAY_TOOL_NAMES],
 				plugin: v3.plugin,

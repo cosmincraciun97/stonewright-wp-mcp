@@ -300,7 +300,8 @@ The companion can write by running tokenized WP-CLI commands requested by the
 plugin or MCP client. In Plugin mode it does not call WordPress REST write
 endpoints. In Direct mode, where there is no plugin, it writes through core REST
 with the companion-side protections listed in
-[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects). It does so only
+for the session's site, and not on a site where the Stonewright plugin is active.
 
 Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
 **full-profile** tool; no other profile lists it. WP-CLI execution is

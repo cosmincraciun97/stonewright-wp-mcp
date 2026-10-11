@@ -50,7 +50,13 @@ override default behavior.
    installed, the companion writes through core WordPress REST (and through local
    WP-CLI where the target check passes), and only through the typed Direct
    tools, never through a generic REST writer (`stonewright-rest-request` is
-   GET only). Those tools carry these protections: a recent
+   GET only). Those tools carry these protections: a session bound to one site
+   (with `STONEWRIGHT_SITE_ALIAS` set, every Direct tool acts on that site and
+   refuses a `site` argument that names another); a refusal to write on a site
+   where the Stonewright plugin is active (the call is refused and points to
+   Plugin mode; reads still work; a recovery-only override needs
+   `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus `confirm: true` and is
+   audited); a recent
    `stonewright-task-start` for the same site and canonical URL; the
    `STONEWRIGHT_DIRECT_WRITES` mode (`confirm` is the default for non-local
    hosts and asks for `confirm: true` on destructive tools, template and

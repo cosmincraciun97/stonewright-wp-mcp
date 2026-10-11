@@ -637,6 +637,8 @@ describe('direct write guards', () => {
 		it('returns the refusal as a normal result on a remote site, without an error flag, and writes nothing', async () => {
 			const { fetchImpl, calls } = makeFetch(() => ({}));
 			const registered = await tools(fetchImpl, 'confirm');
+			// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
+			calls.length = 0;
 			const result = await registered['stonewright-template-update']?.handler?.({ id: 'a//b', content: '<script>x()</script>', confirm: true });
 			expect(result?.isError).toBeUndefined();
 			expect(JSON.parse(result?.content[0]?.text ?? '{}')).toMatchObject({ approval_required: true, agent_must_stop: true, error: 'custom_code_approval_required' });

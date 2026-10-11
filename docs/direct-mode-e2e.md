@@ -46,6 +46,20 @@ Direct mode writes through core WordPress REST, and through local WP-CLI for
 Elementor data when the local install is the alias site. It has no plugin on the
 site, so its protections are the companion's own:
 
+- **Session site.** With `STONEWRIGHT_SITE_ALIAS` set, every tool acts on that
+  site and refuses a `site` argument that names another alias
+  (`site_not_in_session`). Without an alias the registry default applies.
+- **Plugin guard.** A write is refused on a site where the Stonewright plugin is
+  active (`stonewright/v1` in the REST index), with
+  `stonewright_direct_write_blocked_plugin_present`; the message points to Plugin
+  mode. This covers every REST write, the media upload, the Elementor WP-CLI
+  write and the WP-CLI commands that change the site (`stonewright-wp-cli-run`
+  and `stonewright-wp-cli-job-start`). The answer is cached per site for five minutes and cleared on reconnect.
+  When the check fails twice the write is refused with
+  `stonewright_direct_plugin_check_failed`. Reads and the typed plugin bridge are
+  not checked. Recovery only: `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus
+  `confirm: true` on the call lets a write through, writes an audit row and adds
+  a `warnings` entry to the result.
 - **Task-start latch.** Every write needs a `stonewright-task-start` for the same
   alias within 30 minutes, bound to the alias's canonical URL
   (`STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off` opts out).
@@ -185,6 +199,15 @@ site, so its protections are the companion's own:
 - Remote Elementor writes must not claim PHP-renderer or cache-manager checks
   they could not perform.
 - With the plugin re-activated, auto mode selects the plugin MCP proxy and existing proxy tests remain green.
+- With the plugin active but its MCP route missing, auto mode stays degraded
+  (`plugin_route_missing`) and registers no Direct tools. A site with
+  `fallback_policy: never` does the same on a site without the plugin.
+- `STONEWRIGHT_MODE=direct` on a plugin site registers Direct with
+  `mode_conflict` in the status; reads work and writes are refused.
+- When the plugin appears during a Direct session, the next `task-start` reports
+  `plugin_detected` and `required_actions: ["switch_to_plugin_mode"]`; an `auto`
+  session switches to Plugin mode in the same call when the MCP route answers,
+  and a reconnect does the same. Direct writes are refused in the meantime.
 
 ## Blueprints (Direct)
 

@@ -8,6 +8,7 @@ import { resetLocalTargetCacheForTests } from '../src/direct/elementor-target.js
 import type { SitesConfig } from '../src/direct/sites-config.js';
 import type { WpCliCommandResult } from '../src/wp-cli.js';
 import { createMcpServer } from '../src/mcp-server.js';
+import { forgetPluginPresence, setPluginPresenceResolverForTests } from '../src/direct/plugin-guard.js';
 
 const LOCAL = { alias: 'local', url: 'http://example.test' };
 const REMOTE = { alias: 'remote', url: 'https://example.com' };
@@ -196,6 +197,24 @@ describe('gateDirectWpCli', () => {
 			const handle = await gate([['option', 'update', 'blogname', 'x']], { target: REMOTE, runner, confirm: true });
 			expect(handle.write).toBe(true);
 			expect(runner.mock.calls.map((c) => c[0].command.join(' '))).toEqual(['option get home']);
+		});
+
+		it('refuses a write when the Stonewright plugin is active on the site, before WP-CLI runs', async () => {
+			markTaskStartSeen(LOCAL);
+			forgetPluginPresence();
+			setPluginPresenceResolverForTests(() => Promise.resolve('present'));
+			const runner = runnerFor(LOCAL.url);
+			const err = await gate([['option', 'update', 'blogname', 'x']], { runner }).catch((e: unknown) => e);
+			expect(err).toBeInstanceOf(DirectSafetyBlockedError);
+			expect((err as DirectSafetyBlockedError).code).toBe('stonewright_direct_write_blocked_plugin_present');
+			expect(runner).not.toHaveBeenCalled();
+		});
+
+		it('a read still runs on a site where the plugin is active', async () => {
+			forgetPluginPresence();
+			setPluginPresenceResolverForTests(() => Promise.resolve('present'));
+			const handle = await gate([['option', 'get', 'siteurl']]);
+			expect(handle.write).toBe(false);
 		});
 
 		it('a local .test site does not need confirm', async () => {

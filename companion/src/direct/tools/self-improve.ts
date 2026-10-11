@@ -17,7 +17,7 @@ import {
   directIncidentFingerprint,
 } from "../incidents.js";
 import { assertNoSensitiveMaterial } from "../sensitive-content.js";
-import { loadSitesConfig, resolveSite } from "../sites-config.js";
+import { loadSitesConfig, resolveSessionSite } from "../sites-config.js";
 import {
   deleteSkill,
   getSkill,
@@ -36,6 +36,8 @@ import { permanentRulesGuidance } from "../permanent-rules.js";
 import { createHash, randomBytes } from "node:crypto";
 import type { SitesConfig, ResolvedSite } from "../sites-config.js";
 import { WpRestClient, WpRestError } from "../wp-rest-client.js";
+import { rememberPluginPresence } from "../plugin-presence.js";
+import { resolveRequestedMode } from "../mode.js";
 
 export type SelfImproveContext = {
   env: NodeJS.ProcessEnv;
@@ -72,9 +74,9 @@ function configuredSite(
 ): ResolvedSite | null {
   try {
     const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-    return resolveSite(config, alias);
+    return resolveSessionSite(config, ctx.env, alias);
   } catch (err) {
-    if ((alias ?? "").trim()) {
+    if ((alias ?? "").trim() || err instanceof DirectSafetyBlockedError) {
       throw err;
     }
     return null;
@@ -114,9 +116,11 @@ export function resolveSelfImproveScope(
   if (explicitSite) {
     try {
       const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-      const resolved = resolveSite(config, explicitSite);
+      const resolved = resolveSessionSite(config, ctx.env, explicitSite);
       return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
     } catch (err) {
+      // A site outside this session is a refusal, not an unknown alias.
+      if (err instanceof DirectSafetyBlockedError) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(
         `Unknown or unresolvable site alias "${explicitSite}". ${msg} code=site_alias_unresolved`,
@@ -126,7 +130,7 @@ export function resolveSelfImproveScope(
 
   try {
     const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-    const resolved = resolveSite(config, undefined);
+    const resolved = resolveSessionSite(config, ctx.env);
     return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
   } catch {
     if (options.requireSite) {
@@ -240,6 +244,8 @@ export function skillDelete(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-skill-delete",
     env: ctx.env,
+    // A skill is a local file; the site's plugin does not matter.
+    localOnly: true,
   });
   if (input.confirm !== true) {
     throw new DirectSafetyBlockedError(
@@ -813,11 +819,31 @@ export async function taskStartAuthoritative(
     };
     targetBindings.set(bindingKey(ctx, site.alias), binding);
     markTaskStartSeen(site);
+    // The bridge answered, so the plugin is active here: Direct writes are refused
+    // until the session runs in Plugin mode.
+    rememberPluginPresence(site.url, true);
+    const switchAction =
+      resolveRequestedMode(ctx.env) === "direct"
+        ? "This session is Direct-only (STONEWRIGHT_MODE=direct). Set STONEWRIGHT_MODE=auto or plugin for this site, then call stonewright-reconnect or restart the MCP client."
+        : "Call stonewright-reconnect with force_probe=true to switch this session to Plugin mode.";
+    const pluginActions = Array.isArray(plugin["required_actions"])
+      ? (plugin["required_actions"] as unknown[]).map(String)
+      : [];
+    const pluginGuidance = Array.isArray(plugin["guidance"])
+      ? (plugin["guidance"] as unknown[]).map(String)
+      : [];
 
     return {
       ...plugin,
       mode: "direct" as const,
       plugin_mode: String(plugin["mode"] ?? ""),
+      plugin_detected: true,
+      required_actions: ["switch_to_plugin_mode", ...pluginActions],
+      next_action: `The Stonewright plugin is active on this site, so this Direct session cannot write. ${switchAction}`,
+      guidance: [
+        "The Stonewright plugin is active on this site. Use Plugin mode for writes; Direct writes are refused here, reads still work.",
+        ...pluginGuidance,
+      ],
       site: site.alias,
       target_context: {
         ...target,

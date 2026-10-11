@@ -1,3 +1,5 @@
+import type { FallbackPolicy } from '../cli/connect/types.js';
+import { mayFallbackToDirect } from '../cli/connect/mode-policy.js';
 import {
 	classifyMcpHttpPayload,
 	isHtmlPayload,
@@ -19,6 +21,8 @@ export interface EndpointProbe {
 	body_kind: 'json_rpc' | 'wp_rest_error' | 'html' | 'empty' | 'unknown' | null;
 	rest_code: string | null;
 	plugin_namespace_detected: boolean | null;
+	/** True when the REST index lists the Stonewright plugin's own namespace (stonewright/v1). */
+	stonewright_plugin_detected: boolean | null;
 }
 
 export interface ProbeResult {
@@ -29,6 +33,10 @@ export interface ProbeResult {
 	pluginEndpointStatus: number | null;
 	pluginRouteState: PluginRouteState;
 	pluginNamespaceDetected: boolean | null;
+	/** The Stonewright plugin itself is active on the site (its stonewright/v1 namespace is listed). */
+	stonewrightPluginDetected: boolean | null;
+	/** Direct was requested but the Stonewright plugin is active: Direct writes are refused. */
+	modeConflict: boolean;
 	reason: string;
 	errorCode: string | null;
 }
@@ -107,14 +115,19 @@ const EMPTY_PROBE: EndpointProbe = {
 	body_kind: null,
 	rest_code: null,
 	plugin_namespace_detected: null,
+	stonewright_plugin_detected: null,
 };
 
+type ProbeResultDefaults = 'pluginRouteState' | 'pluginNamespaceDetected' | 'stonewrightPluginDetected' | 'modeConflict' | 'errorCode';
+
 function emptyProbeResult(
-	partial: Omit<ProbeResult, 'pluginRouteState' | 'pluginNamespaceDetected' | 'errorCode'> & Partial<Pick<ProbeResult, 'pluginRouteState' | 'pluginNamespaceDetected' | 'errorCode'>>,
+	partial: Omit<ProbeResult, ProbeResultDefaults> & Partial<Pick<ProbeResult, ProbeResultDefaults>>,
 ): ProbeResult {
 	return {
 		pluginRouteState: 'not_checked',
 		pluginNamespaceDetected: null,
+		stonewrightPluginDetected: null,
+		modeConflict: false,
 		errorCode: null,
 		...partial,
 	};
@@ -134,6 +147,7 @@ function classifyHttpResponse(
 		body_kind: classified.body_kind,
 		rest_code: classified.rest_code,
 		plugin_namespace_detected: null,
+		stonewright_plugin_detected: null,
 	};
 }
 
@@ -166,33 +180,75 @@ async function fetchOnce(
 	}
 }
 
-function restIndexHasPluginSurface(json: Record<string, unknown> | null): boolean | null {
-	if (!json) {
-		return null;
+/** What a WordPress REST index says about the Stonewright plugin and any MCP adapter. */
+export interface RestIndexSurface {
+	/** Any MCP or Stonewright namespace or route is listed. */
+	mcpSurface: boolean | null;
+	/** The Stonewright plugin's own namespace (stonewright/v1) or routes are listed. */
+	stonewrightPlugin: boolean | null;
+}
+
+const NAMESPACES_FIELD = /"namespaces"\s*:\s*(\[[^\]]*\])/;
+
+function isStonewrightNamespace(name: string): boolean {
+	return name === 'stonewright' || name.startsWith('stonewright/');
+}
+
+function isMcpNamespace(name: string): boolean {
+	return name === 'mcp' || name.startsWith('mcp/');
+}
+
+/**
+ * Read the plugin surface out of a REST index body. A full JSON document is
+ * preferred; a body that was cut at the size cap is still usable because
+ * WordPress lists `namespaces` before the (large) `routes` object.
+ */
+export function inspectRestIndex(text: string): RestIndexSurface {
+	const unknown: RestIndexSurface = { mcpSurface: null, stonewrightPlugin: null };
+	const json = parseJsonObject(text);
+	let namespaces: string[] | null = null;
+	let routes: string[] | null = null;
+	if (json) {
+		if (Array.isArray(json.namespaces)) {
+			namespaces = json.namespaces.filter((value): value is string => typeof value === 'string');
+		}
+		routes = json.routes && typeof json.routes === 'object' && json.routes !== null
+			? Object.keys(json.routes as Record<string, unknown>)
+			: [];
+	} else {
+		const match = NAMESPACES_FIELD.exec(text);
+		if (match?.[1]) {
+			try {
+				const parsed: unknown = JSON.parse(match[1]);
+				if (Array.isArray(parsed)) {
+					namespaces = parsed.filter((value): value is string => typeof value === 'string');
+				}
+			} catch {
+				namespaces = null;
+			}
+		}
 	}
-	const namespaces = Array.isArray(json.namespaces)
-		? json.namespaces.filter((value): value is string => typeof value === 'string')
-		: [];
-	if (namespaces.some((name) => name === 'mcp' || name.startsWith('mcp/') || name === 'stonewright/v1')) {
-		return true;
+	if (namespaces === null) {
+		return unknown;
 	}
-	const routes = json.routes && typeof json.routes === 'object' && json.routes !== null
-		? Object.keys(json.routes as Record<string, unknown>)
-		: [];
-	if (routes.some((route) => route.startsWith('/mcp/') || route.startsWith('/stonewright/'))) {
-		return true;
-	}
-	return false;
+	const routeList = routes ?? [];
+	const stonewright = namespaces.some(isStonewrightNamespace)
+		|| routeList.some((route) => route.startsWith('/stonewright/') || route === '/mcp/stonewright' || route.startsWith('/mcp/stonewright/'));
+	const surface = stonewright
+		|| namespaces.some(isMcpNamespace)
+		|| routeList.some((route) => route.startsWith('/mcp/'));
+	return { mcpSurface: surface, stonewrightPlugin: stonewright };
 }
 
 async function probeRestIndex(
 	mcpEndpoint: string,
 	fetchImpl: typeof fetch,
 	timeoutMs: number,
-): Promise<boolean | null> {
+): Promise<RestIndexSurface> {
+	const unknown: RestIndexSurface = { mcpSurface: null, stonewrightPlugin: null };
 	const index = restIndexFromMcpEndpoint(mcpEndpoint);
 	if (!index) {
-		return null;
+		return unknown;
 	}
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -204,15 +260,24 @@ async function probeRestIndex(
 		});
 		const contentType = response.headers.get('content-type') ?? '';
 		const bounded = await readBoundedBody(response, 65_536);
-		if (bounded.truncated || isHtmlPayload(contentType, bounded.text)) {
-			return null;
+		if (isHtmlPayload(contentType, bounded.text)) {
+			return unknown;
 		}
-		return restIndexHasPluginSurface(parseJsonObject(bounded.text));
+		return inspectRestIndex(bounded.text);
 	} catch {
-		return null;
+		return unknown;
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/** Read-only check of a site's public REST index for the Stonewright plugin surface. */
+export async function probeStonewrightPlugin(
+	siteBase: string,
+	fetchImpl: typeof fetch = fetch,
+	timeoutMs = 5_000,
+): Promise<RestIndexSurface> {
+	return probeRestIndex(pluginMcpEndpoint(siteBase), fetchImpl, timeoutMs);
 }
 
 /**
@@ -242,11 +307,15 @@ export async function probePluginEndpoint(
 
 	const get = await fetchOnce(endpoint, 'GET', fetchImpl, timeoutMs);
 	if (!get.failed) {
-		let namespace: boolean | null = null;
+		let surface: RestIndexSurface = { mcpSurface: null, stonewrightPlugin: null };
 		if (get.probe.route_state === 'missing' || get.probe.route_state === 'inconclusive') {
-			namespace = await probeRestIndex(endpoint, fetchImpl, timeoutMs);
+			surface = await probeRestIndex(endpoint, fetchImpl, timeoutMs);
 		}
-		return { ...get.probe, plugin_namespace_detected: namespace };
+		return {
+			...get.probe,
+			plugin_namespace_detected: surface.mcpSurface,
+			stonewright_plugin_detected: surface.stonewrightPlugin,
+		};
 	}
 
 	if (!head.failed && head.probe.status === 404) {
@@ -257,6 +326,7 @@ export async function probePluginEndpoint(
 			body_kind: 'empty',
 			rest_code: null,
 			plugin_namespace_detected: null,
+			stonewright_plugin_detected: null,
 		};
 	}
 
@@ -293,22 +363,36 @@ export async function resolveRuntimeMode(args: {
 	timeoutMs?: number;
 	/** When true, probe even in plugin-only mode. Never changes configured mode. */
 	forceProbe?: boolean;
+	/** Per-site fallback policy from the registry; absent means the mode's default. */
+	fallbackPolicy?: FallbackPolicy | undefined;
 }): Promise<ProbeResult> {
 	const env = args.env ?? process.env;
 	const requested = resolveRequestedMode(env);
 	const configured = resolveConfiguredMode(env);
 	const siteBase = siteBaseFromEnv(env);
 	const endpoint = siteBase ? pluginMcpEndpoint(siteBase) : null;
+	const fetchImpl = args.fetchImpl ?? fetch;
+	const timeoutMs = args.timeoutMs ?? 5_000;
 
-	// direct-only: never probe/switch to plugin.
+	// direct-only: never switch to the plugin, but still look for it. A live
+	// plugin turns Direct into a read-only session (writes are refused).
 	if (requested === 'direct') {
+		const surface = endpoint
+			? await probeRestIndex(endpoint, fetchImpl, timeoutMs)
+			: { mcpSurface: null, stonewrightPlugin: null };
+		const conflict = surface.stonewrightPlugin === true;
 		return emptyProbeResult({
 			mode: 'direct',
 			requested,
 			configured,
 			endpoint,
 			pluginEndpointStatus: null,
-			reason: 'STONEWRIGHT_MODE=direct (direct-only); plugin path not probed.',
+			pluginNamespaceDetected: surface.mcpSurface,
+			stonewrightPluginDetected: surface.stonewrightPlugin,
+			modeConflict: conflict,
+			reason: conflict
+				? 'STONEWRIGHT_MODE=direct (direct-only), but the Stonewright plugin is active on this site. Direct reads work; Direct writes are refused. Set STONEWRIGHT_MODE=auto or plugin and call stonewright-reconnect to use Plugin mode.'
+				: 'STONEWRIGHT_MODE=direct (direct-only); the plugin MCP route is not used.',
 		});
 	}
 
@@ -325,7 +409,11 @@ export async function resolveRuntimeMode(args: {
 		});
 	}
 
-	const probe = await probePluginEndpoint(endpoint, args.fetchImpl ?? fetch, args.timeoutMs ?? 5_000);
+	const probe = await probePluginEndpoint(endpoint, fetchImpl, timeoutMs);
+	const detected = {
+		pluginNamespaceDetected: probe.plugin_namespace_detected,
+		stonewrightPluginDetected: probe.stonewright_plugin_detected,
+	};
 
 	if (requested === 'plugin') {
 		// Plugin-only never falls back to Direct, even when the route is missing.
@@ -337,7 +425,7 @@ export async function resolveRuntimeMode(args: {
 				endpoint,
 				pluginEndpointStatus: probe.status,
 				pluginRouteState: 'present',
-				pluginNamespaceDetected: probe.plugin_namespace_detected,
+				...detected,
 				reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
 			});
 		}
@@ -349,7 +437,7 @@ export async function resolveRuntimeMode(args: {
 				endpoint,
 				pluginEndpointStatus: probe.status,
 				pluginRouteState: 'missing',
-				pluginNamespaceDetected: probe.plugin_namespace_detected,
+				...detected,
 				errorCode: 'plugin_route_missing',
 				reason: 'Plugin MCP endpoint returned 404 under plugin-only mode; Direct fallback remains disabled.',
 			});
@@ -361,14 +449,42 @@ export async function resolveRuntimeMode(args: {
 			endpoint,
 			pluginEndpointStatus: probe.status,
 			pluginRouteState: probe.route_state,
-			pluginNamespaceDetected: probe.plugin_namespace_detected,
+			...detected,
 			reason: 'Plugin MCP endpoint probe inconclusive under plugin-only mode; Direct fallback remains disabled.',
 		});
 	}
 
 	if (probe.present === false) {
+		// The plugin is live but its MCP route is not (adapter inactive, route
+		// filtered): that is a plugin connection problem, never a reason for Direct.
+		if (probe.stonewright_plugin_detected === true) {
+			return emptyProbeResult({
+				mode: 'plugin',
+				requested,
+				configured,
+				endpoint,
+				pluginEndpointStatus: probe.status,
+				pluginRouteState: 'missing',
+				...detected,
+				errorCode: 'plugin_route_missing',
+				reason: 'The Stonewright plugin is active on this site, but its MCP route (/wp-json/mcp/stonewright) is missing, so Direct is not used. Enable or reactivate the MCP Adapter, then call stonewright-reconnect with force_probe=true.',
+			});
+		}
+		if (!mayFallbackToDirect(configured, args.fallbackPolicy ?? 'direct-when-plugin-unavailable')) {
+			return emptyProbeResult({
+				mode: 'plugin',
+				requested,
+				configured,
+				endpoint,
+				pluginEndpointStatus: probe.status,
+				pluginRouteState: 'missing',
+				...detected,
+				errorCode: 'plugin_route_missing',
+				reason: 'Plugin MCP endpoint returned 404 and the site fallback_policy is never, so Direct is not used.',
+			});
+		}
 		const namespaceNote = probe.plugin_namespace_detected === true
-			? ' WordPress REST lists an MCP or Stonewright namespace, but /mcp/stonewright is missing.'
+			? ' WordPress REST lists an MCP namespace, but /mcp/stonewright is missing.'
 			: '';
 		return emptyProbeResult({
 			mode: 'direct',
@@ -377,7 +493,7 @@ export async function resolveRuntimeMode(args: {
 			endpoint,
 			pluginEndpointStatus: probe.status,
 			pluginRouteState: 'missing',
-			pluginNamespaceDetected: probe.plugin_namespace_detected,
+			...detected,
 			errorCode: 'plugin_route_missing',
 			reason: `Plugin MCP endpoint returned 404; registering Direct REST tools (auto fallback).${namespaceNote}`,
 		});
@@ -391,7 +507,7 @@ export async function resolveRuntimeMode(args: {
 			endpoint,
 			pluginEndpointStatus: probe.status,
 			pluginRouteState: 'present',
-			pluginNamespaceDetected: probe.plugin_namespace_detected,
+			...detected,
 			reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
 		});
 	}
@@ -403,7 +519,7 @@ export async function resolveRuntimeMode(args: {
 		endpoint,
 		pluginEndpointStatus: probe.status,
 		pluginRouteState: probe.route_state,
-		pluginNamespaceDetected: probe.plugin_namespace_detected,
+		...detected,
 		reason: 'Plugin MCP endpoint probe inconclusive; using plugin proxy path.',
 	});
 }
