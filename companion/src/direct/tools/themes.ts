@@ -1,5 +1,5 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
-import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpTheme = {
@@ -74,14 +74,18 @@ export async function themeActivate(
     `/wp/v2/themes/${encodeURIComponent(input.stylesheet)}`,
     { body: { status: "active" } },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-theme-activate",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `themes/${input.stylesheet}`,
-    status: "ok",
+    resourceType: "themes",
+    readPath: `/wp/v2/themes/${encodeURIComponent(input.stylesheet)}`,
+    readQuery: {},
+    sent: { status: "active" },
   });
-  return compactTheme(result);
+  return attachVerification(compactTheme(result), verification);
 }
 
 export async function customCss(

@@ -70,9 +70,13 @@ override default behavior.
    is the target site; the same latch, `confirm`, target check, and audit row for
    a local WP-CLI command that changes the site in a Direct session; limits on
    `stonewright-media-upload` sources, types, size, and connection address; and
-   a redacted local audit log. Direct mode has no change sets,
-   confirmation tokens, restore tool, or after-write verification;
-   `docs/direct-mode-e2e.md` lists what it does not do yet.
+   a redacted local audit log; every typed write read back and compared, with
+   the result reporting a mismatch as `ok:false`; the saved copies listed and
+   restored only with `confirm:true` (`stonewright-direct-backup-list` and
+   `-restore`); and, after a page, post, or template write, a public-page check
+   that rolls back only when the call asks for it. Direct mode has no change
+   sets or confirmation tokens; `docs/direct-mode-e2e.md` lists what it does not
+   do yet.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,
    WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
    typed dry-run first. Return `approval_url`, exact target path, byte counts,

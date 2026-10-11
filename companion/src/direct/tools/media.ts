@@ -6,6 +6,7 @@ import {
   assertWriteAllowed,
   type DirectWriteMode,
 } from "../writes.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { appendDirectAudit } from "../audit.js";
 import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { ResolvedSite } from "../sites-config.js";
@@ -193,23 +194,12 @@ export async function mediaUpload(
   if (input.alt_text) form.append("alt_text", input.alt_text);
   if (input.caption) form.append("caption", input.caption);
 
+  let item: WpMedia;
   try {
-    const item = await ctx.client.post<WpMedia>("/wp/v2/media", {
+    item = await ctx.client.post<WpMedia>("/wp/v2/media", {
       body: form,
       rawBody: true,
     });
-    appendDirectAudit({
-      tool: "stonewright-media-upload",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `media/${item.id}`,
-      status: "ok",
-    });
-    const compact = compactMedia(item);
-    return {
-      ...compact,
-      alt_text_recommended: !compact.alt_text,
-    };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-media-upload",
@@ -220,6 +210,29 @@ export async function mediaUpload(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-media-upload",
+    resource: `media/${item.id}`,
+    resourceType: "media",
+    readPath: `/wp/v2/media/${item.id}`,
+    expect: "present",
+    sent: {
+      ...(input.title ? { title: input.title } : {}),
+      ...(input.alt_text ? { alt_text: input.alt_text } : {}),
+      ...(input.caption ? { caption: input.caption } : {}),
+    },
+  });
+  const compact = compactMedia(item);
+  return attachVerification(
+    {
+      ...compact,
+      alt_text_recommended: !compact.alt_text,
+    },
+    verification,
+  );
 }
 
 export async function mediaUpdate(
@@ -255,18 +268,11 @@ export async function mediaUpdate(
   if (input.alt_text !== undefined) body.alt_text = input.alt_text;
   if (input.caption !== undefined) body.caption = input.caption;
 
+  let item: WpMedia;
   try {
-    const item = await ctx.client.put<WpMedia>(`/wp/v2/media/${input.id}`, {
+    item = await ctx.client.put<WpMedia>(`/wp/v2/media/${input.id}`, {
       body,
     });
-    appendDirectAudit({
-      tool: "stonewright-media-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `media/${input.id}`,
-      status: "ok",
-    });
-    return compactMedia(item);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-media-update",
@@ -277,6 +283,17 @@ export async function mediaUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-media-update",
+    resource: `media/${input.id}`,
+    resourceType: "media",
+    readPath: `/wp/v2/media/${input.id}`,
+    sent: body,
+  });
+  return attachVerification(compactMedia(item), verification);
 }
 
 export async function mediaDelete(
@@ -298,12 +315,20 @@ export async function mediaDelete(
   const result = await ctx.client.del(`/wp/v2/media/${input.id}`, {
     query: { force: input.force === true },
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-media-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `media/${input.id}`,
-    status: "ok",
+    resourceType: "media",
+    readPath: `/wp/v2/media/${input.id}`,
+    ...(input.force === true
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }

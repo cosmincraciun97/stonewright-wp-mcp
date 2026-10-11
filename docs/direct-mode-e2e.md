@@ -31,13 +31,13 @@ refused before a request is made unless `STONEWRIGHT_DIRECT_ALLOW_HTTP=on`.
 | Taxonomy terms | Yes | Yes |
 | Settings read / update | Yes; update takes an allowlist of keys and a limited `default_role` | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
-| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
+| Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
-| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields; a pre-image file before five whole-document writes; Elementor data keeps its own file backup. **No Rescue snapshots, change sets, or confirmation tokens, and no tool restores a backup.** `confirm:true` is a flag the caller sets for destructive tools. Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
+| Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields, before and after hashes and a `direct_verifier` row for each typed write; a pre-image file before five whole-document writes; Elementor data keeps its own file backup; `stonewright-direct-backup-list` and `-restore` list and restore both. **No Rescue snapshots, change sets, or confirmation tokens.** `confirm:true` is a flag the caller sets for destructive tools. Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
 | WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin); a command that changes the site is a Direct write with task-start, `confirm` and an audit row | Yes |
 
 ## What Direct mode protects
@@ -85,7 +85,31 @@ site, so its protections are the companion's own:
   `global-styles-update`, `content-update` and `blueprint-apply` with `post_id`
   save the current resource first and refuse the write if that fails (20 files
   kept per resource). `elementor-data-update` saves its own full-tree file
-  backup.
+  backup. Each file carries a hash of its content; the result returns
+  `backup_id`, `backup_path` and `backup_sha256`.
+- **List and restore.** `stonewright-direct-backup-list` shows the saved copies
+  with an integrity check. `stonewright-direct-backup-restore` needs
+  `confirm:true` (`dry_run:true` previews), refuses a file whose stored hash does
+  not match, refuses a resource that no longer exists, saves the current state
+  first so the restore can be undone, writes the stored fields back through the
+  same REST route (Elementor backups through the Elementor update path), reads
+  the resource back and audits it. The names are kept apart from the Plugin
+  abilities (`backup-restore`, `site-backup-page`, `rescue-*`).
+- **Readback.** After every typed write the resource is read again and the fields
+  that were sent are compared with what WordPress returns. The result carries
+  `verification` (`verified`, `mismatch` or `not_checked`); a mismatch returns
+  `ok:false` with the differing fields, never plain success. The audit row has
+  `before_sha256` and `after_sha256`, and a `direct_verifier` row records the
+  outcome. The generic REST request tool and local WP-CLI commands are not read
+  back.
+- **Front-end probe.** After a published page or post is written, or a template
+  or template part is updated, the public page is fetched (same pinned,
+  redirect-checked fetch as media downloads; only the site's own local host may
+  be a non-public address) and checked for HTTP 200, a non-empty body, no PHP
+  fatal error text and not the WordPress critical-error page. On by default for a
+  local site, off for a remote one (`probe:true` or `STONEWRIGHT_DIRECT_PROBE=on`
+  turns it on). A failure is returned with a `rollback_offer`; the saved copy is
+  restored automatically only when the call has `rollback_on_probe_failure:true`.
 - **Elementor.** The integrity gate blocks double-encoded data, malformed nodes,
   a tree under 85 percent of the previous size (when that is over 2 KiB), and
   `widgetType` remaps; `force_destructive` and `allow_widget_type_remap` bypass
@@ -95,31 +119,33 @@ site, so its protections are the companion's own:
   limited as described in the matrix above. Each URL hop resolves the host once,
   checks every address and connects to the checked address.
 - **Audit.** A redacted local JSONL row for refusals and errors on every tool and
-  for success on most write tools (`blueprint-apply` and `acf-fields-update`
-  write none on success).
+  for success on every typed write tool, with the readback hashes and a
+  `direct_verifier` row.
 - **Task-start incidents.** Incidents are listed as information and close after
   seven days without a new failure.
 
 ## What Direct mode does not do yet
 
-- **No restore tool.** Pre-images and Elementor backups are files under
-  `~/.stonewright/backups/`; nothing lists or restores them.
-- **No after-write verification.** REST writes are not read back, and there is no
-  front-end probe or rollback. A local Elementor write reads back the element
-  cache only; a remote one reports `not_checked`.
+- **The probe is narrow.** It covers page, post, template and template-part
+  writes. Global styles, Elementor data and the other writes are read back but
+  not probed. Elementor HTML and CSS caches are still not checked remotely.
 - **Pre-images are partial.** Plugin, theme, settings, menu, media, ACF and
-  taxonomy writes save none.
+  taxonomy writes are read back but save no before-state, so a restore cannot
+  undo them. A backup written by an older version has no stored hash; restoring
+  it needs `expected_sha256` (the `backup_sha256` its write returned, which an
+  older Elementor write did not).
 - **Elementor raw writes are unchecked beyond the gate above.** There is no
-  schema validation, unique-id check, element or depth cap, per-post lease or
-  base hash (a concurrent edit is overwritten), and no readback of
-  `_elementor_data`.
+  schema validation, unique-id check, element or depth cap, or per-post lease or
+  base hash (a concurrent edit is overwritten). The write is read back and the
+  stored tree is compared with the written one.
 - **WP-CLI in Plugin mode.** `stonewright-wp-cli-run` and `-job-start` apply the
   shared command policy only; the companion adds no task-start latch,
   confirmation or audit row there.
-- **Audit proves little.** Audit rows carry no change set id or before and after
-  hashes, and no tool reads the audit file. No Direct tool writes the
-  `direct_verifier` row that `stonewright-incident-repair-record` needs, so
-  verified repair returns guidance only.
+- **Audit is local and unread.** Rows carry a change set id on a verified write,
+  before and after hashes, and a `direct_verifier` row, but no tool reads the
+  audit file. `stonewright-incident-repair-record` still needs a verifier row
+  from a different tool that names the failure it repairs, so verified repair
+  returns guidance only until an agent records one.
 - **Plugin-only features.** Rescue, change sets, production-safe confirmation
   tokens, OAuth grants, typed Elementor V3 and V4 engines, Design Direction and
   site Context stay Plugin mode. Hard rules in the native registry are enforced
@@ -180,7 +206,7 @@ read, pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
 task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`).
 
 Protocol e2e for self-improvement runs with zero WordPress credentials
-(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **101** tools.
+(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **103** tools.
 
 Lifecycle tests also prove that a new state directory has no user memory,
 user-created skills, or audit file; packaged generic built-ins are still

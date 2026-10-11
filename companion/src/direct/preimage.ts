@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { defaultStateDir } from './audit.js';
 import { DirectSafetyBlockedError } from './writes.js';
+import { sha256Text, stableJson, stateHash } from './verify.js';
 
 /**
  * Pre-image of a whole-document Direct write.
@@ -17,7 +18,12 @@ export const MAX_PREIMAGES_PER_RESOURCE = 20;
 
 export interface PreImageResult {
 	backup_path: string;
+	/** Hash of the stored file. */
 	backup_sha256: string;
+	/** Name to pass to `stonewright-direct-backup-restore`: the file's path under `<state dir>/backups/<site alias>/`. */
+	backup_id: string;
+	/** Hash of the stored state of the resource, the same projection the readback hash uses. */
+	before_sha256: string;
 }
 
 export interface PreImageClient {
@@ -36,7 +42,7 @@ export interface PreImageRequest {
 }
 
 /** A folder name that cannot leave its parent; a changed name gets a short hash so two ids never share one. */
-function safeSegment(raw: string): string {
+export function safeSegment(raw: string): string {
 	const cleaned = raw
 		.replace(/[^A-Za-z0-9_.-]/g, '_')
 		.replace(/\.{2,}/g, '_')
@@ -114,7 +120,10 @@ export async function storePreImage(request: PreImageRequest): Promise<PreImageR
 		tool: request.tool,
 		site: request.site.alias,
 		resource: request.restPath,
+		resource_id: request.resourceId,
 		captured_at: new Date().toISOString(),
+		// Checked again before a restore, so an edited or damaged file is refused.
+		body_sha256: sha256Text(stableJson(body)),
 		body,
 	};
 	const bytes = Buffer.from(`${JSON.stringify(record, null, 2)}\n`, 'utf8');
@@ -141,5 +150,10 @@ export async function storePreImage(request: PreImageRequest): Promise<PreImageR
 	}
 
 	rotate(dir);
-	return { backup_path: path, backup_sha256: sha256 };
+	return {
+		backup_path: path,
+		backup_sha256: sha256,
+		backup_id: [safeSegment(request.tool), safeSegment(request.resourceId), basename(path)].join('/'),
+		before_sha256: stateHash(body),
+	};
 }

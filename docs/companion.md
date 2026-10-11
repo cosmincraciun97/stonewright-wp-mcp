@@ -58,6 +58,7 @@ folder or site URL.
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
 | `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Largest file Direct `stonewright-media-upload` sends, in bytes; default 25 MiB, at most 512 MiB |
 | `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that Direct `stonewright-media-upload` may read local files from without `confirm: true` |
+| `STONEWRIGHT_DIRECT_PROBE` | `on` or `off`: whether Direct checks the public page after a page, post, template or template-part write. Default: on for a local site, off for a remote one. A call's `probe` argument overrides it, and `rollback_on_probe_failure:true` turns the check on |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
 
 ## Direct mode private state
@@ -163,9 +164,10 @@ site, `confirm: true` in `confirm` mode, a local WordPress that is the Direct
 site, and an audit row. Commands the shared command policy refuses stay refused,
 and `stonewright-wp-cli-batch-run` is read-oriented only.
 
-Direct mode has no restore tool for pre-images or Elementor backups, no
-after-write readback, probe, or rollback, and no change sets or confirmation
-tokens. In Plugin
+Direct mode lists and restores its saved copies (`stonewright-direct-backup-list`,
+`stonewright-direct-backup-restore`), reads every typed write back, and can probe the
+public page after a page, post or template write (rolling back only when asked),
+but it has no change sets or confirmation tokens. In Plugin
 mode the companion does not call WordPress REST write endpoints; Direct mode is
 the exception, through its typed tools only. See
 [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) for the

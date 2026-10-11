@@ -303,8 +303,11 @@ write protections are the companion's own and narrower than Plugin mode's:
   host (`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` for a trusted private network), and
   never retries a write after a network error.
 - It saves a pre-image before template, template-part, global-styles, content
-  and blueprint-over-page writes and refuses the write when that fails. No tool
-  restores a pre-image or an Elementor backup yet.
+  and blueprint-over-page writes and refuses the write when that fails.
+  `stonewright-direct-backup-restore` puts a saved copy (or an Elementor file
+  backup) back only with `confirm:true`, after checking the hash stored in the
+  file and that the resource still exists, and after saving the current state so
+  the restore can be undone.
 - It asks for `confirm: true` on destructive tools in `confirm` write mode. That
   flag is supplied by the caller and is not bound to the call's arguments; Direct
   has no confirmation tokens.
@@ -314,7 +317,11 @@ write protections are the companion's own and narrower than Plugin mode's:
   treat a command that changes the site as a Direct write: task-start,
   `confirm` in `confirm` mode, a local install that is the Direct site, and an
   audit row.
-- It does not read back or probe a site after a write.
+- It reads every typed write back and compares the fields that were sent; a
+  difference is reported as `ok:false`, never as success. After a page, post or
+  template write it can fetch the public page (the pinned, redirect-checked
+  fetch used for media downloads) and report a failure; it restores the saved
+  copy only when the call asks for `rollback_on_probe_failure`.
 
 [Direct mode E2E](direct-mode-e2e.md) lists each protection and what is not done
 yet.

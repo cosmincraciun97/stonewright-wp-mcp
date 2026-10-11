@@ -8,4 +8,6 @@ export interface DirectToolContext {
   writeMode: DirectWriteMode;
   env?: NodeJS.ProcessEnv | undefined;
   fetchImpl?: typeof fetch | undefined;
+  /** Test seam for the front-end probe's host lookup; production resolves through DNS. */
+  lookupImpl?: ((hostname: string) => Promise<Array<{ address: string; family: number }>>) | undefined;
 }

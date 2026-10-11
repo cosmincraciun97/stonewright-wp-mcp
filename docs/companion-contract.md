@@ -184,6 +184,14 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    mode, a local install that is the Direct site) and write an audit row;
    `stonewright-wp-cli-batch-run` accepts read-oriented commands only. The HTTP
    routes above are unchanged.
+8. A Direct typed write returns `verification` (`verified`, `mismatch` or
+   `not_checked`) from a read of the resource after the write; a mismatch is
+   `ok:false`, `error:"verification_mismatch"`. Direct lists and restores its saved
+   copies with `stonewright-direct-backup-list` and
+   `stonewright-direct-backup-restore` (`confirm:true`, hash-checked, undoable); the
+   names differ from the Plugin abilities. A page, post or template write may be
+   followed by a public-page probe and, only on `rollback_on_probe_failure:true`,
+   an automatic restore.
 
 ## Command Recipes v1
 

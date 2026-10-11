@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { refuseCustomCode, scanAcfValues } from "../custom-code-guard.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 function restBaseForType(type: string): string {
@@ -62,14 +63,27 @@ export async function acfFieldsUpdate(
       body: { acf: input.acf },
     },
   );
-  return {
-    id: input.id,
-    acf:
-      updated && typeof updated === "object" && "acf" in updated
-        ? updated.acf
-        : input.acf,
-    ok: true,
-  };
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-acf-fields-update",
+    resource: `${base}/${input.id}`,
+    resourceType: base,
+    readPath: `/wp/v2/${base}/${input.id}`,
+    sent: { acf: input.acf },
+  });
+  return attachVerification(
+    {
+      id: input.id,
+      acf:
+        updated && typeof updated === "object" && "acf" in updated
+          ? updated.acf
+          : input.acf,
+      ok: true,
+    },
+    verification,
+  );
 }
 
 export async function seoHeadGet(

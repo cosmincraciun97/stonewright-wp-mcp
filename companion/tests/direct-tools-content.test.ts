@@ -120,11 +120,13 @@ describe('direct content tools', () => {
 
 	it('allows force delete when confirm:true is provided', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(() =>
-			Promise.resolve(new Response(JSON.stringify({ deleted: true, previous: { id: 9 } }), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			})),
+		// The delete succeeds, then the readback finds the page gone.
+		const fetchImpl = vi.fn((_url: unknown, init?: RequestInit) =>
+			Promise.resolve(
+				init?.method === 'DELETE'
+					? new Response(JSON.stringify({ deleted: true, previous: { id: 9 } }), { status: 200, headers: { 'content-type': 'application/json' } })
+					: new Response(JSON.stringify({ code: 'rest_post_invalid_id', message: 'Invalid post ID.' }), { status: 404, headers: { 'content-type': 'application/json' } }),
+			),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await contentDelete(
@@ -132,7 +134,8 @@ describe('direct content tools', () => {
 			{ id: 9, force: true, confirm: true },
 		);
 		expect(result.deleted).toBe(true);
-		expect(fetchImpl).toHaveBeenCalledOnce();
+		expect(result.verification.status).toBe('verified');
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
 	it('creates a page and returns compact fields', async () => {

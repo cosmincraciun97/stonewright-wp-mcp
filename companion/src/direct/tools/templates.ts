@@ -2,6 +2,8 @@ import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import { refuseCustomCode, scanMarkupFields } from "../custom-code-guard.js";
 import { storePreImage } from "../preimage.js";
+import { attachVerification, verifyWrite } from "../verify.js";
+import { probeAfterWrite, type ProbeOptions } from "../probe.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpTemplate = {
@@ -110,7 +112,7 @@ async function updateCollection(
     content?: string | undefined;
     description?: string | undefined;
     confirm?: boolean | undefined;
-  },
+  } & ProbeOptions,
 ) {
   assertToolEnabled(ctx.site, tool);
   // Overwrites a stored template, so it follows the destructive-tool confirm rule.
@@ -147,16 +149,9 @@ async function updateCollection(
   if (input.title !== undefined) body.title = input.title;
   if (input.content !== undefined) body.content = input.content;
   if (input.description !== undefined) body.description = input.description;
+  let item: WpTemplate;
   try {
-    const item = await ctx.client.post<WpTemplate>(restPath, { body });
-    appendDirectAudit({
-      tool,
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource,
-      status: "ok",
-    });
-    return { ...compactTemplate(item, true), ...preImage };
+    item = await ctx.client.post<WpTemplate>(restPath, { body });
   } catch (err) {
     appendDirectAudit({
       tool,
@@ -167,6 +162,32 @@ async function updateCollection(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool,
+    resource,
+    resourceType: collection,
+    readPath: restPath,
+    sent: body,
+    beforeSha256: preImage.before_sha256,
+    backupId: preImage.backup_id,
+  });
+  return probeAfterWrite(
+    ctx,
+    {
+      tool,
+      resource,
+      input,
+      target: { kind: "home" },
+      sentText: input.content,
+      backupId: preImage.backup_id,
+    },
+    attachVerification({ ...compactTemplate(item, true), ...preImage }, verification, {
+      backupId: preImage.backup_id,
+    }),
+  );
 }
 
 export async function templateList(
@@ -195,7 +216,7 @@ export async function templateUpdate(
     content?: string | undefined;
     description?: string | undefined;
     confirm?: boolean | undefined;
-  },
+  } & ProbeOptions,
 ) {
   return updateCollection(
     ctx,
@@ -241,7 +262,7 @@ export async function templatePartUpdate(
     content?: string | undefined;
     description?: string | undefined;
     confirm?: boolean | undefined;
-  },
+  } & ProbeOptions,
 ) {
   return updateCollection(
     ctx,
@@ -284,14 +305,17 @@ export async function templateCreate(
   const created = await ctx.client.post<WpTemplate>("/wp/v2/templates", {
     body,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-template-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `templates/${created.id}`,
-    status: "ok",
+    resourceType: "templates",
+    readPath: `/wp/v2/templates/${encodeURIComponent(created.id)}`,
+    sent: body,
   });
-  return compactTemplate(created, true);
+  return attachVerification(compactTemplate(created, true), verification);
 }
 
 export async function templateDelete(
@@ -316,14 +340,22 @@ export async function templateDelete(
       query: { force: input.force === true },
     },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-template-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `templates/${input.id}`,
-    status: "ok",
+    resourceType: "templates",
+    readPath: `/wp/v2/templates/${encodeURIComponent(input.id)}`,
+    ...(input.force === true
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }
 
 export async function templatePartCreate(
@@ -359,14 +391,17 @@ export async function templatePartCreate(
   const created = await ctx.client.post<WpTemplate>("/wp/v2/template-parts", {
     body,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-template-part-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `template-parts/${created.id}`,
-    status: "ok",
+    resourceType: "template-parts",
+    readPath: `/wp/v2/template-parts/${encodeURIComponent(created.id)}`,
+    sent: body,
   });
-  return compactTemplate(created, true);
+  return attachVerification(compactTemplate(created, true), verification);
 }
 
 export async function templatePartDelete(
@@ -391,12 +426,20 @@ export async function templatePartDelete(
       query: { force: input.force === true },
     },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-template-part-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `template-parts/${input.id}`,
-    status: "ok",
+    resourceType: "template-parts",
+    readPath: `/wp/v2/template-parts/${encodeURIComponent(input.id)}`,
+    ...(input.force === true
+      ? { expect: "absent" as const }
+      : { sent: { status: "trash" } }),
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }

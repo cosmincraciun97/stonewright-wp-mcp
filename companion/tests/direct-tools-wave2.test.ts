@@ -132,7 +132,9 @@ describe('direct wave 2 tools', () => {
 			{ settings: { title: 'X' }, confirm: true },
 		);
 		expect(result.settings).toMatchObject({ title: 'X' });
-		expect(fetchImpl).toHaveBeenCalledOnce();
+		expect((result as { verification: { status: string } }).verification.status).toBe('verified');
+		// the write and its readback
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
 	it('blocks plugin activate/install without confirm in confirm mode', async () => {

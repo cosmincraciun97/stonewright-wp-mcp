@@ -1,5 +1,5 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
-import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { refuseCustomCode, scanWidget } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -101,21 +101,29 @@ export async function widgetManage(
     if (!input.id_base || !input.sidebar) {
       throw new Error("create requires id_base and sidebar");
     }
+    const createBody: Record<string, unknown> = {
+      id_base: input.id_base,
+      sidebar: input.sidebar,
+      ...(input.instance !== undefined ? { instance: input.instance } : {}),
+    };
     const w = await ctx.client.post<WpWidget>("/wp/v2/widgets", {
-      body: {
-        id_base: input.id_base,
-        sidebar: input.sidebar,
-        ...(input.instance !== undefined ? { instance: input.instance } : {}),
-      },
+      body: createBody,
     });
-    appendDirectAudit({
+    const verification = await verifyWrite({
+      client: ctx.client,
+      site: ctx.site,
+      env: ctx.env,
       tool: "stonewright-widget-manage",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
       resource: `widgets/${w.id}`,
-      status: "ok",
+      resourceType: "widgets",
+      readPath: `/wp/v2/widgets/${encodeURIComponent(w.id)}`,
+      expect: "present",
+      sent: createBody,
     });
-    return { action: "create", widget: compactWidget(w) };
+    return attachVerification(
+      { action: "create", widget: compactWidget(w) },
+      verification,
+    );
   }
 
   if (input.action === "update") {
@@ -129,14 +137,20 @@ export async function widgetManage(
       `/wp/v2/widgets/${encodeURIComponent(input.id)}`,
       { body },
     );
-    appendDirectAudit({
+    const verification = await verifyWrite({
+      client: ctx.client,
+      site: ctx.site,
+      env: ctx.env,
       tool: "stonewright-widget-manage",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
       resource: `widgets/${input.id}`,
-      status: "ok",
+      resourceType: "widgets",
+      readPath: `/wp/v2/widgets/${encodeURIComponent(input.id)}`,
+      sent: body,
     });
-    return { action: "update", widget: compactWidget(w) };
+    return attachVerification(
+      { action: "update", widget: compactWidget(w) },
+      verification,
+    );
   }
 
   if (!input.id) {
@@ -145,12 +159,18 @@ export async function widgetManage(
   await ctx.client.del(`/wp/v2/widgets/${encodeURIComponent(input.id)}`, {
     query: { force: true },
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-widget-manage",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `widgets/${input.id}`,
-    status: "ok",
+    resourceType: "widgets",
+    readPath: `/wp/v2/widgets/${encodeURIComponent(input.id)}`,
+    expect: "absent",
   });
-  return { action: "delete", id: input.id, deleted: true };
+  return attachVerification(
+    { action: "delete", id: input.id, deleted: true },
+    verification,
+  );
 }

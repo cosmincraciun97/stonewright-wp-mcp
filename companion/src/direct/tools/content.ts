@@ -12,6 +12,8 @@ import {
 } from "../custom-code-guard.js";
 import { storePreImage } from "../preimage.js";
 import { resolveRestBase } from "../rest-discovery.js";
+import { attachVerification, verifyWrite } from "../verify.js";
+import { probeAfterWrite, type ProbeOptions } from "../probe.js";
 import type { ResolvedSite } from "../sites-config.js";
 
 export interface ContentToolContext {
@@ -19,6 +21,8 @@ export interface ContentToolContext {
   site: ResolvedSite;
   writeMode: DirectWriteMode;
   env?: NodeJS.ProcessEnv | undefined;
+  fetchImpl?: typeof fetch | undefined;
+  lookupImpl?: ((hostname: string) => Promise<Array<{ address: string; family: number }>>) | undefined;
 }
 
 /** Custom code a content write would store: markup in title or content, and code or CSS carried in meta. */
@@ -187,25 +191,17 @@ export async function contentCreate(
     ctx,
     input.kind ?? input.type ?? "page",
   );
+  const body: Record<string, unknown> = {
+    title: input.title,
+    content: input.content,
+    status: input.status ?? "draft",
+    parent: input.parent,
+    template: input.template,
+    meta: input.meta,
+  };
+  let post: WpPost;
   try {
-    const post = await ctx.client.post<WpPost>(`/wp/v2/${collection}`, {
-      body: {
-        title: input.title,
-        content: input.content,
-        status: input.status ?? "draft",
-        parent: input.parent,
-        template: input.template,
-        meta: input.meta,
-      },
-    });
-    appendDirectAudit({
-      tool,
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${post.id}`,
-      status: "ok",
-    });
-    return compactPost(post);
+    post = await ctx.client.post<WpPost>(`/wp/v2/${collection}`, { body });
   } catch (err) {
     appendDirectAudit({
       tool,
@@ -217,6 +213,27 @@ export async function contentCreate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool,
+    resource: `${collection}/${post.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${post.id}`,
+    sent: body,
+  });
+  return probeAfterWrite(
+    ctx,
+    {
+      tool,
+      resource: `${collection}/${post.id}`,
+      input: {},
+      target: { kind: "page", status: post.status, link: post.link },
+      sentText: input.content,
+    },
+    attachVerification(compactPost(post), verification),
+  );
 }
 
 export async function contentUpdate(
@@ -230,7 +247,7 @@ export async function contentUpdate(
     parent?: number | undefined;
     template?: string | undefined;
     meta?: Record<string, unknown> | undefined;
-  },
+  } & ProbeOptions,
 ) {
   assertToolEnabled(ctx.site, "stonewright-content-update");
   assertWriteAllowed({
@@ -264,19 +281,11 @@ export async function contentUpdate(
   if (input.template !== undefined) body.template = input.template;
   if (input.meta !== undefined) body.meta = input.meta;
 
+  let post: WpPost;
   try {
-    const post = await ctx.client.put<WpPost>(
-      `/wp/v2/${collection}/${input.id}`,
-      { body },
-    );
-    appendDirectAudit({
-      tool: "stonewright-content-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
-      status: "ok",
+    post = await ctx.client.put<WpPost>(`/wp/v2/${collection}/${input.id}`, {
+      body,
     });
-    return { ...compactPost(post), ...preImage };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-content-update",
@@ -287,6 +296,32 @@ export async function contentUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-content-update",
+    resource: `${collection}/${input.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${input.id}`,
+    sent: body,
+    beforeSha256: preImage.before_sha256,
+    backupId: preImage.backup_id,
+  });
+  return probeAfterWrite(
+    ctx,
+    {
+      tool: "stonewright-content-update",
+      resource: `${collection}/${input.id}`,
+      input,
+      target: { kind: "page", status: post.status, link: post.link },
+      sentText: input.content,
+      backupId: preImage.backup_id,
+    },
+    attachVerification({ ...compactPost(post), ...preImage }, verification, {
+      backupId: preImage.backup_id,
+    }),
+  );
 }
 
 export async function contentDelete(
@@ -308,21 +343,14 @@ export async function contentDelete(
     tool: "stonewright-content-delete",
   });
   const collection = await collectionFor(ctx, input.type ?? "pages");
+  let result: unknown;
   try {
-    const result = await ctx.client.del<unknown>(
+    result = await ctx.client.del<unknown>(
       `/wp/v2/${collection}/${input.id}`,
       {
         query: { force },
       },
     );
-    appendDirectAudit({
-      tool: "stonewright-content-delete",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `${collection}/${input.id}`,
-      status: "ok",
-    });
-    return { deleted: true, force, result };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-content-delete",
@@ -333,6 +361,17 @@ export async function contentDelete(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-content-delete",
+    resource: `${collection}/${input.id}`,
+    resourceType: collection,
+    readPath: `/wp/v2/${collection}/${input.id}`,
+    ...(force ? { expect: "absent" as const } : { sent: { status: "trash" } }),
+  });
+  return attachVerification({ deleted: true, force, result }, verification);
 }
 
 export async function contentRevisions(
@@ -409,14 +448,20 @@ export async function contentRevisionDelete(
     `/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
     { query: { force: true } },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-content-revision-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `${collection}/${input.id}/revisions/${input.revision_id}`,
-    status: "ok",
+    resourceType: "revisions",
+    readPath: `/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
+    expect: "absent",
   });
-  return result ?? { deleted: true, revision_id: input.revision_id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, revision_id: input.revision_id },
+    verification,
+  );
 }
 
 export async function contentAutosaves(
@@ -491,16 +536,22 @@ export async function contentAutosaveCreate(
     `/wp/v2/${collection}/${input.id}/autosaves`,
     { body },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-content-autosave-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `${collection}/${input.id}/autosaves`,
-    status: "ok",
+    resourceType: "autosaves",
+    readPath: `/wp/v2/${collection}/${input.id}/autosaves/${saved.id}`,
+    sent: body,
   });
-  return {
-    id: saved.id,
-    title: titleOf(saved),
-    modified: saved.modified ?? "",
-  };
+  return attachVerification(
+    {
+      id: saved.id,
+      title: titleOf(saved),
+      modified: saved.modified ?? "",
+    },
+    verification,
+  );
 }

@@ -2,6 +2,7 @@ import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import { refuseCustomCode, scanGlobalStyles } from "../custom-code-guard.js";
 import { storePreImage } from "../preimage.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpGlobalStyles = {
@@ -74,22 +75,9 @@ export async function globalStylesUpdate(
   const body: Record<string, unknown> = {};
   if (input.settings !== undefined) body.settings = input.settings;
   if (input.styles !== undefined) body.styles = input.styles;
+  let styles: WpGlobalStyles;
   try {
-    const styles = await ctx.client.post<WpGlobalStyles>(restPath, { body });
-    appendDirectAudit({
-      tool: "stonewright-global-styles-update",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: `global-styles/${id}`,
-      status: "ok",
-    });
-    return {
-      id: styles.id,
-      title: titleOf(styles),
-      settings: styles.settings ?? {},
-      styles: styles.styles ?? {},
-      ...preImage,
-    };
+    styles = await ctx.client.post<WpGlobalStyles>(restPath, { body });
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-global-styles-update",
@@ -100,6 +88,29 @@ export async function globalStylesUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-global-styles-update",
+    resource: `global-styles/${id}`,
+    resourceType: "global-styles",
+    readPath: restPath,
+    sent: body,
+    beforeSha256: preImage.before_sha256,
+    backupId: preImage.backup_id,
+  });
+  return attachVerification(
+    {
+      id: styles.id,
+      title: titleOf(styles),
+      settings: styles.settings ?? {},
+      styles: styles.styles ?? {},
+      ...preImage,
+    },
+    verification,
+    { backupId: preImage.backup_id },
+  );
 }
 
 export async function globalStylesTheme(

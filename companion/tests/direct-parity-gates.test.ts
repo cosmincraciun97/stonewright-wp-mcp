@@ -38,6 +38,22 @@ const remoteSite: ResolvedSite = {
 	disabledTools: [],
 };
 
+/** A page that keeps what is written to it, so the readback after a write sees the new values. */
+function echoPage(id: number, status = 201) {
+	const page: Record<string, unknown> = { id };
+	return vi.fn((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+		const write = init?.method !== undefined && init.method !== 'GET';
+		if (write) {
+			for (const [key, value] of Object.entries(JSON.parse(String(init.body)) as Record<string, unknown>)) {
+				page[key] = ['title', 'content'].includes(key) && typeof value === 'string' ? { raw: value } : value;
+			}
+		}
+		return Promise.resolve(
+			new Response(JSON.stringify(page), { status: write ? status : 200, headers: { 'content-type': 'application/json' } }),
+		);
+	});
+}
+
 describe('direct blueprint engine gate', () => {
 	const dirs: string[] = [];
 	const originalHome = process.env.HOME;
@@ -121,18 +137,15 @@ describe('direct blueprint engine gate', () => {
 	it('tags successful applies as gutenberg engine', async () => {
 		homeDir();
 		process.env.STONEWRIGHT_DIRECT_WRITES = 'on';
-		const fetchImpl = vi.fn((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
-			expect(init?.method).toBe('POST');
-			const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-			expect(body.title).toBeTruthy();
-			expect(String(body.content)).toContain('<!-- wp:');
-			expect(body.status).toBe('draft');
-			return Promise.resolve(
-				new Response(JSON.stringify({ id: 42, title: { raw: body.title } }), {
-					status: 201,
-					headers: { 'content-type': 'application/json' },
-				}),
-			);
+		const echo = echoPage(42);
+		const fetchImpl = vi.fn((url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+			if (init?.method === 'POST') {
+				const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+				expect(body.title).toBeTruthy();
+				expect(String(body.content)).toContain('<!-- wp:');
+				expect(body.status).toBe('draft');
+			}
+			return echo(url, init);
 		});
 		const client = new WpRestClient(localSite, { fetchImpl });
 		const result = await applyBlueprint(
@@ -148,21 +161,16 @@ describe('direct blueprint engine gate', () => {
 		expect(result.blueprint_id).toBe('agency');
 		expect(result.created).toBe(true);
 		expect(String(result.note)).toMatch(/Elementor requires plugin/i);
-		expect(fetchImpl).toHaveBeenCalledOnce();
+		// the create, then its readback
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
 		expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('/wp/v2/pages');
+		expect(result.verification.status).toBe('verified');
 	});
 
 	it('allows engine auto as gutenberg create path', async () => {
 		homeDir();
 		process.env.STONEWRIGHT_DIRECT_WRITES = 'on';
-		const fetchImpl = vi.fn(() =>
-			Promise.resolve(
-				new Response(JSON.stringify({ id: 7 }), {
-					status: 201,
-					headers: { 'content-type': 'application/json' },
-				}),
-			),
-		);
+		const fetchImpl = echoPage(7);
 		const client = new WpRestClient(localSite, { fetchImpl });
 		const result = await applyBlueprint(client, { id: 'agency', engine: 'auto' }, process.env);
 		expect(result).toMatchObject({ ok: true, engine: 'gutenberg', post_id: 7 });
@@ -178,14 +186,7 @@ describe('direct blueprint engine gate', () => {
 		).rejects.toThrow(/confirm:true/i);
 		expect(fetchImpl).not.toHaveBeenCalled();
 
-		const fetchOk = vi.fn(() =>
-			Promise.resolve(
-				new Response(JSON.stringify({ id: 9 }), {
-					status: 200,
-					headers: { 'content-type': 'application/json' },
-				}),
-			),
-		);
+		const fetchOk = echoPage(9, 200);
 		const clientOk = new WpRestClient(remoteSite, { fetchImpl: fetchOk });
 		const result = await applyBlueprint(
 			clientOk,
@@ -288,8 +289,9 @@ describe('direct acf fields tools', () => {
 	it('updates acf fields via REST post body on happy path', async () => {
 		homeDir();
 		const fetchImpl = vi.fn((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
-			expect(init?.method).toBe('POST');
-			expect(JSON.parse(String(init?.body))).toEqual({ acf: { headline: 'Updated' } });
+			if (init?.method === 'POST') {
+				expect(JSON.parse(String(init.body))).toEqual({ acf: { headline: 'Updated' } });
+			}
 			return Promise.resolve(
 				new Response(
 					JSON.stringify({ id: 11, acf: { headline: 'Updated' } }),
@@ -302,7 +304,8 @@ describe('direct acf fields tools', () => {
 			{ client, site: localSite, writeMode: 'on' },
 			{ id: 11, acf: { headline: 'Updated' } },
 		);
-		expect(result).toEqual({ id: 11, acf: { headline: 'Updated' }, ok: true });
+		expect(result).toMatchObject({ id: 11, acf: { headline: 'Updated' }, ok: true });
+		expect((result as { verification: { status: string } }).verification.status).toBe('verified');
 		expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('/wp/v2/posts/11');
 	});
 

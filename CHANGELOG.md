@@ -13,6 +13,12 @@ development builds were never stable releases.
 
 ### Added
 
+- Direct mode lists and restores the copies it saves before it overwrites
+  something (`stonewright-direct-backup-list`, `stonewright-direct-backup-restore`;
+  hash-checked, `confirm:true`, undoable), reads every typed write back and
+  reports a difference as `ok:false`, and can check the public page after a page,
+  post or template write, restoring the saved copy only when the call asks for it.
+  The Direct tool count is 103. See the companion changelog.
 - Purge the cached page of a post after `stonewright-elementor-css-regenerate`
   moved its stylesheet version. When the CSS file is written and the transaction
   is not rolled back, the ability calls the purge function or hook of the page
@@ -359,8 +365,8 @@ development builds were never stable releases.
   changelog.
 - Documentation: Direct mode docs and `AGENTS.md` rule 7 state that the companion
   writes through core REST in Direct mode only, list the protections it carries,
-  and list what it does not do yet (restore tool, after-write verification,
-  partial custom-code screening, DNS pinning for media URLs).
+  and list what it does not do yet (partial custom-code screening, DNS pinning
+  for media URLs).
 
 ### Fixed
 

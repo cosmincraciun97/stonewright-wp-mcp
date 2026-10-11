@@ -196,11 +196,19 @@ export function isPublicAddress(address: string): boolean {
 const defaultLookup: MediaLookup = async (hostname) =>
   dnsLookup(hostname, { all: true, verbatim: true });
 
-/** Resolves the host once and returns the addresses, all checked to be public. */
+/**
+ * Resolves the host once and returns the addresses, all checked to be public. `trustedHost` names the one
+ * host that may resolve to a non-public address (the configured local development site, for the front-end
+ * probe); every other host must still resolve only to public addresses.
+ */
 async function resolvePublicAddresses(
   url: URL,
   lookup: MediaLookup,
+  trustedHost?: string,
 ): Promise<PinnedAddress[]> {
+  const trusted =
+    trustedHost !== undefined &&
+    url.hostname.replace(/^\[|\]$/g, "").toLowerCase() === trustedHost.toLowerCase();
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw blocked(
       "media-upload url must use http or https.",
@@ -214,7 +222,7 @@ async function resolvePublicAddresses(
     );
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0) {
-    if (!isPublicAddress(host)) throw notPublic();
+    if (!trusted && !isPublicAddress(host)) throw notPublic();
     return [{ address: host, family: isIP(host) }];
   }
   let answers: Array<{ address: string; family: number }>;
@@ -226,7 +234,7 @@ async function resolvePublicAddresses(
   if (answers.length === 0) {
     throw blocked("media-upload url host did not resolve.", "media_url_unresolved");
   }
-  if (!answers.every((a) => isPublicAddress(a.address))) throw notPublic();
+  if (!trusted && !answers.every((a) => isPublicAddress(a.address))) throw notPublic();
   return answers.map((a) => ({ address: a.address, family: a.family }));
 }
 
@@ -343,4 +351,84 @@ export async function downloadMediaUrl(
     "media-upload url redirected too many times.",
     "media_url_too_many_redirects",
   );
+}
+
+/** Reads at most `maxBytes` of the body as text and drops the rest. */
+async function readTextBounded(
+  response: Response,
+  maxBytes: number,
+): Promise<{ text: string; truncated: boolean }> {
+  if (!response.body) return { text: "", truncated: false };
+  const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const room = maxBytes - total;
+    if (value.byteLength > room) {
+      chunks.push(Buffer.from(value.buffer, value.byteOffset, Math.max(room, 0)));
+      total = maxBytes;
+      truncated = true;
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
+    chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    total += value.byteLength;
+  }
+  return { text: Buffer.concat(chunks, total).toString("utf8"), truncated };
+}
+
+/**
+ * One GET of a web page through the same safeguards as a media download: the host is resolved once and the
+ * connection goes to the checked address, every redirect is checked again, the whole request has one
+ * deadline and the body is cut off at `maxBytes`. Unlike a download it returns any HTTP status instead of
+ * throwing, because the caller wants to look at an error page. Only `trustedHost` may be a non-public
+ * address.
+ */
+export async function fetchPublicPage(
+  rawUrl: string,
+  opts: {
+    fetchImpl?: typeof fetch | undefined;
+    transportImpl?: MediaTransport | undefined;
+    lookupImpl?: MediaLookup | undefined;
+    trustedHost?: string | undefined;
+    maxBytes?: number | undefined;
+    timeoutMs?: number | undefined;
+  } = {},
+): Promise<{ status: number; finalUrl: URL; text: string; truncated: boolean }> {
+  const fetchImpl = opts.fetchImpl;
+  const transport: MediaTransport =
+    opts.transportImpl ??
+    (fetchImpl
+      ? (url, _addresses, signal) =>
+          fetchImpl(url.toString(), { redirect: "manual", signal })
+      : pinnedRequest);
+  // With a replaced fetch no real connection is made, so there is nothing to resolve.
+  const lookup: MediaLookup =
+    opts.lookupImpl ??
+    (fetchImpl
+      ? () => Promise.resolve([{ address: "127.0.0.1", family: 4 }])
+      : defaultLookup);
+  const signal = AbortSignal.timeout(opts.timeoutMs ?? 15_000);
+  let current = parseMediaUrl(rawUrl);
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const addresses = await resolvePublicAddresses(current, lookup, opts.trustedHost);
+    let response: Response;
+    try {
+      response = await transport(current, addresses, signal);
+    } catch (error) {
+      throw downloadFailure(error);
+    }
+    const location = response.headers.get("location");
+    if (REDIRECT_STATUSES.has(response.status) && location) {
+      await response.body?.cancel().catch(() => undefined);
+      current = parseMediaUrl(location, current.toString());
+      continue;
+    }
+    const { text, truncated } = await readTextBounded(response, opts.maxBytes ?? 1024 * 1024);
+    return { status: response.status, finalUrl: current, text, truncated };
+  }
+  throw blocked("the page redirected too many times.", "media_url_too_many_redirects");
 }
