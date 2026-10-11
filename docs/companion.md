@@ -213,6 +213,54 @@ sent once more, a tool call included. Degraded
 `stonewright-task-start` reconnects once. See
 [Permanent remediation contracts](permanent-remediation-contracts.md).
 
+### Tools shared with Plugin mode
+
+Thirty-five tool names exist in both modes (the full table of differences is in
+[Direct mode E2E](direct-mode-e2e.md#tools-that-exist-in-both-modes)). Direct
+keeps its own argument names and also accepts the plugin's, so a client that
+learned the Plugin schema still works in a Direct session:
+
+| Tool | Direct argument | Plugin name also accepted |
+|---|---|---|
+| `comment-list`, `comment-create` | `post` | `post_id` |
+| `comment-update` | `status: approved` | `status: approve` |
+| `comment-list` | `status: approved` | `status: approve` (and `all`) |
+| `menu-delete` | `id` | `menu_id` |
+| `media-upload` | `alt_text` | `alt` |
+| `user-create` | `username`, `email`, `password`, `roles[]`, `name` | `user_login`, `user_email`, `user_pass`, `role`, `display_name` |
+| `user-update` | `email`, `password`, `roles[]`, `name` | `user_email`, `user_pass`, `role`, `display_name` |
+| `user-list` | `roles`, `per_page` | `role`, `number` (at most 50 in Direct) |
+| `blueprint-get` | `id` | `blueprint_id` |
+| `blueprint-apply` | `id`, `title`, `status` | `blueprint_id`, `page_title`, `mode` |
+| `wc-sales-report` | `date_min`, `date_max` | `date_from`, `date_to`; `period` `last_7_days`, `last_30_days`, `year_to_date`, `custom` |
+| `settings-update` | `title`, `description`, `timezone` | `blogname`, `blogdescription`, `timezone_string` |
+| `plugin-activate`, `-deactivate`, `-delete` | `folder/file` | `folder/file.php` |
+
+An alias and its Direct argument given with different values are refused
+(`argument_alias_conflict`, nothing is sent); an argument only the plugin has and
+Direct cannot honour (`palette_override`, `brand_kit`, `base64`, `tags` and a few
+more) is refused with `plugin_only_argument` instead of being dropped. Direct
+output keeps its keys and adds the plugin's where the value is the same
+(`url`, `mime`, `alt`, `active`, `menu_id`, `login`, `display_name`). In
+`blueprint-apply`, `engine: elementor` or `fse` answers `engine_requires_plugin_mode`.
+
+The state the two modes share under `~/.stonewright` is kept apart. Rows for
+local work (`stonewright-command-*`, `stonewright rescue`) carry
+`backend: "local"`: they open no Direct incident and are not counted as Direct
+errors. `task-start` lists only its own site's errors from the last 30 days.
+Memory lives in `memory/<host>-<fingerprint>.jsonl`, keyed by the site's
+canonical URL rather than by the alias: two aliases for one site share it, and an
+alias pointed at another site does not inherit it. A `memory/<alias>.jsonl` file
+from an earlier companion is copied once (the old file is never moved or deleted;
+`memory/_site-bindings.json` records which site it was adopted for) and is still
+read while the alias points at that site. `memory-list` reports the store it read
+(`backend`, `memory_backend`) and, when the plugin is active on the site, says
+that `task-start` and `learning-record` use the plugin's memory there.
+`task-start` and `learning-record` answer with a common core of keys and a
+`backend` field whichever store answered. The managed block of
+`~/.stonewright/AGENTS.md` has shared rules and one section per mode; only the
+Direct section names Direct-only tools.
+
 ## Plugin Integration
 
 The normal `npx` setup uses the versioned GitHub release tarball and does not

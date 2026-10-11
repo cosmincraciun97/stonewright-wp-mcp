@@ -25,12 +25,16 @@ function compactUser(user: WpUser, includePrivate = false) {
     description: user.description ?? "",
     link: user.link ?? "",
     roles: user.roles ?? [],
+    // The plugin's name for the display name.
+    display_name: user.name ?? "",
   };
   if (!includePrivate) return base;
   return {
     ...base,
     username: user.username ?? "",
     email: user.email ?? "",
+    // The plugin's name for the sign-in name.
+    login: user.username ?? "",
   };
 }
 
@@ -41,6 +45,8 @@ export async function userList(
     roles?: string | undefined;
     per_page?: number | undefined;
     page?: number | undefined;
+    /** Users to skip; core applies it instead of page. */
+    offset?: number | undefined;
   } = {},
 ) {
   assertToolEnabled(ctx.site, "stonewright-user-list");
@@ -52,6 +58,7 @@ export async function userList(
       roles: input.roles,
       per_page: perPage,
       page,
+      offset: input.offset,
       _fields: "id,name,slug,url,description,link,roles",
     },
   });

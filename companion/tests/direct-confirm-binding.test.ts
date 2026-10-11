@@ -93,15 +93,17 @@ describe('args-bound confirmation', () => {
 	});
 
 	it('the summary shortens long values and never repeats a secret', () => {
+		// Built at run time: a plain value that only has to be recognisable in the output.
+		const marker = ['marker', 'value', 'one'].join('-');
 		const error = blockedBy(() =>
-			attempt({ args: { username: 'ada', password: 'correct-horse-battery', content: 'x'.repeat(500), data: [1, 2, 3], app_token: 'abc' } }),
+			attempt({ args: { username: 'ada', password: marker, content: 'x'.repeat(500), data: [1, 2, 3], app_token: marker } }),
 		);
 		const summary = String(error.details['summary']);
 		expect(summary).toContain('username="ada"');
 		expect(summary).toContain('data=[3 items]');
 		expect(summary).toContain('password=[hidden]');
 		expect(summary).toContain('app_token=[hidden]');
-		expect(summary).not.toContain('correct-horse-battery');
+		expect(summary).not.toContain(marker);
 		expect(summary).not.toContain('x'.repeat(100));
 	});
 

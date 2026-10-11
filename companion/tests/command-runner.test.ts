@@ -228,6 +228,26 @@ describe('command runner', () => {
 });
 
 describe('command runner audit hygiene', () => {
+	it('labels its rows local and opens no Direct incident when a recipe fails', async () => {
+		const failing = recipe({ slug: 'fails-expectation' });
+		// The recipe expects 6.x on stdout; this answer does not have it.
+		const { runner } = fakeRunner('nothing useful\n', 0);
+		const receipt = await runCommand({ site: site(), recipe: failing, runner, env: process.env });
+		expect(receipt.ok).toBe(false);
+		const rows = readFileSync(join(stateDir, 'audit-direct.jsonl'), 'utf8')
+			.split('\n')
+			.filter(Boolean)
+			.map((line) => JSON.parse(line) as Record<string, unknown>)
+			.filter((row) => row['tool'] === 'stonewright-command-run');
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) {
+			expect(row['backend']).toBe('local');
+			expect(row['mode']).toBe('local');
+		}
+		expect(rows.some((row) => row['status'] === 'error')).toBe(true);
+		expect(existsSync(join(stateDir, 'incidents'))).toBe(false);
+	});
+
 	it('keeps parameter values out of the audit trail', async () => {
 		process.env['STONEWRIGHT_STATE_DIR'] = stateDir;
 		try {

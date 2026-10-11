@@ -28,6 +28,19 @@ function compactComment(c: WpComment) {
   };
 }
 
+/**
+ * Core's comment query knows the status `approve`; Direct documents `approved` and the plugin takes
+ * `approve`. Both reach WordPress as `approve` when listing.
+ */
+function listStatus(status: string | undefined): string | undefined {
+  return status === "approved" ? "approve" : status;
+}
+
+/** Writing a status, core and Direct both take `approved`; the plugin spells it `approve`. */
+function writeStatus(status: string | undefined): string | undefined {
+  return status === "approve" ? "approved" : status;
+}
+
 export async function commentList(
   ctx: DirectToolContext,
   input: {
@@ -44,7 +57,7 @@ export async function commentList(
   const items = await ctx.client.get<WpComment[]>("/wp/v2/comments", {
     query: {
       post: input.post,
-      status: input.status,
+      status: listStatus(input.status),
       search: input.search,
       per_page: perPage,
       page,
@@ -162,7 +175,7 @@ export async function commentUpdate(
   if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.content !== undefined) body.content = input.content;
-  if (input.status !== undefined) body.status = input.status;
+  if (input.status !== undefined) body.status = writeStatus(input.status);
   const c = await ctx.client.post<WpComment>(`/wp/v2/comments/${input.id}`, {
     body,
   });

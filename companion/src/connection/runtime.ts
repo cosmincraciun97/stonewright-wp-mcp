@@ -1274,6 +1274,8 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 						registered,
 					);
 					return {
+						// The common task-start core carries `backend`; the plugin's own answer does not.
+						backend: 'plugin',
 						...structured,
 						ok: !v3.surface.relist_required && !v3.reconciliation.mismatch_reason,
 						source: 'plugin',

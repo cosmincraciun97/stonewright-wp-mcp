@@ -218,6 +218,32 @@ export function listMemory(input: {
 	return { items: items.slice(0, input.limit ?? 20) };
 }
 
+/**
+ * Appends entries that came from another memory file, keeping their ids, timestamps and status.
+ * An id the file already holds is skipped, so importing twice adds nothing. Returns how many were added.
+ */
+export function importMemoryEntries(input: {
+	baseDir?: string;
+	env?: NodeJS.ProcessEnv;
+	scope: string;
+	entries: MemoryEntry[];
+}): number {
+	const file = memoryFile(input.baseDir, input.scope, input.env);
+	const known = new Set(readAll(file).map((entry) => entry.id));
+	const fresh = input.entries.filter((entry) => {
+		if (known.has(entry.id)) return false;
+		known.add(entry.id);
+		return true;
+	});
+	if (fresh.length === 0) return 0;
+	mkdirSync(memoryDir(input.baseDir, input.env), { recursive: true, mode: 0o700 });
+	appendFileSync(file, `${fresh.map((entry) => JSON.stringify(entry)).join('\n')}\n`, {
+		encoding: 'utf8',
+		mode: 0o600,
+	});
+	return fresh.length;
+}
+
 export function setMemoryStatus(input: {
 	baseDir?: string;
 	env?: NodeJS.ProcessEnv;

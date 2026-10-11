@@ -298,6 +298,7 @@ export async function runRescueCli(
 					status: exitCode === 0 ? 'ok' : 'error',
 					eventType: 'rescue_command',
 					operationClass: 'local_rescue_command',
+					backend: 'local',
 					executionStatus: 'executed',
 					durationMs: Date.now() - started,
 				});

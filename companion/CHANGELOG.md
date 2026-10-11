@@ -75,6 +75,41 @@
   (`site_status:"rolled_back"`). A page that cannot be reached is reported as
   `unavailable`, not as a failure.
 
+- Accept the plugin's argument names in the 35 Direct tools whose names also exist
+  in Plugin mode, so a client that learned one schema works in both. `post_id`,
+  `menu_id`, `alt`, `user_login`, `user_email`, `user_pass`, `role`,
+  `display_name`, `number`, `blueprint_id`, `page_title`, `mode`, `date_from` and
+  `date_to` fill the Direct arguments (`post`, `id`, `alt_text`, `username`,
+  `email`, `password`, `roles`, `name`, `per_page`, `id`, `title`, `status`,
+  `date_min`, `date_max`); Direct's own names are unchanged. `settings-update`
+  takes `blogname`, `blogdescription` and `timezone_string`, and `plugin-*` tools
+  take the plugin file with or without `.php`. A name and its alias given with
+  different values are refused with `argument_alias_conflict` and nothing is sent;
+  an argument only the plugin has and Direct cannot honour (`palette_override`,
+  `brand_kit`, `base64`, `items`, `tags`, `statuses`, `max_orders`, the plugin-only
+  learning fields) is refused with `plugin_only_argument` instead of being dropped.
+  Comment status takes `approve` as well as `approved`. A required argument may
+  come under either name.
+- Add the plugin's output keys beside the Direct ones where the value is the
+  same: `url`, `mime` and `alt` on media (and `parent`, `width`, `height` on
+  `media-get`), `menu_id` on `menu-create`, `menus[]` on `menu-list`, `active` on
+  plugin and theme items, `login` and `display_name` on users, `count` on
+  `blueprint-list`, and `blogname`, `blogdescription`, `timezone_string` on
+  settings. `media-list` takes `mime_type`, `user-list` takes `offset`,
+  `blueprint-list` takes `industry` and `search`, `settings-get` takes `keys`,
+  `content-create-page` and `-post` take `excerpt`, `slug` and `date` (and the post
+  `categories`), `media-upload` takes `parent_post_id`, and `memory-list` takes
+  `offset` and up to 500 entries.
+- Take the plugin's `period` values (`last_7_days`, `last_30_days`,
+  `year_to_date`, `custom` with `date_from` and `date_to`) in Direct
+  `wc-sales-report` and turn them into the date range WooCommerce takes. The
+  WooCommerce period values still pass through.
+- Report which store answered. `task-start` and `learning-record` carry a common
+  core of keys and a `backend` field (`direct` or `plugin`) whichever store
+  answered (the Plugin-mode `task-start` gateway adds `backend: plugin` to the plugin's answer), and `memory-list` says it read the companion's local files (`backend`,
+  `memory_backend`) and, when the plugin is active on the site, that `task-start`
+  and `learning-record` use the plugin's memory there. The table of differences
+  for the shared tools is in `docs/direct-mode-e2e.md`.
 - Hold a local WP-CLI command that changes the site to the Direct write gate in a
   Direct session. `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start` take
   an optional `confirm` and, for a command that is not read-oriented, need
@@ -183,6 +218,30 @@
   `overrides_requested` shows the flags the call set.
 - `stonewright-blueprint-apply` reads the write settings from the environment of
   the server instead of the process environment.
+- Key Direct memory by the site's canonical URL instead of the alias
+  (`memory/<host>-<fingerprint>.jsonl`). Two aliases for one site share its memory,
+  and an alias pointed at another site no longer inherits the old site's lessons.
+  An alias-keyed file from an earlier companion is copied once, never moved or
+  deleted, and is still read while the alias points at the same site.
+- List only the site's own errors from the last 30 days as `recurring_errors` in
+  Direct `task-start`. Audit rows for local work (`stonewright-command-*` and
+  `stonewright rescue`) now carry `backend: "local"` and `mode: "local"`, open no
+  Direct incident and are not counted as Direct errors.
+- Make the managed block of the global `~/.stonewright/AGENTS.md` mode-aware: shared
+  rules first, then a section for Direct mode and one for Plugin mode, so a Plugin
+  session is not taught Direct-only tool names and the text no longer claims
+  backups or readback that a tool does not do.
+- Answer `blueprint-apply` with `engine: elementor` or `fse` with
+  `engine_requires_plugin_mode` and a message that the engine needs Plugin mode
+  (it was `elementor_requires_plugin`, which was wrong for `fse`); any other engine
+  is `invalid_engine`. `blueprint-apply` takes `blueprint_id`, `page_title` and
+  `mode`.
+- Send `settings-update` the REST names core knows. `blogname`, `blogdescription`
+  and `timezone_string` were passed on under those names and core REST ignored
+  them; they are now sent as `title`, `description` and `timezone`, and
+  `ignored_keys` lists an allowed key that core REST did not store.
+- List comments with the status core's query knows. `comment-list` with
+  `status: approved` is sent as `approve`.
 - Direct REST writes (POST, PUT, PATCH, DELETE) are never retried after a network
   error; a GET is retried once, and the system code is now read from the cause of
   a failed fetch as well.

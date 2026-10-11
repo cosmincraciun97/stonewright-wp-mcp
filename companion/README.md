@@ -166,6 +166,17 @@ alias is refused with `site_not_in_session`. This covers REST calls, WP-CLI,
 memory scope, incidents and the task-start latch. Without an alias, nothing
 changes: the registry default, or the alias the call names.
 
+**Tools with the same name in both modes.** Thirty-five tool names exist in Direct
+and in Plugin mode. Direct keeps its own argument names and also accepts the
+plugin's (`post_id`, `menu_id`, `user_login`, `alt`, `blueprint_id`, `date_from`,
+`blogname` and the rest listed in [Direct mode E2E](../docs/direct-mode-e2e.md#tools-that-exist-in-both-modes)).
+An alias and its Direct argument with different values are refused
+(`argument_alias_conflict`), and an argument only the plugin has is refused
+(`plugin_only_argument`) rather than dropped. Rows for local work
+(`stonewright-command-*`, `stonewright rescue`) carry `backend: "local"` and open
+no Direct incident; `task-start` lists only the errors of its own site from the
+last 30 days.
+
 **Plugin on the site.** Before a Direct write, the companion checks the site's
 REST index for the plugin's `stonewright/v1` namespace. If the plugin is active,
 the write is refused with `stonewright_direct_write_blocked_plugin_present`: use
@@ -865,7 +876,7 @@ npm run build
 | Path | Purpose |
 |---|---|
 | `~/.stonewright/skills/<scope>/<slug>.md` | Local skill playbooks (markdown + frontmatter) |
-| `~/.stonewright/memory/<scope>.jsonl` | Local memory entries |
+| `~/.stonewright/memory/<host>-<fingerprint>.jsonl` | Local memory entries, keyed by the site's canonical URL (`_global.jsonl` for global memory). A file from an earlier companion, `memory/<alias>.jsonl`, is copied once and still read while the alias points at the same site |
 | `~/.stonewright/audit-direct.jsonl` | Local Direct audit events with credential redaction |
 
 Set `STONEWRIGHT_STATE_DIR` in tests to override the base directory. Skills load on demand via `skill-get`; `task-start` only returns matched refs.
