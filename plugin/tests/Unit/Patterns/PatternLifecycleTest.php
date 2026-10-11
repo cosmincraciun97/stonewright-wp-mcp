@@ -151,6 +151,32 @@ final class PatternLifecycleTest extends TestCase {
 		self::assertSame( 'trash', $GLOBALS['stonewright_test_posts'][ $created['id'] ]->post_status );
 	}
 
+	public function test_delete_reports_trashed_without_force_and_deleted_with_force(): void {
+		$content = '<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->';
+		$first   = ( new CreatePattern() )->execute( [ 'title' => 'One', 'content' => $content ] );
+		$second  = ( new CreatePattern() )->execute( [ 'title' => 'Two', 'content' => $content ] );
+		self::assertIsArray( $first );
+		self::assertIsArray( $second );
+
+		$trashed = ( new DeletePattern() )->execute( [ 'id' => $first['id'] ] );
+		self::assertIsArray( $trashed );
+		self::assertTrue( $trashed['trashed'] );
+		self::assertFalse( $trashed['deleted'] );
+		self::assertSame( 'trash', $GLOBALS['stonewright_test_posts'][ $first['id'] ]->post_status );
+
+		$deleted = ( new DeletePattern() )->execute( [ 'id' => $second['id'], 'force' => true ] );
+		self::assertIsArray( $deleted );
+		self::assertFalse( $deleted['trashed'], 'A forced delete is not a trash.' );
+		self::assertTrue( $deleted['deleted'] );
+		self::assertArrayNotHasKey( $second['id'], $GLOBALS['stonewright_test_posts'] );
+	}
+
+	public function test_delete_input_schema_documents_force(): void {
+		$schema = ( new DeletePattern() )->input_schema();
+		self::assertStringContainsString( 'permanently', (string) $schema['properties']['force']['description'] );
+		self::assertContains( 'deleted', ( new DeletePattern() )->output_schema()['required'] );
+	}
+
 	public function test_categories_list_and_assign(): void {
 		$created = ( new CreatePattern() )->execute(
 			[

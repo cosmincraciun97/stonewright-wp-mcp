@@ -45,7 +45,7 @@ final class DirectionCapture extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Turns compact Elementor kit evidence into a draft design direction contract with provenance. Previews by default; stores a draft only when save is true.', 'stonewright' );
+		return __( 'Turns compact Elementor kit evidence into a draft design direction contract with provenance. Previews by default; stores a draft only when save is true, and refuses a slug that holds a direction that is not a draft unless overwrite is true.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -101,6 +101,10 @@ final class DirectionCapture extends AbilityKernel {
 				'slug'     => [
 					'type'        => 'string',
 					'description' => 'Storage slug when saving. Defaults to the kit title.',
+				],
+				'overwrite' => [
+					'type'        => 'boolean',
+					'description' => 'Allow a save to replace a stored direction with the same slug that is ready, stale or archived. Defaults to false: such a slug is refused. A draft with the same slug is always replaced.',
 				],
 			],
 			'required'             => [ 'evidence' ],
@@ -193,6 +197,23 @@ final class DirectionCapture extends AbilityKernel {
 
 				if ( isset( $args['slug'] ) && is_string( $args['slug'] ) ) {
 					$save['slug'] = $args['slug'];
+				}
+
+				// A capture only ever proposes a draft. It does not replace a direction that someone has
+				// moved on (ready, stale or archived) unless the caller says so.
+				$slug     = $this->service->slug( $save, $contract );
+				$existing = '' !== $slug ? $this->service->find_by_slug( $slug ) : null;
+				if ( null !== $existing && 'draft' !== (string) ( $existing['status'] ?? '' ) && true !== ( $args['overwrite'] ?? false ) ) {
+					return new \WP_Error(
+						'stonewright_direction_exists',
+						__( 'A design direction with this slug exists and is not a draft. Pass another slug, or overwrite: true to replace it with this draft.', 'stonewright' ),
+						[
+							'status'       => 409,
+							'direction_id' => (int) $existing['id'],
+							'slug'         => $slug,
+							'direction_status' => (string) ( $existing['status'] ?? '' ),
+						]
+					);
 				}
 
 				$result = $this->service->save( $save, get_current_user_id() );

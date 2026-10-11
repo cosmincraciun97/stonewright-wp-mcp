@@ -101,7 +101,12 @@ final class CreatePattern extends AbilityKernel {
 				RescueGuard::note_post_created( (int) $id );
 
 				$snapshot_id = Backup::snapshot_post( (int) $id );
-				$post        = get_post( (int) $id );
+				if ( '' === $snapshot_id ) {
+					// The new pattern has no way back, so it does not stay: the write is undone.
+					wp_delete_post( (int) $id, true );
+					return $this->backup_failed_error();
+				}
+				$post = get_post( (int) $id );
 				return [
 					'id'          => (int) $id,
 					'slug'        => $post ? (string) $post->post_name : '',

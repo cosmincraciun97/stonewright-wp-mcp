@@ -32,9 +32,10 @@ final class ElementorTransactionRunner {
 	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<string, mixed>             $expected_readback
+	 * @param string                           $precondition_hash When set, the tree the post holds when the transaction starts must hash to this value, or nothing is written. A caller that built the tree from what it read earlier (an append) passes the hash of what it read.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true ) {
+	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true, string $precondition_hash = '' ) {
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_transaction_not_found',
@@ -53,6 +54,19 @@ final class ElementorTransactionRunner {
 
 		$before_tree = ElementorData::read( $post_id );
 		$before_hash = TreeHasher::hash( $before_tree );
+
+		if ( '' !== $precondition_hash && ! hash_equals( $precondition_hash, $before_hash ) ) {
+			return new \WP_Error(
+				'stonewright_transaction_precondition',
+				__( 'The Elementor tree changed since it was read; nothing was written. Read it again and retry.', 'stonewright' ),
+				[
+					'status'        => 409,
+					'retryable'     => true,
+					'expected_hash' => $precondition_hash,
+					'actual_hash'   => $before_hash,
+				]
+			);
+		}
 
 		$snapshot_id = Backup::snapshot_post( $post_id );
 		if ( '' === $snapshot_id ) {

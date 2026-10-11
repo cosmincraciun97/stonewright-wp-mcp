@@ -129,6 +129,38 @@ final class ElementorV3MotionApplierTest extends TestCase {
 		self::assertArrayHasKey( 'planned_operations', $out['mutation_result'] );
 	}
 
+	/** @return list<array<string, mixed>> */
+	private function audit_rows(): array {
+		$rows = [];
+		foreach ( (array) ( $GLOBALS['stonewright_test_wpdb_inserts'] ?? [] ) as $insert ) {
+			$data = is_array( $insert['data'] ?? null ) ? $insert['data'] : $insert;
+			if ( isset( $data['ability_name'] ) && 'stonewright/design-motion-apply-elementor-v3' === $data['ability_name'] ) {
+				$rows[] = $data;
+			}
+		}
+		return $rows;
+	}
+
+	public function test_a_dry_run_and_a_refusal_are_audited(): void {
+		$GLOBALS['stonewright_test_user_caps']['edit_post'] = true;
+		$GLOBALS['stonewright_test_wpdb_inserts']           = [];
+		$GLOBALS['stonewright_test_posts'] = [
+			1 => (object) [ 'ID' => 1, 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'V3 page', 'post_content' => 'body', 'meta' => [] ],
+		];
+		$ability = new MotionApplyElementorV3();
+		$targets = [ [ 'target_id' => 'hero-copy', 'element_id' => 'elem123', 'widget_type' => 'heading' ] ];
+
+		$dry = $ability->execute( [ 'post_id' => 1, 'dry_run' => true, 'plan' => self::plan(), 'targets' => $targets, 'evidence' => [ 'hero-copy' => self::evidence() ] ] );
+		self::assertIsArray( $dry );
+		self::assertCount( 1, $this->audit_rows(), 'A dry run writes an audit row.' );
+		self::assertSame( 'ok', $this->audit_rows()[0]['result_status'] );
+
+		$refused = $ability->execute( [ 'post_id' => 1, 'dry_run' => false, 'plan' => [], 'targets' => $targets ] );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertCount( 2, $this->audit_rows(), 'A refusal writes an audit row too.' );
+		self::assertNotSame( 'ok', $this->audit_rows()[1]['result_status'] );
+	}
+
 	public function test_ability_write_requires_a_current_tree_hash(): void {
 		$GLOBALS['stonewright_test_user_caps']['edit_post'] = true;
 		$GLOBALS['stonewright_test_posts'] = [

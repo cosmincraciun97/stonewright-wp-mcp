@@ -145,9 +145,10 @@ final class ThemeFilePatch extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$path = (string) ( $args['path'] ?? '' );
-		// PHP patches must not be authorized by edit_css alone (would escalate to RCE).
+		// PHP patches must not be authorized by edit_css alone (would escalate to RCE), and need both the
+		// administrator and the theme-options capability.
 		if ( ThemeFilePaths::is_php_path( $path ) ) {
-			return Permissions::manage_options() || Permissions::edit_theme_options();
+			return Permissions::manage_options() && Permissions::edit_theme_options();
 		}
 		return Permissions::edit_theme_options() || Permissions::edit_css();
 	}
@@ -178,6 +179,11 @@ final class ThemeFilePatch extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $runtime_args ): array|\WP_Error {
+				// wp-config.php withdrew file editing: neither a write nor a proposal for one makes sense.
+				if ( ! Permissions::theme_file_writes_allowed() ) {
+					return Permissions::theme_file_writes_refusal();
+				}
+
 				if ( ! $this->token_already_verified ) {
 					$verify = $runtime_args;
 					unset( $verify['confirmation_token'], $verify['custom_code_grant'] );

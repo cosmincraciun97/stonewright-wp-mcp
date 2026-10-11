@@ -76,9 +76,9 @@ final class ThemeFileRead extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$path = (string) ( $args['path'] ?? '' );
-		// PHP sources require an admin/code-edit gate; CSS/JS may use edit_css.
+		// PHP sources need both the administrator and the theme-options capability; CSS/JS may use edit_css.
 		if ( ThemeFilePaths::is_php_path( $path ) ) {
-			return Permissions::manage_options() || Permissions::edit_theme_options();
+			return Permissions::manage_options() && Permissions::edit_theme_options();
 		}
 		return Permissions::edit_theme_options() || Permissions::edit_css();
 	}

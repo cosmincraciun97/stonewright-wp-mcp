@@ -121,7 +121,10 @@ final class SpecToGutenberg extends AbilityKernel {
 					}
 				}
 
-				$snapshot_id  = Backup::snapshot_post( $post_id );
+				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 				$next_content = $append ? trim( $existing_post->post_content . "\n\n" . $content ) : $content;
 
 				$result = wp_update_post(

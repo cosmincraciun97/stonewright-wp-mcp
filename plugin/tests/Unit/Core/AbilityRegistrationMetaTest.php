@@ -59,6 +59,8 @@ final class AbilityRegistrationMetaTest extends TestCase {
 		'stonewright/elementor-create-custom-widget'    => [ false, true, false, false ],
 		// It only adds media files and attachments, and fetches them from the web.
 		'stonewright/design-normalize-assets'           => [ false, false, false, true ],
+		// It removes the block at an index path: the verb says remove, but a repeat removes the next block, so it is not idempotent.
+		'stonewright/blocks-remove'                     => [ false, true, false, false ],
 		// It writes, but the kernel wrapper it records through declares no nature, so its source shows no write.
 		'stonewright/security-audit-reconcile'          => [ false, true, true, false ],
 	];

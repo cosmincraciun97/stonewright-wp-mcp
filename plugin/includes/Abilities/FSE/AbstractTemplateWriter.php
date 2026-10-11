@@ -93,6 +93,9 @@ abstract class AbstractTemplateWriter extends AbilityKernel {
 		if ( null !== $existing ) {
 			// Backup BEFORE write (AGENTS.md rule 3).
 			$snapshot_id = Backup::snapshot_post( (int) $existing->ID );
+			if ( '' === $snapshot_id ) {
+				return $this->backup_failed_error();
+			}
 
 			$result = wp_update_post(
 				wp_slash(

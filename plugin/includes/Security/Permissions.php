@@ -94,6 +94,27 @@ final class Permissions {
 		return ! ( defined( 'DISALLOW_FILE_MODS' ) && true === constant( 'DISALLOW_FILE_MODS' ) );
 	}
 
+	/**
+	 * Returns false when wp-config.php sets DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS. WordPress then
+	 * withdraws the theme and plugin editors (and, with the second constant, file changes altogether), so a
+	 * tool that writes theme files must not write them either.
+	 */
+	public static function theme_file_writes_allowed(): bool {
+		return ! ( defined( 'DISALLOW_FILE_EDIT' ) && true === constant( 'DISALLOW_FILE_EDIT' ) )
+			&& self::file_mods_allowed();
+	}
+
+	/**
+	 * The refusal for a theme file write while wp-config.php disallows file editing.
+	 */
+	public static function theme_file_writes_refusal(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_file_edit_disabled',
+			__( 'Theme files cannot be written because DISALLOW_FILE_EDIT or DISALLOW_FILE_MODS is set in wp-config.php.', 'stonewright' ),
+			[ 'status' => 403 ]
+		);
+	}
+
 	public static function destructive(): bool {
 		if ( ! self::manage_options() ) {
 			return false;

@@ -32,7 +32,7 @@ final class BlueprintApplierSnapshotTest extends TestCase {
 		];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options']         = [ 'stonewright_mode' => 'development' ];
-		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true, 'edit_post' => true ];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true, 'edit_post' => true, 'edit_theme_options' => true, 'manage_options' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		BlueprintApplier::$test_elementor_available  = true;
 	}

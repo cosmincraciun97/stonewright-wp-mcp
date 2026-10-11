@@ -77,7 +77,7 @@ final class DirectionSyncApply extends AbilityKernel {
 				],
 				'kit_id'             => [
 					'type'        => 'integer',
-					'description' => 'Elementor kit post id. Defaults to the active kit.',
+					'description' => 'Elementor kit post id. Defaults to the active kit; any other id has to be an Elementor kit you may edit.',
 				],
 				'base_hash'         => [
 					'type'        => 'string',

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T10:14:11+00:00",
+    "generated_at": "2026-10-11T11:58:06+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -51,7 +51,16 @@
             "stonewright/settings-update",
             "stonewright/theme-builder-delete-template",
             "stonewright/theme-builder-set-conditions",
-            "stonewright/user-list"
+            "stonewright/user-list",
+            "stonewright/blocks-query-loop-build",
+            "stonewright/blueprint-apply",
+            "stonewright/design-direction-capture",
+            "stonewright/design-direction-save",
+            "stonewright/design-direction-sync-apply",
+            "stonewright/design-direction-sync-plan",
+            "stonewright/design-spec-to-elementor-v3",
+            "stonewright/menu-create",
+            "stonewright/patterns-delete"
         ]
     },
     "abilities": [
@@ -419,9 +428,9 @@
             "ability_name": "stonewright/blocks-query-loop-build",
             "mcp_name": "stonewright-blocks-query-loop-build",
             "kind": "Read",
-            "input_schema_hash": "7fb0177a3c0e150520f6a0000c5e3ed49a44ab8cca52fe894d5d577af5d1f561",
+            "input_schema_hash": "39090788a9cd3e3d5d1c8af792e3aa814067dfffeedb85f2a275458b5f628aa9",
             "output_schema_hash": "50c9b7dbac24c220c3a03cfd0dd2e5c1b9466b5237c1fdb46e7d293e4f15d3c7",
-            "permission_class": "Permissions::edit_post( $post_id )",
+            "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -471,7 +480,7 @@
             "annotations": {
                 "readonly": false,
                 "destructive": true,
-                "idempotent": true,
+                "idempotent": false,
                 "openWorldHint": false
             }
         },
@@ -539,7 +548,7 @@
             "ability_name": "stonewright/blueprint-apply",
             "mcp_name": "stonewright-blueprint-apply",
             "kind": "Write",
-            "input_schema_hash": "38557c6013135958fd7d29a8f7d7f162c4449b893cf444eef0d2ace6782b68bd",
+            "input_schema_hash": "15af75aa92f3aeb07422e1eb0e8431c4906299931b89e094d757cdf0ab2f4b55",
             "output_schema_hash": "6b04cca8a8207178eb294ddb2f5db65f728619cc5b8e0e06cb2595cc9301a5e0",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
@@ -1241,7 +1250,7 @@
             "kind": "Read",
             "input_schema_hash": "31e1989805465fc96bbef91e787897657c560f894f0979d9542085fb35f5c4df",
             "output_schema_hash": "759fb46d029cb8a915dce61a84508c7d2f7b11c59e3f0c14563e32ce29e0f777",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -1259,7 +1268,7 @@
             "ability_name": "stonewright/design-direction-capture",
             "mcp_name": "stonewright-design-direction-capture",
             "kind": "Write",
-            "input_schema_hash": "05ec1068e662b1e95b7354f0a3a8d84e5e9c8342b3ef49788a9b8f29ac9437c9",
+            "input_schema_hash": "a221e69da8cf06022ee9375560ac7982192f4f459b8803afa122c1e513d7d117",
             "output_schema_hash": "400fccc77c5137c82f9c17398857f574ebc803745a252bea27b76bc649178cce",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
@@ -1281,7 +1290,7 @@
             "kind": "Read",
             "input_schema_hash": "03b186d7a815f83c974dcedf3a18cd99f367b422e28ce03a49546f70a0f15758",
             "output_schema_hash": "a8f262cd7105e52f597db1835bac6c7512081bb2c7bf54ab411af7be6f27057d",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -1301,7 +1310,7 @@
             "kind": "Read",
             "input_schema_hash": "1af276feda5cac442da9c77af9b5d3ca954f6e0241eab5c9c766705ac84bfde2",
             "output_schema_hash": "0903997cc7a64ae581d131bdad5f47c8317b370dde7b579ce5d97d821dacd52f",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -1339,7 +1348,7 @@
             "ability_name": "stonewright/design-direction-save",
             "mcp_name": "stonewright-design-direction-save",
             "kind": "Write",
-            "input_schema_hash": "9cd1204650c6669b166a9447bbf4a247f7660d31bf7d9f9e10841c75a580c8ec",
+            "input_schema_hash": "407d01200e1dab4f7ce07b7094fe2be985eb8db9951fc871b0dcf8e2069f49d8",
             "output_schema_hash": "016a2d81044b20fa4a8302809dfde263784c99e7ce93763225006cbf38fb69cf",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
@@ -1359,7 +1368,7 @@
             "ability_name": "stonewright/design-direction-sync-apply",
             "mcp_name": "stonewright-design-direction-sync-apply",
             "kind": "Write",
-            "input_schema_hash": "55a9e9b5c0dd93a6f28220ac9f127ac82cd1140cdb54b459ab7ffb8098f9ff40",
+            "input_schema_hash": "df9622051a3fa1a5425b4970e715fbcdbd6ed192391235dafb4ab9efe2139dc8",
             "output_schema_hash": "6bd870defa4090dc0e99da4879ec4c806028209c3cb06351ef9d99b09d3bc685",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
@@ -1379,7 +1388,7 @@
             "ability_name": "stonewright/design-direction-sync-plan",
             "mcp_name": "stonewright-design-direction-sync-plan",
             "kind": "Read",
-            "input_schema_hash": "bc4247f69286215e435de91f93511edd60fa5b29f3c3bcefe4a33f53174ebdf7",
+            "input_schema_hash": "0dc86837c325c1a499c9315ffeb30a0b4b45d013bf6da438dd9e8ceea8d6b995",
             "output_schema_hash": "34e6d8f097471b957dbd81b0baa165c8fd8d0bc3812742e0a96570e3b3ae16af",
             "permission_class": "Permissions::can_manage_design()",
             "gates": {
@@ -1421,7 +1430,7 @@
             "kind": "Read",
             "input_schema_hash": "30060eb7abb0b4578938000fa1db646b8a025eca68f0b45007c1155da025857d",
             "output_schema_hash": "25beda6abd2229e99d5e1b37f658a0f27743b971877946fa77beefe9ee2e8d90",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -1581,7 +1590,7 @@
             "kind": "Read",
             "input_schema_hash": "f7351ef64d4ec661b2763e659a5559aab3723531aa6e72a2eceef8806a02f19d",
             "output_schema_hash": "24413946c4a1ea170fae42fa3bba693ba9f23bf82b694af62e4eb139b8565faa",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -1641,7 +1650,7 @@
             "kind": "Write",
             "input_schema_hash": "9fdec23433826facc080497159e364549867c18e0ec380211e7eab6106ea239d",
             "output_schema_hash": "8b46050b57d30691d6d53f63972566cedb02bb4afd065d5a0332bee16517b02a",
-            "permission_class": "Permissions::can_manage_design() (compound)",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -1679,8 +1688,8 @@
             "ability_name": "stonewright/design-spec-to-elementor-v3",
             "mcp_name": "stonewright-design-spec-to-elementor-v3",
             "kind": "Write",
-            "input_schema_hash": "cf40ee10ba04f25476284705107f50b07ae0105c3b9446ff1aab9f24f825c9c5",
-            "output_schema_hash": "7f6bdbb6fd69c877423c817c6ff5c8a1fde21ee8e2137d0137e97b2c7f96f5ac",
+            "input_schema_hash": "c58462ef56b316f02e310cec4a5af510eba7b219c871fbfddbb9c10d45c17e58",
+            "output_schema_hash": "615635b99665165245fa9d3564fc10adb44ce7ce9b9b69f019a0e6454eea2b57",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -5700,7 +5709,7 @@
             "mcp_name": "stonewright-menu-create",
             "kind": "Write",
             "input_schema_hash": "a83746470844ab3b3d4fb78b86e807efb77a77cda91068b58906a921b89f5867",
-            "output_schema_hash": "1d8d444c83b9c5843b689efbb6ae3e32ff4aa5d817f7977e14899c001a62cbaf",
+            "output_schema_hash": "0db74060efea847a1e25d3e8d81e847a5324e476d8115cfad31d8ba40e9d0e99",
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
@@ -5839,8 +5848,8 @@
             "ability_name": "stonewright/patterns-delete",
             "mcp_name": "stonewright-patterns-delete",
             "kind": "Write",
-            "input_schema_hash": "43d72ebb33e300b65f5a98b89caf88d930b9456271ac67ea8c01a38d9f56bb47",
-            "output_schema_hash": "74897f1dbe1564214a3ff9b5c05a3a345dde3c8501b2373ca4183fe6e5d419d7",
+            "input_schema_hash": "023d58565b6eee96f14d7a916d6201366adbd3fdc9003b27657c77002366ea9f",
+            "output_schema_hash": "d1271e61cd6f6b1c47062cebc9c36467b83a4f5569ef62351bb6dbc618291044",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": true,
@@ -7179,7 +7188,7 @@
             "ability_name": "stonewright/theme-custom-css",
             "mcp_name": "stonewright-theme-custom-css",
             "kind": "Write",
-            "input_schema_hash": "cff4f8aa3344856afffe05fed78e3170252eae19256de1e05888eb2ef15224f7",
+            "input_schema_hash": "7e4c5adbe4cadb6d4df62fcb7f2d79d28bf0dd4b81e33bb7893e9bf83c61826f",
             "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::edit_css()",
             "gates": {
@@ -7801,7 +7810,7 @@
             "kind": "Read",
             "input_schema_hash": "48026d1e1ef769d16d6012ca894a51b1f82622be5708d40f283ce02f8f44b7f3",
             "output_schema_hash": "3c8671cd2cd32f898f92c3ee19d6e632f2b90f7e0f0c6a1bc6cef78e23ad7e1f",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::can_view_design()",
             "gates": {
                 "backup": false,
                 "token": false,

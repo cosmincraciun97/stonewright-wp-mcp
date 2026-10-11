@@ -97,7 +97,10 @@ final class PatternCategories extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( (int) $post->ID );
-				$assigned    = PatternSupport::assign_categories(
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+				$assigned = PatternSupport::assign_categories(
 					(int) $post->ID,
 					isset( $args['categories'] ) && is_array( $args['categories'] ) ? $args['categories'] : []
 				);

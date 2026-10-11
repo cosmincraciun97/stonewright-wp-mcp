@@ -108,6 +108,11 @@ final class ThemeJsonHandoff extends AbilityKernel {
 					);
 				}
 
+				// wp-config.php withdrew file editing: neither a write nor a proposal for one makes sense.
+				if ( ! Permissions::theme_file_writes_allowed() ) {
+					return Permissions::theme_file_writes_refusal();
+				}
+
 				$verify = $args;
 				unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
 				$token_error = $this->confirmation_token_error( $args, $verify );

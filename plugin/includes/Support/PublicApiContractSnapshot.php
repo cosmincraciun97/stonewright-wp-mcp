@@ -362,6 +362,8 @@ final class PublicApiContractSnapshot {
 
 	private static function detect_backup( string $source ): bool {
 		return str_contains( $source, 'Backup::snapshot_post' )
+			// The full-tree transaction snapshots the post before it writes.
+			|| str_contains( $source, 'ElementorTransactionRunner::run_full_tree' )
 			|| str_contains( $source, 'SpecToGutenberg()' )
 			|| str_contains( $source, 'SpecToElementorV3()' )
 			|| str_contains( $source, 'ApplyToPost()' )

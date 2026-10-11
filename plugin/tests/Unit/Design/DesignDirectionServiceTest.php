@@ -201,6 +201,45 @@ final class DesignDirectionServiceTest extends TestCase {
 		$this->assertSame( 'draft', $result['status'] );
 	}
 
+	public function test_a_save_without_a_status_keeps_a_ready_direction_ready(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $saved );
+
+		$again = $this->ready_input();
+		unset( $again['status'] );
+		$again['contract']['identity']['summary'] = 'Stone, precision and a new summary.';
+		$result                                   = $this->service->save( $again, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'ready', $result['status'], 'A ready direction is not demoted by a save that names no status.' );
+		$this->assertSame( 'ready', $this->repository->records[ (int) $saved['id'] ]['status'] );
+	}
+
+	public function test_a_save_without_a_status_keeps_the_active_direction_active(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->service->activate( (int) $saved['id'], 5 );
+
+		$again = $this->ready_input();
+		unset( $again['status'] );
+		$result = $this->service->save( $again, 5 );
+
+		$this->assertIsArray( $result );
+		$this->assertFalse( $result['active_cleared'] );
+		$this->assertSame( $saved['id'], (int) get_option( self::ACTIVE_OPTION ) );
+	}
+
+	public function test_a_save_without_a_status_that_makes_the_contract_not_ready_stores_a_draft(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $saved );
+
+		$again = $this->input();
+		unset( $again['status'] );
+		$result = $this->service->save( $again, 5 );
+
+		$this->assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() : '' );
+		$this->assertSame( 'draft', $result['status'] );
+	}
+
 	public function test_save_carries_an_audit_payload(): void {
 		$result = $this->service->save( $this->input(), 5 );
 
@@ -243,6 +282,29 @@ final class DesignDirectionServiceTest extends TestCase {
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_direction_not_ready', $result->get_error_code() );
 		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_activation_refuses_an_archived_direction(): void {
+		$saved = $this->service->save( $this->ready_input(), 5 );
+		$this->assertIsArray( $this->service->archive( (int) $saved['id'], 5 ) );
+
+		$result = $this->service->activate( (int) $saved['id'], 5 );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_direction_not_ready', $result->get_error_code() );
+		$this->assertNull( $this->service->active() );
+	}
+
+	public function test_activation_requires_the_ready_status_and_not_only_a_ready_contract(): void {
+		$input                          = $this->ready_input();
+		$input['status']                = 'draft';
+		$saved                          = $this->service->save( $input, 5 );
+		$this->assertSame( 'draft', $saved['status'] );
+
+		$result = $this->service->activate( (int) $saved['id'], 5 );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_direction_not_ready', $result->get_error_code() );
 	}
 
 	public function test_activation_sets_the_active_pointer(): void {

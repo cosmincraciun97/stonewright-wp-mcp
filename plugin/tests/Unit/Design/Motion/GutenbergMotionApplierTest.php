@@ -22,6 +22,12 @@ final class GutenbergMotionApplierTest extends TestCase {
 		$GLOBALS['stonewright_test_posts']                  = self::posts();
 	}
 
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options']      = [];
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$GLOBALS['stonewright_test_transients']   = [];
+	}
+
 	public function test_builds_update_operations_with_merged_classes(): void {
 		$parsed = [
 			self::block( 'core/paragraph', [ 'className' => 'is-style-lead' ] ),
@@ -130,6 +136,55 @@ final class GutenbergMotionApplierTest extends TestCase {
 		self::assertSame( $before, $out['before_hash'] );
 		self::assertSame( $before, $out['write_receipt']['expected_content_hash'] );
 		self::assertTrue( $out['assets']['js'] );
+	}
+
+	/** @return list<array<string, mixed>> */
+	private function audit_rows(): array {
+		$rows = [];
+		foreach ( (array) ( $GLOBALS['stonewright_test_wpdb_inserts'] ?? [] ) as $insert ) {
+			$data = is_array( $insert['data'] ?? null ) ? $insert['data'] : $insert;
+			if ( isset( $data['ability_name'] ) && 'stonewright/design-motion-apply-gutenberg' === $data['ability_name'] ) {
+				$rows[] = $data;
+			}
+		}
+		return $rows;
+	}
+
+	public function test_a_dry_run_and_a_refusal_are_audited(): void {
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$ability = new MotionApplyGutenberg();
+
+		$dry = $ability->execute( [ 'post_id' => 501, 'dry_run' => true, 'plan' => self::plan(), 'targets' => self::targets() ] );
+		self::assertIsArray( $dry );
+		self::assertCount( 1, $this->audit_rows(), 'A dry run writes an audit row.' );
+		self::assertSame( 'ok', $this->audit_rows()[0]['result_status'] );
+
+		$refused = $ability->execute( [ 'post_id' => 501, 'dry_run' => false, 'plan' => [], 'targets' => self::targets() ] );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertCount( 2, $this->audit_rows(), 'A refusal writes an audit row too.' );
+		self::assertNotSame( 'ok', $this->audit_rows()[1]['result_status'] );
+	}
+
+	public function test_production_safe_mode_needs_the_token_for_a_write_and_not_for_a_dry_run(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$GLOBALS['stonewright_test_wpdb_inserts']                = [];
+		$ability = new MotionApplyGutenberg();
+		$before  = hash( 'sha256', (string) $GLOBALS['stonewright_test_posts'][501]->post_content );
+
+		$dry = $ability->execute( [ 'post_id' => 501, 'dry_run' => true, 'plan' => self::plan(), 'targets' => self::targets() ] );
+		self::assertIsArray( $dry, 'A dry run needs no token.' );
+
+		$args    = [ 'post_id' => 501, 'dry_run' => false, 'expected_content_hash' => $before, 'plan' => self::plan(), 'targets' => self::targets() ];
+		$refused = $ability->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_confirmation_required', $refused->get_error_code() );
+
+		// One token, issued for this ability, covers the whole write: the batch it runs inside does not ask again.
+		$token  = \Stonewright\WpMcp\Security\ConfirmationToken::issue( $ability->name(), $args );
+		$result = $ability->execute( $args + [ 'confirmation_token' => $token ] );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() . ': ' . $result->get_error_message() : '' );
+		self::assertTrue( $result['ok'] );
+		self::assertCount( 3, $this->audit_rows(), 'The dry run, the refused write and the write each have a row.' );
 	}
 
 	public function test_ability_write_queues_static_blocks_through_the_finalizer(): void {

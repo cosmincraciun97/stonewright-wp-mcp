@@ -190,6 +190,36 @@
   does not read back as sent is an error.
 - `media-list` searches the whole library (title, caption, description, alt text
   and file name) instead of the newest 200 items.
+- `blueprint-apply` keeps the status of an existing page unless `mode` is passed,
+  and a new page is written as a draft and gets its final status (`mode`, draft
+  by default) only after the render and the write have worked. If the write
+  fails, the page the call created is removed. The result's `mode` names the
+  status the page has. `wp_update_post` results are checked, and the `fse`
+  engine needs `manage_options` and `edit_theme_options` and stores its template
+  the way WordPress does (slug as `post_name`, `wp_theme` term).
+- `design-spec-to-elementor-v3` writes through the full-tree transaction
+  (snapshot, write, read back, restore on a mismatch) and, for an append, refuses
+  the write when the page changed since it was read. The canvas template and the
+  hidden theme title are set up by default only on a page that has no Elementor
+  content yet; the new `page_shell` input forces (`true`) or skips (`false`) it,
+  and the result's `page_shell` says whether it was stored.
+- `design-direction-list`, `-get`, `-brief`, `design-implementation-contract`,
+  `design-native-plan` and `widget-intent-resolve` need the design-view
+  capability (`manage_options`) instead of `read`.
+- `blocks-remove` is annotated as not idempotent, because it removes the block at
+  an index path and a repeat removes the next block.
+- `blocks-query-loop-build` takes term slugs, resolves them to the term ids the
+  Query Loop block filters by, and refuses an unknown taxonomy or term. The
+  unused `post_id` input is removed; insert the built spec with `blocks-insert`.
+- `menu-create` returns `items_failed` with the position, title and reason of
+  every seeded item that could not be stored.
+- `patterns-delete` reports whether the pattern was trashed or deleted
+  (`trashed`, `deleted`) and documents `force`.
+- `theme-custom-css` update needs `css`; an update without it is refused instead
+  of storing an empty stylesheet.
+- `fse-update-global-styles` refuses a call that passes neither `settings` nor
+  `styles`, and replaces a list (such as a color palette) with the list that was
+  sent instead of merging two lists by position.
 
 ### Fixed
 
@@ -276,6 +306,36 @@
 - Fix `stock-image-import` rejecting image URLs that have no file extension. It
   downloads the file, reads its type, and sideloads it with the type's extension;
   a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
+- Stop the write when its backup snapshot cannot be stored, in `blocks-insert`,
+  `blocks-update`, `blocks-remove`, `gutenberg-apply-to-post`,
+  `design-spec-to-gutenberg`, `patterns-create`, `patterns-update`,
+  `patterns-delete`, `patterns-categories`, `fse-write-template` and
+  `fse-write-template-part` (updating an existing one), `fse-update-template`,
+  `fse-navigation` and `fse-write-global-styles` /
+  `fse-update-global-styles`. They return `stonewright_backup_failed` and write
+  nothing; a create that cannot be backed up removes the new post.
+- `blocks-update` with `attrs` and `innerHTML` on a block that only the browser
+  finalizer can write is refused with `stonewright_finalizer_inner_html_unsupported`
+  instead of queueing the change and dropping `innerHTML`.
+- `theme-activate` refuses a theme that is not installed and reads the switch
+  back before it reports `active`.
+- `menu-assign-location` refuses a location the active theme did not register
+  (`stonewright_location_unregistered`) and lists `available_locations`.
+- `fse-create-template-part` refuses a slug that already exists in the active
+  theme and names the existing part, and stores the part the way WordPress does.
+- `design-direction-save` without a `status` keeps the stored status instead of
+  demoting a ready direction to draft, and activating a direction needs the
+  `ready` status, so an archived direction cannot be activated.
+- `design-direction-capture` with `save` refuses a slug that holds a direction
+  that is not a draft unless `overwrite` is true.
+- `widget-save` and `widget-delete` check the sidebar and widget ids they are
+  given and change nothing for an unknown one.
+- `blocks-library-check-setup` detects a plugin that is active for the whole
+  network.
+- `design-motion-apply-gutenberg` and `design-motion-apply-elementor-v3` write an
+  audit row for every call, a dry run and a refusal included. A production-safe
+  token issued for `design-motion-apply-gutenberg` now covers the batch write it
+  runs.
 
 ### Security
 
@@ -409,6 +469,22 @@
   `stonewright_runtime_data_purge_audit_requires_administrator`, whatever the
   confirmation token or acknowledgement, and the default scopes are memory,
   incidents and error patterns. Erasing the audit log is left to an administrator.
+- `blocks-batch-mutate` needs the production-safe confirmation token for every
+  write that is not a dry run (update, insert, move, `insert_section` and the
+  finalizer-queue branch too), like `blocks-insert`, `blocks-update` and
+  `blocks-remove`.
+- `design-direction-sync-plan` and `design-direction-sync-apply` accept a `kit_id`
+  only when it is the active Elementor kit or an Elementor kit post, and need
+  `edit_post` on it.
+- `design-spec-to-elementor-v3` copies remote assets to the media library only for
+  a user who may upload files and, in production-safe mode, with a confirmation
+  token; otherwise it leaves them where they are and says so in `diagnostics`.
+- `design-quality-check` with `persist` needs `edit_post` on the post the report
+  belongs to, checked before a token is spent.
+- `theme-file-read` and `theme-file-patch` need both `manage_options` and
+  `edit_theme_options` for PHP files. `theme-file-patch` and `theme-json-handoff`
+  refuse to write while `DISALLOW_FILE_EDIT` or `DISALLOW_FILE_MODS` is set in
+  `wp-config.php`.
 
 ### Documentation
 

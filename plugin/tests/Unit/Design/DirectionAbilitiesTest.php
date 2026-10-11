@@ -5,10 +5,14 @@ namespace Stonewright\WpMcp\Tests\Unit\Design;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
+use Stonewright\WpMcp\Abilities\Design\DirectionBrief;
 use Stonewright\WpMcp\Abilities\Design\DirectionGet;
 use Stonewright\WpMcp\Abilities\Design\DirectionList;
 use Stonewright\WpMcp\Abilities\Design\DirectionRestore;
 use Stonewright\WpMcp\Abilities\Design\DirectionSave;
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
+use Stonewright\WpMcp\Abilities\Design\NativePlan;
+use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionRepository;
@@ -122,18 +126,33 @@ final class DirectionAbilitiesTest extends TestCase {
 	// Read abilities.
 	// -------------------------------------------------------------------------
 
-	public function test_read_abilities_gate_on_the_read_permission(): void {
-		$list = new DirectionList( $this->service );
-		$get  = new DirectionGet( $this->service );
+	public function test_read_abilities_gate_on_the_design_view_permission(): void {
+		$brief = new DirectionBrief( $this->service );
+		$abilities = [
+			new DirectionList( $this->service ),
+			new DirectionGet( $this->service ),
+			$brief,
+			new ImplementationContract(),
+			new NativePlan(),
+			new WidgetIntentResolve(),
+		];
 
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
-		$this->assertFalse( $list->permission_callback( [] ) );
-		$this->assertFalse( $get->permission_callback( [] ) );
+		foreach ( $abilities as $ability ) {
+			$this->assertFalse( $ability->permission_callback( [] ), $ability->name() );
+		}
 
+		// A reader of the site is not enough: a direction is design material.
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
 		$GLOBALS['stonewright_test_user_caps']      = [ 'read' => true ];
-		$this->assertTrue( $list->permission_callback( [] ) );
-		$this->assertTrue( $get->permission_callback( [] ) );
+		foreach ( $abilities as $ability ) {
+			$this->assertFalse( $ability->permission_callback( [] ), $ability->name() );
+		}
+
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		foreach ( $abilities as $ability ) {
+			$this->assertTrue( $ability->permission_callback( [] ), $ability->name() );
+		}
 	}
 
 	public function test_list_returns_compact_rows_with_the_contract_hash(): void {

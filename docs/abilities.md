@@ -359,12 +359,18 @@ for debugging and operational tasks.
 - `stonewright/elementor-schema` lists/searches live widgets and returns compact
   widget controls with `mode=summary`; use `mode=control` for one complete
   control or paginated `mode=full` only when required.
-- `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
-  include third-party block inserter metadata such as keywords, examples,
-  supports, attributes, and variations when WordPress exposes them.
+- `stonewright/blocks-list-registered` lists the registered blocks with their
+  name and title; `responseMode=full` adds the category, description, icon,
+  keywords, supports, an example and whether the block is dynamic.
+  `stonewright/blocks-get-schema` returns the attributes and variations of one
+  block.
 - `stonewright/design-direction-list` and `stonewright/design-direction-get`
   read stored design directions; `get` returns revision history only when
-  `include_versions` is true. Both are reads and need no token.
+  `include_versions` is true. Both are reads and need no token, but they (like
+  `design-direction-brief`, `design-implementation-contract`, `design-native-plan`
+  and `design-widget-intent-resolve`) need the design-view capability
+  (`manage_options`), not just `read`. Only a direction with the `ready` status
+  can be activated; an archived, draft or stale one cannot.
 - `stonewright/design-direction-brief` returns the active direction's ready
   state, tokens, guidance, waivers, hash, and compact translated Elementor
   rules. Density maps to responsive section padding and a default container
@@ -374,12 +380,14 @@ for debugging and operational tasks.
   contract repeatedly.
 - `stonewright/design-direction-save` validates the contract allowlist-only and
   rejects unknown fields instead of stripping them. It creates a new revision
-  only when the contract hash changed, and returns the hash before and after. When the saved direction is the active one and the new revision is not ready, the direction is switched off and the result reports `active_cleared`; `design-direction-capture` and `design-direction-restore` report it the same way.
+  only when the contract hash changed, and returns the hash before and after. A save that names no `status` keeps the stored status (a ready direction stays ready while its contract still reports ready). When the saved direction is the active one and the new revision is not ready, the direction is switched off and the result reports `active_cleared`; `design-direction-capture` and `design-direction-restore` report it the same way.
 - `stonewright/design-direction-capture` turns compact Elementor kit evidence,
   as returned by `stonewright/elementor-v3-get-kit-globals`, into a draft
   contract with provenance for every mapped token. It previews by default and
   stores only when `save` is true; a stored capture is always a draft, is never
-  marked ready, and never becomes the active direction. Values the kit did not
+  marked ready, and never becomes the active direction. A save refuses a slug
+  that already holds a direction that is not a draft (`stonewright_direction_exists`)
+  unless `overwrite` is true. Values the kit did not
   report stay absent instead of being guessed, contradictory values keep the
   first and report a conflict, and unusable or unsupported evidence is reported
   in `unmapped` rather than silently dropped.
@@ -393,7 +401,9 @@ for debugging and operational tasks.
   globals. It writes nothing and returns the exact operations a sync would
   perform, plus `warnings` for what the kit has no global for and `blocked` for
   values it cannot store. Its `base_hash` describes the live kit and is the
-  concurrency guard for the apply half.
+  concurrency guard for the apply half. A `kit_id` other than the active kit has
+  to be an Elementor kit post (`stonewright_direction_sync_invalid_kit`), and
+  plan and apply both need `edit_post` on it.
 - `stonewright/design-direction-sync-apply` writes a sync-ready direction into
   the kit. It requires the dry run's `base_hash` and refuses as
   `stonewright_direction_sync_stale` when the kit moved since then, refuses any

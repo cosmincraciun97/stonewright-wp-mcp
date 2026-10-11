@@ -101,6 +101,36 @@ final class MenuAbilitiesTest extends TestCase {
 		$this->assertSame( 'menu_exists', $result->get_error_code() );
 	}
 
+	public function test_menu_create_reports_the_items_that_failed(): void {
+		// The first item is forced to fail; the second one is stored.
+		$GLOBALS['stonewright_test_wp_update_nav_menu_item_return'] = new \WP_Error( 'invalid_url', 'The URL is not valid.' );
+
+		$result = ( new MenuCreate() )->execute(
+			[
+				'name'  => 'Primary',
+				'items' => [
+					[ 'title' => 'Home', 'url' => 'not a url' ],
+					[ 'title' => 'About', 'url' => 'https://example.test/about/' ],
+				],
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 1, $result['items_added'] );
+		$this->assertCount( 1, $result['items_failed'] );
+		$this->assertSame( 0, $result['items_failed'][0]['index'] );
+		$this->assertSame( 'Home', $result['items_failed'][0]['title'] );
+		$this->assertSame( 'invalid_url', $result['items_failed'][0]['error_code'] );
+		$this->assertContains( 'items_failed', ( new MenuCreate() )->output_schema()['required'] );
+	}
+
+	public function test_menu_create_reports_an_empty_failure_list_when_every_item_is_stored(): void {
+		$result = ( new MenuCreate() )->execute( [ 'name' => 'Primary', 'items' => [ [ 'title' => 'Home', 'url' => 'https://example.test/' ] ] ] );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( [], $result['items_failed'] );
+	}
+
 	public function test_menu_create_continues_when_seeded_item_fails(): void {
 		// One item gets through; the second one is forced to fail via the
 		// global override so we can prove the menu survives partial failure.
@@ -239,6 +269,34 @@ final class MenuAbilitiesTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertSame( $old['menu_id'], $result['previous_menu_id'] );
 		$this->assertSame( $new['menu_id'], $result['menu_id'] );
+	}
+
+	public function test_menu_assign_location_rejects_a_location_the_theme_did_not_register(): void {
+		$create = ( new MenuCreate() )->execute( [ 'name' => 'Primary' ] );
+		$this->assertIsArray( $create );
+
+		$result = ( new MenuAssignLocation() )->execute( [ 'location' => 'sidebar-menu', 'menu_id' => $create['menu_id'] ] );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_location_unregistered', $result->get_error_code() );
+		$this->assertSame(
+			[ 'primary' => 'Primary Menu', 'footer' => 'Footer Menu' ],
+			$result->get_error_data()['available_locations'],
+			'The error lists the locations the caller could have chosen.'
+		);
+		$this->assertArrayNotHasKey( 'sidebar-menu', (array) get_theme_mod( 'nav_menu_locations', [] ), 'Nothing was stored.' );
+	}
+
+	public function test_menu_assign_location_rejects_every_location_when_the_theme_registers_none(): void {
+		$GLOBALS['stonewright_test_registered_nav_menus'] = [];
+		$create = ( new MenuCreate() )->execute( [ 'name' => 'Primary' ] );
+		$this->assertIsArray( $create );
+
+		$result = ( new MenuAssignLocation() )->execute( [ 'location' => 'primary', 'menu_id' => $create['menu_id'] ] );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_location_unregistered', $result->get_error_code() );
+		$this->assertSame( [], $result->get_error_data()['available_locations'] );
 	}
 
 	public function test_menu_assign_location_returns_error_for_missing_menu(): void {
