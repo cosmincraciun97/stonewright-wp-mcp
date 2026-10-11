@@ -1,5 +1,7 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanGlobalStyles } from "../custom-code-guard.js";
+import { storePreImage } from "../preimage.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpGlobalStyles = {
@@ -52,14 +54,28 @@ export async function globalStylesUpdate(
     tool: "stonewright-global-styles-update",
   });
   const id = (input.id ?? "themes").trim() || "themes";
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-global-styles-update",
+    `global-styles/${id}`,
+    scanGlobalStyles({ settings: input.settings, styles: input.styles }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  const restPath = `/wp/v2/global-styles/${encodeURIComponent(id)}`;
+  const preImage = await storePreImage({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-global-styles-update",
+    restPath,
+    resourceId: id,
+  });
   const body: Record<string, unknown> = {};
   if (input.settings !== undefined) body.settings = input.settings;
   if (input.styles !== undefined) body.styles = input.styles;
   try {
-    const styles = await ctx.client.post<WpGlobalStyles>(
-      `/wp/v2/global-styles/${encodeURIComponent(id)}`,
-      { body },
-    );
+    const styles = await ctx.client.post<WpGlobalStyles>(restPath, { body });
     appendDirectAudit({
       tool: "stonewright-global-styles-update",
       site: ctx.site.alias,
@@ -72,6 +88,7 @@ export async function globalStylesUpdate(
       title: titleOf(styles),
       settings: styles.settings ?? {},
       styles: styles.styles ?? {},
+      ...preImage,
     };
   } catch (err) {
     appendDirectAudit({

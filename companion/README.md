@@ -25,9 +25,16 @@ tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
 Direct mode may inspect Customizer CSS when core exposes it, and
 `stonewright-custom-css` refuses updates because pluginless mode has no
-authenticated wp-admin one-time-grant boundary. Direct has no custom-code gate:
-its other write tools (content, templates, global styles, Elementor data) send
-what they are given and do not screen it for scripts, styles, or HTML.
+authenticated wp-admin one-time-grant boundary. The other Direct write tools
+(content, templates, blueprints, widgets, global styles, Elementor data) refuse custom
+code the same way and write nothing: theme.json `styles.css` and per-block
+`css`, Elementor custom CSS setting keys and HTML-type widgets, and script,
+style, iframe, object, embed, link, and `meta http-equiv` elements, inline event
+handlers (`on*=`), and `javascript:` URLs in content, template, and blueprint markup (element and attribute names are
+matched case-insensitively, and entity-encoded or JSON-escaped forms are
+detected). The check covers everything sent, so a page, template, or widget that
+already holds custom code cannot be saved through Direct either. The refusal is a normal result with `approval_required` and
+`agent_must_stop`; custom code needs Plugin mode and its custom-code approval.
 
 MIT License.
 
@@ -135,9 +142,24 @@ site-hosted state.
 | Audit | local redacted JSONL; no server UI | server-side UI |
 
 Destructive Direct writes on remote sites require `confirm: true` when
-`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Only tools
-flagged destructive ask for it; content, template, and media updates do not.
-Direct takes no snapshot before a write; an Elementor data update saves a file backup that no tool restores.
+`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
+flagged destructive ask for it: deletes, template and template-part creates,
+`global-styles-update`, `elementor-data-update`, plugin, theme-activate, settings
+and user changes, and now `template-update`, `template-part-update`, and
+`blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
+and taxonomy writes do not.
+
+Before `template-update`, `template-part-update`, `global-styles-update`,
+`content-update`, and `blueprint-apply` with a `post_id`, Direct reads the
+current resource with `context=edit` and stores it under
+`~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
+(mode 0600 where the platform supports it; at most 20 per resource, the oldest
+deleted). The result carries `backup_path` and `backup_sha256` (SHA-256 of the
+stored file). When the current resource cannot be read or the file cannot be
+stored, the write is refused and nothing is sent. The file holds the REST
+resource only, never request headers or credentials. An Elementor data update
+keeps its own file backup under `backups/<site alias>/post-<id>-<timestamp>.json`.
+No tool restores a backup yet.
 
 Local WP-CLI Elementor updates invalidate only the post-scoped
 `_elementor_element_cache` after verified readback and preserve `_elementor_css`

@@ -11,6 +11,14 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- Direct mode refuses custom code (theme.json CSS, Elementor custom CSS and HTML
+  widgets, script, style, iframe, object, embed, link and meta http-equiv markup, inline event handlers and
+  `javascript:` URLs), saves a pre-image before whole-document writes, and asks
+  for `confirm: true` on template and template-part updates; see the companion
+  changelog.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added

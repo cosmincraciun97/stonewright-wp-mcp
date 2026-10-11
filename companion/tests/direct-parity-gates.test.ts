@@ -42,8 +42,14 @@ describe('direct blueprint engine gate', () => {
 	const dirs: string[] = [];
 	const originalHome = process.env.HOME;
 	const originalWrites = process.env.STONEWRIGHT_DIRECT_WRITES;
+	const originalStateDir = process.env.STONEWRIGHT_STATE_DIR;
 
 	afterEach(() => {
+		if (originalStateDir === undefined) {
+			delete process.env.STONEWRIGHT_STATE_DIR;
+		} else {
+			process.env.STONEWRIGHT_STATE_DIR = originalStateDir;
+		}
 		if (originalHome === undefined) {
 			delete process.env.HOME;
 		} else {
@@ -64,6 +70,8 @@ describe('direct blueprint engine gate', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'sw-home-'));
 		dirs.push(dir);
 		process.env.HOME = dir;
+		// Pre-image backups of an overwrite land in the state folder.
+		process.env.STONEWRIGHT_STATE_DIR = join(dir, 'state');
 		return dir;
 	}
 

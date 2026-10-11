@@ -28,8 +28,14 @@ const site: ResolvedSite = {
 describe('direct content tools', () => {
 	const dirs: string[] = [];
 	const originalHome = process.env.HOME;
+	const originalStateDir = process.env.STONEWRIGHT_STATE_DIR;
 
 	afterEach(() => {
+		if (originalStateDir === undefined) {
+			delete process.env.STONEWRIGHT_STATE_DIR;
+		} else {
+			process.env.STONEWRIGHT_STATE_DIR = originalStateDir;
+		}
 		if (originalHome === undefined) {
 			delete process.env.HOME;
 		} else {
@@ -41,6 +47,14 @@ describe('direct content tools', () => {
 		clearRestDiscoveryCache();
 		vi.restoreAllMocks();
 	});
+
+	/** Keep pre-image backups of the write under test inside a throwaway folder. */
+	function stateDir(): string {
+		const dir = mkdtempSync(join(tmpdir(), 'sw-state-'));
+		dirs.push(dir);
+		process.env.STONEWRIGHT_STATE_DIR = dir;
+		return dir;
+	}
 
 	function homeDir(): string {
 		const dir = mkdtempSync(join(tmpdir(), 'sw-home-'));
@@ -147,7 +161,15 @@ describe('direct content tools', () => {
 
 	it('updates only provided fields', async () => {
 		homeDir();
+		stateDir();
 		const fetchImpl = vi.fn((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+			if ((init?.method ?? 'GET') === 'GET') {
+				// Pre-image read before the write.
+				return Promise.resolve(new Response(JSON.stringify({ id: 4, title: { raw: 'Page' } }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}));
+			}
 			expect(init?.method).toBe('PUT');
 			expect(JSON.parse(String(init?.body))).toEqual({ title: 'Renamed' });
 			return Promise.resolve(new Response(

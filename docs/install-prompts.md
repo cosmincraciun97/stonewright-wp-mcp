@@ -225,8 +225,9 @@ choices for this site/client, and never infer consent. After restart, run
 `stonewright connect verify <alias> --client <client>`; require the spawned
 companion version, active alias, task-start, status, and required tool surface.
 For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so destructive
-Direct tools still need `confirm: true` on each call. Content, template, and
-media writes do not ask for confirmation yet in Direct mode.
+Direct tools still need `confirm: true` on each call. Template and template-part
+updates and a blueprint applied over an existing page ask for it too; content
+and media writes do not ask for confirmation in Direct mode.
 
 Use this versioned installer shape and let it create the alias-specific named
 entry. Do not build a second generic server entry:
@@ -256,9 +257,11 @@ After reload:
 - Load a matched skill body with stonewright-skill-get only when needed.
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
-- Destructive tools require confirm:true. Do not work around write gating.
+- Destructive tools, template and template-part updates, and a blueprint applied over an existing page require confirm:true. Do not work around write gating.
 - Do not write custom PHP/CSS/JS/HTML in Direct mode. It has no authenticated
-  wp-admin one-time-grant boundary; report the Plugin-mode approval-gated path.
+  wp-admin one-time-grant boundary and refuses theme.json CSS, Elementor custom
+  CSS and HTML widgets, and script, style, iframe, object, embed, link, meta http-equiv, inline event handler, and
+  javascript: URL markup; report the Plugin-mode approval-gated path.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Repair `incident_actions` from task-start before new work. Promote audit-derived learning only through `stonewright-incident-repair-record` after correlated verification; never invent Elementor/Gutenberg schemas.
 - For visual work, ask once whether to use Playwright (recommended), another
