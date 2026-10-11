@@ -138,6 +138,16 @@ development builds were never stable releases.
 - Add a size cap of 25 MB to `media-upload`, `media-upload-batch` and
   `stock-image-import` (the `stonewright_media_max_bytes` filter changes it), and
   check edit access to the parent post when a `parent_post_id` is given.
+- Watch Elementor's own write abilities when they run outside
+  `stonewright-elementor-native-execute`, for example through Elementor's own MCP
+  server. Before the call, the post or kit the input names is snapshotted (the
+  active kit for default styles, classes and variables). After it, a change
+  history row (family `elementor`, shown as "Not verified" because nothing probed
+  it, with the content before so it can be undone from Stonewright > Activity >
+  Changes) and an audit row marked `observed_native` are written. The call itself
+  is never blocked, refused or changed, a failure of the recording is only logged,
+  and a call that comes through `stonewright-elementor-native-execute` is recorded
+  once, by that tool.
 
 ### Changed
 
@@ -199,6 +209,31 @@ development builds were never stable releases.
   does not read back as sent is an error.
 - `media-list` searches the whole library (title, caption, description, alt text
   and file name) instead of the newest 200 items.
+- `stonewright-elementor-native-execute` no longer depends on the experimental V4
+  writer flag. It is available when the native Elementor state is `available` and
+  at least one ability is certified; otherwise it answers
+  `stonewright_native_unavailable` with the state, the issue codes (for example
+  `elementor_version_out_of_range`) and the Stonewright writers to use instead.
+  Reads and dry-run plans work in every mode without a token. A real write
+  follows the rule of the other writers: a `confirmation_token` in
+  production-safe mode, no token in the other modes.
+- Put `stonewright-elementor-native-execute` where agents find it. When native
+  Elementor is available it is on the essential surface and sits right after
+  provider discovery in the `elementor-design` profile. The agent instructions,
+  the `elementor-design` workflow rules and the task-start Elementor block say:
+  for a V4 (Atomic) document prefer `stonewright-elementor-native-execute` for
+  the certified abilities, fall back to the Stonewright V4 writers otherwise, keep
+  V3 documents on the V3 writers, and never call `elementor/*` tools on
+  Elementor's own MCP server because that skips the backup, the change history
+  and the audit.
+- Report the real native write state. `writes_enabled` and `routable_write` are
+  true when a certified ability may be written natively, `routable_writes` lists
+  them, and each ability and write primitive carries its own `routable` flag
+  instead of a fixed false. `native_elementor` also carries `guidance`, and a
+  `version_issue` (observed version, certified range, issue codes) when the
+  Elementor version is outside the certified range or could not be read.
+  `stonewright-elementor-provider-discovery` derives its `provider_policy` from
+  the contract files and declares every key it returns in its output schema.
 
 ### Fixed
 
@@ -285,6 +320,14 @@ development builds were never stable releases.
 - Fix `stock-image-import` rejecting image URLs that have no file extension. It
   downloads the file, reads its type, and sideloads it with the type's extension;
   a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
+- Correct the statement that `elementor/build-composition` is unsupported. Its
+  contract is certifiable and allows a native write, so it is routable through
+  `stonewright-elementor-native-execute`; a change to a published page is staged
+  in an autosave. Only `elementor/manage-elements` stays unsupported
+  (`upstream_global_clear_cache`, `staged_in_autosave`), and `manage-classes` and
+  `manage-global-variable` stay certified with the native write refused. This
+  line corrects the 1.0.0-beta.14 notes. The `site-capabilities` description no
+  longer says that no native write is routable.
 
 ### Security
 
@@ -428,6 +471,9 @@ development builds were never stable releases.
   rules the validator enforces.
 - Correct `docs/abilities.md`: Search is WordPress content search and oEmbed
   resolution, not OpenSearch, and Comments lists get and create.
+- Update `docs/architecture.md`, the Elementor V4 engine page and the V4
+  experimental page for the native route: its availability rule, the
+  production-safe rule, the observer, and the certified range.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

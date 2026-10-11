@@ -96,6 +96,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'pro_elements_active'      => (bool) ( $status['pro_elements_active'] ?? false ),
 				'v4_atomic_support_status' => (string) ( $status['v4_atomic_support_status'] ?? 'unknown' ),
 				'native_elementor'         => NativeElementorReport::compact( (array) ( $status['native_elementor'] ?? [] ) ),
+				'native_hint'              => NativeElementorReport::hint( (array) ( $status['native_elementor'] ?? [] ) ),
 			],
 			'native_widgets'      => self::native_widgets(),
 			'responsive_controls' => [

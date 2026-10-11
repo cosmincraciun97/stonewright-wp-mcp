@@ -36,6 +36,15 @@ final class NativeRoute {
 	];
 
 	/**
+	 * Every Stonewright writer that covers what a native ability would write: the V4 writers and the V3 writers.
+	 *
+	 * @return list<string>
+	 */
+	public static function all_fallbacks(): array {
+		return array_values( array_unique( array_merge( self::FALLBACKS['tree_composition'], self::V3_WRITERS ) ) );
+	}
+
+	/**
 	 * @param array<string,mixed> $block The `native_elementor` report.
 	 * @return array{route:string,reason:string,ability:string,family:string,read_only:bool,fallback:list<string>,issues:list<string>,missing_feature:?string}
 	 */

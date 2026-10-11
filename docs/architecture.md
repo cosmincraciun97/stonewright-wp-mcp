@@ -427,13 +427,21 @@ exact input, output, and description fingerprints for the observed Elementor
 version, the registered runtime class, an official owner, the annotations, and
 the runtime operation limit. For `manage-default-styles` the contract also
 names probes for the update/delete and tag semantics, raw CSS responsive and
-pseudo-state behavior, and patch/replace/null behavior. `elementor/manage-elements`
-and `elementor/build-composition` are `unsupported` with machine-readable reasons
-(`upstream_global_clear_cache`, `staged_in_autosave`). Any mismatch rejects the
-ability and lists each exact reason; an Elementor version outside the verified
-range is a mismatch. Discovery never routes a write: permission, mode,
-confirmation token, backup, validation, write lock, readback, frontend
-verification, rollback, and audit gates must all exist first.
+pseudo-state behavior, and patch/replace/null behavior. `elementor/build-composition`
+is certifiable too, and its contract allows a native write (a change to a published
+page lands in an autosave and is reported as `staged_in_autosave`);
+`elementor/manage-elements` is `unsupported` with machine-readable reasons
+(`upstream_global_clear_cache`, `staged_in_autosave`), and `manage-classes` and
+`manage-global-variable` are certified with the native write refused. Any mismatch
+rejects the ability and lists each exact reason; an Elementor version outside the
+verified range (4.3.0 to 4.3.*) is a mismatch, reported as
+`elementor_version_out_of_range` with the observed version and the certified range
+in `native_elementor.version_issue` and `native_elementor.guidance`. Discovery
+never runs a write; it reports which certified abilities are routable
+(`routable_writes`, `writes_enabled`). A write runs only through
+`stonewright/elementor-native-execute`, where permission, mode, confirmation
+token, backup, validation, write lock, readback, frontend verification, rollback,
+and audit gates all apply.
 
 The router also reports `native_elementor`: the Elementor version, the
 requirements of Elementor's MCP module (WordPress Abilities API, WordPress MCP
@@ -441,9 +449,15 @@ Adapter, Elementor's MCP Composer, the site switch, and the Atomic Editor), the
 registered `elementor/*` abilities, their ownership and schema fingerprints, and
 the certification result per contract. `stonewright/site-capabilities` and
 `stonewright/elementor-v3-status` return the full block, and
-`stonewright-task-start` returns only its `state`. Reading it calls no Elementor
-ability. Elementor's own MCP server can stay connected next to Stonewright;
-Stonewright does not disable or replace it. See
+`stonewright-task-start` returns its `state` and one short hint (`native_hint`).
+Reading it calls no Elementor ability. Elementor's own MCP server can stay
+connected next to Stonewright; Stonewright does not disable or replace it. A
+write made through Elementor's own server skips the tool's closure, so an
+observer on core's `wp_before_execute_ability` and `wp_after_execute_ability`
+snapshots the affected post or kit before the call and records a change-history
+row and an audit row (`observed_native`) after it. It never blocks or changes the
+call, and a call made through `stonewright/elementor-native-execute` is recorded
+once, by that tool. See
 [Elementor V4 engine](elementor-v4-engine.md#native-elementor-abilities).
 
 `NativeElementorProvider` executes a certified ability in-process, but only for
@@ -451,7 +465,10 @@ a contract that allows a native write and only through
 `stonewright/elementor-native-execute`. `NativeRoute` decides the route: the
 ability must be certified for the live Elementor version, and the document is
 routed per subtree (V3 subtrees to the Stonewright V3 writers, Atomic subtrees
-native, never a conversion). The closure is permission, mode and token gates,
+native, never a conversion). The tool is available when the native state is
+`available` and an ability is certified; it does not use the experimental V4 flag.
+Reads and dry-run plans work in every mode, and a write needs a confirmation token
+in `production-safe` mode like the other writers. The closure is permission, mode and token gates,
 Atomic type exposure, `Backup::snapshot_post()` of the page or kit, the per-post
 write lock, the Elementor ability, an independent readback compared recursively
 by `AtomicReadbackVerifier`, rollback on any mismatch, post-scoped CSS only

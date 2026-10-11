@@ -111,6 +111,9 @@ an error and the snapshot is restored.
   fingerprinted, and certified against shipped contracts by the provider router.
   Only certified abilities whose contract allows a native write run, through
   `stonewright/elementor-native-execute`: default styles and element composition.
+  That tool does not depend on the V4 flag below: it is available when native
+  Elementor is available and an ability is certified, and in `production-safe`
+  mode a real write needs a confirmation token like the other writers.
   Writes that clear generated CSS site-wide (global classes, global variables)
   are refused with `upstream_global_clear_cache`; the Fallback abilities above stay
   the supported path for them. See
@@ -121,8 +124,9 @@ an error and the snapshot is restored.
   (`update_node`) in one dry run and one apply, on the Stonewright V4 writer,
   with a recursive readback of the whole document. See
   [Batch mode](../elementor-v4-engine.md#batch-mode-reusing-a-section).
-- V4 abilities are **blocked in `production-safe` mode** for all write
-  operations.
+- The Stonewright V4 writers are **blocked in `production-safe` mode** for all
+  write operations. `stonewright/elementor-native-execute` is the exception: it
+  follows the token rule above.
 
 ## Using Elementor's own MCP server alongside
 
@@ -132,7 +136,10 @@ snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
 quick draft that you will review in the editor. Do not send one change through
 both servers: Stonewright's backup and readback only cover what it writes. When
 Stonewright runs an Elementor ability itself, through
-`stonewright/elementor-native-execute`, the closure covers it.
+`stonewright/elementor-native-execute`, the closure covers it. A write made
+through Elementor's own server is still observed: the affected post or kit is
+snapshotted before the call, and a change-history row and an audit row are
+written after it, without blocking or changing the call.
 
 ## Enabling for development
 

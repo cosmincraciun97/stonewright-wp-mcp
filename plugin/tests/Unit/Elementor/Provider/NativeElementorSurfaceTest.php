@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\Status;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
+use Stonewright\WpMcp\Elementor\Provider\NativeContracts;
 use Stonewright\WpMcp\Elementor\Provider\NativeElementorReport;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Elementor\Provider\UpstreamAbilityDiscovery;
@@ -44,7 +45,7 @@ final class NativeElementorSurfaceTest extends TestCase {
 			[ 'elementor/build-composition', 'elementor/get-page-structure', 'elementor/manage-classes', 'elementor/manage-default-styles', 'elementor/manage-global-variable' ],
 			$result['native_elementor']['certified']
 		);
-		self::assertFalse( $result['native_elementor']['routable_write'] );
+		self::assertTrue( $result['native_elementor']['routable_write'] );
 		self::assertArrayHasKey( 'abilities', $result );
 		self::assertArrayHasKey( 'integrations', $result );
 	}
@@ -86,9 +87,9 @@ final class NativeElementorSurfaceTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertSame( 'available', $result['native_elementor']['state'] );
-		self::assertFalse( $result['writes_enabled'] );
+		self::assertTrue( $result['writes_enabled'] );
 		self::assertSame( 'object', $ability->output_schema()['properties']['native_elementor']['type'] );
-		self::assertSame(
+		self::assertEquals(
 			[
 				'elementor/manage-default-styles'  => 'native-preferred-when-certified',
 				'elementor/manage-classes'         => 'certified-native-write-refused',
@@ -104,10 +105,97 @@ final class NativeElementorSurfaceTest extends TestCase {
 		}
 	}
 
+	public function test_the_provider_policy_is_derived_from_the_shipped_contracts(): void {
+		$policy = ( new ProviderDiscovery( $this->router() ) )->meta()['provider_policy'];
+
+		self::assertSame( NativeContracts::names(), array_keys( $policy ) );
+		foreach ( NativeContracts::names() as $name ) {
+			$contract = NativeContracts::for_ability( $name );
+			$expected = 'unsupported' === $contract['status']
+				? 'unsupported'
+				: match ( $contract['routing']['native_write'] ) {
+					'read_only' => 'native-readback-when-certified',
+					'refused'   => 'certified-native-write-refused',
+					default     => 'native-preferred-when-certified',
+				};
+			self::assertSame( $expected, $policy[ $name ], $name );
+		}
+	}
+
+	public function test_provider_discovery_output_schema_declares_every_key_it_returns(): void {
+		$ability = new ProviderDiscovery( $this->router() );
+		$result  = $ability->execute( [ 'post_id' => 0, 'architecture' => 'auto' ] );
+		$schema  = $ability->output_schema();
+
+		self::assertIsArray( $result );
+		self::assertSame( [], array_values( array_diff( array_keys( $result ), array_keys( $schema['properties'] ) ) ) );
+		self::assertSame( 'boolean', $schema['properties']['writes_enabled']['type'] );
+		self::assertSame( 'integer', $schema['properties']['issues_count']['type'] );
+		self::assertSame( 'array', $schema['properties']['safety_closure']['type'] );
+	}
+
+	public function test_the_site_capabilities_description_no_longer_says_no_native_write_is_routable(): void {
+		$description = (string) ( new Capabilities() )->output_schema()['properties']['native_elementor']['description'];
+
+		self::assertStringNotContainsString( 'no native write is routable', $description );
+		self::assertStringContainsString( 'stonewright-elementor-native-execute', $description );
+	}
+
 	public function test_capabilities_summary_carries_only_the_native_state_token(): void {
 		$result = ( new CapabilitiesSummary( new Status( $this->router() ) ) )->execute( [] );
 
 		self::assertSame( 'available', $result['status']['native_elementor'] );
+	}
+
+	public function test_capabilities_summary_carries_a_short_native_hint_when_native_elementor_is_available(): void {
+		$result = ( new CapabilitiesSummary( new Status( $this->router() ) ) )->execute( [] );
+
+		self::assertSame( 'available', $result['status']['native_elementor'] );
+		self::assertStringContainsString( 'stonewright-elementor-native-execute', $result['status']['native_hint'] );
+		self::assertLessThan( 700, strlen( $result['status']['native_hint'] ) );
+	}
+
+	public function test_capabilities_summary_names_an_out_of_range_elementor_version_in_the_hint(): void {
+		$result = ( new CapabilitiesSummary( new Status( $this->router( '4.4.0' ) ) ) )->execute( [] );
+
+		self::assertSame( 'available_uncertified', $result['status']['native_elementor'] );
+		self::assertStringContainsString( 'Elementor 4.4.0', $result['status']['native_hint'] );
+		self::assertStringContainsString( '4.3.0 - 4.3.*', $result['status']['native_hint'] );
+		self::assertStringContainsString( 'elementor_version_out_of_range', $result['status']['native_hint'] );
+	}
+
+	public function test_the_hint_is_empty_when_native_elementor_is_not_available(): void {
+		$router = new ProviderRouter(
+			static fn(): array => [],
+			static fn(): array => [],
+			static fn(): array => [ 'items' => [], 'issues' => [] ],
+			static fn(): array => [],
+			static fn(): array => UpstreamAbilityDiscovery::summarize_environment( [] )
+		);
+
+		$result = ( new CapabilitiesSummary( new Status( $router ) ) )->execute( [] );
+
+		self::assertSame( 'not_installed', $result['status']['native_elementor'] );
+		self::assertSame( '', $result['status']['native_hint'] );
+	}
+
+	public function test_compact_task_start_keeps_the_native_hint_and_nothing_else_of_the_native_block(): void {
+		$method = new \ReflectionMethod( \Stonewright\WpMcp\Abilities\System\WorkflowPreflight::class, 'compact_response' );
+		$method->setAccessible( true );
+		$compact = $method->invoke(
+			null,
+			[
+				'elementor' => [
+					'included' => true,
+					'status'   => [ 'installed' => true, 'version' => '4.3.4', 'native_elementor' => 'available', 'native_hint' => 'Use native.', 'native_report' => [ 'big' => 'no' ] ],
+				],
+			],
+			[]
+		);
+
+		self::assertSame( 'available', $compact['elementor']['status']['native_elementor'] );
+		self::assertSame( 'Use native.', $compact['elementor']['status']['native_hint'] );
+		self::assertArrayNotHasKey( 'native_report', $compact['elementor']['status'] );
 	}
 
 	public function test_compact_report_is_small_and_tolerates_a_missing_block(): void {
@@ -152,10 +240,13 @@ final class NativeElementorSurfaceTest extends TestCase {
 		self::assertStringNotContainsString( 'native_elementor', (string) wp_json_encode( $result ) );
 	}
 
-	private function router(): ProviderRouter {
+	private function router( string $version = '4.3.4' ): ProviderRouter {
 		$path    = dirname( __DIR__, 3 ) . '/fixtures/elementor-native/elementor-4.3.4-abilities.json';
 		$decoded = json_decode( (string) file_get_contents( $path ), true );
 		$all     = array_values( (array) $decoded['abilities'] );
+		foreach ( $all as $index => $row ) {
+			$all[ $index ]['source_version'] = $version;
+		}
 		return new ProviderRouter(
 			static fn(): array => [ 'document_architecture' => 'v4', 'write_target' => 'v4', 'write_blocked' => false ],
 			static fn(): array => [],
@@ -163,7 +254,7 @@ final class NativeElementorSurfaceTest extends TestCase {
 			static fn(): array => $all,
 			static fn(): array => UpstreamAbilityDiscovery::summarize_environment(
 				[
-					'elementor_version' => '4.3.4', 'module_present' => true, 'module_active' => true, 'abilities_api' => true,
+					'elementor_version' => $version, 'module_present' => true, 'module_active' => true, 'abilities_api' => true,
 					'mcp_adapter' => true, 'mcp_adapter_version' => '0.6.1', 'mcp_adapter_provider' => 'elementor-core',
 					'mcp_composer' => true, 'mcp_composer_version' => '1.0.19', 'site_exposure_enabled' => true, 'atomic_editor_active' => true,
 				]

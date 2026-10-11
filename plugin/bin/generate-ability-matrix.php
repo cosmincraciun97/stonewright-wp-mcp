@@ -74,6 +74,12 @@ if ( ! function_exists( '__' ) ) {
 		return $text;
 	}
 }
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	// The Elementor provider-discovery policy is read from the native contract files, which fingerprint schemas.
+	function wp_json_encode( mixed $value, int $flags = 0, int $depth = 512 ): string|false {
+		return json_encode( $value, $flags, $depth );
+	}
+}
 if ( ! function_exists( 'is_user_logged_in' ) ) {
 	function is_user_logged_in(): bool {
 		return false;

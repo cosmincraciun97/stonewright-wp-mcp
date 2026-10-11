@@ -23,6 +23,7 @@ use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
+use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
@@ -166,6 +167,8 @@ final class PluginRegistration {
 		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
 		McpOriginGuard::register();
 		EditorSaveGuard::register();
+		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
+		NativeObserver::register();
 		BasicAuthCredentials::register();
 		// OAuth storage: clean-up handler, schema upgrade on init, key notice and retry.
 		AuthorizationLifecycle::register();

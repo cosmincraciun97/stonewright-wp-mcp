@@ -5,7 +5,6 @@ namespace Stonewright\WpMcp\Elementor\Provider;
 
 use Stonewright\WpMcp\Elementor\V4\AtomicReadbackVerifier;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
-use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Elementor\Write\ElementTreeDiff;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -16,7 +15,7 @@ use Stonewright\WpMcp\Support\ElementorData;
  * Executes a certified Elementor ability in-process inside Stonewright's closure.
  *
  * Every write runs in this order: route (certified, contract allows a native write, document
- * architecture), feature gates, input validation, snapshot, write lock, native execute,
+ * architecture), input validation, snapshot, write lock, native execute,
  * independent readback and recursive comparison, then rollback on any mismatch. Page CSS is
  * regenerated only through `stonewright/elementor-css-regenerate`; nothing here clears a cache,
  * publishes a document, or converts V3 to V4.
@@ -40,6 +39,15 @@ final class NativeElementorProvider {
 	}
 
 	/**
+	 * The live `native_elementor` report this provider routes by.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function native_report(): array {
+		return $this->router->native_elementor();
+	}
+
+	/**
 	 * @param array<string,mixed> $input   The native ability's own input.
 	 * @param array{dry_run?: bool} $options
 	 * @return array<string,mixed>|\WP_Error
@@ -55,10 +63,6 @@ final class NativeElementorProvider {
 		if ( null === $contract ) {
 			$unknown = NativeRoute::for_ability( $ability, [] );
 			return $dry_run ? $this->refusal_plan( $ability, $input, $unknown ) : self::refused( $unknown );
-		}
-		$gate = V4FeatureGate::check( ! $route['read_only'] );
-		if ( $gate instanceof \WP_Error ) {
-			return $gate;
 		}
 		if ( true === ( $contract['requires']['atomic_editor'] ?? false ) && true !== ( $block['mcp_module']['atomic_editor_active'] ?? false ) ) {
 			return self::error( 'stonewright_native_atomic_editor_inactive', 'Elementor\'s Atomic Editor is turned off, so this native ability cannot run.', 409, [ 'missing_feature' => 'atomic_editor', 'route' => $route ] );

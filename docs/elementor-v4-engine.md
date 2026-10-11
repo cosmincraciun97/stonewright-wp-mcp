@@ -165,10 +165,15 @@ A write runs in this order and stops at the first failure:
    a V3 document or a V3 subtree of a mixed document routes to the V3 writers, an
    insert at the root of a mixed document and a missing parent are refused, and an
    Atomic subtree or an empty or V4 document routes native.
-2. **Gates.** The experimental V4 flag, the Atomic Editor requirement, the
-   production-safe block, the permission for the family (kit options, or the post),
-   and the production-safe confirmation token. Native writes stay blocked in
-   `production-safe` mode like the other V4 writers.
+2. **Gates.** The tool is available when the native Elementor state is
+   `available` and at least one ability is certified; otherwise the call fails with
+   `stonewright_native_unavailable`, the state, the issue codes (for example
+   `elementor_version_out_of_range`) and the Stonewright writers to use instead. The
+   experimental V4 flag is not part of this gate. Then the Atomic Editor
+   requirement, the permission for the family (kit options, or the post), and, for
+   a real write in `production-safe` mode, a confirmation token bound to the
+   arguments (`stonewright/security-issue-confirmation-token`), the same rule the
+   other writers follow. Reads and dry-run plans need no token in any mode.
 3. **Exposure.** Every Atomic type in the composition must be registered on the
    site; a missing one fails with `stonewright_atomic_type_unavailable`,
    `missing_feature: atomic_type:<type>`, and the types the site has.
@@ -194,6 +199,29 @@ A write runs in this order and stops at the first failure:
    `supersedes` lineage. A staged edit is `queued` with nothing applied. A
    default-styles write reports no rollback recipe, because a kit snapshot does not
    cover the default style posts; its automatic rollback happens inside the call.
+
+Where the tool is listed: on the essential surface and right after provider
+discovery in the `elementor-design` profile when native Elementor is available.
+The agent instructions say to prefer it for a V4 (Atomic) document and to fall back
+to the Stonewright V4 writers when it refuses; V3 stays on the V3 writers, and
+`elementor/*` tools are never called on Elementor's own MCP server.
+
+### Calls made outside the tool
+
+A call to an `elementor/*` write ability that does not come through
+`stonewright/elementor-native-execute` (for example through Elementor's own MCP
+server) cannot be gated, but it is observed. Stonewright hooks core's
+`wp_before_execute_ability` (name, input, ability) and `wp_after_execute_ability`
+(name, input, result, ability); core fires the first after the input and permission
+checks and the second only when the call succeeded. Before the call, the post the
+input names (or the active kit for default styles, classes and variables) is
+snapshotted. After it, a change-history row (family `elementor`, status "Not
+verified", with the content before so it can be undone) is written when the
+document changed, and an audit row marked `observed_native` is always written. The
+observer never blocks, refuses or rewrites the call, opens no rescue frame, and a
+failure of its own recording is logged only. A page the call created is recorded
+from `post_id` in the result. A change staged in an autosave leaves the live
+document unchanged, so it has an audit row and no history row.
 
 Statuses are `planned`, `applied`, `unchanged`, `staged_in_autosave`, and `read`.
 The structure read returns Elementor's structure and flags a pending autosave,

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T10:14:11+00:00",
+    "generated_at": "2026-10-11T12:26:39+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -51,7 +51,10 @@
             "stonewright/settings-update",
             "stonewright/theme-builder-delete-template",
             "stonewright/theme-builder-set-conditions",
-            "stonewright/user-list"
+            "stonewright/user-list",
+            "stonewright/elementor-native-execute",
+            "stonewright/elementor-provider-discovery",
+            "stonewright/site-capabilities"
         ]
     },
     "abilities": [
@@ -3859,7 +3862,7 @@
             "ability_name": "stonewright/elementor-native-execute",
             "mcp_name": "stonewright-elementor-native-execute",
             "kind": "Write",
-            "input_schema_hash": "a01b5652646185f4482cb912927e6e81a2a7ca90b35a8461f6bced1c2de3380f",
+            "input_schema_hash": "08d1f7b392fd7d5750614f9d26f551a4236c8d90cdbf4eaee3e43de3e29d89a8",
             "output_schema_hash": "77cb7b7efa5af52372fe030d41dfb6a5aeb957cf07281d196cc67429e7988c0a",
             "permission_class": "Permissions::edit_theme_options() (compound)",
             "gates": {
@@ -3940,7 +3943,7 @@
             "mcp_name": "stonewright-elementor-provider-discovery",
             "kind": "Read",
             "input_schema_hash": "53f83ac20d2996185eaff3604ac823df55e9ef696d6ecbf5485fd7f7b176eaa1",
-            "output_schema_hash": "87ac7073fd8dbb800bd735940ab49bf824dcb31ff0e0c919c10ea31a49fcb4da",
+            "output_schema_hash": "3fba3df254e5bf0f6e3618e4cbd94d4fca82639238c6967eb9fb9baefa8675a8",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -6540,7 +6543,7 @@
             "mcp_name": "stonewright-site-capabilities",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "5e617220265d6ff927d25d4e4c47345fb66ac094d878029dcae53f2ef72814a1",
+            "output_schema_hash": "405c27aa6e2b19308182d5ce31dc614e6dabbcba5ad538e59b93b605b7d503ec",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
