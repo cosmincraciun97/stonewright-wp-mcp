@@ -497,7 +497,9 @@ development builds were never stable releases.
   Jetpack Autoloader manifest. Rank Math SEO 1.0.280, which bundles MCP Adapter
   0.5.0, no longer leaves the route missing; the other plugin's own MCP server is
   not touched. When a copy cannot be used, an error notice on the Stonewright
-  screens, the Troubleshoot page and its **MCP runtime** check, and the new
+  screens, the Plugins screen and the Dashboard (administrators only; each user
+  can dismiss it for 7 days and it returns when the owner or version changes),
+  the Troubleshoot page and its **MCP runtime** check, and the new
   `mcp_runtime` field of `stonewright-site-capabilities` and
   `stonewright-task-start` name the plugin that owns it, its version and what to
   do, and both MCP routes answer HTTP 503 with the same explanation instead of a

@@ -144,7 +144,9 @@ or disables the other plugin.
   works while both copies agree on the server API, which is checked.
 - *A copy Stonewright cannot use* (older than 0.5.0, a different server API, or parts missing).
   The route `/wp-json/mcp/stonewright` cannot be served, so no MCP client can connect, although
-  abilities still run inside WordPress. An error notice on every Stonewright screen, a **MCP
+  abilities still run inside WordPress. An error notice on every Stonewright screen, the Plugins screen and the Dashboard
+  (administrators only; **Dismiss for 7 days** hides it for that user, and it returns when the owner
+  or version of the loaded copy changes), a **MCP
   route unavailable** card on Troubleshoot, a failed **MCP runtime** check in the connection checks,
   `mcp_runtime` in `stonewright-site-capabilities` and in `stonewright-task-start`, and an HTTP 503
   answer on both MCP routes (instead of a missing route) all name the plugin that owns the loaded
@@ -160,7 +162,8 @@ or disables the other plugin.
    once a usable copy is loaded.
 
 Do not disable plugins you need only to silence the notice: a copy that works is accepted, and
-the notice appears only while no usable copy is loaded.
+the notice appears only while no usable copy is loaded. A copy that works shows no notice at all;
+the information about it is on Troubleshoot.
 
 ## Compact tool surface
 
