@@ -66,7 +66,10 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    locally stored skills and memory for this site (or `_global`).
 5. Call `stonewright-site-discover` before choosing WordPress REST operations.
 6. Do not write custom PHP/CSS/JS/HTML in Direct mode — there is no
-   authenticated wp-admin one-time-grant boundary.
+   authenticated wp-admin one-time-grant boundary, and the Direct write tools
+   that carry markup or CSS refuse it. Direct mode has no restore tool and no
+   after-write verification, so read the result back after a write
+   ([what Direct does not do yet](direct-mode-e2e.md#what-direct-mode-does-not-do-yet)).
 
 On a fresh installation there is no user memory, no user-created skill, and no
 audit event. Generic built-in skills and native rules are product assets and
@@ -78,7 +81,9 @@ response contains truncated site Context / custom instructions (up to 400
 characters), an active Design Direction pointer when one exists, relevant
 skills, persistent memory (site-hosted in plugin mode; `~/.stonewright/` in
 Direct mode), workflow followups, and the short-lived write token /
-confirmation guidance needed by write tools. Call
+confirmation guidance needed by write tools in Plugin mode. Direct mode writes
+check a recent task-start for the same site instead of a write token, and
+`confirm:true` where the write mode asks for it. Call
 `stonewright-design-direction-brief` when `context.design_direction_ref` is
 present. The MCP server instructions a client reads on connect name the active
 Design Direction too, so it is known before the first call. Pluginless Direct

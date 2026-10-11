@@ -129,7 +129,11 @@ check fails verification.
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
-explicit rather than silently emulated.
+explicit rather than silently emulated. Direct mode writes through core REST
+(and local WP-CLI for Elementor data) with companion-side protections only; it
+has no change sets, confirmation tokens, restore tool, or after-write
+verification. [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet)
+lists what it does not do yet.
 
 Direct aliases are routing labels, not security identities. Task-start latches,
 terminal idempotency, and incident partitions bind to the resolved canonical
@@ -173,8 +177,9 @@ the last good remote catalog, and either continues with the remote task-start
 call or returns a truthful local gateway result. Plugin-only mode never
 silently enables Direct writes on a transport failure.
 
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. On OAuth connections an HTTP 401 refreshes the
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+request once after some network errors.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more with the new token, a tool call
 included.
 
@@ -210,8 +215,12 @@ Plugin mode exposes typed providers for WPCode, Code Snippets, Customizer CSS,
 and allowlisted theme files. A provider first returns a dry-run receipt and the
 exact approval URL, then stops. Apply and rollback require the matching human
 grant plus their normal permission, concurrency, backup, readback, audit, and
-production confirmation gates. Direct mode cannot write arbitrary custom code:
-without the plugin there is no authenticated wp-admin one-time-grant boundary.
+production confirmation gates. Direct mode refuses custom code: without the
+plugin there is no authenticated wp-admin one-time-grant boundary. It has no
+provider tools, and its global-styles, Elementor data, content, template,
+blueprint, and widget writes refuse CSS, script, and HTML-type markup. Its other
+write tools (ACF, media, menu, comment, taxonomy-term, settings, user) are not
+screened.
 
 Generic content create, update, duplicate, bulk create, and bulk upsert reject
 provider-owned executable-code post types before sanitization with
@@ -270,7 +279,7 @@ Repair validation returns a generation, update-time, and occurrence token.
 Resolution and learning each compare that token atomically; a failure recorded
 after validation wins and stale evidence cannot close or teach from the incident.
 
-Direct mode mirrors the lifecycle in a private file namespaced by the site
+Direct mode stores incidents in a private file namespaced by the site
 binding fingerprint. Terminal idempotency is site-bound, and its bounded marker
 index is compacted under the audit interprocess lock. Malformed locks are
 recovered only after bounded age and lease checks. Host, boot, and real
@@ -278,7 +287,8 @@ process-start identity are validated where the platform exposes them, so a
 live decoy or reused PID cannot hold the store indefinitely. It stores bounded classifications and hashes, writes by atomic
 replacement, and never copies runtime state into the companion package.
 When Direct audit lacks independent resource/change-set proof, the recorder
-returns guidance only and does not resolve or learn. See
+returns guidance only and does not resolve or learn. No Direct tool writes that
+proof today, so Direct incidents are not closed by a verified repair. See
 [Verified learning](verified-learning.md).
 
 ## WordPress Writes
@@ -286,7 +296,10 @@ returns guidance only and does not resolve or learn. See
 The plugin owns direct PHP runtime execution, permission checks,
 production-safe confirmation tokens, backups, validation, and audit logging.
 The companion can write by running tokenized WP-CLI commands requested by the
-plugin or MCP client.
+plugin or MCP client. In Plugin mode it does not call WordPress REST write
+endpoints. In Direct mode, where there is no plugin, it writes through core REST
+with the companion-side protections listed in
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
 
 Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
 **full-profile** tool, not part of bootstrap or essential. WP-CLI execution is
@@ -385,7 +398,7 @@ visible client tool surface/private config and permission to install or
 configure a missing provider are separate decisions. Browser automation may
 verify rendered output or perform an explicitly approved dashboard interaction;
 it does not replace custom-code dry-run/approval, backup, permission, audit, or
-confirmation-token gates in Plugin or Direct mode.
+confirmation-token gates (Direct mode has no confirmation tokens).
 
 ### Elementor write closure
 

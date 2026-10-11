@@ -31,6 +31,6 @@ Aggregate a normalized cause into an incident, return a compact task-start repai
 
 ## Capability boundaries
 
-Plugin mode supplies the full permission, backup, confirmation, typed Elementor, custom-code approval, site memory, and audit lifecycle. Direct mode supplies a smaller companion-managed REST and WP-CLI surface and local per-site state. Direct mode returns guidance instead of claiming proof when it cannot establish independent correlation.
+Plugin mode supplies the full permission, backup, confirmation, typed Elementor, custom-code approval, site memory, and audit lifecycle. Direct mode supplies a smaller companion-managed REST and WP-CLI surface and local per-site state. Direct mode returns guidance instead of claiming proof when it cannot establish independent correlation. It has no change sets, confirmation tokens, restore tool, or after-write verification; see [what Direct mode does not do yet](direct-mode-e2e.md#what-direct-mode-does-not-do-yet).
 
 The [architecture](architecture.md), [security model](security.md), and generated [ability truth matrix](ability-truth-matrix.md) are the source-readable contracts behind these claims.

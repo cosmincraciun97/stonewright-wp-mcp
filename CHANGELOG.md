@@ -25,6 +25,10 @@ development builds were never stable releases.
   `javascript:` URLs), saves a pre-image before whole-document writes, and asks
   for `confirm: true` on template and template-part updates; see the companion
   changelog.
+- Documentation: Direct mode docs and `AGENTS.md` rule 7 state that the companion
+  writes through core REST in Direct mode only, list the protections it carries,
+  and list what it does not do yet (restore tool, after-write verification,
+  partial custom-code screening, DNS pinning for media URLs).
 
 ### Fixed
 

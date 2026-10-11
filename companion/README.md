@@ -62,8 +62,9 @@ authorization. A refresh token expires after 30 days without use, and one
 presented again within 60 seconds of its use receives the grant's current
 refresh token.
 
-The companion sends each WordPress MCP request once and does not repeat it after
-a timeout or network error. The one exception is a token refresh that got no
+In Plugin mode the companion sends each WordPress MCP request once and does not
+repeat it after a timeout or network error. (Direct mode's REST client retries a
+request once after some network errors.) The one exception is a token refresh that got no
 response at all: it is sent once more with the same refresh credential, at most
 30 seconds after the first request and ended 50 seconds after it, inside the
 server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
@@ -119,12 +120,12 @@ site-hosted state.
 | Capability | Direct | Plugin |
 |---|---|---|
 | Content (posts/pages/CPT) list/get/create/update/delete | yes | yes |
-| Media list/upload/update | yes | yes |
+| Media list/upload/update | yes; upload limited to allowed folders, public URLs, allowed types, 25 MiB | yes |
 | Taxonomy terms | yes | yes |
 | Menus + menu items | yes | yes |
-| FSE templates / template parts | yes | yes |
-| Global styles (theme.json) | yes | yes |
-| Settings get/update | yes | yes |
+| FSE templates / template parts | yes; pre-image before update, `confirm: true` for updates in `confirm` mode, custom code refused | yes |
+| Global styles (theme.json) | yes; pre-image before update, custom CSS refused | yes |
+| Settings get/update | yes; no before-state saved | yes |
 | Plugins list/activate/deactivate/install | yes | yes |
 | Themes list | yes | yes |
 | Users list/get/me | yes | yes |
@@ -132,20 +133,22 @@ site-hosted state.
 | WooCommerce products/orders/sales read | yes | yes |
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
 | Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
-| WP-CLI tokenized tools | yes (local host only) | yes (local host only) |
+| WP-CLI tokenized tools | yes (local host only; `stonewright-wp-cli-run` has no task-start latch, confirmation or audit row) | yes (local host only) |
 | `stonewright/php-execute` | no | yes |
-| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
+| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup, no restore tool; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
 | Memory / skills store | yes — private local state | yes — site-hosted |
-| Production-safe confirmation tokens | no | yes |
+| Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
+| Change sets, Rescue (probe, rollback), backup restore | no | yes |
+| After-write readback and verification | no (local Elementor cache readback only) | yes |
 | Audit | local redacted JSONL; no server UI | server-side UI |
 
 Destructive Direct writes on remote sites require `confirm: true` when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
 flagged destructive ask for it: deletes, template and template-part creates,
 `global-styles-update`, `elementor-data-update`, plugin, theme-activate, settings
-and user changes, and now `template-update`, `template-part-update`, and
+and user changes, `template-update`, `template-part-update`, and
 `blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
 and taxonomy writes do not.
 
@@ -181,13 +184,35 @@ either host. Set `STONEWRIGHT_WP_ROOT` or `path` to the install of the alias sit
 to use WP-CLI for it.
 
 Local WP-CLI Elementor updates invalidate only the post-scoped
-`_elementor_element_cache` after verified readback and preserve `_elementor_css`
+`_elementor_element_cache` (the deletion is read back) and preserve `_elementor_css`
 metadata. They never run Elementor's global CSS flush command; use Plugin mode
 for guarded target-post CSS closure. Their receipt still says
 `browser_required`: cache invalidation is not rendered visual acceptance.
 Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for
 the closed-loop `stonewright-elementor-post-write-verify` ability.
+
+### What Direct mode does not do yet
+
+- No tool restores a pre-image or an Elementor backup.
+- No after-write verification: REST writes are not read back, and there is no
+  front-end probe or rollback.
+- Custom-code screening covers global styles, Elementor data, content, template,
+  blueprint and widget writes. ACF, media, menu, comment, taxonomy-term, settings
+  and user writes are not screened.
+- Pre-images cover five tools; plugin, theme, settings, menu, media, ACF and
+  taxonomy writes save no before-state.
+- `stonewright-media-upload` does not pin the DNS answer, so rebinding between
+  the address check and the download is not caught.
+- Elementor raw writes have no schema validation, unique-id check, per-post
+  lease or base hash, and no readback of `_elementor_data`.
+- The REST client retries a request once after some network errors, for every
+  method.
+- Audit rows carry no change set id or hashes, and Direct writes no verifier row,
+  so `stonewright-incident-repair-record` returns guidance only.
+
+[docs/direct-mode-e2e.md](../docs/direct-mode-e2e.md) lists what Direct mode
+protects and what it does not do yet in full.
 
 ## Advanced companion setup
 
