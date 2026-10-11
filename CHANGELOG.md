@@ -781,13 +781,17 @@ development builds were never stable releases.
 - Memory text is screened for instructions that tell an agent to override the
   plugin's rules or safety gates, to disable confirmation tokens, or to send
   credentials elsewhere, with the screen that imported skills already go
-  through. `memory-save`, `learning-record` and `memory-generalize` (and Direct
-  `learning-record`) store a match with the status `needs_review` and say so
-  (`needs_review: true`, `review_rules`); it is not offered at task start or as
+  through. `memory-save`, `learning-record`, `memory-generalize`,
+  `knowledge-import` (the memory entries of a bundle, whatever status the bundle
+  gives them), `incident-repair-record` (the repair recipe; the incident is still
+  resolved) and `POST /stonewright/v1/memory` (and Direct `learning-record` and
+  `incident-repair-record`) store a match with the status `needs_review` and say
+  so (`needs_review: true`, `review_rules`); it is not offered at task start or as
   site context, drafts no skill, and a later save under its key does not clear it.
   An administrator approves or rejects it on the Memory page; in Direct it is
   cleared by editing its status in the local memory file or deleting it. A
-  prohibition ("never ignore the system prompt") is not flagged.
+  prohibition ("never ignore the system prompt") is not flagged. The entry form
+  of the Memory page is not screened, because an administrator types there.
 - Direct mode holds a local WP-CLI command that changes the site to the Direct
   write gate (task-start, `confirm`, a matching local install, an audit row),
   refuses custom code in the remaining text-sending writes (ACF, media, menu,

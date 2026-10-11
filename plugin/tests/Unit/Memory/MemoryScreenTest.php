@@ -6,7 +6,9 @@ namespace Stonewright\WpMcp\Tests\Unit\Memory;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
+use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
 use Stonewright\WpMcp\Abilities\System\MemoryGeneralize;
+use Stonewright\WpMcp\Core\RestRoutes;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Memory\MemoryScreen;
 
@@ -20,6 +22,9 @@ use Stonewright\WpMcp\Memory\MemoryScreen;
  * @covers \Stonewright\WpMcp\Abilities\Memory\LearningRecord
  * @covers \Stonewright\WpMcp\Abilities\System\MemoryGeneralize
  * @covers \Stonewright\WpMcp\Memory\Memory
+ * @covers \Stonewright\WpMcp\Abilities\System\KnowledgeImport
+ * @covers \Stonewright\WpMcp\Knowledge\KnowledgeBundle
+ * @covers \Stonewright\WpMcp\Core\RestRoutes
  */
 final class MemoryScreenTest extends TestCase {
 
@@ -189,6 +194,109 @@ final class MemoryScreenTest extends TestCase {
 		}
 		self::assertSame( 'needs_review', $written[41]['status'] );
 		self::assertArrayNotHasKey( 'status', $written[42] );
+	}
+
+	public function test_knowledge_import_stores_flagged_entries_as_needs_review_whatever_status_the_bundle_claims(): void {
+		$result = ( new KnowledgeImport() )->execute(
+			[
+				'bundle' => [
+					'format'  => 'stonewright-knowledge-bundle',
+					'version' => 1,
+					'memory'  => [
+						'entries' => [
+							[ 'type' => 'user', 'scope' => 'project', 'key' => 'flagged-value', 'name' => 'Flagged', 'value' => self::OVERRIDE, 'status' => 'active' ],
+							[ 'type' => 'user', 'scope' => 'project', 'key' => 'flagged-name', 'name' => self::OVERRIDE, 'value' => 'Fine.', 'status' => 'active' ],
+							[ 'type' => 'user', 'scope' => 'project', 'key' => 'flagged-draft', 'name' => 'Draft', 'value' => self::OVERRIDE, 'status' => 'draft' ],
+							[ 'type' => 'user', 'scope' => 'project', 'key' => 'clean', 'name' => 'Clean', 'value' => 'Keep native widgets.', 'status' => 'active' ],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 4, $result['memory_imported'] );
+		self::assertSame( 3, $result['memory_needs_review'] );
+		$status = [];
+		foreach ( $GLOBALS['wpdb']->rows as $row ) {
+			$status[ $row['memory_key'] ] = $row['status'];
+		}
+		self::assertSame(
+			[
+				'flagged-value' => 'needs_review',
+				'flagged-name'  => 'needs_review',
+				'flagged-draft' => 'needs_review',
+				'clean'         => 'active',
+			],
+			$status
+		);
+		self::assertArrayNotHasKey( 'flagged-value', Memory::get_scope( 'project' ) );
+		self::assertArrayHasKey( 'clean', Memory::get_scope( 'project' ) );
+	}
+
+	public function test_knowledge_import_of_clean_memory_reports_no_review(): void {
+		$result = ( new KnowledgeImport() )->execute(
+			[
+				'bundle' => [
+					'format'  => 'stonewright-knowledge-bundle',
+					'version' => 1,
+					'memory'  => [ 'entries' => [ [ 'scope' => 'project', 'key' => 'clean', 'name' => 'Clean', 'value' => 'Keep native widgets.' ] ] ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 1, 0 ], [ $result['memory_imported'], $result['memory_needs_review'] ] );
+		self::assertSame( 'active', $GLOBALS['wpdb']->rows[0]['status'] );
+	}
+
+	public function test_knowledge_import_keeps_a_flagged_entry_that_the_bundle_replaces_with_clean_text(): void {
+		( new MemorySave() )->execute( [ 'type' => 'user', 'scope' => 'project', 'key' => 'k', 'name' => 'K', 'value' => self::OVERRIDE ] );
+
+		( new KnowledgeImport() )->execute(
+			[
+				'bundle' => [
+					'format'  => 'stonewright-knowledge-bundle',
+					'version' => 1,
+					'memory'  => [ 'entries' => [ [ 'type' => 'user', 'scope' => 'project', 'key' => 'k', 'name' => 'K', 'value' => 'Keep native widgets.', 'status' => 'active' ] ] ],
+				],
+			]
+		);
+
+		self::assertSame( 'needs_review', $GLOBALS['wpdb']->rows[0]['status'] );
+	}
+
+	public function test_rest_memory_route_stores_flagged_text_as_needs_review_and_says_so(): void {
+		$flagged = $this->post_memory( [ 'type' => 'user', 'scope' => 'project', 'key' => 'flagged', 'name' => 'Flagged', 'value' => self::OVERRIDE ] )->get_data();
+		$clean   = $this->post_memory( [ 'type' => 'user', 'scope' => 'project', 'key' => 'clean', 'name' => 'Clean', 'value' => 'Keep native widgets.' ] )->get_data();
+
+		self::assertTrue( $flagged['needs_review'] );
+		self::assertSame( 'needs_review', $flagged['status'] );
+		self::assertSame( [ 'safety_override' ], $flagged['review_rules'] );
+		self::assertSame( 'needs_review', Memory::get_by_id( $flagged['id'] )['status'] );
+		self::assertArrayNotHasKey( 'needs_review', $clean );
+		self::assertSame( 'active', Memory::get_by_id( $clean['id'] )['status'] );
+		self::assertArrayNotHasKey( 'flagged', Memory::get_scope( 'project' ) );
+	}
+
+	/** @param array<string, mixed> $params */
+	private function post_memory( array $params ): \WP_REST_Response {
+		$GLOBALS['stonewright_test_rest_routes'] = [];
+		RestRoutes::register();
+		foreach ( $GLOBALS['stonewright_test_rest_routes'] as $route ) {
+			if ( '/memory' !== $route['route'] ) {
+				continue;
+			}
+			foreach ( $route['args'] as $endpoint ) {
+				if ( 'POST' === ( $endpoint['methods'] ?? '' ) ) {
+					$response = $endpoint['callback']( new \WP_REST_Request( 'POST', '/stonewright/v1/memory', $params + [ 'confidence' => 1.0 ] ) );
+					self::assertInstanceOf( \WP_REST_Response::class, $response );
+					return $response;
+				}
+			}
+		}
+		self::fail( 'The memory POST route is not registered.' );
 	}
 
 	/** @return array{blocked: list<array{text: string, rule: string}>, allowed: list<string>} */

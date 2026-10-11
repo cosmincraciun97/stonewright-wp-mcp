@@ -144,7 +144,10 @@ tokens or send credentials elsewhere is stored with the status `needs_review`
 (`needs_review: true` in the answer), is not offered at task start, saves no
 `draft_skill`, and is not cleared by recording the same text again. A person
 clears it by deleting it (`stonewright-memory-delete`) or by setting its status to
-`active` in `~/.stonewright/memory/<scope>.jsonl`.
+`active` in `~/.stonewright/memory/<scope>.jsonl`. `stonewright-incident-repair-record`
+applies the same screen to its repair recipe: the incident is still resolved, the
+lesson is stored as `needs_review` and the answer says `learning_status:
+"needs_review"`.
 
 Direct `stonewright-task-start` lists open incidents in `incident_actions`. It
 asks for `repair_open_incidents_first` in `required_actions` only for an open

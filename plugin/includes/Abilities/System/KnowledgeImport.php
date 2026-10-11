@@ -21,7 +21,7 @@ final class KnowledgeImport extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle.', 'stonewright' );
+		return __( 'Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle. A memory entry whose text tells an agent to override the plugin rules or move credentials is stored with status needs_review, whatever status the bundle gives it: it is not offered at task start or as site context until an administrator approves it on the Memory page.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -50,6 +50,10 @@ final class KnowledgeImport extends AbilityKernel {
 				'ok'                    => [ 'type' => 'boolean' ],
 				'instructions_imported' => [ 'type' => 'integer' ],
 				'memory_imported'       => [ 'type' => 'integer' ],
+				'memory_needs_review'   => [
+					'type'        => 'integer',
+					'description' => 'Memory entries stored with status needs_review because their text tells an agent to override the plugin rules. They count in memory_imported and wait for an administrator.',
+				],
 				'skills_imported'       => [
 					'type'        => 'integer',
 					'description' => 'Skills added as disabled drafts. A bundle never enables a skill or replaces one.',
@@ -61,7 +65,7 @@ final class KnowledgeImport extends AbilityKernel {
 					'description' => 'Slugs of bundle skills that were not added: the slug already belongs to a skill in any state, the trash and built-in skills included, or the entry was refused. At most ' . KnowledgeBundle::SKIPPED_LIMIT . ' are listed.',
 				],
 			],
-			'required'   => [ 'ok', 'instructions_imported', 'memory_imported', 'skills_imported', 'skills_skipped' ],
+			'required'   => [ 'ok', 'instructions_imported', 'memory_imported', 'memory_needs_review', 'skills_imported', 'skills_skipped' ],
 		];
 	}
 

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -357,17 +358,33 @@ final class RestRoutes {
 						],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
-						$id = Memory::put_typed(
+						// A caller of this route may be an agent, so the text goes through the screen of memory-save. A match is
+						// kept as an entry that waits for an administrator. (The admin Memory page form is a person typing and is not screened.)
+						$rules = MemoryScreen::blocking_rules( (string) $request->get_param( 'name' ), $request->get_param( 'value' ) );
+						$id    = Memory::put_typed(
 							(string) $request->get_param( 'type' ),
 							(string) $request->get_param( 'scope' ),
 							(string) $request->get_param( 'key' ),
 							(string) $request->get_param( 'name' ),
 							$request->get_param( 'value' ),
-							(float) $request->get_param( 'confidence' )
+							(float) $request->get_param( 'confidence' ),
+							[] === $rules ? [] : [ 'status' => MemoryScreen::NEEDS_REVIEW ]
 						);
 
 						if ( 0 === $id ) {
 							return new \WP_Error( 'stonewright_memory_write_failed', __( 'Failed to write memory entry.', 'stonewright' ), [ 'status' => 500 ] );
+						}
+
+						if ( MemoryScreen::NEEDS_REVIEW === (string) ( Memory::get_by_id( $id )['status'] ?? '' ) ) {
+							return rest_ensure_response(
+								[
+									'id'           => $id,
+									'needs_review' => true,
+									'status'       => MemoryScreen::NEEDS_REVIEW,
+									'review_rules' => $rules,
+									'message'      => __( 'Stored for review. The text tells an agent to override the plugin rules or move credentials, so it is not offered at task start or as site context until an administrator approves it on the Stonewright Memory page.', 'stonewright' ),
+								]
+							);
 						}
 
 						return rest_ensure_response( [ 'id' => $id ] );

@@ -397,6 +397,9 @@
   `review_rules`): it is not offered at task start, a `draft_skill` with it is
   not saved, and recording the same text again does not clear it. A person clears
   it by deleting it or setting its status to `active` in the local memory file.
+  `stonewright-incident-repair-record` screens its repair recipe the same way: the
+  incident is still resolved, the lesson is stored as `needs_review` and the
+  answer says `learning_status: "needs_review"`, `needs_review: true`.
 - `stonewright-elementor-data-update` resolves its write mode from the target site
   like the other Direct tools: a local `.test`, `.local` or localhost site no
   longer asks for `confirm: true` unless `STONEWRIGHT_DIRECT_WRITES` says so.

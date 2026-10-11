@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T16:38:32+00:00",
+    "generated_at": "2026-10-11T16:48:53+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -5354,7 +5354,7 @@
             "mcp_name": "stonewright-incident-repair-record",
             "kind": "Write",
             "input_schema_hash": "cd3ef7034df162cfcb791865b0c1508089fe8d61faf7f4cf68cc8c544eb7af06",
-            "output_schema_hash": "599777a06a0988179c3e80473379544c59a091891ed9d31577c59a3e207d816e",
+            "output_schema_hash": "72b6f48cace11dbdb084aa81af803a44445c19e0f7aa500a01d668562a545e60",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -5434,7 +5434,7 @@
             "mcp_name": "stonewright-knowledge-import",
             "kind": "Write",
             "input_schema_hash": "c3a509a0df4d18547338cbcb59076e6236b2322db9c7c750bc845785f61da581",
-            "output_schema_hash": "835d1e3435ce51bc76281fc5fe50ef8ba861909476abb8c14cd46f3bf549c429",
+            "output_schema_hash": "18fa7b19590341ad5f997b0bd6a56b851d1d6b61dc0a15ec495bf0d17e5d8ab3",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

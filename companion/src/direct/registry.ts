@@ -1937,7 +1937,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-incident-repair-record',
-		'Record a Direct incident repair only when persisted failure and independent verifier events correlate exactly. Otherwise returns guidance_only without learning.',
+		'Record a Direct incident repair only when persisted failure and independent verifier events correlate exactly. Otherwise returns guidance_only without learning. A recipe that tells an agent to override the plugin rules or move credentials is stored with status needs_review (needs_review:true, learning_status needs_review): the incident is still resolved, but the lesson is not offered at task start until a person clears it.',
 		{
 			site: siteArg,
 			incident_id: z.string().length(64),
