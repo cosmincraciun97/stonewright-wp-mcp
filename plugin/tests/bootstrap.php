@@ -988,7 +988,13 @@ if ( ! function_exists( 'wp_timezone_string' ) ) {
 
 if ( ! function_exists( 'is_multisite' ) ) {
 	function is_multisite(): bool {
-		return false;
+		return (bool) ( $GLOBALS['stonewright_test_is_multisite'] ?? false );
+	}
+}
+
+if ( ! function_exists( 'get_site_option' ) ) {
+	function get_site_option( string $option, mixed $default = false ): mixed {
+		return $GLOBALS['stonewright_test_site_options'][ $option ] ?? $default;
 	}
 }
 

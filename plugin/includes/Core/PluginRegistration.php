@@ -133,6 +133,8 @@ final class PluginRegistration {
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
+		// A site created after a network activation gets its defaults when it is created.
+		add_action( 'wp_initialize_site', [ $this, 'seed_new_site' ], 20, 1 );
 		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
 		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
 		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
@@ -214,26 +216,20 @@ final class PluginRegistration {
 		}
 		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
-		if ( ! get_option( 'stonewright_mode' ) ) {
-			$environment = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'development';
-			$initial_mode = match ( $environment ) {
-				'production' => 'production-safe',
-				'staging'    => 'staging',
-				default      => 'development',
-			};
-			update_option( 'stonewright_mode', $initial_mode );
-		}
-		// New installs start on the useful bounded surface. Bootstrap remains an
-		// explicit transport/profile diagnostic, never a permanent install default.
+		// Mode from the environment type; a first activation also gets the essential surface.
 		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping
 		// from the existing stonewright_essential_tools_mode choice.
-		if ( $is_first_activate ) {
-			update_option( 'stonewright_mcp_surface', 'essential', false );
-			update_option( 'stonewright_essential_tools_mode', true, false );
-		}
+		SiteDefaults::seed( $is_first_activate );
 		// A first activation lands on the Overview; a site that already chose on or off is left where it is.
 		ActivationRedirect::arm();
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
+	}
+
+	/**
+	 * On wp_initialize_site, after WordPress has installed the new site: give it its defaults.
+	 */
+	public function seed_new_site( object $site ): void {
+		SiteDefaults::seed_new_site( $site, plugin_basename( $this->plugin_file ) );
 	}
 
 	/**
@@ -245,6 +241,9 @@ final class PluginRegistration {
 		if ( $stored === STONEWRIGHT_VERSION ) {
 			return;
 		}
+		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
+		// on its first request without a mode; an update can find one missing too.
+		SiteDefaults::seed( '' === $stored );
 		IncidentStore::maybe_install_table();
 		SkillTables::ensure();
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
