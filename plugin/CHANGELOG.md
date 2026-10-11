@@ -342,6 +342,21 @@
 
 ### Fixed
 
+- Serve the Stonewright MCP routes (`/wp-json/mcp/stonewright` and
+  `/wp-json/mcp/stonewright-oauth`) when another plugin loads its own copy of the
+  WordPress MCP Adapter first. A copy of version 0.5.0 or newer that has the server
+  API Stonewright calls (`instance()`, the 13-argument `create_server()` and the
+  server, transport and handler classes) is now used as it is, with or without a
+  Jetpack Autoloader manifest. Rank Math SEO 1.0.280, which bundles MCP Adapter
+  0.5.0, no longer leaves the route missing; the other plugin's own MCP server is
+  not touched. When a copy cannot be used, an error notice on the Stonewright
+  screens, the Plugins screen and the Dashboard (administrators only; each user
+  can dismiss it for 7 days and it returns when the owner or version changes),
+  the Troubleshoot page and its **MCP runtime** check, and the new
+  `mcp_runtime` field of `stonewright-site-capabilities` and
+  `stonewright-task-start` name the plugin that owns it, its version and what to
+  do, and both MCP routes answer HTTP 503 with the same explanation instead of a
+  missing route.
 - `stonewright-custom-code-provider` accepts the arguments the theme-file
   provider reads: `start_marker`, `end_marker`, `marker`, `create_if_missing`,
   `theme`, `smoke_url`, `id` and `expected_active`, each typed and bounded, and
@@ -829,6 +844,9 @@
 
 ### Documentation
 
+- Add "MCP adapter conflicts with other plugins" to the Troubleshoot guide, and
+  describe in the architecture and security guides how a copy of the MCP adapter
+  loaded by another plugin is checked.
 - Correct the Direct Elementor write description in the write-verification guide
   and the companion README: `elementor-data-update` refuses duplicate element
   ids, has an optional base hash (`expected_hash`), reads `_elementor_data` back,

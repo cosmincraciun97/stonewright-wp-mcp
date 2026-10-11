@@ -31,7 +31,7 @@ final class SetupDiagnosticsRouteTest extends TestCase {
 	protected function tearDown(): void {
 		McpAbilitiesCompatibilityPreflight::reset_for_tests();
 		McpRegistrationState::reset_for_tests();
-		unset( $GLOBALS['stonewright_test_options']['stonewright_enabled'] );
+		unset( $GLOBALS['stonewright_test_options']['stonewright_enabled'], $GLOBALS['stonewright_test_extra_plugins'] );
 		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
@@ -183,5 +183,49 @@ final class SetupDiagnosticsRouteTest extends TestCase {
 
 		self::assertSame( 'problem', $checks['mcp_runtime']['status'] );
 		self::assertSame( 'skipped', $checks['connection']['status'] );
+	}
+
+	/** The cached preflight of a site where another plugin loaded its own adapter first. */
+	private static function foreign_runtime( bool $compatible, string $version ): void {
+		$GLOBALS['stonewright_test_extra_plugins'] = [ 'foreign-seo/foreign-seo.php' => [ 'Name' => 'Foreign SEO Suite', 'Version' => '2.0.0' ] ];
+		$property                                  = new \ReflectionProperty( McpAbilitiesCompatibilityPreflight::class, 'current' );
+		$property->setValue(
+			null,
+			[
+				'compatible'       => $compatible,
+				'adapter'          => [
+					'selected_owner'   => 'plugin:foreign-seo',
+					'selected_version' => $version,
+					'selection_state'  => 'selected',
+					'foreign_runtime'  => $compatible,
+					'owner_details'    => [ [ 'owner' => 'plugin:foreign-seo', 'version' => $version, 'state' => 'autoloadable' ] ],
+					'abi'              => [ 'status' => $compatible ? 'compatible' : 'incompatible', 'issues' => [] ],
+				],
+				'blocking_reasons' => $compatible ? [] : [ 'adapter_abi_incompatible' ],
+			]
+		);
+	}
+
+	public function test_a_blocked_runtime_names_the_plugin_that_owns_the_adapter_and_what_to_do(): void {
+		self::foreign_runtime( false, '0.4.0' );
+
+		$check = self::checks( [ 'endpoint' => self::CANONICAL, 'rest_routes' => [] ] )['mcp_runtime'];
+
+		self::assertSame( 'problem', $check['status'] );
+		self::assertStringContainsString( 'Foreign SEO Suite', (string) $check['summary'] );
+		self::assertStringContainsString( '0.4.0', (string) $check['summary'] );
+		self::assertStringContainsString( 'Foreign SEO Suite', (string) $check['remedy'] );
+		self::assertStringContainsString( '0.5.0 or newer', (string) $check['remedy'] );
+		self::assertSame( 'Foreign SEO Suite', $check['evidence']['adapter_plugin'] ?? null );
+	}
+
+	public function test_another_plugins_older_adapter_that_works_passes_and_names_its_owner(): void {
+		self::foreign_runtime( true, '0.5.0' );
+
+		$check = self::checks( [ 'endpoint' => self::CANONICAL, 'rest_routes' => [] ] )['mcp_runtime'];
+
+		self::assertSame( 'ok', $check['status'] );
+		self::assertStringContainsString( 'Foreign SEO Suite', (string) $check['summary'] );
+		self::assertStringContainsString( '0.5.0', (string) $check['summary'] );
 	}
 }

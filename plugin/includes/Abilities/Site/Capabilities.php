@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\McpRuntimeStatus;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -61,6 +62,7 @@ final class Capabilities extends AbilityKernel {
 				],
 				'mode'         => [ 'type' => 'string' ],
 				'feature_flags'=> [ 'type' => 'object' ],
+				'mcp_runtime'  => McpRuntimeStatus::output_schema(),
 				'native_elementor' => [
 					'type'        => 'object',
 					'description' => 'Elementor MCP module requirements, registered elementor/* abilities, ownership, schema fingerprints and per-ability certification. Evidence only. A certified ability runs through stonewright-elementor-native-execute; read writes_enabled, routable_writes, guidance and any version_issue here before choosing a writer.',
@@ -97,6 +99,7 @@ final class Capabilities extends AbilityKernel {
 			],
 			'mode'          => (string) get_option( 'stonewright_mode', 'development' ),
 			'feature_flags' => (array) get_option( 'stonewright_feature_flags', [] ),
+			'mcp_runtime'   => McpRuntimeStatus::agent_report( McpRuntimeStatus::current() ),
 			'native_elementor' => $this->provider_router->native_elementor(),
 		];
 	}

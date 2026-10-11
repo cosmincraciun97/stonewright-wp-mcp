@@ -283,7 +283,9 @@ and active plugins only, ignores inactive plugin manifests, and checks exact
 class names, visibility/static modifiers, required and maximum arity,
 parameter and return types, nullability/unions, constants, and versions before
 any adapter method can run. Troubleshoot reports each blocked symbol and its
-active owner/version separately without exposing filesystem paths.
+active owner/version separately without exposing filesystem paths. A copy of the adapter that
+another plugin loaded first is accepted only when it passes the same signature checks from version
+0.5.0; otherwise Stonewright registers nothing through it and says which plugin owns it.
 
 ### Companion exposure
 
