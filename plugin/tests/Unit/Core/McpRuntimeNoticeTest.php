@@ -165,6 +165,19 @@ final class McpRuntimeNoticeTest extends TestCase {
 		self::assertSame( '', self::html( 'dashboard', $now + 60 ), 'The dismissed cause is still dismissed.' );
 	}
 
+	public function test_a_user_who_cannot_manage_options_is_refused_with_403_when_dismissing(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [];
+		unset( $GLOBALS['stonewright_test_last_wp_die_response'] );
+
+		try {
+			McpRuntimeNotice::handle_dismiss();
+			self::fail( 'The handler must stop a user who cannot manage options.' );
+		} catch ( \RuntimeException $stop ) {
+			self::assertStringContainsString( 'not allowed to dismiss', $stop->getMessage() );
+		}
+		self::assertSame( 403, $GLOBALS['stonewright_test_last_wp_die_response'] ?? null );
+	}
+
 	public function test_the_dismiss_handler_is_registered_for_administrators_only(): void {
 		McpRuntimeNotice::register();
 
