@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **394 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **397 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -90,7 +90,7 @@ The Setup screen provides client-specific commands and keeps credentials out of 
 
 Counts come from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **394** abilities
+### Plugin mode — **397** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -115,7 +115,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
 | Section reuse | 2 | Find sections the site already has and extract one as a portable payload; the copy is an insert operation of the V3, V4 and block batch writers |
-| Security + sandbox | 15 | Tokens, one-time links, incident repair receipts, rescue status and rollback, sandbox lifecycle |
+| Security + sandbox | 18 | Tokens, one-time links, incident repair receipts, rescue status and rollback, change history list, diff and rollback, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
 | System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
@@ -166,7 +166,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - **Controlled schema learning** — only verified repairs become active, scoped
   to matching Elementor runtimes
 - **Validation and readback** on DesignSpec and major write paths
-- **Audit logging and change history** (Plugin mode)
+- **Audit logging and change history** (Plugin mode): the audit log records what agents did; the change history keeps the content before and after each change, shows it as a diff on **Stonewright > Activity > Changes**, and undoes or redoes a recorded change
 - **Backups and restore workflows** for supported post mutations
 - **Tool-surface and token-budget management** (profiles, priorities, client caps)
 - **Native WooCommerce catalog workflows** with dry-run, permission,
@@ -318,6 +318,7 @@ Typed mutation paths may use combinations of:
 - Rollback or restore workflows where supported
 - Change sets: one `change_set` shape for what a write planned, applied, and missed, with before and after hashes and a rollback reference ([Change set](docs/transactions.md#change-set-changesetv1))
 - Rescue: a change journal, a health probe after risky writes, and an automatic rollback when the site stops loading
+- Change history: the content before and after each change, kept for 90 days, 500 changes and 100 MB by default, with a diff view and undo or redo of any restorable change ([Rescue](docs/rescue.md#change-history-ledger))
 
 Not every surface uses every gate. Prefer typed abilities over unrestricted PHP when a typed path exists. Read [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 
@@ -326,6 +327,10 @@ Not every surface uses every gate. Prefer typed abilities over unrestricted PHP 
 Before a risky change, Stonewright records how to undo it. Afterwards it asks the site whether it still loads, rolls the change back when it does not, and tells the agent what happened. A change it cannot undo stays open as an incident that an administrator or an agent can finish from **Stonewright > Activity > Rescue**, `stonewright-rescue-rollback`, or `wp stonewright rescue`.
 
 Rescue covers post, option, theme-file, plugin, sandbox, and custom-code writes made through Stonewright abilities. A health probe that cannot reach the site reports it as unavailable and never as healthy. Rescue cannot fix a fatal in WordPress core or `wp-config.php`, or a database that is down. See [Rescue](docs/rescue.md).
+
+### Change history
+
+Stonewright records each change it makes to posts, Elementor documents, options, menus, widgets, theme and custom code, users, comments, media, WooCommerce items, skills, design directions and memory, with the content before and after it. Secrets are never stored and other credentials are masked. **Stonewright > Activity > Changes** lists the history with filters, shows one change as a diff, and undoes it or redoes an undo; the undo writes the content back through the path the original write used and probes the site afterwards, and puts the earlier state back if the site stops loading. An administrator at the page approves the undo of code; an agent or WP-CLI call gets an approval-required answer. `stonewright-change-history-list`, `stonewright-change-diff-get`, `stonewright-change-rollback` and `wp stonewright changes` do the same for agents and operators. History is kept for 90 days, 500 changes and 100 MB by default. See [Rescue](docs/rescue.md#change-history-ledger) and [Changes](docs/admin/changes.md).
 
 ### Section reuse
 
@@ -414,6 +419,10 @@ flowchart TD
     RescueIncident["Rescue incident: rollback failed or PHP fatal recorded"]
     Helper["Must-use rescue helper: fatal capture and safe mode"]
     Undo["Undo of the last 50 verified changes, code only by an administrator in wp-admin"]
+    Ledger["Change history: content before and after each change, 90 days, 500 changes, 100 MB"]
+    ChangesPage["Changes page: filters, diff, Undo and Redo"]
+    ChangeUndo["Undo or redo of any recorded change, code only by an administrator in wp-admin"]
+    ChangeTools["Change abilities and WP-CLI: list, diff, rollback"]
   end
 
   WordPress["WordPress core, REST, Gutenberg/FSE, content, WooCommerce"]
@@ -452,6 +461,16 @@ flowchart TD
   RescueIncident -->|"audit row"| Audit
   Journal -. "last 50 changes" .-> Undo
   Undo -->|"same recipe"| Rollback
+  Plugin -->|"records before and after"| Ledger
+  Journal -. "state of each change" .-> Ledger
+  Ledger --> ChangesPage --> ChangeUndo
+  Plugin --> ChangeTools
+  ChangeTools -->|"history, diff"| Ledger
+  ChangeTools -->|"rollback, code is refused"| ChangeUndo
+  ChangeUndo -->|"original write path, then probe"| WordPress
+  ChangeUndo -->|"rollback or redo row"| Ledger
+  ChangeUndo -->|"one audit row per call"| Audit
+  ChangeUndo -. "open Rescue entry: Rescue rollback" .-> Rollback
   Client -. "provider choice plus scan/install consent" .-> Browser
   Browser -. "rendered verification or approved dashboard action" .-> WordPress
 ```
@@ -487,7 +506,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **394** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -531,7 +550,7 @@ repository follow the common MCP server JSON shape used by several clients.
 Plugin mode admin pages are grouped into six hubs under **Stonewright**: Overview,
 Setup (Setup and Troubleshoot), AI Abilities, Knowledge (Skills, Memory, Context,
 Design and Prompt library), Custom code (Drafts, Library, Active, Crash recovery and
-Approvals) and Activity (Audit log, Block queue and Rescue); see
+Approvals) and Activity (Audit log, Block queue, Rescue and Changes); see
 [docs/admin/navigation.md](docs/admin/navigation.md). The Audit log is the single
 responsive incident view; Custom code does not duplicate it. The admin ships one
 supported light theme; there is no theme toggle. Its maintained tokens,

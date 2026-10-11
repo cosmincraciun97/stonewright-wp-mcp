@@ -15,6 +15,8 @@ use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
@@ -122,6 +124,70 @@ final class UninstallerTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Adds the change history blobs, two compressed images and the files that close their folder, to a state folder.
+	 *
+	 * @return string The blob folder.
+	 */
+	private static function add_blobs( string $state ): string {
+		$blobs = $state . '/blobs';
+		mkdir( $blobs, 0777, true );
+		foreach ( [ 'first synthetic image', 'second synthetic image' ] as $image ) {
+			file_put_contents( $blobs . '/' . hash( 'sha256', $image ) . '.gz', (string) gzencode( $image ) );
+		}
+		file_put_contents( $blobs . '/' . str_repeat( 'c', 64 ) . '.gz.tmp-0a1b2c3d', 'half written' );
+		file_put_contents( $blobs . '/.htaccess', 'Require all denied' );
+		file_put_contents( $blobs . '/index.php', "<?php\n// Silence is golden.\n" );
+		file_put_contents( $blobs . '/web.config', '<configuration />' );
+		return $blobs;
+	}
+
+	public function test_a_full_removal_erases_the_change_history_blobs_with_the_folders_that_held_them(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		self::add_blobs( $state );
+		$wpdb = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertDirectoryDoesNotExist( $state . '/blobs', 'the blobs and their deny files are gone' );
+			self::assertDirectoryDoesNotExist( $state, 'and the state folder with them, as nothing else is in it' );
+			self::assertDirectoryExists( $uploads, 'the uploads folder itself stays' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_a_full_removal_leaves_a_file_in_the_blob_folder_that_is_not_a_blob(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		$blobs = self::add_blobs( $state );
+		file_put_contents( $blobs . '/notes.txt', 'put here by someone else' );
+		$wpdb = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertFileExists( $blobs . '/notes.txt' );
+			self::assertSame( [], glob( $blobs . '/*.gz*' ) ?: [], 'every blob and temporary file is gone' );
+			self::assertDirectoryExists( $state, 'a folder that still holds a foreign file stays' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_removing_only_the_code_keeps_the_change_history_blobs(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		$blobs = self::add_blobs( $state );
+
+		try {
+			Uninstaller::remove_code();
+
+			self::assertCount( 2, glob( $blobs . '/*.gz' ) ?: [], 'the blobs are data and stay' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
 	public function test_removing_only_the_code_keeps_the_journal_files(): void {
 		[ $uploads, $state ] = self::site_with_state_files();
 
@@ -160,7 +226,7 @@ final class UninstallerTest extends TestCase {
 		sort( $expected );
 		sort( $drops );
 		self::assertSame( $expected, $drops );
-		self::assertCount( 18, $drops );
+		self::assertCount( 19, $drops );
 	}
 
 	public function test_the_oauth_signing_and_encryption_keys_go_with_the_other_options(): void {
@@ -239,6 +305,7 @@ final class UninstallerTest extends TestCase {
 		$defined = [
 			Memory::table_name(),
 			AuditLog::table_name(),
+			ChangeLedger::table_name(),
 			IncidentStore::table_name(),
 			CandidateTable::table_name(),
 			DesignDirectionsTable::table_name(),
@@ -282,6 +349,7 @@ final class UninstallerTest extends TestCase {
 				'Knowledge/Lifecycle/CandidateTable.php'            => 1,
 				'Memory/Memory.php'                                 => 1,
 				'Security/AuditLog.php'                             => 1,
+				'Security/ChangeLedger.php'                          => 1,
 				'Security/IncidentStore.php'                        => 1,
 				'SkillLibrary/Site/SkillTables.php'                 => 2,
 			],
@@ -293,12 +361,12 @@ final class UninstallerTest extends TestCase {
 	public function test_the_event_list_matches_the_events_the_plugin_schedules(): void {
 		$scheduling = array_keys( array_filter( self::sources(), static fn ( string $code ): bool => 1 === preg_match( '/\bwp_schedule_(single_)?event\(/', $code ) ) );
 		$hooks = Uninstaller::SCHEDULED_HOOKS;
-		$known = [ Housekeeping::HOOK, AuditLog::RETENTION_HOOK ];
+		$known = [ Housekeeping::HOOK, AuditLog::RETENTION_HOOK, ChangeLedgerRetention::HOOK ];
 		sort( $hooks );
 		sort( $known );
 
 		self::assertSame( $known, $hooks );
-		self::assertSame( [ 'Authorization/WordPress/AuthorizationLifecycle.php', 'Security/AuditLog.php' ], $scheduling, 'A file that schedules an event is new or gone: update Uninstaller::SCHEDULED_HOOKS and this list.' );
+		self::assertSame( [ 'Authorization/WordPress/AuthorizationLifecycle.php', 'Security/AuditLog.php', 'Security/ChangeLedgerRetention.php' ], $scheduling, 'A file that schedules an event is new or gone: update Uninstaller::SCHEDULED_HOOKS and this list.' );
 	}
 
 	public function test_every_option_and_transient_name_the_plugin_writes_is_covered_or_known_to_be_foreign(): void {

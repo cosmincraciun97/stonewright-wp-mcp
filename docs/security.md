@@ -197,6 +197,7 @@ A change that leaves the site failing is recorded in the change journal and roll
 - Evidence holds leg names, statuses, HTTP codes, and short reasons. It never holds a URL, a header, or a response body, and the journal redacts secrets before it writes anything.
 - `stonewright/rescue-rollback` needs `manage_options`, a confirmation token in production-safe mode (bound to the ability, the arguments, and the user), and records its outcome in the audit log and on the change set. The Rescue page and `wp stonewright rescue` hold the same rules.
 - A verified change can be rolled back, but a verified change to code (a theme file, a custom-code snippet, a sandbox file or the Customizer CSS) is rolled back only by an administrator at the Rescue page. The ability, the REST route and WP-CLI refuse it with `stonewright_rescue_approval_required`, and a confirmation token does not lift the refusal.
+- `stonewright/change-rollback` (undo or redo from the change history), `stonewright/change-history-list` and `stonewright/change-diff-get` need `manage_options`. The rollback engine verifies the production-safe confirmation token itself, once, over the change id, `force_drift`, `expected_current_sha256` and `permanent`; the ability does not verify it again. An undo of code is never run on an ability or WP-CLI call: the answer is `stonewright_rescue_approval_required`, and only an administrator pressing Undo on the Changes page approves it. The list and the diff return short rows and masked, capped diffs, never a stored image, a blob name or a whole hash.
 - The undo of a verified change saves the current state first and refuses with `stonewright_rescue_undo_capture_failed` when it cannot, probes the site before and after, and puts the saved state back with `stonewright_rescue_undo_reverted` when the undo made a working site fail. An incident or an unverified change is rolled back as before.
 - The journal folder is closed to web access with `.htaccess`, `web.config`, and a blank `index.php`, and the journal file name is random.
 
@@ -290,9 +291,9 @@ history, and settings stay in the database. Defining
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
 table, every `stonewright_` option (the OAuth signing and encryption keys
 included), every `stonewright_` and `sw_cc_` transient, and the scheduled
-events, on every site of a network, and the change journal files in
-`uploads/stonewright-state/` (a file in that folder that Stonewright did not write
-stays). See
+events, on every site of a network, and the change journal files and change
+history blobs in `uploads/stonewright-state/` (a file in those folders that
+Stonewright did not write stays). See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
 

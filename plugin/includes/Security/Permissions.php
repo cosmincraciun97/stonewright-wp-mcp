@@ -208,6 +208,10 @@ final class Permissions {
 		return current_user_can( 'delete_users' );
 	}
 
+	public static function promote_users(): bool {
+		return current_user_can( 'promote_users' );
+	}
+
 	public static function switch_themes(): bool {
 		return current_user_can( 'switch_themes' );
 	}

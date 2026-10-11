@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Memory;
 
+use Stonewright\WpMcp\Security\Adapters\MemoryAdapter;
 use Stonewright\WpMcp\Security\SensitiveContent;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
@@ -214,7 +215,10 @@ final class Memory {
 
 	public static function delete( string $scope, string $key ): void {
 		global $wpdb;
-		$wpdb->delete( self::table_name(), [ 'scope' => $scope, 'memory_key' => $key ], [ '%s', '%s' ] );
+		$id   = self::find_id( $scope, $key );
+		$held = $id > 0 ? MemoryAdapter::before_delete( $id ) : null;
+		$rows = $wpdb->delete( self::table_name(), [ 'scope' => $scope, 'memory_key' => $key ], [ '%s', '%s' ] );
+		MemoryAdapter::after_delete( $id, $held, false !== $rows && $rows > 0 );
 	}
 
 	/**
@@ -609,8 +613,55 @@ final class Memory {
 	 */
 	public static function delete_by_id( int $id ): bool {
 		global $wpdb;
-		$result = $wpdb->delete( self::table_name(), [ 'id' => $id ], [ '%d' ] );
-		return ( false !== $result && $result > 0 );
+		// The change ledger keeps the whole row, so that the delete can be undone.
+		$held    = MemoryAdapter::before_delete( $id );
+		$result  = $wpdb->delete( self::table_name(), [ 'id' => $id ], [ '%d' ] );
+		$deleted = ( false !== $result && $result > 0 );
+		MemoryAdapter::after_delete( $id, $held, $deleted );
+		return $deleted;
+	}
+
+	/**
+	 * Insert an entry again under the id it had, with its dates. For the change ledger, which restores an entry
+	 * that was deleted. The entry is as get_by_id() returns it.
+	 *
+	 * @param int                  $id    The id the entry had.
+	 * @param array<string, mixed> $entry The entry.
+	 * @return string An empty string when the entry was inserted, or why not: memory_id_in_use, memory_key_in_use or memory_restore_failed.
+	 */
+	public static function restore_entry( int $id, array $entry ): string {
+		global $wpdb;
+		$scope = isset( $entry['scope'] ) ? (string) $entry['scope'] : '';
+		$key   = isset( $entry['memory_key'] ) ? (string) $entry['memory_key'] : '';
+		if ( $id < 1 || '' === $scope || '' === $key ) {
+			return 'memory_restore_failed';
+		}
+		if ( null !== self::get_by_id( $id ) ) {
+			return 'memory_id_in_use';
+		}
+		if ( self::find_id( $scope, $key ) > 0 ) {
+			return 'memory_key_in_use';
+		}
+		$created = isset( $entry['created_at'] ) && '' !== (string) $entry['created_at'] ? (string) $entry['created_at'] : current_time( 'mysql', true );
+		$data    = [
+			'id'                  => $id,
+			'scope'               => $scope,
+			'type'                => self::sanitize_type( (string) ( $entry['type'] ?? 'generic' ) ),
+			'name'                => self::sanitize_name( (string) ( $entry['name'] ?? '' ) ),
+			'memory_key'          => $key,
+			'value_json'          => Json::encode( $entry['value'] ?? [] ),
+			'confidence'          => (float) ( $entry['confidence'] ?? 1.0 ),
+			'topic'               => sanitize_text_field( (string) ( $entry['topic'] ?? '' ) ),
+			'version_fingerprint' => sanitize_text_field( (string) ( $entry['version_fingerprint'] ?? '' ) ),
+			'expires_at'          => self::sanitize_expiry( $entry['expires_at'] ?? '' ),
+			'status'              => self::sanitize_status( $entry['status'] ?? 'active', 'active' ),
+			'precedence'          => max( -1000, min( 1000, (int) ( $entry['precedence'] ?? 0 ) ) ),
+			'created_by'          => get_current_user_id(),
+			'created_at'          => $created,
+			'updated_at'          => isset( $entry['updated_at'] ) && '' !== (string) $entry['updated_at'] ? (string) $entry['updated_at'] : $created,
+		];
+		$inserted = $wpdb->insert( self::table_name(), $data, [ '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s' ] );
+		return false === $inserted ? 'memory_restore_failed' : '';
 	}
 
 	/**

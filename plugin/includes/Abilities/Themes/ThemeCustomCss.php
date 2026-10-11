@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Core\MethodRouter;
+use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
@@ -254,8 +255,20 @@ final class ThemeCustomCss extends AbilityKernel {
 				if ( $post instanceof \WP_Post && $post->ID > 0 ) {
 					$backup_ref = Backup::snapshot_post( (int) $post->ID );
 				}
+				// The history keeps the CSS as it is, also on a first save, when there is no custom CSS post to snapshot.
+				$change = CodeAdapter::begin(
+					[
+						'ability_fallback' => $this->name(),
+						'family'           => 'custom_code',
+						'resource_type'    => 'customizer_css',
+						'resource_id'      => '' !== $stylesheet ? $stylesheet : 'active-theme',
+						'before'           => $before,
+						'summary'          => (string) self::change_summary( $path, $before, $after, $changed_bytes )['summary'],
+					]
+				);
 				$result = wp_update_custom_css_post( $after );
 				if ( is_wp_error( $result ) ) {
+					CodeAdapter::finish( $change, 'failed' );
 					return $result;
 				}
 
@@ -264,6 +277,7 @@ final class ThemeCustomCss extends AbilityKernel {
 				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 					$rollback        = wp_update_custom_css_post( $before );
 					$rollback_status = is_wp_error( $rollback ) || (string) wp_get_custom_css() !== $before ? 'failed' : 'restored';
+					CodeAdapter::finish( $change, 'restored' === $rollback_status ? 'rolled_back' : 'rollback_failed' );
 					return new \WP_Error(
 						'stonewright_custom_css_readback_mismatch',
 						__( 'Customizer CSS readback did not match the approved candidate. Rollback attempted.', 'stonewright' ),
@@ -282,6 +296,8 @@ final class ThemeCustomCss extends AbilityKernel {
 						]
 					);
 				}
+
+				CodeAdapter::applied( $change, $readback );
 
 				return [
 					'ok'                  => true,

@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**394** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**397** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -13,7 +13,7 @@ matrix after changing the registry.
 | Category | Count | Scope |
 |---|---:|---|
 | Section reuse | 2 | Find sections the site already has and extract one as a portable payload. The copy itself is an insert operation of the V3, V4 and block batch writers. |
-| Security | 7 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, and rescue status and rollback. |
+| Security | 10 | Confirmation tokens, audit reconcile, runtime purge, incident repair, one-time links, rescue status and rollback, and change history list, diff and rollback. |
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
@@ -56,6 +56,18 @@ matrix after changing the registry.
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
+
+## Change history
+
+The change history (see [Rescue](rescue.md#change-history-ledger)) is read and acted on through three abilities in the Security category. All need `manage_options`. They return short rows and masked, capped diffs, never a stored copy of the content. The details of each input and answer are in [Rescue](rescue.md#abilities-and-wp-cli).
+
+| Name | Kind | What it does |
+|---|---|---|
+| `stonewright/change-history-list` | Read | Lists changes newest first, one short row each (`change_id`, `time`, `kind`, `family`, `resource_label`, `ability`, `actor`, `status`, `summary`, `restorable` and `restorable_reason`, `parent_id`, `children`). Filters `family`, `resource`, `ability`, `actor`, `status`, `from`, `to`, `restorable` and `kind`; paging `page` and `per_page` (1 to 100, default 25). A filter value that is not allowed is refused with `stonewright_change_history_invalid` and never widens the list. |
+| `stonewright/change-diff-get` | Read | Returns the diff of one change (masked, capped by `max_lines`, 20 to 2000, default 400; `deleted` when the change removed the resource) and a `plan` summary of its undo: `restorable`, `drift`, `newer_changes`, `approval_required`, `requires_force`, `confirmation_required` and the start of `current_sha256`. When an undo cannot run, `plan.available` is false with `error_code`. |
+| `stonewright/change-rollback` | Write | Undoes a change, or redoes a rollback row. Input `change_id`, `dry_run`, `force_drift`, `expected_current_sha256`, `permanent` and `confirmation_token`. Call it with `dry_run` first: the plan, a short diff (counts per part) and, in production-safe mode, `confirmation_args`. Drift is refused unless `force_drift`. In production-safe mode a run needs a token issued for those `confirmation_args`; the engine verifies it once and writes the one audit row of the call. A run probes the site and puts the earlier state back when the probe fails. A change to code is never undone on a call: the answer is `stonewright_rescue_approval_required` with the `approval_url`, and an administrator presses **Undo** on **Stonewright > Activity > Changes**. |
+
+The three are in the `site-admin` tool profile, next to `change-log` and `change-restore` (which keep working on post snapshots). `wp stonewright changes list`, `diff` and `rollback` do the same from the command line.
 
 ## Section reuse
 

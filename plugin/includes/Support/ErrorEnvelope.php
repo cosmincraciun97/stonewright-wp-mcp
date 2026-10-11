@@ -66,15 +66,20 @@ final class ErrorEnvelope {
 	];
 
 	/**
-	 * Errors of a write that Rescue undid. MCP clients receive only the message, so the code and a
-	 * few plain fields are copied into it. Nothing else of the error data is.
+	 * Errors of Rescue: a write it undid, an undo that failed, and an undo of code that waits for an administrator.
+	 * MCP clients receive only the message, so the code and a few plain fields are copied into it. Nothing else of
+	 * the error data is.
 	 *
 	 * @var list<string>
 	 */
 	private const RESCUE_ERROR_CODES = [
 		'stonewright_rescue_write_rolled_back',
 		'stonewright_rescue_rollback_failed',
+		'stonewright_rescue_approval_required',
 	];
+
+	/** Longest approval URL copied into a message. */
+	private const APPROVAL_URL_MAX = 400;
 
 	/**
 	 * Data fields copied into the message of a Rescue error: short identifiers and status words.
@@ -255,7 +260,25 @@ final class ErrorEnvelope {
 				$fields[ $key ] = mb_substr( sanitize_text_field( $data[ $key ] ), 0, 96 );
 			}
 		}
+		$url = self::approval_url( $data );
+		if ( '' !== $url ) {
+			$fields['approval_url'] = $url;
+		}
 		return $fields;
+	}
+
+	/**
+	 * The address of the page where an administrator approves an undo: an http or https URL, kept whole or left out.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function approval_url( array $data ): string {
+		$url = $data['approval_url'] ?? null;
+		if ( ! is_string( $url ) || '' === $url || strlen( $url ) > self::APPROVAL_URL_MAX || 1 !== preg_match( '#^https?://[^\s\x00-\x1F\x7F]+$#i', $url ) ) {
+			return '';
+		}
+		$clean = esc_url_raw( $url, [ 'http', 'https' ] );
+		return $clean === $url ? $url : '';
 	}
 
 	/**

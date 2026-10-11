@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Contract decision: keep output_schema aligned to the handler response shape.
@@ -138,6 +139,7 @@ final class DuplicatePage extends AbilityKernel {
 				if ( is_wp_error( $new_id ) ) {
 					return $new_id;
 				}
+				RescueGuard::note_post_created( (int) $new_id );
 
 				$meta_skipped = [];
 				foreach ( get_post_meta( $id ) as $key => $values ) {

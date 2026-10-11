@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Content;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 
 /**
  * Fast structured content writer for repeated MCP page-build workflows.
@@ -189,11 +190,16 @@ final class BulkUpsertPosts extends AbilityKernel {
 
 					$action = 'created';
 					if ( $id > 0 ) {
+						// This write takes no snapshot: the change ledger keeps the post as it is, with the custom fields the item sets.
+						RescueGuard::note_post_overwrite( $id, array_map( 'sanitize_key', array_map( 'strval', array_keys( (array) ( $item['meta'] ?? [] ) ) ) ) );
 						$payload['ID'] = $id;
 						$result        = wp_update_post( wp_slash( $payload ), true );
 						$action        = 'updated';
 					} else {
 						$result = wp_insert_post( wp_slash( $payload ), true );
+						if ( ! is_wp_error( $result ) ) {
+							RescueGuard::note_post_created( (int) $result );
+						}
 					}
 
 					if ( is_wp_error( $result ) ) {

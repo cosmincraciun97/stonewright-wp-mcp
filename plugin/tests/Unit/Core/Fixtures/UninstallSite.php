@@ -17,6 +17,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 		/** Every table the plugin creates, without the site prefix. */
 		public const PLUGIN_TABLES = [
 			'stonewright_audit_log',
+			'stonewright_changes',
 			'stonewright_design_direction_versions',
 			'stonewright_design_directions',
 			'stonewright_expertise_packs',
@@ -50,6 +51,9 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 			'stonewright_oauth_schema_version',
 			'stonewright_oauth_rate_limit_schema',
 			'stonewright_audit_retention_days',
+			'stonewright_change_ledger_days',
+			'stonewright_change_ledger_prune_receipt',
+			'stonewright_changes_schema_version',
 			'stonewright_skills_db_version',
 			'stonewright_otl_rate_7',
 			'stonewright_elementor_editor_baseline_42',
@@ -90,7 +94,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 		];
 
 		/** Events the plugin schedules. */
-		public const PLUGIN_HOOKS = [ 'stonewright_oauth_gc', 'stonewright_audit_retention' ];
+		public const PLUGIN_HOOKS = [ 'stonewright_oauth_gc', 'stonewright_audit_retention', 'stonewright_change_ledger_prune' ];
 
 		/** Events of WordPress and of other plugins. */
 		public const FOREIGN_HOOKS = [ 'wp_version_check', 'woocommerce_cleanup_sessions' ];

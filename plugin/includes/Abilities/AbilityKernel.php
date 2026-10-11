@@ -116,7 +116,7 @@ abstract class AbilityKernel implements Ability {
 			'ability' => $this->name(),
 			'details' => [],
 		];
-		RescueGuard::enter( $this->name() );
+		RescueGuard::enter( $this->name(), $args );
 		try {
 			$result = $callback( $args );
 		} catch ( \Throwable $_throwable ) {

@@ -28,6 +28,9 @@
 | `stonewright/incident-repair-record` | `stonewright-incident-repair-record` | `Security\IncidentRepairRecord` | Correlates persisted failure and verifier audit events, resolves the matching incident, and promotes one scrubbed reusable repair lesson. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/ConfirmationTokenTest.php` | No | destructive |
 | `stonewright/rescue-status` | `stonewright-rescue-status` | `Security\RescueStatus` | Lists open rescue incidents (a change that left the site failing and could not be rolled back, or a PHP fatal recorded after a change), changes that were armed but never verified, and the latest journaled changes, each with the rollback it would run. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/Security/RescueAbilitiesTest.php` | No | read-only |
 | `stonewright/rescue-rollback` | `stonewright-rescue-rollback` | `Security\RescueRollback` | Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/Security/RescueAbilitiesTest.php` | No | destructive |
+| `stonewright/change-history-list` | `stonewright-change-history-list` | `Security\ChangeHistoryList` | Lists the changes Stonewright recorded on this site, newest first, one short row each: change_id, time, kind (change, rollback or redo), family, resource label, ability, actor, status, summary, whether it can be restored and why not, parent_id and how many rollbacks and redos follow it. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/Abilities/Security/ChangeHistoryListTest.php` | No | read-only |
+| `stonewright/change-diff-get` | `stonewright-change-diff-get` | `Security\ChangeDiffGet` | Returns the diff of one change by change_id: the lines, blocks, elements or fields that differ between the content before and after it, with secrets masked and the size capped (max_lines, default 400; truncated says when anything was left out). | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/Abilities/Security/ChangeDiffGetTest.php` | No | read-only |
+| `stonewright/change-rollback` | `stonewright-change-rollback` | `Security\ChangeRollback` | Undoes one change from the change history, or redoes a rollback (pass the change_id of the rollback row). | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/Abilities/Security/ChangeRollbackAbilityTest.php` | No | destructive |
 | `stonewright/security-create-one-time-link` | `stonewright-security-create-one-time-link` | `Security\CreateOneTimeLink` | Generates a short-lived, single-use admin login URL for browser automation tools. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/ConfirmationTokenTest.php` | No | additive |
 
 ---
@@ -716,7 +719,7 @@ Certification is data-driven: one contract per ability under `plugin/data/elemen
 
 ## Summary
 
-Total abilities registered: **394**
+Total abilities registered: **397**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`
