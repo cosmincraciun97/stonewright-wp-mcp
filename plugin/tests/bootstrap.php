@@ -1068,6 +1068,12 @@ if ( ! function_exists( 'get_template' ) ) {
 	}
 }
 
+if ( ! function_exists( 'is_child_theme' ) ) {
+	function is_child_theme(): bool {
+		return get_stylesheet() !== get_template();
+	}
+}
+
 if ( ! function_exists( 'get_stylesheet_directory' ) ) {
 	function get_stylesheet_directory(): string {
 		if ( ! empty( $GLOBALS['stonewright_test_stylesheet_directory'] ) ) {

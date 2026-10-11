@@ -121,6 +121,36 @@ final class ThemeJsonHandoffTest extends TestCase {
 		self::assertSame( $before, (string) file_get_contents( $this->theme_dir . '/theme.json' ) );
 	}
 
+	public function test_refuses_when_the_active_theme_is_not_a_child_theme(): void {
+		$GLOBALS['stonewright_test_template'] = 'sw-child';
+		$before = (string) file_get_contents( $this->theme_dir . '/theme.json' );
+		$args   = [
+			'theme_json' => [ 'version' => 3, 'settings' => [ 'color' => [ 'custom' => false ] ] ],
+			'native_gap' => [
+				'reason'        => 'User global styles cannot own child-theme theme.json tokens.',
+				'methods_tried' => [ 'typed_api' ],
+			],
+		];
+
+		foreach ( [ true, false ] as $dry_run ) {
+			$result = ( new ThemeJsonHandoff() )->execute( [ 'dry_run' => $dry_run ] + $args );
+
+			self::assertInstanceOf( \WP_Error::class, $result, $dry_run ? 'dry run' : 'apply' );
+			self::assertSame( 'stonewright_child_theme_required', $result->get_error_code() );
+			self::assertSame( $before, (string) file_get_contents( $this->theme_dir . '/theme.json' ) );
+		}
+	}
+
+	public function test_the_refusal_comes_before_a_production_safe_token_is_asked_for(): void {
+		$GLOBALS['stonewright_test_template']                    = 'sw-child';
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new ThemeJsonHandoff() )->execute( [ 'dry_run' => false, 'theme_json' => [ 'version' => 3 ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_child_theme_required', $result->get_error_code() );
+	}
+
 	public function test_rejects_invalid_theme_json_on_dry_run(): void {
 		$result = ( new ThemeJsonHandoff() )->execute(
 			[

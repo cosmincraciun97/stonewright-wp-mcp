@@ -289,6 +289,18 @@ function restoreBody(spec: RestoreSpec, stored: Record<string, unknown>): Record
 	return body;
 }
 
+/**
+ * Meta keys the resource holds now that the backup does not. A restore writes the saved meta back
+ * over the current one and removes nothing, so these keys stay. Null when either side has no meta
+ * to compare (templates and global styles).
+ */
+function metaNotInBackup(stored: Record<string, unknown>, current: unknown): string[] | null {
+	const saved = rawOf(stored['meta']);
+	const now = isRecord(current) ? rawOf(current['meta']) : undefined;
+	if (!isRecord(saved) || !isRecord(now)) return null;
+	return Object.keys(now).filter((key) => !(key in saved));
+}
+
 function resourceLabel(restPath: string): string {
 	return decodeURIComponent(restPath.replace(/^\/wp\/v2\//, ''));
 }
@@ -399,6 +411,8 @@ async function restorePreImage(
 	}
 	const differing = compareSent(body, current).mismatched;
 	const label = resourceLabel(restPath);
+	const extraMeta = metaNotInBackup(stored, current);
+	const extraMetaField = extraMeta === null ? {} : { meta_not_in_backup: extraMeta };
 
 	if (opts.dryRun) {
 		return {
@@ -409,10 +423,11 @@ async function restorePreImage(
 			integrity: found.integrity,
 			would_change: differing,
 			fields_in_backup: Object.keys(body),
+			...extraMetaField,
 		};
 	}
 	if (differing.length === 0) {
-		return { ok: true, restored: false, unchanged: true, restored_from: found.id, resource: label, message: 'The resource already matches this backup; nothing was written.' };
+		return { ok: true, restored: false, unchanged: true, restored_from: found.id, resource: label, message: 'The resource already matches this backup; nothing was written.', ...extraMetaField };
 	}
 
 	// Save the state as it is now, so this restore can itself be undone.
@@ -462,6 +477,7 @@ async function restorePreImage(
 		resource: label,
 		restored_fields: Object.keys(body),
 		matches_backup: verification.after_sha256 !== null && verification.after_sha256 === stateHash(stored),
+		...extraMetaField,
 		...undo,
 	};
 	return attachVerification(result, verification, { backupId: undo.backup_id });

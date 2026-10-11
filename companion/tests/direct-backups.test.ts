@@ -105,6 +105,30 @@ describe('direct backup list and restore', () => {
 		expect(restored['matches_backup']).toBe(true);
 	});
 
+	it('lists the meta keys added after the backup, which a restore does not remove', async () => {
+		const wp = makeFakeWp({ '/wp/v2/pages/4': pageRow(4, { meta: { kept_key: 'a' } }) });
+		const written = (await contentUpdate(ctx(wp), { id: 4, content: '<p>new</p>' })) as Row;
+		const page = wp.store.get('/wp/v2/pages/4') as { meta: Row };
+		page.meta = { ...page.meta, added_later: 'x' };
+
+		const dry = (await backupRestore(ctx(wp), { backup_id: String(written['backup_id']), dry_run: true })) as Row;
+		expect(dry['meta_not_in_backup']).toEqual(['added_later']);
+
+		const restored = (await backupRestore(ctx(wp), { backup_id: String(written['backup_id']), confirm: true })) as Row;
+		expect(restored['ok']).toBe(true);
+		expect(restored['meta_not_in_backup']).toEqual(['added_later']);
+		expect(restored['matches_backup']).toBe(false);
+		expect((wp.store.get('/wp/v2/pages/4') as { meta: Row }).meta).toMatchObject({ kept_key: 'a', added_later: 'x' });
+	});
+
+	it('reports no extra meta keys when the page holds only what the backup holds', async () => {
+		const wp = makeFakeWp({ '/wp/v2/pages/4': pageRow(4, { meta: { kept_key: 'a' } }) });
+		const written = (await contentUpdate(ctx(wp), { id: 4, content: '<p>new</p>' })) as Row;
+		const restored = (await backupRestore(ctx(wp), { backup_id: String(written['backup_id']), confirm: true })) as Row;
+		expect(restored['meta_not_in_backup']).toEqual([]);
+		expect(restored['matches_backup']).toBe(true);
+	});
+
 	it('takes a pre-image of the current state first, so the restore can be undone', async () => {
 		const wp = makeFakeWp({ '/wp/v2/pages/4': pageRow(4) });
 		const written = (await contentUpdate(ctx(wp), { id: 4, content: '<p>new</p>' })) as Row;

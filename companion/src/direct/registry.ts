@@ -1911,7 +1911,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-learning-record',
-		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory. Call it when the user corrects you or a repeatable mistake is detected (a write that failed and was later fixed on the same resource returns a learning_offer: ask the user first). confidence (0 to 1) and the time of recording rank the lesson at recall. A draft_skill is stored disabled. The backend field of the answer says which store kept it.',
+		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory. Call it when the user corrects you or a repeatable mistake is detected (a write that failed and was later fixed on the same resource returns a learning_offer: ask the user first). confidence (0 to 1) and the time of recording rank the lesson at recall. A draft_skill is stored disabled. A lesson whose text tells an agent to override the plugin rules or move credentials is stored with status needs_review (needs_review:true in the answer): it is not offered at task start, drafts no skill, and waits for a person to clear it. The backend field of the answer says which store kept it.',
 		{
 			site: siteArg,
 			topic: z.string().min(1).optional(),
@@ -1937,7 +1937,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-incident-repair-record',
-		'Record a Direct incident repair only when persisted failure and independent verifier events correlate exactly. Otherwise returns guidance_only without learning.',
+		'Record a Direct incident repair only when persisted failure and independent verifier events correlate exactly. Otherwise returns guidance_only without learning. A recipe that tells an agent to override the plugin rules or move credentials is stored with status needs_review (needs_review:true, learning_status needs_review): the incident is still resolved, but the lesson is not offered at task start until a person clears it.',
 		{
 			site: siteArg,
 			incident_id: z.string().length(64),
@@ -2091,7 +2091,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-direct-backup-restore',
-		'Put a saved copy back (Direct mode). Needs a confirmation (confirmation_id from a first call, or confirm:true on local sites). Checks the hash stored with the backup (a file that was edited is refused), checks the resource still exists (nothing is recreated), saves the current state first so the restore can be undone (the result returns its backup_id), writes the saved fields back through the same REST route, reads the resource back and compares (verification), and audits it. dry_run:true shows what would change and needs no confirm. expected_sha256 is the backup_sha256 the original write returned; it is required only for a backup that has no stored hash. A restore puts back what was on the site, so custom code in the saved copy is not screened again.',
+		'Put a saved copy back (Direct mode). Needs a confirmation (confirmation_id from a first call, or confirm:true on local sites). Checks the hash stored with the backup (a file that was edited is refused), checks the resource still exists (nothing is recreated), saves the current state first so the restore can be undone (the result returns its backup_id), writes the saved fields back through the same REST route, reads the resource back and compares (verification), and audits it. A restore writes the saved meta back over the current meta and deletes no key, so a meta key added after the backup stays; the result lists those keys as meta_not_in_backup, and matches_backup can be false after a correct restore. dry_run:true shows what would change and needs no confirm. expected_sha256 is the backup_sha256 the original write returned; it is required only for a backup that has no stored hash. A restore puts back what was on the site, so custom code in the saved copy is not screened again.',
 		{
 			site: siteArg,
 			backup_id: z.string().min(1),

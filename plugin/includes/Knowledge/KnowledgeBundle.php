@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Knowledge;
 
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
@@ -45,14 +46,18 @@ final class KnowledgeBundle {
 	 * is stored in any state, the trash included, or reserved for a built-in skill
 	 * is skipped, and so is an entry the library refuses.
 	 *
+	 * Memory entries go through the same instruction screen as a memory save. An entry whose text tells an agent to
+	 * override the plugin rules is stored with the status needs_review, whatever status the bundle gives it.
+	 *
 	 * @param array<string, mixed> $bundle
-	 * @return array{instructions_imported: int, memory_imported: int, skills_imported: int, skills_skipped: array<int, string>}
+	 * @return array{instructions_imported: int, memory_imported: int, memory_needs_review: int, skills_imported: int, skills_skipped: array<int, string>}
 	 */
 	public static function import( array $bundle ): array {
 		self::assert_supported_bundle( $bundle );
 
 		$instructions_imported = 0;
 		$memory_imported       = 0;
+		$memory_needs_review   = 0;
 		$skills_imported       = 0;
 		$skills_skipped        = [];
 
@@ -83,16 +88,20 @@ final class KnowledgeBundle {
 					if ( '' === $key ) {
 						continue;
 					}
+					$name  = (string) ( $entry['name'] ?? $key );
+					$topic = (string) ( $entry['topic'] ?? $entry['name'] ?? $key );
+					// The bundle is text from elsewhere: the screen of a memory save reads the name, the topic and the value.
+					$flagged = [] !== MemoryScreen::blocking_rules( $name . "\n" . $topic, $entry['value'] ?? null );
 					$id = Memory::put_typed(
 						(string) ( $entry['type'] ?? 'generic' ),
 						(string) ( $entry['scope'] ?? 'default' ),
 						$key,
-						(string) ( $entry['name'] ?? $key ),
+						$name,
 						$entry['value'] ?? null,
 						(float) ( $entry['confidence'] ?? 1.0 ),
 						[
-							'topic'                 => (string) ( $entry['topic'] ?? $entry['name'] ?? $key ),
-							'status'                => (string) ( $entry['status'] ?? 'active' ),
+							'topic'                 => $topic,
+							'status'                => $flagged ? MemoryScreen::NEEDS_REVIEW : (string) ( $entry['status'] ?? 'active' ),
 							'precedence'            => (int) ( $entry['precedence'] ?? 0 ),
 							'version_fingerprint'   => (string) ( $entry['version_fingerprint'] ?? '' ),
 							'expires_at'            => $entry['expires_at'] ?? null,
@@ -100,6 +109,9 @@ final class KnowledgeBundle {
 					);
 					if ( $id > 0 ) {
 						++$memory_imported;
+						if ( $flagged ) {
+							++$memory_needs_review;
+						}
 					}
 				}
 			}
@@ -140,6 +152,7 @@ final class KnowledgeBundle {
 		return [
 			'instructions_imported' => $instructions_imported,
 			'memory_imported'       => $memory_imported,
+			'memory_needs_review'   => $memory_needs_review,
 			'skills_imported'       => $skills_imported,
 			'skills_skipped'        => $skills_skipped,
 		];

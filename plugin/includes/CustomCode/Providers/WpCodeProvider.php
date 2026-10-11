@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\CustomCode\Providers;
 
+use Stonewright\WpMcp\CustomCode\GrantedRollbackInterface;
 use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
 use Stonewright\WpMcp\CustomCode\ProviderSupport;
@@ -16,7 +17,7 @@ use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
  * Uses WPCode public snippet APIs when present — never blind table writes.
  * Supported when `wpcode()` / `WPCode` / `wpcode_get_snippet` surfaces are available.
  */
-final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface, RestoresBodyInterface {
+final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface, RestoresBodyInterface, GrantedRollbackInterface {
 
 	public const PLUGIN_FILE = 'insert-headers-and-footers/ihaf.php';
 	public const PLUGIN_FILE_ALT = 'wpcode-premium/wpcode.php';
@@ -391,6 +392,58 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 
 	/** @param array<string, mixed> $args */
 	public function rollback( array $args ) {
+		$resolved = $this->resolve_rollback( $args );
+		if ( $resolved instanceof \WP_Error ) {
+			return $resolved;
+		}
+		$snapshot_id = $resolved['snapshot_id'];
+		$target      = $resolved['target'];
+		$snap        = $resolved['snapshot'];
+		$snippet     = $resolved['snippet'];
+
+		$restored = $this->write_body_back( $snippet, $target, (string) $snap['body'], array_key_exists( 'active', $snap ) ? (bool) $snap['active'] : null );
+		if ( $restored instanceof \WP_Error ) {
+			return $restored;
+		}
+		return [
+			'ok'                  => true,
+			'rolled_back'         => true,
+			'provider'            => $this->id(),
+			'target_id'           => $target,
+			'snapshot_id'         => $snapshot_id,
+			'effect_verified'     => $restored['effect_verified'],
+			'verification_status' => $restored['verification_status'],
+			'before_sha256'       => (string) $snap['before_sha256'],
+		];
+	}
+
+	/**
+	 * The restore a rollback of these arguments would make, without making it.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{path: string, language: string, before: string, after: string}|\WP_Error
+	 */
+	public function rollback_candidate( array $args ) {
+		$resolved = $this->resolve_rollback( $args );
+		if ( $resolved instanceof \WP_Error ) {
+			return $resolved;
+		}
+		$language = sanitize_key( (string) $resolved['snippet']['language'] );
+		return [
+			'path'     => $this->path_for( $resolved['target'] ),
+			'language' => in_array( $language, [ 'php', 'css', 'js', 'html' ], true ) ? $language : 'php',
+			'before'   => (string) $resolved['snippet']['code'],
+			'after'    => (string) $resolved['snapshot']['body'],
+		];
+	}
+
+	/**
+	 * The snapshot and the snippet a rollback acts on, checked the same way for the restore and for its plan.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{snapshot_id: string, target: string, snapshot: array<string, mixed>, snippet: array{id:string,title:string,code:string,language:string,active:bool}}|\WP_Error
+	 */
+	private function resolve_rollback( array $args ) {
 		$snapshot_id = sanitize_text_field( (string) ( $args['snapshot_id'] ?? '' ) );
 		$target      = sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) );
 		$snap        = ProviderSupport::load_snapshot( $snapshot_id );
@@ -421,20 +474,7 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 		if ( $snippet instanceof \WP_Error ) {
 			return $snippet;
 		}
-		$restored = $this->write_body_back( $snippet, $target, (string) $snap['body'], array_key_exists( 'active', $snap ) ? (bool) $snap['active'] : null );
-		if ( $restored instanceof \WP_Error ) {
-			return $restored;
-		}
-		return [
-			'ok'                  => true,
-			'rolled_back'         => true,
-			'provider'            => $this->id(),
-			'target_id'           => $target,
-			'snapshot_id'         => $snapshot_id,
-			'effect_verified'     => $restored['effect_verified'],
-			'verification_status' => $restored['verification_status'],
-			'before_sha256'       => (string) $snap['before_sha256'],
-		];
+		return [ 'snapshot_id' => $snapshot_id, 'target' => $target, 'snapshot' => $snap, 'snippet' => $snippet ];
 	}
 
 	/**

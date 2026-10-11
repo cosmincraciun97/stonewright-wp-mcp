@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Memory;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
@@ -28,7 +29,7 @@ final class LearningRecord extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Writes a persistent lesson when the user corrects the agent or the agent detects a repeatable mistake. Returns a verified receipt after readback. Skill generation is opt-in and creates a disabled draft that must pass promotion gates.', 'stonewright' );
+		return __( 'Writes a persistent lesson when the user corrects the agent or the agent detects a repeatable mistake. Returns a verified receipt after readback. Skill generation is opt-in and creates a disabled draft that must pass promotion gates. A lesson whose text tells an agent to override the plugin rules or move credentials is stored with status needs_review (needs_review:true), is not offered at task start, drafts no skill, and waits for an administrator to approve it on the Memory page.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -146,6 +147,9 @@ final class LearningRecord extends AbilityKernel {
 				'skill_id'         => [ 'type' => [ 'integer', 'null' ] ],
 				'skill_slug'       => [ 'type' => [ 'string', 'null' ] ],
 				'skill_status'     => [ 'type' => [ 'string', 'null' ] ],
+				'needs_review'     => [ 'type' => 'boolean', 'description' => 'Present and true when the lesson was stored for review and is not offered to agents.' ],
+				'status'           => [ 'type' => 'string', 'description' => 'Present with needs_review: needs_review.' ],
+				'review_rules'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
 		];
 	}
@@ -201,6 +205,9 @@ final class LearningRecord extends AbilityKernel {
 					'recorded_at' => current_time( 'mysql', true ),
 				];
 
+				// The same screen as an imported skill. Text that tells an agent to override the rules is stored for review.
+				$review_rules = MemoryScreen::blocking_rules( $topic, $value );
+
 				$memory_id = Memory::put_typed(
 					$memory_type,
 					$scope,
@@ -210,7 +217,7 @@ final class LearningRecord extends AbilityKernel {
 					$confidence,
 					[
 						'topic'      => $topic,
-						'status'     => 'active',
+						'status'     => [] === $review_rules ? 'active' : MemoryScreen::NEEDS_REVIEW,
 						'precedence' => $precedence,
 					]
 				);
@@ -242,12 +249,16 @@ final class LearningRecord extends AbilityKernel {
 					);
 				}
 
+				$needs_review = MemoryScreen::NEEDS_REVIEW === (string) ( $readback['status'] ?? '' );
 				$skill_id    = null;
 				$skill_slug  = null;
 				$skill_error = null;
 				$update_skill = (bool) ( $a['update_skill'] ?? false );
 				$draft      = is_array( $a['draft_skill'] ?? null ) ? $a['draft_skill'] : null;
-				if ( $update_skill || null !== $draft ) {
+				if ( $needs_review && ( $update_skill || null !== $draft ) ) {
+					// A lesson waiting for review does not become a skill draft.
+					$skill_error = 'stonewright_memory_needs_review';
+				} elseif ( $update_skill || null !== $draft ) {
 					$skill_slug = $this->skill_slug(
 						$topic,
 						(string) ( $a['skill_slug'] ?? ( $draft['slug'] ?? '' ) )
@@ -304,6 +315,12 @@ final class LearningRecord extends AbilityKernel {
 				];
 				if ( null !== $skill_error ) {
 					$receipt['skill_error'] = $skill_error;
+				}
+				if ( $needs_review ) {
+					$receipt['needs_review'] = true;
+					$receipt['status']       = MemoryScreen::NEEDS_REVIEW;
+					$receipt['review_rules'] = $review_rules;
+					$receipt['message']      = __( 'Stored for review. The text tells an agent to override the plugin rules or move credentials, so it is not offered at task start until an administrator approves it on the Stonewright Memory page.', 'stonewright' );
 				}
 				return $receipt;
 			}

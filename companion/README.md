@@ -262,6 +262,9 @@ saves the current state first so the restore can be undone (the result returns
 its `backup_id`), writes the stored fields back through the same REST route, reads
 the resource back and compares it, and writes audit rows. Restoring puts back
 what was on the site, so custom code in the saved copy is not screened again.
+Saved meta is written over the current meta and no key is deleted, so a meta key
+added after the backup stays; the result lists those keys as `meta_not_in_backup`,
+and `matches_backup` can be false after a correct restore.
 The names `stonewright-direct-backup-*` are kept apart from the Plugin abilities
 (`backup-restore`, `site-backup-page`, `rescue-*`). They are on the `gutenberg`,
 `content-model`, `elementor-design`, `site-admin` and `full` profiles, not on the
@@ -402,8 +405,14 @@ commands only. In Plugin mode these tools behave as before.
 - Direct cannot activate a skill. A skill saved through Direct (or drafted with
   `learning-record`) is a disabled candidate that is not offered at task start; an
   active skill is changed and approved in Plugin mode.
-- Elementor raw writes have no schema validation, unique-id check or per-post
-  lease or base hash; the readback compares the stored tree with the written one.
+- `learning-record` screens the lesson with the plugin's instruction screen. Text
+  that tells an agent to override the plugin rules, disable confirmation tokens or
+  send credentials elsewhere is stored with the status `needs_review`, not offered
+  at task start, and not cleared by recording it again; a person deletes it or sets
+  its status to `active` in the local memory file.
+- Elementor raw writes have no control-schema validation and no per-post lease.
+  Duplicate element ids are refused, the base hash (`expected_hash`) is optional,
+  and the readback compares the stored tree with the written one.
 - The verifier rows tie a readback to its write, but `stonewright-incident-repair-record`
   still needs a verifier row from a different tool that names the failure it
   repairs, so it returns guidance only until an agent records one.

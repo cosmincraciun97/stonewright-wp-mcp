@@ -158,6 +158,22 @@ final class MemoryPageActionsTest extends TestCase {
 		self::assertSame( 'rejected', $this->table->rows[ $id ]['status'] );
 	}
 
+	public function test_an_administrator_clears_an_entry_that_waits_for_review(): void {
+		$id = $this->table->seed( [ 'type' => 'user', 'memory_key' => 'flagged', 'status' => 'needs_review', 'value_json' => '"kept text"' ] );
+
+		$url = MemoryInstructionsPage::draft_review_submission( $id, 'approve' );
+
+		self::assertSame( 'active', $this->table->rows[ $id ]['status'] );
+		self::assertStringContainsString( 'memory_notice=approved', $url );
+	}
+
+	public function test_an_administrator_can_reject_an_entry_that_waits_for_review(): void {
+		$id = $this->table->seed( [ 'type' => 'user', 'memory_key' => 'flagged', 'status' => 'needs_review' ] );
+
+		self::assertStringContainsString( 'memory_notice=discarded', MemoryInstructionsPage::draft_review_submission( $id, 'discard' ) );
+		self::assertSame( 'rejected', $this->table->rows[ $id ]['status'] );
+	}
+
 	public function test_reviewing_something_that_is_not_a_draft_changes_nothing_and_says_so(): void {
 		$id = $this->table->seed( [ 'memory_key' => 'a', 'status' => 'active' ] );
 
@@ -190,7 +206,7 @@ final class MemoryPageActionsTest extends TestCase {
 			'blocked'    => [ [ 'memory_notice' => 'blocked' ], 'The entry was not saved.', 'sw-ui-notice--danger' ],
 			'invalid'    => [ [ 'memory_notice' => 'invalid' ], 'The entry needs a name and a key.', 'sw-ui-notice--danger' ],
 			'not found'  => [ [ 'memory_notice' => 'not-found' ], 'That memory entry no longer exists.', 'sw-ui-notice--danger' ],
-			'not a draft' => [ [ 'memory_notice' => 'not-draft' ], 'That entry is not a draft, so nothing changed.', 'sw-ui-notice--warn' ],
+			'not a draft' => [ [ 'memory_notice' => 'not-draft' ], 'That entry is not a draft or waiting for review, so nothing changed.', 'sw-ui-notice--warn' ],
 			'settings'   => [ [ 'settings-updated' => 'true' ], 'Settings saved.', 'sw-ui-notice--ok' ],
 			'migrated'   => [ [ 'migrated' => '3' ], '3 legacy feedback entries were classified.', 'sw-ui-notice--ok' ],
 			'none migrated' => [ [ 'migrated' => '0' ], 'No legacy feedback needed classifying.', 'sw-ui-notice--ok' ],
