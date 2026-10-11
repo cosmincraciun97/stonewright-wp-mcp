@@ -26,6 +26,8 @@ function compactTheme(theme: WpTheme) {
     template: theme.template ?? "",
     name: textOf(theme.name),
     status: theme.status ?? "",
+    // The plugin's flag for the same fact as status.
+    active: (theme.status ?? "") === "active",
     version: theme.version ?? "",
     author: textOf(theme.author),
     description: textOf(theme.description),

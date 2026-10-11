@@ -283,7 +283,12 @@ Direct writes require a recent task-start bound to the resolved alias and its
 canonical target identity. Repointing the alias invalidates that write latch;
 the old context cannot create or revoke Application Passwords or perform any
 other write against the new target. Direct audit idempotency and incidents use
-the same canonical identity rather than the alias. Audit-lock recovery checks
+the same canonical identity rather than the alias, and so does Direct memory: a
+lesson is filed under the site's canonical URL, so an alias pointed at another
+site does not inherit the old site's memory. Audit rows for local work
+(`stonewright-command-*`, `stonewright rescue`) carry `backend: local` and open no
+Direct incident; `task-start` counts only the recurring errors of its own site
+from the last 30 days. Audit-lock recovery checks
 boot/process-start ownership and quarantines a stale lock atomically before
 removing it, so PID reuse and replacement-lock races fail closed.
 

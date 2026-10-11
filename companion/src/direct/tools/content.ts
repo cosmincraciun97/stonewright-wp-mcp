@@ -25,10 +25,15 @@ export interface ContentToolContext {
 function contentCodeFindings(input: {
   title?: string | undefined;
   content?: string | undefined;
+  excerpt?: string | undefined;
   meta?: Record<string, unknown> | undefined;
 }) {
   return [
-    ...scanMarkupFields({ title: input.title, content: input.content }),
+    ...scanMarkupFields({
+      title: input.title,
+      content: input.content,
+      excerpt: input.excerpt,
+    }),
     ...scanMeta(input.meta),
   ];
 }
@@ -156,6 +161,11 @@ export async function contentCreate(
     type?: string | undefined;
     title: string;
     content?: string | undefined;
+    excerpt?: string | undefined;
+    slug?: string | undefined;
+    /** Publication date; with status "future" it schedules the item. */
+    date?: string | undefined;
+    categories?: number[] | undefined;
     status?: string | undefined;
     parent?: number | undefined;
     template?: string | undefined;
@@ -192,6 +202,10 @@ export async function contentCreate(
       body: {
         title: input.title,
         content: input.content,
+        excerpt: input.excerpt,
+        slug: input.slug,
+        date: input.date,
+        categories: input.categories,
         status: input.status ?? "draft",
         parent: input.parent,
         template: input.template,

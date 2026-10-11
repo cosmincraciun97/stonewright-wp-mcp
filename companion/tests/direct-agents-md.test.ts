@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
 	ensureStonewrightAgentsMd,
 	agentsMdSync,
 	agentsMdTemplate,
+	pointerSnippet,
 	MARK_START,
 	POINTER_MARKER,
 } from '../src/direct/agents-md.js';
@@ -21,9 +23,34 @@ describe('agents-md', () => {
 		expect(b.created).toBe(false);
 		expect(b.updated).toBe(false);
 		expect(readFileSync(a.path, 'utf8')).toContain(MARK_START);
-		expect(readFileSync(a.path, 'utf8')).toContain('Direct mode is first-class');
+		expect(readFileSync(a.path, 'utf8')).toContain('## Direct mode only');
+		expect(readFileSync(a.path, 'utf8')).toContain('## Plugin mode only');
 		expect(readFileSync(a.path, 'utf8')).toContain('Never store credentials');
 		expect(readFileSync(a.path, 'utf8')).toContain('updates must preserve ~/.stonewright');
+	});
+
+	it('names only tools both modes have outside the Direct section, so a Plugin session is not taught Direct-only tools', () => {
+		const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+		const pluginNames = new Set(
+			[...readFileSync(join(root, 'docs', 'ability-truth-matrix.md'), 'utf8').matchAll(/`(stonewright-[a-z0-9-]+)`/g)].map((m) => m[1]),
+		);
+		const text = agentsMdTemplate();
+		const directStart = text.indexOf('## Direct mode only');
+		const pluginStart = text.indexOf('## Plugin mode only');
+		expect(directStart).toBeGreaterThan(0);
+		expect(pluginStart).toBeGreaterThan(directStart);
+		const outsideDirect = text.slice(0, directStart) + text.slice(pluginStart);
+		const named = [...outsideDirect.matchAll(/stonewright-[a-z0-9-]+/g)].map((m) => m[0]);
+		expect(named.length).toBeGreaterThan(0);
+		for (const name of named) expect(pluginNames.has(name), name).toBe(true);
+		// The Direct section is where the Direct-only names live.
+		expect(text.slice(directStart, pluginStart)).toContain('stonewright-skill-get');
+		expect(text).not.toContain('first-class');
+	});
+
+	it('pointer snippet points at the section for the mode task-start reports', () => {
+		expect(pointerSnippet()).toContain('stonewright-task-start');
+		expect(pointerSnippet()).toContain('section for the mode task-start reports');
 	});
 
 	it('preserves user lines outside managed markers on update', () => {

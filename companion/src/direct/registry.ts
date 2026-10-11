@@ -5,6 +5,7 @@ import { loadSitesConfig, resolveSessionSite, sessionSiteAlias, type SitesConfig
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
 import { directCallWarnings, runWithDirectCallContext } from './plugin-presence.js';
 import { warmPluginPresence } from './plugin-guard.js';
+import { argAliasRefusal, resolveArgAliases, withArgAliases } from './arg-aliases.js';
 import type { ResolvedSite } from './sites-config.js';
 import { DirectSafetyBlockedError, hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
@@ -469,6 +470,14 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 	};
 }
 
+/** A call that left out a required argument: reported to the caller, not an audited failure. */
+function invalidArguments(message: string) {
+	return {
+		isError: true as const,
+		content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, error: 'invalid_arguments', message }, null, 2) }],
+	};
+}
+
 function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
 	// A session bound to one alias acts on that site only; see resolveSessionSite.
@@ -525,12 +534,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			toolHandles.set(name, noop);
 			return noop;
 		}
-		const [description, paramsSchema, callback] = rest as unknown as [
+		const [description, declaredSchema, callback] = rest as unknown as [
 			string,
 			Record<string, z.ZodTypeAny>,
 			RegisteredTool['handler'],
 		];
-		const wrappedCallback = ((input: unknown, ...args: unknown[]) => {
+		// Shared tool names also accept the plugin's argument names (see arg-aliases.ts).
+		const paramsSchema = withArgAliases(name, declaredSchema);
+		const wrappedCallback = ((rawInput: unknown, ...args: unknown[]) => {
+			let input = rawInput;
 			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
 				? String((input as { site: string }).site)
 				: sessionSiteAlias(ctx.env) ?? '_global';
@@ -547,6 +559,17 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 						setDirectAuditTargetIdentity(target.url);
 					} catch {
 						if (site === '_global') setDirectAuditTargetIdentity('direct-global:_global');
+					}
+					// Plugin spellings of the arguments (see arg-aliases.ts). After the target is known, so a
+					// refused call is audited against the right site.
+					if (input && typeof input === 'object') {
+						const resolved = resolveArgAliases(name, input as Record<string, unknown>, declaredSchema);
+						if (!resolved.ok) {
+							return resolved.kind === 'missing'
+								? invalidArguments(resolved.message)
+								: toolError(argAliasRefusal(resolved, name, site), { tool: name, site });
+						}
+						input = resolved.input;
 					}
 					// Learn whether the Stonewright plugin is active before the tool runs, so a
 					// write is refused up front. One cached request per site; never blocks a read.
@@ -676,6 +699,9 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			site: siteArg,
 			title: z.string().min(1),
 			content: z.string().optional(),
+			excerpt: z.string().optional(),
+			slug: z.string().optional(),
+			date: z.string().optional(),
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
@@ -700,6 +726,10 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			site: siteArg,
 			title: z.string().min(1),
 			content: z.string().optional(),
+			excerpt: z.string().optional(),
+			slug: z.string().optional(),
+			date: z.string().optional(),
+			categories: z.array(z.number().int().positive()).optional(),
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
@@ -804,10 +834,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	// --- Wave 1: media ---
 	tool(
 		'stonewright-media-list',
-		'List media via core REST (Direct mode).',
+		'List media via core REST (Direct mode). mime_type narrows the list: a family such as image, or one type such as application/pdf.',
 		{
 			site: siteArg,
 			search: z.string().optional(),
+			mime_type: z.string().max(80).optional(),
 			per_page: z.number().int().min(1).max(50).optional(),
 			page: z.number().int().min(1).optional(),
 		},
@@ -847,6 +878,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			title: z.string().optional(),
 			alt_text: z.string().optional(),
 			caption: z.string().optional(),
+			parent_post_id: z.number().int().min(0).optional().describe('Post the attachment belongs to'),
 			confirm: z.boolean().optional().describe('Required true to upload a local file outside the allowed media roots'),
 		},
 		async (input) => {
@@ -1206,11 +1238,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-settings-get',
-		'Get site settings via core REST (Direct mode).',
-		{ site: siteArg },
+		'Get site settings via core REST (Direct mode). The settings come under the REST names (title, description) and also under the option names (blogname, blogdescription); keys narrows the result.',
+		{ site: siteArg, keys: z.array(z.string()).optional() },
 		async (input) => {
 			try {
-				return toolResponse(await settings.settingsGet(buildContext(ctx, input.site)));
+				return toolResponse(await settings.settingsGet(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -1329,6 +1361,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			roles: z.string().optional(),
 			per_page: z.number().int().min(1).max(50).optional(),
 			page: z.number().int().min(1).optional(),
+			offset: z.number().int().min(0).optional(),
 		},
 		async (input) => {
 			try {
@@ -1440,11 +1473,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-blueprint-list',
-		'List bundled landing blueprints available in Direct mode (Gutenberg apply only).',
-		{ site: siteArg },
-		() => {
+		'List bundled landing blueprints available in Direct mode (Gutenberg apply only). industry and search narrow the list.',
+		{ site: siteArg, industry: z.string().optional(), search: z.string().optional() },
+		(input) => {
 			try {
-				return toolResponse({ ok: true, blueprints: blueprints.listBlueprints() });
+				const found = blueprints.listBlueprints({
+					...(input.industry !== undefined ? { industry: input.industry } : {}),
+					...(input.search !== undefined ? { search: input.search } : {}),
+				});
+				return toolResponse({ ok: true, blueprints: found, count: found.length });
 			} catch (err) {
 				return toolError(err);
 			}
@@ -1470,7 +1507,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-blueprint-apply',
-		'Apply a bundled blueprint as a Gutenberg draft via core REST. Elementor engine requires the Stonewright plugin. With post_id it overwrites that page, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256) and the write is refused if that backup fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Apply a bundled blueprint as a Gutenberg draft via core REST. The elementor and fse engines need Plugin mode. With post_id it overwrites that page, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256) and the write is refused if that backup fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
@@ -1529,9 +1566,9 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		site: siteArg, post: z.number().int().positive(), content: z.string().min(1), parent: z.number().int().optional(),
 		author_name: z.string().optional(), author_email: z.string().optional(), confirm: confirmArg,
 	}, (input, runtime) => comments.commentCreate(runtime, input as never));
-	w3('stonewright-comment-update', 'Update or moderate a comment (status: approved|hold|spam|trash) via core REST (Direct mode).', {
+	w3('stonewright-comment-update', 'Update or moderate a comment (status: approved|hold|spam|trash; approve is accepted for approved) via core REST (Direct mode).', {
 		site: siteArg, id: z.number().int().positive(), content: z.string().optional(),
-		status: z.enum(['approved', 'hold', 'spam', 'trash']).optional(), confirm: confirmArg,
+		status: z.enum(['approved', 'approve', 'hold', 'spam', 'trash']).optional(), confirm: confirmArg,
 	}, (input, runtime) => comments.commentUpdate(runtime, input as never));
 	w3('stonewright-comment-delete', 'Delete a comment via core REST (Direct mode).', {
 		site: siteArg, id: z.number().int().positive(), force: z.boolean().optional(), confirm: confirmArg,
@@ -1744,13 +1781,17 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-memory-list',
-		'List local companion memory entries (newest first).',
-		{ site: siteArg, limit: z.number().int().min(1).max(100).optional() },
+		'List local companion memory entries (newest first). Reads the companion\'s local files only, never the plugin\'s site memory; the answer names the store (backend, memory_backend).',
+		{
+			site: siteArg,
+			limit: z.number().int().min(1).max(500).optional(),
+			offset: z.number().int().min(0).optional(),
+		},
 		(input) => selfImprove.memoryList(selfCtx(), input as never),
 	);
 	w4(
 		'stonewright-learning-record',
-		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory.',
+		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory. The backend field of the answer says which store kept it.',
 		{
 			site: siteArg,
 			topic: z.string().min(1).optional(),
@@ -1787,7 +1828,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-task-start',
-		'Direct-mode task start: matched local skills, memory highlights, write mode, and guidance. Works with zero WordPress credentials.',
+		'Direct-mode task start: matched local skills, memory highlights, write mode, and guidance. Works with zero WordPress credentials. The backend field of the answer says which store answered.',
 		{
 			site: siteArg,
 			task: z.string().min(1),

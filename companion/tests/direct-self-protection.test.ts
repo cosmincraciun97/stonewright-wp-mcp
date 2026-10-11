@@ -277,14 +277,17 @@ describe('direct self-protection and settings rules', () => {
 
 		it('passes the allowed keys, under both their REST names and their option names', async () => {
 			const settings = {
-				title: 'A', description: 'B', blogname: 'C', blogdescription: 'D', timezone: 'Europe/Paris', timezone_string: 'UTC',
+				title: 'A', description: 'B', blogname: 'A', blogdescription: 'B', timezone: 'UTC', timezone_string: 'UTC',
 				date_format: 'Y-m-d', time_format: 'H:i', start_of_week: 1, posts_per_page: 12, default_comment_status: 'closed',
 				default_ping_status: 'closed', users_can_register: false, show_on_front: 'page', page_on_front: 4, page_for_posts: 5, site_icon: 0,
 			};
 			const { fetchImpl, calls } = makeFetch(() => settings);
 			await settingsUpdate(ctx(fetchImpl), { settings, confirm: true });
 			expect(calls).toHaveLength(1);
-			expect(calls[0]?.body).toEqual(settings);
+			// Core REST knows title, description and timezone: the option names are sent under those.
+			const sent: Record<string, unknown> = { ...settings };
+			for (const option of ['blogname', 'blogdescription', 'timezone_string']) delete sent[option];
+			expect(calls[0]?.body).toEqual(sent);
 		});
 
 		it('still needs confirm in confirm mode', async () => {

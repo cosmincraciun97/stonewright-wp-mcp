@@ -42,6 +42,7 @@ type WpMedia = {
   alt_text?: string | undefined;
   title?: { rendered?: string; raw?: string } | string;
   caption?: { rendered?: string; raw?: string } | string;
+  post?: number | null | undefined;
   media_details?: Record<string, unknown> | undefined;
 };
 
@@ -58,13 +59,28 @@ function compactMedia(item: WpMedia) {
     source_url: item.source_url ?? "",
     mime_type: item.mime_type ?? "",
     alt_text: item.alt_text ?? "",
+    // The plugin's names for the same three fields.
+    url: item.source_url ?? "",
+    mime: item.mime_type ?? "",
+    alt: item.alt_text ?? "",
   };
+}
+
+/**
+ * The plugin's mime_type filter: a family ("image") or one type ("application/pdf"). Core REST filters a
+ * family with media_type and one type with mime_type. Empty means every attachment.
+ */
+function mimeFilter(mimeType: string | undefined): Record<string, string | undefined> {
+  const value = (mimeType ?? "").trim().toLowerCase();
+  if (!value) return {};
+  return value.includes("/") ? { mime_type: value } : { media_type: value };
 }
 
 export async function mediaList(
   ctx: MediaToolContext,
   input: {
     search?: string | undefined;
+    mime_type?: string | undefined;
     per_page?: number | undefined;
     page?: number | undefined;
   },
@@ -75,6 +91,7 @@ export async function mediaList(
   const items = await ctx.client.get<WpMedia[]>("/wp/v2/media", {
     query: {
       search: input.search,
+      ...mimeFilter(input.mime_type),
       per_page: perPage,
       page,
       _fields: "id,title,slug,source_url,mime_type,alt_text",
@@ -100,6 +117,10 @@ export async function mediaGet(ctx: MediaToolContext, input: { id: number }) {
         ? item.caption
         : (item.caption?.raw ?? item.caption?.rendered ?? ""),
     media_details: item.media_details ?? {},
+    // The plugin's names for the parent and the pixel size.
+    parent: item.post ?? 0,
+    width: Number(item.media_details?.["width"] ?? 0) || 0,
+    height: Number(item.media_details?.["height"] ?? 0) || 0,
   };
 }
 
@@ -121,6 +142,8 @@ export async function mediaUpload(
     title?: string | undefined;
     alt_text?: string | undefined;
     caption?: string | undefined;
+    /** The post the attachment belongs to. */
+    parent_post_id?: number | undefined;
     confirm?: boolean | undefined;
   },
 ) {
@@ -194,6 +217,7 @@ export async function mediaUpload(
   if (input.title) form.append("title", input.title);
   if (input.alt_text) form.append("alt_text", input.alt_text);
   if (input.caption) form.append("caption", input.caption);
+  if (input.parent_post_id) form.append("post", String(input.parent_post_id));
 
   try {
     const item = await ctx.client.post<WpMedia>("/wp/v2/media", {

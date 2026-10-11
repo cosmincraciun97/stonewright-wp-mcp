@@ -266,8 +266,11 @@ describe('permanent gateways integration', () => {
 		// Local ping gateway owns the name even if remote only exposed ping.
 		const taskStart = await toolHandler(server, 'stonewright-task-start')?.({
 			task: 'minimal plugin surface',
-		}) as { structuredContent?: { ok?: boolean } };
+		}) as { structuredContent?: { ok?: boolean; backend?: string; source?: string } };
 		expect(taskStart.structuredContent?.ok).toBe(true);
+		// The common task-start core: the answer says which backend it came from.
+		expect(taskStart.structuredContent?.source).toBe('plugin');
+		expect(taskStart.structuredContent?.backend).toBe('plugin');
 	});
 
 	it('client_has_tool is never true from counts or caller-supplied names alone', async () => {

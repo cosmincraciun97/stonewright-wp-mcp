@@ -86,6 +86,8 @@ export async function menuList(
   const list = Array.isArray(items) ? items : [];
   return {
     items: list.map(compactMenu),
+    // The plugin's key for the same list.
+    menus: list.map((menu) => ({ id: menu.id, name: menu.name ?? "", slug: menu.slug ?? "" })),
     total: list.length,
     page,
     per_page: perPage,
@@ -140,7 +142,7 @@ export async function menuCreate(
       resource: `menus/${menu.id}`,
       status: "ok",
     });
-    return compactMenu(menu);
+    return { ...compactMenu(menu), menu_id: menu.id };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-menu-create",
