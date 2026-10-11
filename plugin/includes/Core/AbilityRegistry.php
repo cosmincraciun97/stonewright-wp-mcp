@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkCreate;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Elementor\Provider\NativeAvailability;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -1798,7 +1799,7 @@ final class AbilityRegistry {
 	 * @return list<string>
 	 */
 	private static function essential_ability_names(): array {
-		return [
+		$names = [
 			// Startup and runtime.
 			'stonewright/context-bootstrap',
 			'stonewright/task-start',
@@ -1836,6 +1837,12 @@ final class AbilityRegistry {
 			'stonewright/site-pulse',
 			'stonewright/learning-record',
 		];
+		if ( NativeAvailability::is_available() ) {
+			// Native Elementor is available and certified: the gated route to it belongs on the default surface.
+			$at = (int) array_search( 'stonewright/elementor-v3-batch-mutate', $names, true );
+			array_splice( $names, $at + 1, 0, [ 'stonewright/elementor-native-execute' ] );
+		}
+		return $names;
 	}
 
 	/**

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\FullProfileOnlyAbilities;
+use Stonewright\WpMcp\Elementor\Provider\NativeAvailability;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -1006,6 +1007,13 @@ final class ToolProfile extends AbilityKernel {
 			} )(),
 		};
 
+		if ( 'elementor-design' === $profile && NativeAvailability::is_available() ) {
+			// Native Elementor is available and certified: the gated route to it sits right after provider discovery, ahead of the builders.
+			$rest = array_values( array_diff( $rest, [ 'stonewright/elementor-native-execute' ] ) );
+			$at   = (int) array_search( 'stonewright/elementor-provider-discovery', $rest, true );
+			array_splice( $rest, $at + 1, 0, [ 'stonewright/elementor-native-execute' ] );
+		}
+
 		// Direction writes are the point of a design-system task, so they sit right
 		// after startup rather than at the tail where a low max_tools cap trims.
 		$direction_writes = self::is_design_system_task( $task, $surface, $intent )
@@ -1380,6 +1388,8 @@ final class ToolProfile extends AbilityKernel {
 			$rules[] = 'Implement one visual section per write-and-verify pass, or two only when simple and coupled.';
 			$rules[] = 'Use native Elementor widgets and schema-confirmed Content, Style, and Advanced controls.';
 			$rules[] = 'Use get-page-structure summary before existing-page edits; request full tree only when raw settings are needed.';
+			$rules[] = 'For a V4 (Atomic) document, prefer stonewright-elementor-native-execute for the abilities certified in native_elementor (it plans first, then writes inside backup, lock, readback and audit); fall back to the Stonewright V4 writers when it refuses or the ability is not certified. V3 documents stay on the V3 writers.';
+			$rules[] = 'Never call elementor/* tools on Elementor\'s own MCP server: that skips the backup, the change history and the audit. Run the same ability through stonewright-elementor-native-execute instead.';
 		}
 
 		if ( 'low-tools' === $profile ) {

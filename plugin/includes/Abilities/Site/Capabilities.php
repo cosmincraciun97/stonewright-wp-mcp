@@ -63,7 +63,7 @@ final class Capabilities extends AbilityKernel {
 				'feature_flags'=> [ 'type' => 'object' ],
 				'native_elementor' => [
 					'type'        => 'object',
-					'description' => 'Elementor MCP module requirements, registered elementor/* abilities, ownership, schema fingerprints and per-ability certification. Evidence only; no native write is routable.',
+					'description' => 'Elementor MCP module requirements, registered elementor/* abilities, ownership, schema fingerprints and per-ability certification. Evidence only. A certified ability runs through stonewright-elementor-native-execute; read writes_enabled, routable_writes, guidance and any version_issue here before choosing a writer.',
 				],
 			],
 			'required'   => [ 'abilities', 'integrations', 'mode' ],

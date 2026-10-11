@@ -6,11 +6,13 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\Provider;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Elementor\NativeExecute;
 use Stonewright\WpMcp\Elementor\Provider\NativeElementorProvider;
+use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Elementor\Provider\NativeInputSchema;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Elementor\Provider\UpstreamAbilityDiscovery;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
 
@@ -199,7 +201,7 @@ final class NativeExecuteAbilityTest extends TestCase {
 		self::assertSame( [], array_filter( $GLOBALS['stonewright_test_post_meta_calls'], static fn( array $call ): bool => '_stonewright_backups' === $call['meta_key'] ) );
 	}
 
-	public function test_permissions_follow_the_family_and_the_v4_gate(): void {
+	public function test_permissions_follow_the_family(): void {
 		$ability = $this->ability();
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		self::assertFalse( $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] ) );
@@ -207,24 +209,154 @@ final class NativeExecuteAbilityTest extends TestCase {
 
 		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_theme_options' => true, 'manage_options' => true ];
 		self::assertTrue( $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [], 'dry_run' => false ] ) );
-
-		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
-		self::assertSame( 'stonewright_feature_disabled', $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] )->get_error_code() );
 	}
 
-	public function test_a_production_safe_write_is_blocked_before_any_token_or_native_call(): void {
-		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'production-safe', 'stonewright_elementor_v4_atomic' => true ];
+	public function test_it_does_not_depend_on_the_v4_experimental_flag_or_module_probe(): void {
+		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'development' ];
+		V4FeatureGate::set_atomic_module_present_for_tests( false );
+		$ability = $this->ability();
 
-		$gate = $this->ability()->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [] ] );
+		self::assertTrue( $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [], 'dry_run' => false ] ) );
+		$plan = $ability->execute( [ 'ability' => 'elementor/manage-default-styles', 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ] );
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
+		self::assertSame( 'planned', $plan['status'] );
+	}
 
-		self::assertSame( 'stonewright_v4_experimental_production_block', $gate->get_error_code() );
+	public function test_it_is_available_only_when_native_elementor_is_available_with_a_certified_ability(): void {
+		foreach ( [
+			'not installed'  => [ [ 'elementor_version' => '', 'module_present' => false, 'module_active' => false, 'abilities_api' => false, 'mcp_adapter' => false, 'mcp_composer' => false, 'site_exposure_enabled' => false, 'atomic_editor_active' => false ], 'not_installed' ],
+			'module missing' => [ [ 'module_present' => false, 'module_active' => false ], 'module_unavailable' ],
+			'exposure off'   => [ [ 'site_exposure_enabled' => false ], 'exposure_disabled' ],
+		] as $label => [ $facts, $state ] ) {
+			$gate = $this->ability( [], $facts )->permission_callback( [ 'ability' => 'elementor/manage-default-styles', 'input' => [] ] );
+
+			self::assertInstanceOf( \WP_Error::class, $gate, $label );
+			self::assertSame( 'stonewright_native_unavailable', $gate->get_error_code(), $label );
+			self::assertSame( $state, $gate->get_error_data()['state'], $label );
+			self::assertSame( 409, $gate->get_error_data()['status'], $label );
+			self::assertNotSame( [], $gate->get_error_data()['fallback'], $label );
+		}
+	}
+
+	public function test_an_elementor_version_outside_the_certified_range_is_refused_with_the_reason_and_the_fallback(): void {
+		$abilities = array_values( (array) json_decode( (string) file_get_contents( dirname( __DIR__, 3 ) . '/fixtures/elementor-native/elementor-4.3.4-abilities.json' ), true )['abilities'] );
+		foreach ( $abilities as $index => $row ) {
+			$abilities[ $index ]['source_version'] = '4.4.0';
+		}
+
+		$gate = $this->ability( $abilities, [ 'elementor_version' => '4.4.0' ] )->permission_callback( [ 'ability' => 'elementor/build-composition', 'input' => [ 'post_id' => self::POST ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, $gate );
+		self::assertSame( 'stonewright_native_unavailable', $gate->get_error_code() );
+		self::assertSame( 'available_uncertified', $gate->get_error_data()['state'] );
+		self::assertContains( 'elementor_version_out_of_range', $gate->get_error_data()['issues'] );
+		self::assertStringContainsString( 'elementor_version_out_of_range', $gate->get_error_message() );
+		self::assertStringContainsString( '4.3.0 - 4.3.*', $gate->get_error_message() );
+	}
+
+	public function test_a_production_safe_write_needs_a_confirmation_token_and_no_native_call_runs_without_one(): void {
+		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'production-safe' ];
+		$ability = $this->ability();
+		$args    = [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ];
+
+		self::assertTrue( $ability->permission_callback( $args ), 'the permission check is about who, not about the mode' );
+		$result = $ability->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $this->runtime->calls );
 	}
 
-	private function ability(): NativeExecute {
+	public function test_a_production_safe_write_with_a_token_runs_inside_the_closure(): void {
+		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'production-safe' ];
+		$this->runtime->executor = static function ( string $name, array $input, FakeNativeRuntime $runtime ): array {
+			$runtime->styles['h2'] = [ 'type' => 'class', 'variants' => [ [ 'props' => [ 'css' => 'font-size: 2rem' ] ] ] ];
+			return [ 'status' => 'ok', 'results' => [ [ 'index' => 0, 'action' => 'update', 'status' => 'ok', 'tag' => 'h2' ] ] ];
+		};
+		$args  = [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ];
+		$token = ConfirmationToken::issue( 'stonewright/elementor-native-execute', $args );
+
+		$result = $this->ability()->execute( $args + [ 'confirmation_token' => $token ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 'applied', $result['status'] );
+		self::assertSame( 'confirmation_token', $result['change_set']['approval_reason'] );
+	}
+
+	public function test_a_dry_run_and_a_read_need_no_token_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'production-safe' ];
+		$ability = $this->ability();
+
+		$plan = $ability->execute( [ 'ability' => 'elementor/manage-default-styles', 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ] );
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
+		self::assertSame( 'planned', $plan['status'] );
+		self::assertSame( [], $this->runtime->calls );
+
+		$this->runtime->executor = static fn(): array => [ 'success' => true, 'post_id' => self::POST, 'resolved_xml' => '<e-div-block id="n1"/>' ];
+		$composition = $ability->execute( [ 'ability' => 'elementor/build-composition', 'dry_run' => true, 'input' => [ 'post_id' => self::POST, 'xml_structure' => '<e-div-block configuration-id="a"/>', 'parent_id' => 'root1' ] ] );
+		self::assertIsArray( $composition, $composition instanceof \WP_Error ? $composition->get_error_message() : '' );
+		self::assertSame( 'planned', $composition['status'] );
+
+		$this->runtime->executor = static fn(): array => [ 'elements' => [] ];
+		$read = $ability->execute( [ 'ability' => 'elementor/get-page-structure', 'input' => [ 'post_id' => self::POST ] ] );
+		self::assertIsArray( $read, $read instanceof \WP_Error ? $read->get_error_message() : '' );
+		self::assertSame( 'read', $read['status'] );
+	}
+
+	public function test_the_in_process_call_is_marked_as_ours_so_the_observer_stays_out(): void {
+		$seen = [];
+		$this->runtime->executor = static function ( string $name, array $input, FakeNativeRuntime $runtime ) use ( &$seen ): array {
+			$seen[] = NativeObserver::inside_native_execute();
+			$runtime->styles['h2'] = [ 'type' => 'class', 'variants' => [ [ 'props' => [ 'css' => 'font-size: 2rem' ] ] ] ];
+			return [ 'status' => 'ok', 'results' => [ [ 'index' => 0, 'action' => 'update', 'status' => 'ok', 'tag' => 'h2' ] ] ];
+		};
+
+		self::assertFalse( NativeObserver::inside_native_execute() );
+		$result = $this->ability()->execute( [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ] ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( [ true ], $seen );
+		self::assertFalse( NativeObserver::inside_native_execute(), 'the mark is cleared when the call returns' );
+	}
+
+	public function test_a_native_call_made_through_the_tool_is_not_observed_a_second_time(): void {
+		remove_all_actions( 'wp_before_execute_ability' );
+		remove_all_actions( 'wp_after_execute_ability' );
+		NativeObserver::register();
+		$input = [ 'operations' => [ [ 'action' => 'update', 'tag' => 'h2', 'css' => 'font-size: 2rem' ] ] ];
+		$this->runtime->executor = static function ( string $name, array $native_input, FakeNativeRuntime $runtime ) use ( $input ): array {
+			do_action( 'wp_before_execute_ability', $name, $native_input, null );
+			$runtime->styles['h2'] = [ 'type' => 'class', 'variants' => [ [ 'props' => [ 'css' => 'font-size: 2rem' ] ] ] ];
+			do_action( 'wp_after_execute_ability', $name, $native_input, [ 'status' => 'ok' ], null );
+			return [ 'status' => 'ok', 'results' => [ [ 'index' => 0, 'action' => 'update', 'status' => 'ok', 'tag' => 'h2' ] ] ];
+		};
+		$named = static fn( array $row ): bool => 'elementor/manage-default-styles' === ( $row['data']['ability_name'] ?? '' );
+
+		$result = $this->ability()->execute( [ 'ability' => 'elementor/manage-default-styles', 'dry_run' => false, 'input' => $input ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 'applied', $result['status'] );
+		self::assertSame( [], array_filter( $GLOBALS['stonewright_test_wpdb_inserts'], $named ), 'the tool records the call; the observer stays out' );
+
+		// The same call made outside the tool is observed.
+		do_action( 'wp_before_execute_ability', 'elementor/manage-default-styles', $input, null );
+		do_action( 'wp_after_execute_ability', 'elementor/manage-default-styles', $input, [ 'status' => 'ok' ], null );
+		self::assertCount( 1, array_filter( $GLOBALS['stonewright_test_wpdb_inserts'], $named ) );
+
+		remove_all_actions( 'wp_before_execute_ability' );
+		remove_all_actions( 'wp_after_execute_ability' );
+		NativeObserver::reset_for_tests();
+	}
+
+	/**
+	 * @param list<array<string,mixed>>|null $abilities Registered abilities; the recorded 4.3.4 set when null.
+	 * @param array<string,mixed>            $facts     Environment facts that replace the healthy ones.
+	 */
+	private function ability( ?array $abilities = null, array $facts = [] ): NativeExecute {
 		$decoded = json_decode( (string) file_get_contents( dirname( __DIR__, 3 ) . '/fixtures/elementor-native/elementor-4.3.4-abilities.json' ), true );
-		$all     = array_values( (array) $decoded['abilities'] );
-		$facts   = [
+		$all     = $abilities ?? array_values( (array) $decoded['abilities'] );
+		$facts   = $facts + [
 			'elementor_version' => '4.3.4', 'module_present' => true, 'module_active' => true, 'abilities_api' => true,
 			'mcp_adapter' => true, 'mcp_adapter_version' => '0.6.1', 'mcp_adapter_provider' => 'elementor-core',
 			'mcp_composer' => true, 'mcp_composer_version' => '1.0.19', 'site_exposure_enabled' => true, 'atomic_editor_active' => true,

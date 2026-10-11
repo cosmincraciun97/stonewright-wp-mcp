@@ -190,4 +190,23 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'checkpoint_token to every later section write', $instructions );
 		$this->assertStringContainsString( 'preserve, repair, content_only, responsive_fix', $instructions );
 	}
+
+	public function test_default_instructions_prefer_native_execute_for_v4_and_keep_v3_on_the_v3_writers(): void {
+		$instructions = AgentInstructions::default();
+
+		$this->assertStringContainsString( 'stonewright-elementor-native-execute', $instructions );
+		$this->assertStringContainsString( 'V4 (Atomic)', $instructions );
+		$this->assertStringContainsString( 'certified', $instructions );
+		$this->assertStringContainsString( 'Stonewright V4 writers', $instructions );
+		$this->assertStringContainsString( 'V3 documents stay on the V3 writers', $instructions );
+		$this->assertStringContainsString( 'Never call elementor/* tools on Elementor\'s own MCP server', $instructions );
+		$this->assertStringContainsString( 'backups, the change history and the audit', $instructions );
+	}
+
+	public function test_the_bootstrap_summary_carries_one_short_native_line(): void {
+		$summary = AgentInstructions::server_bootstrap_summary();
+
+		$this->assertStringContainsString( 'stonewright-elementor-native-execute', $summary );
+		$this->assertStringContainsString( 'never call elementor/* on Elementor\'s own MCP server', $summary );
+	}
 }

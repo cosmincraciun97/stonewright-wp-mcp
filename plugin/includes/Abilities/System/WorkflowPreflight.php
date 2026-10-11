@@ -496,7 +496,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( is_array( $elementor['status'] ?? null ) ) {
 			$compact_elementor['status'] = array_intersect_key(
 				$elementor['status'],
-				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status', 'native_elementor' ] )
+				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status', 'native_elementor', 'native_hint' ] )
 			);
 		}
 

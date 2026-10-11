@@ -264,6 +264,46 @@ final class PostAdapter {
 	}
 
 	/**
+	 * Record a write that another component made and that Stonewright only watched, with the image taken
+	 * before it ran and the image it left. The row is complete when this returns: a change that was
+	 * observed, not probed, is settled as probe_unavailable ("Not verified"), and its before image lets
+	 * the change history put the post back. A post the call created has no before image; its undo is the trash.
+	 *
+	 * @param array<string, mixed>|null $before  Image taken before the write; null for a post the write created.
+	 * @param array<string, mixed>|null $after   Image the write left.
+	 * @param string                    $family  Ledger family when the post type and the ability do not name one.
+	 * @return string The change id, or '' when nothing was recorded.
+	 */
+	public static function record_observed( string $ability, int $post_id, ?array $before, ?array $after, string $family = 'elementor' ): string {
+		try {
+			$image = $before ?? $after;
+			if ( null === $image || ! self::ledger_ready() || in_array( (string) $image['post_type'], self::EXCLUDED_TYPES, true ) || 'auto-draft' === ( $image['post']['post_status'] ?? '' ) ) {
+				return '';
+			}
+			$by_type = self::ledger_family( $ability, (string) $image['post_type'] );
+			$spec    = [
+				'ability'       => $ability,
+				'family'        => 'post' === $by_type ? $family : $by_type,
+				'resource_type' => 'post',
+				'resource_id'   => (string) $post_id,
+				'before'        => $before,
+				'summary'       => null === $before ? self::CREATED_SUMMARY . self::summary( $image ) : self::summary( $image ),
+			];
+			if ( null === $before ) {
+				$spec['restorable'] = true;
+			}
+			$id = self::stored_id( ChangeLedger::record( $spec ), $ability );
+			if ( '' !== $id ) {
+				self::settle( $id, $after, 'probe_unavailable' );
+			}
+			return $id;
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'change_ledger_record_failed', [ 'error' => $failure::class, 'ability' => $ability ] );
+			return '';
+		}
+	}
+
+	/**
 	 * The image of a post after a write, to settle a row with.
 	 *
 	 * @param list<string> $extra_meta_keys The keys the row was recorded with.

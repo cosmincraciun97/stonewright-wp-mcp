@@ -31,7 +31,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 			self::assertSame( 'certified', $preference['certification'], $name );
 			self::assertSame( 'official_contract_certified', $preference['reason'], $name );
 			self::assertSame( [], $preference['issues'], $name );
-			self::assertFalse( $preference['routable_write'], $name );
+			self::assertSame( in_array( $name, [ 'elementor/build-composition', 'elementor/manage-default-styles' ], true ), $preference['routable_write'], $name );
 			self::assertTrue( $preference['safety_closure_required'], $name );
 			self::assertSame( 'elementor-core', $preference['provider_id'], $name );
 			self::assertSame( 'full_bounded', $preference['schema_output'], $name );
@@ -57,7 +57,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( 'read_only', $result['native_preferred']['elementor/get-page-structure']['native_write'] );
 		self::assertSame( 'native-write-refused', $result['native_elementor']['certification']['elementor/manage-classes']['selection'] );
 		self::assertSame( 'native-preferred', $result['native_elementor']['certification']['elementor/build-composition']['selection'] );
-		self::assertFalse( $result['writes_enabled'] );
+		self::assertTrue( $result['writes_enabled'] );
 	}
 
 	public function test_provider_row_lists_the_certified_write_primitives_and_never_the_read_only_ability(): void {
@@ -71,7 +71,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 			array_column( $provider['write_primitives'], 'name' )
 		);
 		foreach ( $provider['write_primitives'] as $primitive ) {
-			self::assertFalse( $primitive['routable'] );
+			self::assertSame( in_array( $primitive['name'], [ 'elementor/build-composition', 'elementor/manage-default-styles' ], true ), $primitive['routable'] );
 			self::assertTrue( $primitive['safety_closure_required'] );
 		}
 	}
@@ -138,7 +138,7 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( 'native-preferred', $composition['selection'] );
 		self::assertContains( 'staged_in_autosave', array_column( $composition['contract']['side_effects'], 'id' ) );
 		self::assertContains( 'autosave_truth', $composition['contract']['closure_requirements'] );
-		self::assertFalse( $composition['routable_write'] );
+		self::assertTrue( $composition['routable_write'] );
 		$names = array_column( self::index_by( $result['providers'], 'id' )['elementor-core']['write_primitives'], 'name' );
 		self::assertNotContains( 'elementor/manage-elements', $names );
 	}
@@ -183,8 +183,8 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertSame( self::CERTIFIED, $block['certified'] );
 		self::assertSame( 'certified', $block['certification']['elementor/manage-classes']['state'] );
 		self::assertSame( [ 'elementor/manage-elements' => 'upstream_global_clear_cache' ], $block['unsupported'] );
-		self::assertFalse( $block['writes_enabled'] );
-		self::assertFalse( $block['routable_write'] );
+		self::assertTrue( $block['writes_enabled'] );
+		self::assertTrue( $block['routable_write'] );
 		self::assertSame( [], $block['contract_errors'] );
 	}
 
@@ -332,6 +332,84 @@ final class ProviderRouterNativeElementorTest extends TestCase {
 		self::assertFalse( $block['elementor']['installed'] );
 		self::assertSame( [ 'environment' ], $block['discovery_failed'] );
 		self::assertStringNotContainsString( 'private environment detail', (string) wp_json_encode( $block ) );
+	}
+
+	public function test_the_report_lists_the_abilities_that_are_really_routable_for_writes(): void {
+		$block = $this->router( self::recorded_abilities() )->native_elementor();
+
+		self::assertTrue( $block['writes_enabled'] );
+		self::assertTrue( $block['routable_write'] );
+		self::assertSame( [ 'elementor/build-composition', 'elementor/manage-default-styles' ], $block['routable_writes'] );
+	}
+
+	public function test_a_certified_read_alone_enables_no_write(): void {
+		$abilities = array_values( array_filter( self::recorded_abilities(), static fn( array $ability ): bool => 'elementor/get-page-structure' === $ability['name'] ) );
+
+		$block = $this->router( $abilities )->native_elementor();
+
+		self::assertSame( 'available', $block['state'] );
+		self::assertSame( [ 'elementor/get-page-structure' ], $block['certified'] );
+		self::assertFalse( $block['writes_enabled'] );
+		self::assertFalse( $block['routable_write'] );
+		self::assertSame( [], $block['routable_writes'] );
+	}
+
+	public function test_an_uncertified_runtime_enables_no_write(): void {
+		$abilities = self::recorded_abilities();
+		foreach ( $abilities as $index => $ability ) {
+			$abilities[ $index ]['runtime_class'] = 'Elementor\Modules\Mcp\Abilities\Other_Ability';
+		}
+
+		$block = $this->router( $abilities )->native_elementor();
+
+		self::assertFalse( $block['writes_enabled'] );
+		self::assertSame( [], $block['routable_writes'] );
+	}
+
+	public function test_an_elementor_version_outside_the_certified_range_is_named_in_the_report(): void {
+		$abilities = self::recorded_abilities();
+		foreach ( $abilities as $index => $ability ) {
+			$abilities[ $index ]['source_version'] = '4.4.0';
+		}
+		$router = new ProviderRouter(
+			static fn(): array => [ 'document_architecture' => 'v4', 'write_target' => 'v4', 'write_blocked' => false ],
+			static fn(): array => [],
+			static fn(): array => [ 'items' => [], 'issues' => [] ],
+			static fn(): array => $abilities,
+			static fn(): array => UpstreamAbilityDiscovery::summarize_environment(
+				[
+					'elementor_version' => '4.4.0', 'module_present' => true, 'module_active' => true, 'abilities_api' => true,
+					'mcp_adapter' => true, 'mcp_adapter_version' => '0.6.1', 'mcp_adapter_provider' => 'elementor-core',
+					'mcp_composer' => true, 'mcp_composer_version' => '1.0.19', 'site_exposure_enabled' => true, 'atomic_editor_active' => true,
+				]
+			)
+		);
+
+		$result = $router->inspect();
+		$block  = $result['native_elementor'];
+
+		self::assertSame( 'available_uncertified', $block['state'] );
+		self::assertSame( [], $block['certified'] );
+		self::assertFalse( $block['writes_enabled'] );
+		self::assertFalse( $result['writes_enabled'] );
+		self::assertContains( 'elementor_version_out_of_range', $block['certification']['elementor/build-composition']['issues'] );
+		self::assertContains( 'elementor_version_out_of_range', $block['version_issue']['issues'] ?? [] );
+		self::assertSame( '4.4.0', $block['version_issue']['observed'] );
+		self::assertSame( '4.3.0 - 4.3.*', $block['version_issue']['certified_range'] );
+		self::assertStringContainsString( '4.4.0', $block['guidance'] );
+		self::assertStringContainsString( '4.3.0 - 4.3.*', $block['guidance'] );
+		self::assertStringContainsString( 'elementor_version_out_of_range', $block['guidance'] );
+		self::assertFalse( $result['native_preferred']['elementor/build-composition']['routable_write'] );
+		self::assertSame( 'unsupported', $result['native_preferred']['elementor/build-composition']['selection'] );
+	}
+
+	public function test_guidance_points_to_native_execute_when_certified_and_to_nothing_when_unavailable(): void {
+		$block = $this->router( self::recorded_abilities() )->native_elementor();
+
+		self::assertArrayNotHasKey( 'version_issue', $block );
+		self::assertStringContainsString( 'stonewright-elementor-native-execute', $block['guidance'] );
+		self::assertStringContainsString( 'V4', $block['guidance'] );
+		self::assertSame( '', $this->router( [] )->native_elementor()['guidance'] );
 	}
 
 	/** @param list<array<string,mixed>> $abilities */

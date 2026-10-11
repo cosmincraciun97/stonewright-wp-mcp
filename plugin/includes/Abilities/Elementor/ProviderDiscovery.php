@@ -4,10 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Elementor;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Provider\NativeContracts;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
-/** Reports live Elementor provider ownership and upstream certification without enabling writes. */
+/** Reports live Elementor provider ownership and upstream certification. It changes nothing; a certified write runs through stonewright-elementor-native-execute. */
 final class ProviderDiscovery extends AbilityKernel {
 
 	private ProviderRouter $router;
@@ -25,7 +26,7 @@ final class ProviderDiscovery extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Reports live Elementor provider ownership, schema provenance, trust, native-preferred certification, and the native Elementor MCP status without changing site data.', 'stonewright' );
+		return __( 'Reports live Elementor provider ownership, schema provenance, trust, native-preferred certification, and the native Elementor MCP status without changing site data. Names the certified Elementor abilities that stonewright-elementor-native-execute can run and the one version range they are certified for.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -48,10 +49,25 @@ final class ProviderDiscovery extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => true,
 			'properties'           => [
-				'providers'        => [ 'type' => 'array' ],
-				'native_preferred' => [ 'type' => 'object' ],
-				'native_elementor' => [ 'type' => 'object' ],
-				'writes_enabled'   => [ 'type' => 'boolean' ],
+				'architecture'           => [ 'type' => 'object' ],
+				'selection'              => [ 'type' => 'object' ],
+				'providers'              => [ 'type' => 'array' ],
+				'providers_count'        => [ 'type' => 'integer' ],
+				'providers_truncated'    => [ 'type' => 'boolean' ],
+				'capabilities_count'     => [ 'type' => 'integer' ],
+				'capabilities_truncated' => [ 'type' => 'boolean' ],
+				'issues'                 => [ 'type' => 'array' ],
+				'issues_count'           => [ 'type' => 'integer' ],
+				'issues_truncated'       => [ 'type' => 'boolean' ],
+				'severity_counts'        => [ 'type' => 'object' ],
+				'blocker_count'          => [ 'type' => 'integer' ],
+				'warning_count'          => [ 'type' => 'integer' ],
+				'truncated_by_severity'  => [ 'type' => 'object' ],
+				'native_preferred'       => [ 'type' => 'object' ],
+				'native_elementor'       => [ 'type' => 'object' ],
+				'schema_limits'          => [ 'type' => 'object' ],
+				'writes_enabled'         => [ 'type' => 'boolean', 'description' => 'True when at least one certified native ability may be written through stonewright-elementor-native-execute.' ],
+				'safety_closure'         => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
 		];
 	}
@@ -59,15 +75,32 @@ final class ProviderDiscovery extends AbilityKernel {
 	public function meta(): array {
 		return [
 			'annotations' => [ 'readonly' => true, 'destructive' => false, 'idempotent' => true ],
-			'provider_policy' => [
-				'elementor/manage-default-styles' => 'native-preferred-when-certified',
-				'elementor/manage-classes'        => 'certified-native-write-refused',
-				'elementor/manage-global-variable' => 'certified-native-write-refused',
-				'elementor/get-page-structure'    => 'native-readback-when-certified',
-				'elementor/manage-elements'       => 'unsupported',
-				'elementor/build-composition'     => 'native-preferred-when-certified',
-			],
+			'provider_policy' => self::provider_policy(),
 		];
+	}
+
+	/**
+	 * One policy label per shipped contract, read from the contract itself so a new or changed
+	 * contract never leaves a stale label here.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function provider_policy(): array {
+		$policy = [];
+		foreach ( NativeContracts::names() as $name ) {
+			$contract = NativeContracts::for_ability( $name );
+			if ( ! is_array( $contract ) ) {
+				continue;
+			}
+			$policy[ $name ] = 'unsupported' === ( $contract['status'] ?? '' )
+				? 'unsupported'
+				: match ( (string) ( $contract['routing']['native_write'] ?? '' ) ) {
+					'read_only' => 'native-readback-when-certified',
+					'refused'   => 'certified-native-write-refused',
+					default     => 'native-preferred-when-certified',
+				};
+		}
+		return $policy;
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {

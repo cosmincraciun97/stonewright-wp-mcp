@@ -474,7 +474,7 @@ final class ProviderRouterTest extends TestCase {
 		self::assertTrue( $preference['contract']['responsive_css'] );
 		self::assertTrue( $preference['contract']['pseudo_states'] );
 		self::assertSame( $ability['description'], $preference['description'] );
-		self::assertFalse( $preference['routable_write'] );
+		self::assertTrue( $preference['routable_write'] );
 		self::assertTrue( $preference['safety_closure_required'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $preference['schema_fingerprint'] );
 		$provider = self::index_by( $result['providers'], 'id' )['elementor-core'];
