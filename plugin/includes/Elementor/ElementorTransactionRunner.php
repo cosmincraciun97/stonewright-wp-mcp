@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor;
 
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -70,104 +71,112 @@ final class ElementorTransactionRunner {
 			);
 		}
 
-		$before_tree = ElementorData::read( $post_id );
-		$before_hash = TreeHasher::hash( $before_tree );
+		// The lease is taken before the document is read, so the precondition check, the snapshot and the write all see the
+		// same document and no other writer changes it in between.
+		return PostWriteLock::with_lease(
+			$post_id,
+			'full-tree',
+			function ( string $lock_owner ) use ( $post_id, $tree, $expected_readback, $rollback_on_error, $precondition_hash ) {
+				$before_tree = ElementorData::read( $post_id );
+				$before_hash = TreeHasher::hash( $before_tree );
 
-		if ( '' !== $precondition_hash && ! hash_equals( $precondition_hash, $before_hash ) ) {
-			return new \WP_Error(
-				'stonewright_transaction_precondition',
-				__( 'The Elementor tree changed since it was read; nothing was written. Read it again and retry.', 'stonewright' ),
-				[
-					'status'        => 409,
-					'retryable'     => true,
-					'expected_hash' => $precondition_hash,
-					'actual_hash'   => $before_hash,
-				]
-			);
-		}
+				if ( '' !== $precondition_hash && ! hash_equals( $precondition_hash, $before_hash ) ) {
+					return new \WP_Error(
+						'stonewright_transaction_precondition',
+						__( 'The Elementor tree changed since it was read; nothing was written. Read it again and retry.', 'stonewright' ),
+						[
+							'status'        => 409,
+							'retryable'     => true,
+							'expected_hash' => $precondition_hash,
+							'actual_hash'   => $before_hash,
+						]
+					);
+				}
 
-		$snapshot_id = Backup::snapshot_post( $post_id );
-		if ( '' === $snapshot_id ) {
-			return new \WP_Error(
-				'stonewright_transaction_snapshot_failed',
-				__( 'Could not create a pre-write snapshot for the Elementor full-tree transaction.', 'stonewright' ),
-				[ 'status' => 500 ]
-			);
-		}
+				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return new \WP_Error(
+						'stonewright_transaction_snapshot_failed',
+						__( 'Could not create a pre-write snapshot for the Elementor full-tree transaction.', 'stonewright' ),
+						[ 'status' => 500 ]
+					);
+				}
 
-		$written = ElementorData::write( $post_id, $tree );
-		if ( ! $written ) {
-			// Integrity and schema gates are the only path to _elementor_data. A refused or busy write stored nothing, and
-			// ElementorData put back what it had when it failed after storing; the snapshot is restored only when that did not work.
-			$gate_error = ElementorData::last_write_error();
-			if ( $rollback_on_error && self::left_changes( $gate_error ) ) {
-				Backup::restore( $post_id, $snapshot_id );
+				$written = ElementorData::write( $post_id, $tree, [ 'lock_owner' => $lock_owner ] );
+				if ( ! $written ) {
+					// Integrity and schema gates are the only path to _elementor_data. A refused or busy write stored nothing, and
+					// ElementorData put back what it had when it failed after storing; the snapshot is restored only when that did not work.
+					$gate_error = ElementorData::last_write_error();
+					if ( $rollback_on_error && self::left_changes( $gate_error ) ) {
+						Backup::restore( $post_id, $snapshot_id );
+					}
+					return $gate_error instanceof \WP_Error
+						? $gate_error
+						: new \WP_Error(
+							'stonewright_transaction_write_rejected',
+							__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
+							[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => false ]
+						);
+				}
+
+				$read_tree = is_callable( self::$read_override )
+					? (array) ( self::$read_override )( $post_id )
+					: ElementorData::read( $post_id );
+				$read_hash = TreeHasher::hash( $read_tree );
+				$flat      = ElementorData::flatten( $read_tree );
+
+				if ( [] === $read_tree || [] === $flat ) {
+					$restored = false;
+					if ( $rollback_on_error ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+					}
+					return new \WP_Error(
+						'stonewright_transaction_readback_failed',
+						__( 'Elementor full-tree readback failed: empty tree after persist.', 'stonewright' ),
+						[
+							'status'      => 500,
+							'snapshot_id' => $snapshot_id,
+							'rolled_back' => $rollback_on_error,
+							'restored'    => $restored,
+						]
+					);
+				}
+
+				$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
+				if ( null !== $readback_error ) {
+					$restored = false;
+					if ( $rollback_on_error ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+					}
+					return new \WP_Error(
+						'stonewright_transaction_readback_failed',
+						$readback_error,
+						[
+							'status'      => 500,
+							'snapshot_id' => $snapshot_id,
+							'rolled_back' => $rollback_on_error,
+							'restored'    => $restored,
+							'readback'    => [
+								'tree_hash'     => $read_hash,
+								'element_count' => count( $flat ),
+							],
+						]
+					);
+				}
+
+				return [
+					'ok'            => true,
+					'post_id'       => $post_id,
+					'mode'          => 'full_tree',
+					'snapshot_id'   => $snapshot_id,
+					'before_hash'   => $before_hash,
+					'after_hash'    => $read_hash,
+					'readback_hash' => $read_hash,
+					'element_count' => count( $flat ),
+					'rolled_back'   => false,
+				];
 			}
-			return $gate_error instanceof \WP_Error
-				? $gate_error
-				: new \WP_Error(
-					'stonewright_transaction_write_rejected',
-					__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
-					[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => false ]
-				);
-		}
-
-		$read_tree = is_callable( self::$read_override )
-			? (array) ( self::$read_override )( $post_id )
-			: ElementorData::read( $post_id );
-		$read_hash = TreeHasher::hash( $read_tree );
-		$flat      = ElementorData::flatten( $read_tree );
-
-		if ( [] === $read_tree || [] === $flat ) {
-			$restored = false;
-			if ( $rollback_on_error ) {
-				$restored = Backup::restore( $post_id, $snapshot_id );
-			}
-			return new \WP_Error(
-				'stonewright_transaction_readback_failed',
-				__( 'Elementor full-tree readback failed: empty tree after persist.', 'stonewright' ),
-				[
-					'status'      => 500,
-					'snapshot_id' => $snapshot_id,
-					'rolled_back' => $rollback_on_error,
-					'restored'    => $restored,
-				]
-			);
-		}
-
-		$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
-		if ( null !== $readback_error ) {
-			$restored = false;
-			if ( $rollback_on_error ) {
-				$restored = Backup::restore( $post_id, $snapshot_id );
-			}
-			return new \WP_Error(
-				'stonewright_transaction_readback_failed',
-				$readback_error,
-				[
-					'status'      => 500,
-					'snapshot_id' => $snapshot_id,
-					'rolled_back' => $rollback_on_error,
-					'restored'    => $restored,
-					'readback'    => [
-						'tree_hash'     => $read_hash,
-						'element_count' => count( $flat ),
-					],
-				]
-			);
-		}
-
-		return [
-			'ok'            => true,
-			'post_id'       => $post_id,
-			'mode'          => 'full_tree',
-			'snapshot_id'   => $snapshot_id,
-			'before_hash'   => $before_hash,
-			'after_hash'    => $read_hash,
-			'readback_hash' => $read_hash,
-			'element_count' => count( $flat ),
-			'rolled_back'   => false,
-		];
+		);
 	}
 
 	/**
@@ -250,15 +259,19 @@ final class ElementorTransactionRunner {
 		}
 
 		// The transaction-run ability verifies its own confirmation token before calling the runner.
-		$batch = new BatchMutate();
-		$result = $batch->execute_with_verified_token(
-			[
-				'post_id'       => $post_id,
-				'operations'    => $envelope['operations'],
-				'stop_on_error' => $envelope['stop_on_error'],
-				'dry_run'       => $dry_run,
-			]
-		);
+		// The batch takes the write lease itself, so it is told which document the snapshot above describes and refuses
+		// to write when the page is no longer that document.
+		$batch_args = [
+			'post_id'       => $post_id,
+			'operations'    => $envelope['operations'],
+			'stop_on_error' => $envelope['stop_on_error'],
+			'dry_run'       => $dry_run,
+		];
+		if ( ! $dry_run ) {
+			$batch_args['expected_tree_hash'] = $before_hash;
+		}
+		$batch  = new BatchMutate();
+		$result = $batch->execute_with_verified_token( $batch_args );
 
 		if ( $result instanceof \WP_Error ) {
 			// A batch that failed before it wrote, or that was refused because another writer holds the lock, left this

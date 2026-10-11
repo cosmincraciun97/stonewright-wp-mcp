@@ -231,7 +231,10 @@ because that read shows the published document.
 
 `stonewright/elementor-v4-update-node` and `stonewright/elementor-v4-render-from-spec`
 compare the stored document with the tree they wrote, nested content included,
-and restore the snapshot on a mismatch. The class adapters compare the stored
+and restore the snapshot on a mismatch.
+`render-from-spec` takes the page write lease before it reads the page (for an
+append) and keeps it through the snapshot, the write and the readback; a busy page
+answers `stonewright_elementor_write_busy` before anything is stored. The class adapters compare the stored
 class, variants and props included, with what was written and put the previous
 class back (or delete the new one) on a mismatch; the variable adapter checks the
 label, type, and value and, on a mismatch, deletes the new variable or puts the

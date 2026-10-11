@@ -615,6 +615,50 @@ development builds were never stable releases.
   `elementor-v3-update-element`, `elementor-v3-batch-mutate` and the other
   writers already did this.
 
+- Set `isInner` from the destination when `elementor-v3-move-element` or the
+  `move_element` operation of `elementor-v3-batch-mutate` moves a container or a
+  section: one moved into another element becomes inner and one moved to the root
+  stops being inner, as `elementor-v3-add-container` already did. Widgets keep
+  their own value.
+
+- Take the write lease of the post before reading the page in
+  `elementor-v4-render-from-spec`, for an append and for a replace, so an element
+  another writer saves in the meantime is no longer overwritten. While another
+  writer holds the lease the call answers `stonewright_elementor_write_busy`
+  before it snapshots or writes.
+
+- Take the same lease before the read in the whole-tree writes behind
+  `design-apply-to-post`, `design-spec-to-elementor-v3`, `blueprint-apply` and
+  the `replace_tree` operation of `elementor-v3-transaction-run`, and check the
+  tree the caller read under it, so the snapshot, the check and the write all
+  see the same page. An operation batch run by `elementor-v3-transaction-run`
+  now refuses with `stonewright_elementor_revision_conflict` when the page
+  changed after the runner took its snapshot.
+
+- Take the write lease of the kit before reading its settings in
+  `elementor-v3-update-kit-colors` and `elementor-v3-update-kit-typography`, so a
+  row another writer saves in the meantime is no longer overwritten. A busy kit
+  answers `stonewright_elementor_write_busy` before it snapshots or writes.
+
+- Take the same kit lease before reading the kit settings in
+  `design-direction-sync-apply`, and check the plan's `base_hash` under it, so
+  the hash check, the snapshot and the write see the same kit. A busy kit answers
+  `stonewright_elementor_write_busy` before it snapshots or writes.
+
+- Take the kit lease before the kit settings are read in `brand-kit-apply`. A
+  busy kit is reported as `kit_busy` in the Elementor part of the result; the
+  options and theme mods are applied as before.
+
+- Write the page template and the hidden title of `design-spec-to-elementor-v3`
+  (`page_shell`) under the write lease of the page, so a page setting another
+  writer saves in the meantime is kept. When the page is busy the design is
+  written and the result carries a warning.
+
+- Take the kit lease before the snapshot and the write in
+  `elementor-v4-create-class`, `elementor-v4-update-class`,
+  `elementor-v4-create-variable` and `elementor-v4-update-variable`. A busy kit
+  answers `stonewright_elementor_write_busy` before it snapshots or writes.
+
 - Refuse a widget at the document root. `elementor-v3-move-element`, the
   `move_element` and `add_widget` operations of `elementor-v3-batch-mutate` and
   every document write answer `stonewright_widget_at_root` (or the structure

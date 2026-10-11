@@ -132,6 +132,42 @@ final class RootWidgetWritersTest extends TestCase {
 		self::assertSame( 'h', self::stored()[1]['elements'][0]['id'] );
 	}
 
+	public function test_move_element_of_a_container_to_the_root_clears_is_inner(): void {
+		$result = ( new MoveElement() )->execute( [ 'post_id' => self::POST, 'element_id' => 'a' ] );
+
+		self::assertIsArray( $result );
+		$moved = self::stored()[2];
+		self::assertSame( 'a', $moved['id'] );
+		self::assertFalse( $moved['isInner'], 'A container at the root is not an inner container.' );
+	}
+
+	public function test_move_element_of_a_root_container_into_a_parent_sets_is_inner(): void {
+		$result = ( new MoveElement() )->execute( [ 'post_id' => self::POST, 'element_id' => 'last', 'new_parent_id' => 'row' ] );
+
+		self::assertIsArray( $result );
+		$tree = self::stored();
+		self::assertSame( [ 'row' ], array_column( $tree, 'id' ) );
+		$moved = $tree[0]['elements'][3];
+		self::assertSame( 'last', $moved['id'] );
+		self::assertTrue( $moved['isInner'], 'A container inside another element is an inner container.' );
+	}
+
+	public function test_move_element_of_a_container_between_two_parents_keeps_is_inner(): void {
+		$result = ( new MoveElement() )->execute( [ 'post_id' => self::POST, 'element_id' => 'a', 'new_parent_id' => 'b' ] );
+
+		self::assertIsArray( $result );
+		$moved = self::stored()[0]['elements'][0]['elements'][0];
+		self::assertSame( 'a', $moved['id'] );
+		self::assertTrue( $moved['isInner'] );
+	}
+
+	public function test_move_element_of_a_widget_gets_no_is_inner(): void {
+		$result = ( new MoveElement() )->execute( [ 'post_id' => self::POST, 'element_id' => 'h', 'new_parent_id' => 'last' ] );
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'isInner', self::stored()[1]['elements'][0] );
+	}
+
 	public function test_add_container_inside_a_container_is_marked_inner_and_reports_its_index(): void {
 		$result = ( new AddContainer() )->execute( [ 'post_id' => self::POST, 'parent_id' => 'row' ] );
 

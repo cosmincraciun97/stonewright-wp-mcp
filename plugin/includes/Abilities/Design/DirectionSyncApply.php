@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionSyncTarget;
 use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
 use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -161,94 +162,102 @@ final class DirectionSyncApply extends AbilityKernel {
 					return $blocked;
 				}
 
-				$unsnapshotable = ElementorKitWriter::snapshot_blocker( $kit_id );
-				if ( null !== $unsnapshotable ) {
-					return $unsnapshotable;
-				}
+				// The lease is taken before the kit is read for the plan, so the base_hash check, the snapshot and the write all see
+				// the same kit and no other writer changes it in between.
+				return PostWriteLock::with_lease(
+					$kit_id,
+					'direction-sync',
+					function () use ( $record, $id, $kit_id, $base_hash ): array|\WP_Error {
+						$unsnapshotable = ElementorKitWriter::snapshot_blocker( $kit_id );
+						if ( null !== $unsnapshotable ) {
+							return $unsnapshotable;
+						}
 
-				$contract = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
-				$plan     = ElementorKitSyncPlanner::plan( $contract, ElementorKitWriter::read( $kit_id ) );
-				if ( $plan instanceof \WP_Error ) {
-					return $plan;
-				}
+						$contract = is_array( $record['contract'] ?? null ) ? $record['contract'] : [];
+						$plan     = ElementorKitSyncPlanner::plan( $contract, ElementorKitWriter::read( $kit_id ) );
+						if ( $plan instanceof \WP_Error ) {
+							return $plan;
+						}
 
-				if ( (string) $plan['base_hash'] !== $base_hash ) {
-					return new \WP_Error(
-						ElementorKitSyncPlanner::STALE_CODE,
-						__( 'The Elementor kit changed since the dry run. Re-run the sync plan and review it again.', 'stonewright' ),
-						[
-							'status'        => 409,
-							'kit_id'        => $kit_id,
-							'expected_hash' => $base_hash,
-							'actual_hash'   => (string) $plan['base_hash'],
-						]
-					);
-				}
+						if ( (string) $plan['base_hash'] !== $base_hash ) {
+							return new \WP_Error(
+								ElementorKitSyncPlanner::STALE_CODE,
+								__( 'The Elementor kit changed since the dry run. Re-run the sync plan and review it again.', 'stonewright' ),
+								[
+									'status'        => 409,
+									'kit_id'        => $kit_id,
+									'expected_hash' => $base_hash,
+									'actual_hash'   => (string) $plan['base_hash'],
+								]
+							);
+						}
 
-				if ( [] !== $plan['blocked'] ) {
-					return new \WP_Error(
-						ElementorKitSyncPlanner::BLOCKED_CODE,
-						__( 'This direction holds values the Elementor kit cannot store. Fix them in the contract instead of synchronizing.', 'stonewright' ),
-						[
-							'status'  => 422,
-							'kit_id'  => $kit_id,
-							'blocked' => $plan['blocked'],
-						]
-					);
-				}
+						if ( [] !== $plan['blocked'] ) {
+							return new \WP_Error(
+								ElementorKitSyncPlanner::BLOCKED_CODE,
+								__( 'This direction holds values the Elementor kit cannot store. Fix them in the contract instead of synchronizing.', 'stonewright' ),
+								[
+									'status'  => 422,
+									'kit_id'  => $kit_id,
+									'blocked' => $plan['blocked'],
+								]
+							);
+						}
 
-				if ( true !== ( $contract['readiness']['sync_ready'] ?? false ) ) {
-					return new \WP_Error(
-						DesignDirectionService::NOT_READY_CODE,
-						__( 'This design direction is not marked sync_ready.', 'stonewright' ),
-						[
-							'status'       => 409,
-							'direction_id' => $id,
-						]
-					);
-				}
+						if ( true !== ( $contract['readiness']['sync_ready'] ?? false ) ) {
+							return new \WP_Error(
+								DesignDirectionService::NOT_READY_CODE,
+								__( 'This design direction is not marked sync_ready.', 'stonewright' ),
+								[
+									'status'       => 409,
+									'direction_id' => $id,
+								]
+							);
+						}
 
-				$write = ElementorKitWriter::apply( $kit_id, $plan['operations'] );
-				if ( $write instanceof \WP_Error ) {
-					return $write;
-				}
+						$write = ElementorKitWriter::apply( $kit_id, $plan['operations'] );
+						if ( $write instanceof \WP_Error ) {
+							return $write;
+						}
 
-				// Read the kit back: an outstanding operation means the write did not land.
-				$after = ElementorKitSyncPlanner::plan( $contract, ElementorKitWriter::read( $kit_id ) );
-				if ( $after instanceof \WP_Error ) {
-					return $after;
-				}
+						// Read the kit back: an outstanding operation means the write did not land.
+						$after = ElementorKitSyncPlanner::plan( $contract, ElementorKitWriter::read( $kit_id ) );
+						if ( $after instanceof \WP_Error ) {
+							return $after;
+						}
 
-				if ( [] !== $after['operations'] ) {
-					return new \WP_Error(
-						'stonewright_direction_verification_failed',
-						__( 'The Elementor kit does not match the design direction after the write.', 'stonewright' ),
-						[
-							'status'              => 500,
-							'kit_id'              => $kit_id,
-							'direction_id'        => $id,
-							'outstanding'         => $after['operations'],
-							'verification_status' => 'failed',
-						]
-					);
-				}
+						if ( [] !== $after['operations'] ) {
+							return new \WP_Error(
+								'stonewright_direction_verification_failed',
+								__( 'The Elementor kit does not match the design direction after the write.', 'stonewright' ),
+								[
+									'status'              => 500,
+									'kit_id'              => $kit_id,
+									'direction_id'        => $id,
+									'outstanding'         => $after['operations'],
+									'verification_status' => 'failed',
+								]
+							);
+						}
 
-				return $this->ok(
-					[
-						'id'                  => $id,
-						'slug'                => (string) $record['slug'],
-						'kit_id'              => $kit_id,
-						'applied'             => (int) $write['applied'],
-						'operations'          => $plan['operations'],
-						'warnings'            => $plan['warnings'],
-						'snapshot_id'         => (string) $write['snapshot_id'],
-						'before_sha256'       => $base_hash,
-						'after_sha256'        => (string) $after['base_hash'],
-						'operation_class'     => 'design_direction.sync_apply',
-						'resource_type'       => 'elementor_kit',
-						'verification_status' => 'verified',
-						'effect_verified'     => true,
-					]
+						return $this->ok(
+							[
+								'id'                  => $id,
+								'slug'                => (string) $record['slug'],
+								'kit_id'              => $kit_id,
+								'applied'             => (int) $write['applied'],
+								'operations'          => $plan['operations'],
+								'warnings'            => $plan['warnings'],
+								'snapshot_id'         => (string) $write['snapshot_id'],
+								'before_sha256'       => $base_hash,
+								'after_sha256'        => (string) $after['base_hash'],
+								'operation_class'     => 'design_direction.sync_apply',
+								'resource_type'       => 'elementor_kit',
+								'verification_status' => 'verified',
+								'effect_verified'     => true,
+							]
+						);
+					}
 				);
 			}
 		);

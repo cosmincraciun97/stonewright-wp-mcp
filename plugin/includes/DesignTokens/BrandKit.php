@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\DesignTokens;
 
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 
 /**
@@ -622,74 +623,92 @@ final class BrandKit {
 			];
 		}
 
-		$snapshot_id = Backup::snapshot_post( $kit_id );
-		if ( '' === $snapshot_id ) {
+		// The lease is taken before the kit settings are read, so no other writer changes them between the read and the write.
+		// A busy kit is reported like the other reasons the kit part is skipped; the options and theme mods are applied either way.
+		$result = PostWriteLock::with_lease(
+			$kit_id,
+			'brand-kit',
+			function () use ( $kit, $kit_id ): array {
+				$snapshot_id = Backup::snapshot_post( $kit_id );
+				if ( '' === $snapshot_id ) {
+					return [
+						'applied'     => false,
+						'reason'      => 'backup_failed',
+						'kit_id'      => $kit_id,
+						'snapshot_id' => '',
+					];
+				}
+
+				$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
+				if ( ! is_array( $settings ) ) {
+					$settings = [];
+				}
+
+				$custom_colors = isset( $settings['custom_colors'] ) && is_array( $settings['custom_colors'] )
+					? $settings['custom_colors']
+					: [];
+				$by_id = [];
+				foreach ( $custom_colors as $row ) {
+					if ( is_array( $row ) && isset( $row['_id'] ) ) {
+						$by_id[ (string) $row['_id'] ] = $row;
+					}
+				}
+
+				foreach ( (array) ( $kit['colors'] ?? [] ) as $key => $value ) {
+					if ( ! is_string( $key ) || ! is_string( $value ) || '' === $value ) {
+						continue;
+					}
+					$id = 'sw_' . sanitize_key( $key );
+					$by_id[ $id ] = [
+						'_id'   => $id,
+						'title' => ucwords( str_replace( [ '-', '_' ], ' ', $key ) ),
+						'color' => $value,
+					];
+				}
+				$settings['custom_colors'] = array_values( $by_id );
+
+				$custom_typo = isset( $settings['custom_typography'] ) && is_array( $settings['custom_typography'] )
+					? $settings['custom_typography']
+					: [];
+				$typo_by_id = [];
+				foreach ( $custom_typo as $row ) {
+					if ( is_array( $row ) && isset( $row['_id'] ) ) {
+						$typo_by_id[ (string) $row['_id'] ] = $row;
+					}
+				}
+				foreach ( (array) ( $kit['fonts'] ?? [] ) as $key => $value ) {
+					if ( ! is_string( $key ) || ! is_string( $value ) || '' === $value ) {
+						continue;
+					}
+					$id = 'sw_font_' . sanitize_key( $key );
+					$typo_by_id[ $id ] = [
+						'_id'              => $id,
+						'title'            => ucwords( str_replace( [ '-', '_' ], ' ', $key ) ),
+						'typography_font_family' => $value,
+					];
+				}
+				$settings['custom_typography'] = array_values( $typo_by_id );
+
+				update_post_meta( $kit_id, '_elementor_page_settings', $settings );
+
+				return [
+					'applied'     => true,
+					'reason'      => 'merged_custom_colors_typography',
+					'kit_id'      => $kit_id,
+					'snapshot_id' => $snapshot_id,
+				];
+			}
+		);
+		if ( $result instanceof \WP_Error ) {
 			return [
 				'applied'     => false,
-				'reason'      => 'backup_failed',
+				'reason'      => 'kit_busy',
 				'kit_id'      => $kit_id,
 				'snapshot_id' => '',
 			];
 		}
 
-		$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
-		if ( ! is_array( $settings ) ) {
-			$settings = [];
-		}
-
-		$custom_colors = isset( $settings['custom_colors'] ) && is_array( $settings['custom_colors'] )
-			? $settings['custom_colors']
-			: [];
-		$by_id = [];
-		foreach ( $custom_colors as $row ) {
-			if ( is_array( $row ) && isset( $row['_id'] ) ) {
-				$by_id[ (string) $row['_id'] ] = $row;
-			}
-		}
-
-		foreach ( (array) ( $kit['colors'] ?? [] ) as $key => $value ) {
-			if ( ! is_string( $key ) || ! is_string( $value ) || '' === $value ) {
-				continue;
-			}
-			$id = 'sw_' . sanitize_key( $key );
-			$by_id[ $id ] = [
-				'_id'   => $id,
-				'title' => ucwords( str_replace( [ '-', '_' ], ' ', $key ) ),
-				'color' => $value,
-			];
-		}
-		$settings['custom_colors'] = array_values( $by_id );
-
-		$custom_typo = isset( $settings['custom_typography'] ) && is_array( $settings['custom_typography'] )
-			? $settings['custom_typography']
-			: [];
-		$typo_by_id = [];
-		foreach ( $custom_typo as $row ) {
-			if ( is_array( $row ) && isset( $row['_id'] ) ) {
-				$typo_by_id[ (string) $row['_id'] ] = $row;
-			}
-		}
-		foreach ( (array) ( $kit['fonts'] ?? [] ) as $key => $value ) {
-			if ( ! is_string( $key ) || ! is_string( $value ) || '' === $value ) {
-				continue;
-			}
-			$id = 'sw_font_' . sanitize_key( $key );
-			$typo_by_id[ $id ] = [
-				'_id'              => $id,
-				'title'            => ucwords( str_replace( [ '-', '_' ], ' ', $key ) ),
-				'typography_font_family' => $value,
-			];
-		}
-		$settings['custom_typography'] = array_values( $typo_by_id );
-
-		update_post_meta( $kit_id, '_elementor_page_settings', $settings );
-
-		return [
-			'applied'     => true,
-			'reason'      => 'merged_custom_colors_typography',
-			'kit_id'      => $kit_id,
-			'snapshot_id' => $snapshot_id,
-		];
+		return $result;
 	}
 
 	/**

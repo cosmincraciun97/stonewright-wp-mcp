@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\V4\AtomicClassRepositoryAdapter;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -48,11 +49,19 @@ return $this->error( 'no_kit', 'No active Elementor kit found.' ); }
 return $adapter; }
 			$id = 'sw-' . wp_generate_uuid4();
 			$item = [ 'id' => $id, 'label' => (string) $args['label'], 'type' => 'class', 'variants' => (array) $args['variants'] ];
-			$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS, true );
-			if ( '' === $snapshot_id ) {
-return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the class write.' ); }
-			$readback = $adapter->create( $item );
-			return is_wp_error( $readback ) ? $readback : [ 'item' => $readback, 'snapshot_id' => $snapshot_id ];
+			// The lease is taken before the kit is snapshotted and written, so no other writer changes it in between.
+			return PostWriteLock::with_lease(
+				$kit_id,
+				'create-class',
+				function () use ( $adapter, $item, $kit_id ): array|\WP_Error {
+					$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS, true );
+					if ( '' === $snapshot_id ) {
+						return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the class write.' );
+					}
+					$readback = $adapter->create( $item );
+					return is_wp_error( $readback ) ? $readback : [ 'item' => $readback, 'snapshot_id' => $snapshot_id ];
+				}
+			);
 		} );
 	}
 }

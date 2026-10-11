@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\KitRows;
 use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -105,50 +106,57 @@ final class UpdateKitColors extends AbilityKernel {
 					return $this->error( 'no_kit', __( 'No active Elementor kit.', 'stonewright' ) );
 				}
 
-				$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
-				if ( ! is_array( $settings ) ) {
-					$settings = [];
-				}
+				// The lease is taken before the kit settings are read, so no other writer changes them between the read and the write.
+				return PostWriteLock::with_lease(
+					$kit_id,
+					'update-kit-colors',
+					function () use ( $args, $kit_id ) {
+						$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
+						if ( ! is_array( $settings ) ) {
+							$settings = [];
+						}
 
-				$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
-				$existing = isset( $settings['custom_colors'] ) && is_array( $settings['custom_colors'] ) ? $settings['custom_colors'] : [];
+						$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
+						$existing = isset( $settings['custom_colors'] ) && is_array( $settings['custom_colors'] ) ? $settings['custom_colors'] : [];
 
-				$incoming = [];
-				foreach ( (array) $args['colors'] as $c ) {
-					$row = [ '_id' => (string) ( $c['id'] ?? '' ) ];
-					if ( isset( $c['title'] ) ) {
-						$row['title'] = (string) $c['title'];
+						$incoming = [];
+						foreach ( (array) $args['colors'] as $c ) {
+							$row = [ '_id' => (string) ( $c['id'] ?? '' ) ];
+							if ( isset( $c['title'] ) ) {
+								$row['title'] = (string) $c['title'];
+							}
+							$row['color'] = (string) ( $c['color'] ?? '' );
+							$incoming[]   = $row;
+						}
+
+						$next                    = $settings;
+						$next['custom_colors']   = KitRows::merge( $existing, $incoming, $mode );
+						if ( $next === $settings ) {
+							// The kit already holds these colors; update_post_meta() reports an unchanged value as false, which is no failure.
+							return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
+						}
+
+						$snapshot_id = Backup::snapshot_post( $kit_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+						update_post_meta( $kit_id, '_elementor_page_settings', wp_slash( $next ) );
+						if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
+							return $this->error( 'write_failed', __( 'Could not save Elementor kit colors.', 'stonewright' ) );
+						}
+
+						return [
+							'kit_id'      => $kit_id,
+							'snapshot_id' => $snapshot_id,
+							'next_step'   => [
+								'tool'    => 'stonewright/elementor-css-regenerate',
+								'post_id' => $kit_id,
+								'why'     => 'The kit colors are stored; regenerate the kit CSS so pages use them.',
+							],
+							'cache_purge' => PageCachePurger::purge_quietly( $kit_id ),
+						];
 					}
-					$row['color'] = (string) ( $c['color'] ?? '' );
-					$incoming[]   = $row;
-				}
-
-				$next                    = $settings;
-				$next['custom_colors']   = KitRows::merge( $existing, $incoming, $mode );
-				if ( $next === $settings ) {
-					// The kit already holds these colors; update_post_meta() reports an unchanged value as false, which is no failure.
-					return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
-				}
-
-				$snapshot_id = Backup::snapshot_post( $kit_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				update_post_meta( $kit_id, '_elementor_page_settings', wp_slash( $next ) );
-				if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor kit colors.', 'stonewright' ) );
-				}
-
-				return [
-					'kit_id'      => $kit_id,
-					'snapshot_id' => $snapshot_id,
-					'next_step'   => [
-						'tool'    => 'stonewright/elementor-css-regenerate',
-						'post_id' => $kit_id,
-						'why'     => 'The kit colors are stored; regenerate the kit CSS so pages use them.',
-					],
-					'cache_purge' => PageCachePurger::purge_quietly( $kit_id ),
-				];
+				);
 			}
 		);
 	}
