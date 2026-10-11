@@ -307,7 +307,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( $tools_changed ) {
 			$re_list = 'Re-list tools now (tools/list). New tools are available for this session. '
 				. 'If your client ignores tools/list_changed, call tools/list again before continuing. '
-				. 'If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.';
+				. 'If a needed tool is still missing after re-list, restart the MCP client — do not call /abilities/run.';
 		} else {
 			$re_list = '';
 		}
@@ -1250,15 +1250,6 @@ final class WorkflowPreflight extends AbilityKernel {
 				'stonewright/site-plugins-list',
 				'Confirm installed plugins before choosing plugin-specific surfaces.',
 				[]
-			);
-			$out[] = self::call_step(
-				'stonewright/php-execute',
-				'Use direct WordPress runtime access for compact plugin API inspection or one-off fixes when typed abilities or WP-CLI would take many calls.',
-				[
-					'code'                     => '<short PHP body; return structured data>',
-					'return_mode'              => 'auto',
-					'stonewright_context_token' => '<context_token>',
-				]
 			);
 			$out[] = self::call_step(
 				'stonewright/wp-cli-status',

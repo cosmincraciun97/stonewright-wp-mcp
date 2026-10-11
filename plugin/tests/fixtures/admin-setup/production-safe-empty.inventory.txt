@@ -492,7 +492,7 @@ Use the versioned installer, a unique site alias, a collision-safe named server,
 
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v{VERSION}/stonewright-companion-{VERSION}.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode plugin-only --client <client> --profile essential-static --wp-surface bootstrap --plugin-enabled yes --wp-mode <development|staging|production-safe> --elementor-v4 <yes|no>
 
-`--profile discover-execute` exposes a minimal 3-tool protocol surface.
+`--profile discover-execute` exposes the three protocol tools plus the startup and confirmation-token tools.
 
 -- full setup rules hidden; expand below -- x1
 span data-stonewright-app-password-count= x1

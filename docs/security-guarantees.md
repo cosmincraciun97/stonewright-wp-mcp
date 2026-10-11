@@ -20,9 +20,11 @@ Enforced by:
 - `plugin/includes/Security/ProtectedElementorWriteGuard.php`
 - `plugin/bin/security-audit.php`
 
-`php-execute` is registered on the **full** MCP profile only. Bootstrap and
-essential do not expose it. The `discover-execute` and read-only `inspect`
-profiles also omit it.
+`php-execute` is registered on the **full** MCP profile only. Every other profile
+omits it, including bootstrap, essential, low-tools, the specialist profiles,
+`discover-execute`, and the read-only `inspect` profile. The companion applies
+the same rule to its own profile lists, and keeps php-execute registered for the
+full profile only.
 
 A successful `php-execute` response may carry a `routing_hint` that names the
 typed tool for a common pattern (post meta, options, Elementor data, menus). The

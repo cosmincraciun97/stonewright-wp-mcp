@@ -16,9 +16,10 @@ override default behavior.
 
 ## Hard rules
 
-1. **Full PHP runtime access is first-class.** Use
+1. **Full PHP runtime access is first-class on the `full` profile.** Use
    `stonewright/php-execute` for direct PHP snippets inside the loaded
-   WordPress runtime. Do not replace it with another MCP adapter, direct REST
+   WordPress runtime; it is on the `full` profile only and no other profile
+   lists it. Do not replace it with another MCP adapter, direct REST
    runner calls, shell scripts, or private client-config workarounds.
 2. **No `__return_true` for writes.** Every ability that writes, updates, or
    deletes state must use a real permission callback that calls into
@@ -276,9 +277,9 @@ Recommend against stable 1.0 while any required gate is missing:
   `stonewright-context-bootstrap` is visible in the MCP tool list, stop
   WordPress work and ask the user to reload the AI client or fix the
   Stonewright MCP config. Do not work around a missing Stonewright MCP server.
-- If status is connected and the site surface is full/essential but
-  `stonewright-php-execute` (or another needed tool) is missing from the client
-  list, call `stonewright-client-surface-check`, then `stonewright-task-start` /
+- If status is connected and the site surface is full/essential but a needed
+  tool (`stonewright-php-execute` only on the `full` profile) is missing from
+  the client list, call `stonewright-client-surface-check`, then `stonewright-task-start` /
   `stonewright-tool-profile` activate and re-list tools, or restart the MCP
   client. Do **not** invent `/abilities/run` or other REST workarounds.
 - Do not inspect private AI-client config files, parse repository files as a
@@ -331,9 +332,9 @@ Recommend against stable 1.0 while any required gate is missing:
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,
   cache, rewrite, plugin, option, post, media, menu, and taxonomy work when it
   speeds up implementation or debugging.
-- Use `stonewright/php-execute` for direct WordPress runtime inspection,
-  plugin API calls, and short PHP snippets when that is faster than many typed
-  calls.
+- On the `full` profile only, use `stonewright/php-execute` for direct
+  WordPress runtime inspection, plugin API calls, and short PHP snippets when
+  that is faster than many typed calls.
 
 ## Context discipline
 

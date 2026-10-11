@@ -91,8 +91,8 @@ scratch helper scripts, creating helper JSON argument files, launching the
 companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, or calling the REST runner from shell; they should use Stonewright's
-`stonewright-php-execute` for runtime snippets and `stonewright-wp-cli-*` tools
-so commands stay tokenized.
+`stonewright-php-execute` for runtime snippets (`full` profile only) and
+`stonewright-wp-cli-*` tools so commands stay tokenized.
 
 ## 2. Create an Application Password
 

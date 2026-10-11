@@ -34,6 +34,19 @@ exchange, and refresh. Access tokens issued for another audience are rejected.
 Protected Resource Metadata exposes the minimal `mcp` scope; refresh access is
 advertised only by authorization-server metadata.
 
+A client may identify itself with a Client ID Metadata Document: an HTTPS URL
+(default port, DNS host name, a path other than `/`) used as its `client_id`,
+which serves a JSON document of at most 5 KB that lists its callback URLs and
+describes a public client. Stonewright fetches the document from a public
+address only, does not follow redirects, and caches it for the time its
+`Cache-Control` header allows: 5 minutes to 24 hours, 1 hour by default.
+
+A native client may use an HTTP callback on `127.0.0.1`, `[::1]`, or
+`localhost` and choose a different port than the one it registered; scheme,
+host, path, and query must still match. The host is never substituted, so
+`localhost` does not match a callback registered for `127.0.0.1`. Every other
+callback must be HTTPS and match exactly.
+
 When an OAuth request is not arriving correctly, use the read-only
 `stonewright-oauth-header-diagnostic` ability. It distinguishes the dedicated
 OAuth MCP route from an ordinary REST route and reports header visibility,
@@ -214,7 +227,7 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, php-execute, and
+Stonewright companion so setup, status, compact profiles, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 
 After restart, the AI client should show `stonewright-task-start` or
@@ -248,7 +261,7 @@ For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use the shared
 Do not recover by running `wp cli info`, `wp plugin activate`,
 `wp option update`, or other `wp` commands in a normal shell, and do not switch
 to another PHP adapter. Use `stonewright-wordpress-mcp-status`,
-`stonewright-php-execute`, and the direct `stonewright-wp-cli-*` tools exposed
+`stonewright-php-execute` (`full` profile only), and the direct `stonewright-wp-cli-*` tools exposed
 by the companion.
 
 ---

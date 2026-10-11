@@ -122,8 +122,35 @@ development builds were never stable releases.
   `--yes`, `--issue-token`) do the same from the command line, with the same
   rules; the command line is not an administrator, so it cannot approve code.
 
+### Changed
+
+- Say in the Elementor V3 migration guide and the editor adapter notes that the
+  deprecated `elementor-add-*` abilities are removed in 2.0.0, the sunset
+  version their metadata reports, and that the changelog announces the removal
+  first. The guide generator reads the version from the abilities' metadata
+  instead of naming a release in its text.
+- Keep `php-execute` on the `full` profile only, everywhere. This changes
+  behavior: the companion no longer lists `stonewright-php-execute` in the
+  offline profile lists of bootstrap, essential-static, essential, low-tools,
+  elementor-design, content-model, gutenberg, wp-cli or site-admin, and it no
+  longer keeps the tool registered in those profiles or in `discover-execute`
+  when the site lists it. A client on one of those profiles no
+  longer sees it; switch to `full` to use it. The plugin's workflow and token
+  rules from `tool-profile`, the `content-model` profile, the server
+  instructions, the workflow preflight call sequence, the specialization and
+  context hints, the Elementor capabilities summary and the bundled skills and
+  docs name it for `full` only. See the companion changelog.
+
 ### Fixed
 
+- Name the right tool in `next_ability` when a generic content write is refused
+  for an executable-code post type: `stonewright-custom-code-provider`.
+- Show the real tool limit of the Bootstrap surface in the Setup surface menu
+  (`Bootstrap (≤12 tools — progressive discovery)`); the label now takes the
+  number from the budget constant the registry enforces.
+- Say in the connect prompt that `--profile discover-execute` exposes the three
+  protocol tools plus the startup and confirmation-token tools, instead of "a
+  minimal 3-tool protocol surface".
 - Give every site of a multisite network the mode its environment type calls
   for. After a network activation only the main site got an initial mode; every
   other site read `development` until an administrator saved one, so a sub-site
@@ -151,6 +178,14 @@ development builds were never stable releases.
 - Delete theme file backups that no entry of the backup index and no entry of
   the change journal refers to, once the index of 100 entries trims and the
   file is over an hour old. They were never removed before.
+
+### Documentation
+
+- Describe Client ID Metadata Documents and the `localhost` callback host in
+  the OAuth part of the connect-clients guide.
+- Document in the Design Spec reference the two versions the validator accepts,
+  `1.0.0` and `2.0.0`, what a 2.0.0 spec adds, and the native policy and motion
+  rules the validator enforces.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

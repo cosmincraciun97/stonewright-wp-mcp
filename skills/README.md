@@ -93,7 +93,8 @@ instead of reading repository files as a replacement. For WP-CLI work, use
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`; do not recover by running `wp ...` in a normal
 shell or by switching to another PHP adapter. Use `stonewright/php-execute`
-for direct runtime snippets and `stonewright-wp-cli-*` for tokenized WP-CLI.
+(`full` profile only) for direct runtime snippets and `stonewright-wp-cli-*` for
+tokenized WP-CLI.
 
 ## Companion layer
 

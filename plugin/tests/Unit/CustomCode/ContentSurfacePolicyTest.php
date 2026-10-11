@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
 use Stonewright\WpMcp\Abilities\Content\DuplicatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
+use Stonewright\WpMcp\Abilities\CustomCode\ProviderOps;
 use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\CustomCode\OwnsPostTypesInterface;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
@@ -78,6 +79,13 @@ final class ContentSurfacePolicyTest extends TestCase {
 		$GLOBALS['stonewright_test_wp_kses_post_calls']    = [];
 	}
 
+	public function test_next_ability_is_the_mcp_name_of_the_custom_code_provider_ability(): void {
+		self::assertSame(
+			str_replace( '/', '-', ( new ProviderOps() )->name() ),
+			ContentSurfacePolicy::NEXT_ABILITY
+		);
+	}
+
 	public function test_policy_rejects_owned_post_type_without_content_or_title(): void {
 		$result = ContentSurfacePolicy::assert_generic_write_allowed( 'synthetic-code-type' );
 		self::assertInstanceOf( \WP_Error::class, $result );
@@ -106,7 +114,7 @@ final class ContentSurfacePolicyTest extends TestCase {
 		self::assertSame( 409, $data['status'] );
 		self::assertSame( 'synthetic-code-type', $data['post_type'] );
 		self::assertFalse( $data['retryable'] );
-		self::assertSame( 'stonewright-custom-code-provider-ops', $data['next_ability'] );
+		self::assertSame( 'stonewright-custom-code-provider', $data['next_ability'] );
 		self::assertContains( 'synthetic-provider', $data['providers'] );
 		self::assertContains( 'other-provider', $data['providers'] );
 		self::assertArrayNotHasKey( 'title', $data );
@@ -316,7 +324,7 @@ final class ContentSurfacePolicyTest extends TestCase {
 		self::assertSame( 409, $data['status'] );
 		self::assertSame( 'synthetic-code-type', $data['post_type'] );
 		self::assertSame( 'synthetic-provider', $data['provider'] );
-		self::assertSame( 'stonewright-custom-code-provider-ops', $data['next_ability'] );
+		self::assertSame( 'stonewright-custom-code-provider', $data['next_ability'] );
 		self::assertFalse( $data['retryable'] );
 		self::assertArrayNotHasKey( 'title', $data );
 		self::assertArrayNotHasKey( 'code', $data );

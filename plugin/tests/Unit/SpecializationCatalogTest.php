@@ -54,7 +54,7 @@ final class SpecializationCatalogTest extends TestCase {
 			self::assertIsArray( $specialization );
 			self::assertNotEmpty( $specialization['official_docs'] );
 			self::assertContains( 'stonewright/wp-cli-discover', $specialization['discovery_tools'] );
-			self::assertContains( 'Use stonewright/php-execute for short PHP runtime snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.', $specialization['runtime_rules'] );
+			self::assertContains( 'Never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points; stonewright/php-execute for runtime snippets is on the full profile only.', $specialization['runtime_rules'] );
 			self::assertContains( 'Verify by reading back the changed schema or values after every write pass.', $specialization['verification_steps'] );
 		}
 	}

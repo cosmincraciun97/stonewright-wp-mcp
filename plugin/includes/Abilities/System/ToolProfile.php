@@ -394,7 +394,7 @@ final class ToolProfile extends AbilityKernel {
 				'discovery_policy'      => self::discovery_policy(),
 				'profiles_available'    => self::profile_names(),
 				'workflow_rules'        => self::workflow_rules( $profile ),
-				'token_rules'           => self::token_rules(),
+				'token_rules'           => self::token_rules( $profile ),
 				'ordered'              => true,
 				'source'               => 'plugin',
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
@@ -527,7 +527,7 @@ final class ToolProfile extends AbilityKernel {
 			'recovery_hints'        => self::recovery_hints( $missing_names ),
 			'discovery_policy'      => self::discovery_policy(),
 			'workflow_rules'        => self::workflow_rules( $profile ),
-			'token_rules'           => self::token_rules(),
+			'token_rules'           => self::token_rules( $profile ),
 			'counts'                => [
 				'all_registered' => count( AbilityRegistry::list() ),
 				'visible'        => count( $all_visible ),
@@ -543,7 +543,7 @@ final class ToolProfile extends AbilityKernel {
 			// Always emit a re-list instruction on activate so stdio companions that
 			// missed tools_changed still expand (Grok / Cursor cache quirks).
 			're_list_instruction'   => $tools_changed
-				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing. If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.'
+				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing. If a tool is still missing after re-list, restart the MCP client — do not call /abilities/run.'
 				: ( 'activate' === (string) ( $args['action'] ?? 'activate' )
 					? 'Re-list tools now (tools/list) to confirm the active profile surface matches the server.'
 					: '' ),
@@ -1246,7 +1246,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-job-start',
 			] ),
 			'content-model' => [
-				'stonewright/php-execute',
 				'stonewright/content-model-loop-grid-flow',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/wp-cli-discover',
@@ -1357,8 +1356,12 @@ final class ToolProfile extends AbilityKernel {
 			'Start with task-start; use context-bootstrap or workflow-preflight only for compatibility, then keep the same compact profile for the task.',
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Prefer batch abilities over repeated single-item calls once the target shape is known.',
-			'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.',
 		];
+
+		// php-execute is on the full profile only, so no other profile is told to use it.
+		if ( 'full' === $profile ) {
+			$rules[] = 'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.';
+		}
 
 		if ( 'elementor-design' === $profile ) {
 			$rules[] = 'Set global colors and typography first when site-wide style changes are approved.';
@@ -1398,19 +1401,26 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	/**
+	 * @param string $profile Named profile.
 	 * @return list<string>
 	 */
-	private static function token_rules(): array {
-		return [
+	private static function token_rules( string $profile ): array {
+		$rules = [
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.',
 			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
-			'Use php-execute for short runtime snippets instead of full ability discovery when the needed WordPress/plugin API call is already known.',
 			'Use WP-CLI background jobs only for long-running commands; keep short commands synchronous.',
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',
 		];
+
+		if ( 'full' === $profile ) {
+			// php-execute is on the full profile only; the rule keeps its place in the list.
+			array_splice( $rules, 3, 0, [ 'Use php-execute for short runtime snippets instead of full ability discovery when the needed WordPress/plugin API call is already known.' ] );
+		}
+
+		return $rules;
 	}
 
 	/**

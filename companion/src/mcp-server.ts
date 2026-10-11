@@ -37,6 +37,7 @@ import {
 	WordPressMcpHttpError,
 	isConfirmedPluginRouteAbsence,
 	isWordPressMcpAuthFailure,
+	profileOffersPhpExecute,
 } from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
 import {
@@ -778,12 +779,20 @@ function companionInstructions(
 			'- Use stonewright-wordpress-mcp-status to confirm mode, version, startup readiness, and the live Direct tool surface.',
 			'- Do not run wp commands in a normal shell. Use only typed Direct tools or the tokenized companion WP-CLI tools.',
 		);
-	} else {
+	} else if (profileOffersPhpExecute(profile)) {
 		lines.push(
 			'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 			'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
 			'- If a needed tool (e.g. php-execute) is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
 			'- Do not run wp commands in a normal shell. Use stonewright-php-execute for PHP snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.',
+		);
+	} else {
+		// php-execute is on the full profile only, so other profiles are not told to call it.
+		lines.push(
+			'- stonewright-php-execute is on the full profile only; switch to the full profile with stonewright-tool-profile when a runtime snippet is required.',
+			'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
+			'- If a needed tool is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
+			'- Do not run wp commands in a normal shell, and never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points.',
 		);
 	}
 
@@ -886,7 +895,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands; use stonewright-php-execute for PHP runtime snippets instead of WP-CLI eval or shell entry points.',
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands; never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points.',
 				inputSchema: {
 					...commonInput,
 					command: z.array(z.string()).min(1),
@@ -902,7 +911,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts; use stonewright-php-execute for PHP runtime snippets.',
+				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts.',
 				inputSchema: {
 					...commonInput,
 					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),

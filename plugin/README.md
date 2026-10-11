@@ -83,8 +83,8 @@ deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 The source-install `wp plugin activate stonewright` command is for humans with
 WP-CLI already configured. Runtime agents should not recover by shelling out to
 `wp ...` or by switching to another PHP adapter. They should use
-`stonewright/php-execute` for direct WordPress runtime snippets and the
-tokenized `stonewright-wp-cli-*` MCP tools for WP-CLI workflows.
+`stonewright/php-execute` (`full` profile only) for direct WordPress runtime
+snippets and the tokenized `stonewright-wp-cli-*` MCP tools for WP-CLI workflows.
 Guarded php-execute installs a real `wpdb` subclass around the live handle so
 third-party type checks still pass; core-table and protected Elementor meta
 writes remain blocked.

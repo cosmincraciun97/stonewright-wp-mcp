@@ -158,17 +158,22 @@ export const NEVER_DISABLE_TOOL_NAMES = new Set([
 	'stonewright-php-execute',
 ]);
 
-const INSPECT_NEVER_DISABLE_TOOL_NAMES: ReadonlySet<string> = new Set(
+const WITHOUT_PHP_EXECUTE_NEVER_DISABLE_TOOL_NAMES: ReadonlySet<string> = new Set(
 	[...NEVER_DISABLE_TOOL_NAMES].filter((name) => name !== 'stonewright-php-execute'),
 );
 
+/** php-execute is on the full profile only, as in the plugin. */
+export function profileOffersPhpExecute(profile: ProxyToolProfile): boolean {
+	return profile === 'full';
+}
+
 /**
- * The tools the companion keeps registered whenever the remote lists them. The
- * read-only inspect profile does not pin php-execute, so a remote that lists it
- * (an operator surface of full) still leaves it out of an inspect session.
+ * The tools the companion keeps registered whenever the remote lists them.
+ * php-execute is pinned on the full profile only, so a remote that lists it (an
+ * operator surface of full) still leaves it out of every other profile's session.
  */
 export function neverDisableToolNamesFor(profile: ProxyToolProfile): ReadonlySet<string> {
-	return profile === 'inspect' ? INSPECT_NEVER_DISABLE_TOOL_NAMES : NEVER_DISABLE_TOOL_NAMES;
+	return profileOffersPhpExecute(profile) ? NEVER_DISABLE_TOOL_NAMES : WITHOUT_PHP_EXECUTE_NEVER_DISABLE_TOOL_NAMES;
 }
 
 /**
@@ -203,7 +208,6 @@ export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 const BASE_PROXY_TOOL_NAMES = [
 	...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	'stonewright-tool-profile',
-	'stonewright-php-execute',
 ] as const;
 
 const BLUEPRINT_PROXY_TOOL_NAMES = [
@@ -219,12 +223,12 @@ const BLUEPRINT_PROXY_TOOL_NAMES = [
  * single source of truth when WordPress is reachable.
  */
 const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
-	// Cold-start surface: always include runtime + confirmation + minimal reads so
-	// agents are not stuck waiting for task-start expansion on strict clients.
+	// Cold-start surface: always include confirmation + minimal reads so agents are
+	// not stuck waiting for task-start expansion on strict clients. php-execute is
+	// on the full profile only, as in the plugin.
 	bootstrap: [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 		'stonewright-tool-profile',
-		'stonewright-php-execute',
 		'stonewright-security-issue-confirmation-token',
 		'stonewright-site-info',
 		'stonewright-content-get-page',
@@ -260,7 +264,6 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 	],
 	'low-tools': [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
-		'stonewright-php-execute',
 		'stonewright-security-issue-confirmation-token',
 		'stonewright-tool-profile',
 	],

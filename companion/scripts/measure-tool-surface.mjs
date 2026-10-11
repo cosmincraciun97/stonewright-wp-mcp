@@ -22,7 +22,7 @@ const companionRoot = join(__dirname, '..');
 const srcRoot = join(companionRoot, 'src');
 
 export const TOOL_SURFACE_LIMITS = Object.freeze({
-	// Bootstrap includes runtime escape hatches (php-execute, theme-file-read, …).
+	// Bootstrap includes read escape hatches (theme-file-read, …); php-execute is on the full profile only.
 	plugin_bootstrap_proxy_max_tools: 12,
 	// +1 for stonewright-client-surface-check in local recovery diagnostics.
 	plugin_essential_max_tools: 31,

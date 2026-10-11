@@ -216,7 +216,7 @@ without the plugin there is no authenticated wp-admin one-time-grant boundary.
 Generic content create, update, duplicate, bulk create, and bulk upsert reject
 provider-owned executable-code post types before sanitization with
 `stonewright_custom_code_provider_required` and
-`next_ability: stonewright-custom-code-provider-ops`. They never skip KSES to
+`next_ability: stonewright-custom-code-provider`. They never skip KSES to
 preserve PHP. WPCode active PHP uses the provider's public `save()` path, lints
 candidate and assembled runtime when that contract is available, rebuilds the
 provider cache, and rolls back on verification failure. Inactive drafts must
@@ -290,7 +290,7 @@ The companion can write by running tokenized WP-CLI commands requested by the
 plugin or MCP client.
 
 Use `stonewright/php-execute` for PHP snippets inside WordPress. It is a
-**full-profile** tool, not part of bootstrap or essential. WP-CLI execution is
+**full-profile** tool; no other profile lists it. WP-CLI execution is
 tokenized and runs through `execFile`; WP-CLI PHP and shell entry points are
 blocked. Runtime `$wpdb` writes to core tables, concatenated protected meta
 keys, and Elementor document meta are intercepted. The install-time guard is a

@@ -126,7 +126,7 @@ site-hosted state.
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
 | Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
 | WP-CLI tokenized tools | yes (local host only) | yes (local host only) |
-| `stonewright/php-execute` | no | yes |
+| `stonewright/php-execute` | no | yes (`full` profile only) |
 | Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
@@ -400,15 +400,17 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, php-execute, and
+Stonewright companion so setup, status, compact profiles, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 The companion also publishes compact MCP handshake instructions, so clients get
-the first-call, recovery, low-tools, php-execute, and WP-CLI routing rules
+the first-call, recovery, low-tools, and WP-CLI routing rules
 before any tool is called.
 For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
-the canonical `stonewright-wp-cli-*` recovery tools remain local.
+the canonical `stonewright-wp-cli-*` recovery tools remain local. Like the
+bootstrap profile, it registers no `stonewright-php-execute`, even when the
+site's saved surface is `full`; that tool is on the full profile only.
 For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
 It registers discovery, read, and verify tools plus the permanent gateways and
 the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It

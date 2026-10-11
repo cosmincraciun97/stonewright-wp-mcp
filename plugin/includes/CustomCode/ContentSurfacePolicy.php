@@ -10,7 +10,7 @@ final class ContentSurfacePolicy {
 
 	public const ERROR_CODE    = 'stonewright_custom_code_provider_required';
 	public const CONFLICT_CODE = 'stonewright_custom_code_post_type_ownership_conflict';
-	public const NEXT_ABILITY  = 'stonewright-custom-code-provider-ops';
+	public const NEXT_ABILITY  = 'stonewright-custom-code-provider';
 
 	/**
 	 * @return true|\WP_Error

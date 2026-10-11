@@ -22,8 +22,8 @@ Then call:
 - `stonewright-wp-cli-discover` with `responseMode: "summary"` and
   `commandFilter` such as `["acf","cpt","post","term","option","pod"]`
 
-Use `stonewright/php-execute` for short plugin API or `$wpdb` snippets when
-schema inspection is faster in PHP. Use `stonewright-wp-cli-run` only with argv
+On the `full` profile only, use `stonewright/php-execute` for short plugin API or
+`$wpdb` snippets when schema inspection is faster in PHP. Use `stonewright-wp-cli-run` only with argv
 tokens. Do not run `wp ...` in a normal shell as recovery, and do not use
 another PHP adapter to replace Stonewright tools. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.

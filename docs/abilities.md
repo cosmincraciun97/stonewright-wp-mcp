@@ -281,7 +281,7 @@ is needed, call `stonewright-tool-profile` with the profile that owns the write
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
 inside the loaded WordPress runtime. It is on the **full** tool profile only —
-bootstrap and essential do not expose it. It has access to WordPress functions,
+no other profile, including bootstrap and essential, exposes it. It has access to WordPress functions,
 loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected
@@ -311,7 +311,7 @@ The WP-CLI tools are:
 |---|---|
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns compact `wp cli cmd-dump` command paths by default; use `responseMode=full` only when the raw command tree is required. |
-| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports writes; use `stonewright/php-execute` for PHP snippets instead of WP-CLI eval or shell entry points. |
+| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports writes; WP-CLI eval and shell entry points are blocked, and PHP snippets belong to `stonewright/php-execute` on the `full` profile only. |
 | `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
 | `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. |
 | `stonewright/wp-cli-job-status` (`stonewright-wp-cli-job-status`) | Polls a WP-CLI background job and returns the compact result when complete. |

@@ -102,7 +102,7 @@ If an ability returns no `snapshot_id`, call
 Never write raw `_elementor_data` with `update_post_meta()` or create revision
 meta manually. Every container, section, column, and widget node must have a
 non-empty ID unique across the tree. Prefer typed Elementor abilities. For an
-explicit runtime repair through `stonewright/php-execute`, call
+explicit runtime repair through `stonewright/php-execute` (`full` profile only), call
 `Backup::snapshot_post( $post_id )`, generate missing IDs with
 `ElementorData::generate_id()`, and persist only through
 `ElementorData::write()`. Stop when its tree validator rejects the payload.

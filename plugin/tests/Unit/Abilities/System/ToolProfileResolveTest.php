@@ -105,6 +105,37 @@ final class ToolProfileResolveTest extends TestCase {
 		}
 	}
 
+	public function test_php_execute_is_named_in_the_rules_of_the_full_profile_only(): void {
+		foreach ( ToolProfile::profile_names() as $profile ) {
+			if ( 'auto' === $profile ) {
+				continue;
+			}
+			$result = ( new ToolProfile() )->execute(
+				[
+					'action'  => 'resolve',
+					'profile' => $profile,
+				]
+			);
+			self::assertIsArray( $result, $profile );
+			$rules = array_merge( $result['workflow_rules'], $result['token_rules'] );
+			$named = array_values( array_filter( $rules, static fn ( string $rule ): bool => str_contains( $rule, 'php-execute' ) ) );
+			if ( 'full' === $profile ) {
+				self::assertNotSame( [], $named, $profile );
+				continue;
+			}
+			// A non-full profile may only say that php-execute is not on it.
+			foreach ( $named as $rule ) {
+				self::assertStringContainsString( 'stays off this profile', $rule, $profile . ' rules' );
+			}
+			foreach ( $result['next_best_tools'] as $tool ) {
+				self::assertNotSame( 'stonewright/php-execute', $tool['ability'], $profile . ' next_best_tools' );
+			}
+			self::assertNotContains( 'stonewright/php-execute', $result['recommended_tools'], $profile );
+			self::assertNotContains( 'stonewright-php-execute', $result['tools'], $profile . ' resolved tools' );
+			self::assertNotContains( 'stonewright/php-execute', ToolProfile::profile_tools( $profile ), $profile . ' profile_tools' );
+		}
+	}
+
 	public function test_bootstrap_profile_is_registered_and_capped(): void {
 		self::assertContains( 'bootstrap', ToolProfile::profile_names() );
 		$names = ToolProfile::profile_tools( 'bootstrap' );

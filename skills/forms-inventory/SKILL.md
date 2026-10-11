@@ -33,7 +33,7 @@ embed only). Then:
 
 Inventory is plugin posts / official list APIs, **read-only**:
 
-- `stonewright-php-execute` may call documented list APIs (examples:
+- `stonewright-php-execute` (`full` profile only) may call documented list APIs (examples:
   `WPCF7_ContactForm::find()`, Gravity `GFAPI::get_forms()` when that
   class exists). Return id, title, and embed hint. Do not insert, update,
   or delete rows.

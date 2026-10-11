@@ -196,9 +196,42 @@ describe('handleToolsChangedResponse', () => {
 		});
 
 		expect(toolProfileHandle.disable).not.toHaveBeenCalled();
-		expect(phpExecuteHandle.disable).not.toHaveBeenCalled();
+		// php-execute is pinned on the full profile only, so another profile drops it.
+		expect(phpExecuteHandle.disable).toHaveBeenCalledOnce();
 		expect(digestHandle.disable).toHaveBeenCalledOnce();
-		expect(result.removed).toEqual(['stonewright-elementor-page-digest']);
+		expect(result.removed).toEqual(['stonewright-php-execute', 'stonewright-elementor-page-digest']);
+	});
+
+	it('keeps php-execute on the full profile when an authoritative resolve omits it', async () => {
+		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
+		const phpExecuteHandle = makeHandle();
+		const registered = new Map([
+			['stonewright-php-execute', { handle: phpExecuteHandle, tool: { name: 'stonewright-php-execute' } }],
+		]);
+
+		await handleToolsChangedResponse({
+			server,
+			client: {
+				listTools: vi.fn(() => Promise.resolve([
+					{ name: 'stonewright-php-execute' },
+					{ name: 'stonewright-elementor-v3-batch-mutate' },
+				])),
+				callTool: vi.fn(() => Promise.resolve({
+					structuredContent: {
+						ok: true,
+						source: 'plugin',
+						tools: ['stonewright-elementor-v3-batch-mutate'],
+					},
+				})),
+			},
+			structured: { tools_changed: true, session_tool_profile: 'full' },
+			activeProfile: 'essential',
+			maxTools: null,
+			registered,
+			registerProxyTool: vi.fn(),
+		});
+
+		expect(phpExecuteHandle.disable).not.toHaveBeenCalled();
 	});
 
 	it('lets a switch into the read-only inspect profile drop php-execute, and keeps the gateways', async () => {

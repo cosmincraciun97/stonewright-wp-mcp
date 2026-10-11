@@ -22,7 +22,7 @@ This checklist tracks the public-release surface for Stonewright.
 ## Security Envelope
 
 - Direct PHP runtime execution is exposed only through
-  `stonewright/php-execute`.
+  `stonewright/php-execute`, on the `full` profile only.
 - Write abilities use explicit permission callbacks.
 - Elementor, template, and theme-backed writes snapshot first.
 - Design specs validate before rendering.

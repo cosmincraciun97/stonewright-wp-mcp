@@ -415,7 +415,7 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
-		expect(response.structuredContent?.profile_expected_tool_count).toBe(6);
+		expect(response.structuredContent?.profile_expected_tool_count).toBe(5);
 		// Permanent gateways are always registered, so the strict 12-tool ceiling
 		// no longer applies to the full registered set — specialist tools stay filtered.
 		expect(names).toEqual(expect.arrayContaining([
@@ -428,7 +428,6 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-batch-run',
 			'stonewright-context-bootstrap',
 			'stonewright-tool-profile',
-			'stonewright-php-execute',
 			'stonewright-skills-get',
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
@@ -452,7 +451,8 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]);
-		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.runtime).toContain('stonewright-php-execute');
+		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.runtime).toBeUndefined();
+		expect(names).not.toContain('stonewright-php-execute');
 		expect(names).not.toContain('companion_wp_cli_run');
 		expect(names).not.toContain('companion_wp_cli_batch_run');
 		expect(names).not.toContain('companion_wp_cli_install');
@@ -460,6 +460,23 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-elementor-describe-widget');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-sandbox-write');
+	});
+
+	it('leaves php-execute out of a low-tools session even when the site lists it', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'low-tools',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				...proxyToolNamesForProfile('low-tools').map((name) => ({ name })),
+				{ name: 'stonewright-php-execute' },
+			]),
+		});
+
+		expect(registeredToolNames(server)).not.toContain('stonewright-php-execute');
 	});
 
 	it('registers no write, runtime, or WP-CLI run tool for the read-only inspect profile', async () => {
@@ -535,6 +552,21 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('read-only');
 		expect(instructions).toContain('stonewright-tool-profile');
 		expect(instructions).not.toContain('Use stonewright-php-execute for direct full WordPress runtime access');
+	});
+
+	it('offers php-execute in the handshake instructions of the full profile only', async () => {
+		const instructionsFor = async (profile: string): Promise<string> => {
+			const server = await createMcpServer({ env: { STONEWRIGHT_MCP_TOOL_PROFILE: profile } });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
+			return String((server as any).server._instructions ?? '');
+		};
+
+		expect(await instructionsFor('full')).toContain('Use stonewright-php-execute for direct full WordPress runtime access');
+		for (const profile of ['essential-static', 'essential', 'elementor-design', 'content-model', 'low-tools', 'bootstrap']) {
+			const instructions = await instructionsFor(profile);
+			expect(instructions, profile).not.toContain('Use stonewright-php-execute for');
+			expect(instructions, profile).toContain('stonewright-php-execute is on the full profile only');
+		}
 	});
 
 	it('defaults proxied WordPress MCP tools to the essential-static profile', async () => {
@@ -634,7 +666,8 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.expected_companion_package).toBe(`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`);
 		// refresh_required_tool_names is computed from requested profile vs registered.
 		expect(Array.isArray(response.structuredContent?.refresh_required_tool_names)).toBe(true);
-		expect(response.structuredContent?.refresh_required_tool_names).toContain('stonewright-php-execute');
+		// php-execute is on the full profile only, so this profile never asks for a refresh for it.
+		expect(response.structuredContent?.refresh_required_tool_names).not.toContain('stonewright-php-execute');
 		expect(response.structuredContent?.remote_tool_count).toBe(5);
 		// Permanent gateways own task-start/tool-profile names — only context-bootstrap is proxied from this remote set.
 		expect(response.structuredContent?.proxied_tool_count).toBe(1);
@@ -928,6 +961,8 @@ describe('createMcpServer', () => {
 				STONEWRIGHT_WP_URL: 'https://example.com',
 				WP_API_USERNAME: 'admin',
 				WP_API_PASSWORD: 'pw',
+				// php-execute is registered on the full profile only.
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 			},
 			fetchImpl,
 		});

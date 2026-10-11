@@ -16,6 +16,7 @@ import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	coerceProxyToolProfile,
 	emitToolListChanged,
+	profileOffersPhpExecute,
 	proxyToolNamesForProfile,
 	type ProxyToolProfile,
 	type WordPressProxyLiveState,
@@ -727,9 +728,6 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			inputSchema: catalogObservationInputSchema(runtime),
 		},
 		wrap('stonewright-client-surface-check', (input) => {
-			const expected = typeof input['expected_tool'] === 'string' && input['expected_tool'].trim() !== ''
-				? normalizeToolName(input['expected_tool'])
-				: 'stonewright-php-execute';
 			const catalogObserved = typeof input['catalog_observation'] === 'string'
 				&& input['catalog_observation'] === runtime.catalogObservation;
 			if (catalogObserved) {
@@ -740,6 +738,10 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const filtered = new Set(runtime.status.profile_filtered_tool_names ?? []);
 			const missingProfile = new Set(runtime.status.profile_missing_tool_names ?? []);
 			const profile = live?.profile ?? ((runtime.status.tool_profile as ProxyToolProfile) || runtime.profile);
+			// php-execute is on the full profile only, so it is the default check there and the startup gateway elsewhere.
+			const expected = typeof input['expected_tool'] === 'string' && input['expected_tool'].trim() !== ''
+				? normalizeToolName(input['expected_tool'])
+				: (profileOffersPhpExecute(profile) ? 'stonewright-php-execute' : 'stonewright-task-start');
 			const liveEnabled = new Set(live?.enabledToolNames ?? []);
 			for (const name of liveEnabled) {
 				filtered.delete(name);

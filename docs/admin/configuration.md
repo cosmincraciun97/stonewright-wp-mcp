@@ -159,7 +159,8 @@ keeps direct WP-CLI batch/background-job tools visible.
 
 The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
 optional MCP proxy. It writes to WordPress through tokenized WP-CLI commands;
-direct PHP runtime snippets go through `stonewright/php-execute`.
+direct PHP runtime snippets go through `stonewright/php-execute`, which is on the
+`full` profile only.
 
 Most users can skip this section. The setup note in Card 3 already runs
 Stonewright through `npx` with the versioned GitHub release tarball, and direct companion

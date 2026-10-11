@@ -97,8 +97,8 @@ source-code spelunking to reverse-engineer tool schemas, and
 `/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
 Stonewright MCP tools.
 Do not recover by running `wp ...` in a normal shell or by switching to another
-PHP adapter; use `stonewright-php-execute` (plugin mode) and Stonewright's
-tokenized WP-CLI MCP tools when available.
+PHP adapter; use `stonewright-php-execute` (plugin mode, `full` profile only)
+and Stonewright's tokenized WP-CLI MCP tools when available.
 
 ## Prompt Template
 
