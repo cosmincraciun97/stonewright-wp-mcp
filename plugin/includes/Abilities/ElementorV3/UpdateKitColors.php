@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\KitRows;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -27,7 +29,7 @@ final class UpdateKitColors extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces or merges the global color palette in the Elementor active kit. Colour values must be hex, rgb(), rgba(), hsl(), hsla(), a CSS colour name, transparent or a global colour variable; ids are letters, digits, hyphen and underscore.', 'stonewright' );
+		return __( 'Replaces or merges the custom global colors (custom_colors) of the Elementor active kit by their id; the four system colors (primary, secondary, text, accent) are not changed. Colour values must be hex, rgb(), rgba(), hsl(), hsla(), a CSS colour name, transparent or a global colour variable; ids are letters, digits, hyphen and underscore. Run elementor-css-regenerate afterwards.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -64,6 +66,9 @@ final class UpdateKitColors extends AbilityKernel {
 			'properties' => [
 				'kit_id'      => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'unchanged'   => [ 'type' => 'boolean', 'description' => 'True when the kit already held these colors: nothing was snapshotted or written.' ],
+				'next_step'   => [ 'type' => 'object' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -110,28 +115,43 @@ final class UpdateKitColors extends AbilityKernel {
 
 				$incoming = [];
 				foreach ( (array) $args['colors'] as $c ) {
-					$incoming[] = [
-						'_id'    => (string) ( $c['id'] ?? '' ),
-						'title'  => (string) ( $c['title'] ?? '' ),
-						'color'  => (string) ( $c['color'] ?? '' ),
-					];
+					$row = [ '_id' => (string) ( $c['id'] ?? '' ) ];
+					if ( isset( $c['title'] ) ) {
+						$row['title'] = (string) $c['title'];
+					}
+					$row['color'] = (string) ( $c['color'] ?? '' );
+					$incoming[]   = $row;
 				}
 
-				$settings['custom_colors'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
+				$next                    = $settings;
+				$next['custom_colors']   = KitRows::merge( $existing, $incoming, $mode );
+				if ( $next === $settings ) {
+					// The kit already holds these colors; update_post_meta() reports an unchanged value as false, which is no failure.
+					return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
+				}
 
 				$snapshot_id = Backup::snapshot_post( $kit_id );
 				if ( '' === $snapshot_id ) {
 					return $this->backup_failed_error();
 				}
-				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $settings ) ) {
+				update_post_meta( $kit_id, '_elementor_page_settings', wp_slash( $next ) );
+				if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor kit colors.', 'stonewright' ) );
 				}
 
-				return [ 'kit_id' => $kit_id, 'snapshot_id' => $snapshot_id ];
+				return [
+					'kit_id'      => $kit_id,
+					'snapshot_id' => $snapshot_id,
+					'next_step'   => [
+						'tool'    => 'stonewright/elementor-css-regenerate',
+						'post_id' => $kit_id,
+						'why'     => 'The kit colors are stored; regenerate the kit CSS so pages use them.',
+					],
+					'cache_purge' => PageCachePurger::purge_quietly( $kit_id ),
+				];
 			}
 		);
 	}
-
 	private function resolve_kit_id(): int {
 		$id = (int) get_option( 'elementor_active_kit', 0 );
 		return $id > 0 ? $id : 0;

@@ -49,6 +49,7 @@ final class UpdateElement extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'    => [ 'type' => 'integer', 'minimum' => 1 ],
 				'element_id' => [ 'type' => 'string' ],
@@ -222,6 +223,11 @@ final class UpdateElement extends AbilityKernel {
 				$new_tree = ElementorData::set( $tree, $path, $existing );
 				$after_hash = TreeHasher::hash( $new_tree );
 				if ( $dry_run ) {
+					// The checks the write runs against the stored document, so the dry run reports what the apply would.
+					$preflight = ElementorData::preflight( $tree, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ] ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
 					return [
 						'ok'          => true,
 						'post_id'     => $post_id,

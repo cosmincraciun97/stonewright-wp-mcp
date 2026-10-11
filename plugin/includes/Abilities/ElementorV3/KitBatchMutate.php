@@ -51,6 +51,7 @@ final class KitBatchMutate extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'rollback_snapshot'  => [
 					'type'        => 'string',

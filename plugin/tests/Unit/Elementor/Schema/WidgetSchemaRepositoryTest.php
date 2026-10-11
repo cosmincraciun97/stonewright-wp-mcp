@@ -213,11 +213,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$valid = SettingsValidator::validate_tree(
 			[
 				[
-					'id'         => 'card1',
-					'elType'     => 'widget',
-					'widgetType' => 'third-party-card',
-					'settings'   => [ 'subtitle' => 'Preserved while hidden' ],
-					'elements'   => [],
+					'id'       => 'wrap1',
+					'elType'   => 'container',
+					'settings' => [],
+					'elements' => [
+						[
+							'id'         => 'card1',
+							'elType'     => 'widget',
+							'widgetType' => 'third-party-card',
+							'settings'   => [ 'subtitle' => 'Preserved while hidden' ],
+							'elements'   => [],
+						],
+					],
 				],
 			]
 		);
@@ -229,11 +236,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 	public function test_validate_tree_scopes_content_checks_to_touched_ids(): void {
 		$tree = [
 			[
-				'id'         => 'clean1',
-				'elType'     => 'widget',
-				'widgetType' => 'third-party-card',
-				'settings'   => [ 'title' => 'Edited' ],
-				'elements'   => [],
+				'id'       => 'wrap1',
+				'elType'   => 'container',
+				'settings' => [],
+				'elements' => [
+					[
+						'id'         => 'clean1',
+						'elType'     => 'widget',
+						'widgetType' => 'third-party-card',
+						'settings'   => [ 'title' => 'Edited' ],
+						'elements'   => [],
+					],
+				],
 			],
 			[
 				'id'       => 'dirty1',
@@ -248,7 +262,7 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertTrue( SettingsValidator::validate_tree( $tree, [ 'clean1' ] ) );
 
 		$duplicate = [
-			[ 'id' => 'clean1', 'elType' => 'widget', 'widgetType' => 'third-party-card', 'settings' => [ 'title' => 'A' ], 'elements' => [] ],
+			[ 'id' => 'wrap1', 'elType' => 'container', 'settings' => [], 'elements' => [ [ 'id' => 'clean1', 'elType' => 'widget', 'widgetType' => 'third-party-card', 'settings' => [ 'title' => 'A' ], 'elements' => [] ] ] ],
 			[ 'id' => 'clean1', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
 		];
 		self::assertFalse( SettingsValidator::validate_tree( $duplicate, [ 'clean1' ] ) );
@@ -321,11 +335,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		// P0 integrity: unknown Pro/runtime keys must not be stripped to "pass".
 		$before = [
 			[
-				'id'         => 'card1',
-				'elType'     => 'widget',
-				'widgetType' => 'third-party-card',
-				'settings'   => [ 'title' => 'Before', 'invented_color' => '#fff' ],
-				'elements'   => [],
+				'id'       => 'wrap1',
+				'elType'   => 'container',
+				'settings' => [],
+				'elements' => [
+					[
+						'id'         => 'card1',
+						'elType'     => 'widget',
+						'widgetType' => 'third-party-card',
+						'settings'   => [ 'title' => 'Before', 'invented_color' => '#fff' ],
+						'elements'   => [],
+					],
+				],
 			],
 		];
 		$GLOBALS['stonewright_test_posts'][99] = (object) [
@@ -337,11 +358,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		];
 		$tree = [
 			[
-				'id'         => 'card1',
-				'elType'     => 'widget',
-				'widgetType' => 'third-party-card',
-				'settings'   => [ 'title' => 'After', 'invented_color' => '#fff' ],
-				'elements'   => [],
+				'id'       => 'wrap1',
+				'elType'   => 'container',
+				'settings' => [],
+				'elements' => [
+					[
+						'id'         => 'card1',
+						'elType'     => 'widget',
+						'widgetType' => 'third-party-card',
+						'settings'   => [ 'title' => 'After', 'invented_color' => '#fff' ],
+						'elements'   => [],
+					],
+				],
 			],
 		];
 		self::assertTrue( SettingsValidator::validate_tree( $tree ) );
@@ -423,7 +451,12 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		// P0: coexisting e-* nodes are structure-only; never force convert to text-editor.
 		$valid = SettingsValidator::validate_tree(
 			[
-				[ 'id' => 'atomic1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ],
+				[
+					'id'       => 'wrap1',
+					'elType'   => 'container',
+					'settings' => [],
+					'elements' => [ [ 'id' => 'atomic1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ] ],
+				],
 			]
 		);
 
@@ -434,11 +467,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$valid = SettingsValidator::validate_tree(
 			[
 				[
-					'id'         => 'card1',
-					'elType'     => 'widget',
-					'widgetType' => 'third-party-card',
-					'settings'   => [ 'title' => 'Cum pou021bi creu0219te u00een echipu0103?' ],
-					'elements'   => [],
+					'id'       => 'wrap1',
+					'elType'   => 'container',
+					'settings' => [],
+					'elements' => [
+						[
+							'id'         => 'card1',
+							'elType'     => 'widget',
+							'widgetType' => 'third-party-card',
+							'settings'   => [ 'title' => 'Cum pou021bi creu0219te u00een echipu0103?' ],
+							'elements'   => [],
+						],
+					],
 				],
 			]
 		);
@@ -451,11 +491,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$valid = SettingsValidator::validate_tree(
 			[
 				[
-					'id'         => 'card1',
-					'elType'     => 'widget',
-					'widgetType' => 'third-party-card',
-					'settings'   => [ 'title' => 'Cum poți crește în echipă?' ],
-					'elements'   => [],
+					'id'       => 'wrap1',
+					'elType'   => 'container',
+					'settings' => [],
+					'elements' => [
+						[
+							'id'         => 'card1',
+							'elType'     => 'widget',
+							'widgetType' => 'third-party-card',
+							'settings'   => [ 'title' => 'Cum poți crește în echipă?' ],
+							'elements'   => [],
+						],
+					],
 				],
 			]
 		);

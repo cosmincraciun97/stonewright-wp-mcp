@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\WidgetAvailability;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
@@ -41,6 +42,7 @@ final class AddWidget extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'     => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'   => [ 'type' => 'string' ],
@@ -145,47 +147,54 @@ final class AddWidget extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				$tree        = ElementorData::read( $post_id );
-				$parent_path = ElementorData::find_path( $tree, (string) $args['parent_id'] );
-				if ( null === $parent_path ) {
-					return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
-				}
-				if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
-					return $this->error(
-						'parent_not_container',
-						__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
-						[
-							'status'         => 400,
-							'parent_id'      => (string) $args['parent_id'],
-							'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
-						]
-					);
-				}
+				// The lease is taken before the snapshot and the read, so no other writer changes the document in between.
+				return PostWriteLock::with_lease(
+					$post_id,
+					'add-widget',
+					function ( string $lock_owner ) use ( $args, $post_id, $widget_type, $settings_in ) {
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+						$tree        = ElementorData::read( $post_id );
+						$parent_path = ElementorData::find_path( $tree, (string) $args['parent_id'] );
+						if ( null === $parent_path ) {
+							return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
+						}
+						if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+							return $this->error(
+								'parent_not_container',
+								__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+								[
+									'status'         => 400,
+									'parent_id'      => (string) $args['parent_id'],
+									'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+								]
+							);
+						}
 
-				$widget = [
-					'id'         => ElementorData::generate_id(),
-					'elType'     => 'widget',
-					'widgetType' => $widget_type,
-					'settings'   => [] !== $settings_in ? $settings_in : new \stdClass(),
-					'elements'   => [],
-				];
+						$widget = [
+							'id'         => ElementorData::generate_id(),
+							'elType'     => 'widget',
+							'widgetType' => $widget_type,
+							'settings'   => [] !== $settings_in ? $settings_in : new \stdClass(),
+							'elements'   => [],
+						];
 
-				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
-				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
+						$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
+						$new_tree = ElementorData::insert( $tree, $parent_path, $position, $widget );
 
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return ElementorData::write_error_for_ability();
-				}
+						if ( ! ElementorData::write( $post_id, $new_tree, [ 'lock_owner' => $lock_owner ] ) ) {
+							return ElementorData::write_error_for_ability();
+						}
 
-				return [
-					'post_id'     => $post_id,
-					'element_id'  => $widget['id'],
-					'snapshot_id' => $snapshot_id,
-				];
+						return [
+							'post_id'     => $post_id,
+							'element_id'  => $widget['id'],
+							'snapshot_id' => $snapshot_id,
+						];
+					}
+				);
 			}
 		);
 	}

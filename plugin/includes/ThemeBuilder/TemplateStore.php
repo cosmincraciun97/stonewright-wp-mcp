@@ -96,6 +96,14 @@ final class TemplateStore {
 		return delete_post_meta( $template_id, '_stonewright_transaction_owner' );
 	}
 
+	/**
+	 * Removes a template the current call created and could not finish. Nothing else refers to it yet, and
+	 * a call that fails must not leave an empty template published, so it is deleted for good.
+	 */
+	public static function discard( int $template_id ): bool {
+		return false !== wp_delete_post( $template_id, true );
+	}
+
 	public static function delete_staged( int $template_id, string $owner ): bool|\WP_Error {
 		$owned = self::assert_owner( $template_id, $owner );
 		if ( $owned instanceof \WP_Error ) {

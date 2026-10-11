@@ -6,7 +6,6 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
-use Stonewright\WpMcp\Elementor\ElementorTreeCodeGate;
 use Stonewright\WpMcp\Elementor\TransactionEnvelope;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -104,16 +103,8 @@ final class TransactionRun extends AbilityKernel {
 					? $args['envelope']
 					: $args;
 
-				// A replace_tree writes a whole document, so its tree passes the HTML widget policy and the custom code gate here.
-				$tree = ElementorTreeCodeGate::replace_tree_of( $raw );
-				if ( null !== $tree ) {
-					$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $args, $dry_run );
-					if ( $code_gate instanceof \WP_Error ) {
-						return $code_gate;
-					}
-				}
-
-				return ElementorTransactionRunner::run( $post_id, $raw, $dry_run );
+				// The runner passes the tree of a replace_tree through the HTML widget policy and the custom code gate with these arguments.
+				return ElementorTransactionRunner::run( $post_id, $raw, $dry_run, $args );
 			}
 		);
 	}

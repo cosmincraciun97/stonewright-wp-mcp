@@ -39,6 +39,7 @@ final class UpdatePageSettings extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'  => [ 'type' => 'integer', 'minimum' => 1 ],
 				'settings' => [ 'type' => 'object' ],
@@ -101,7 +102,7 @@ final class UpdatePageSettings extends AbilityKernel {
 						? $incoming
 						: array_merge( $existing, $incoming );
 
-					if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) && $next !== $existing ) {
+					if ( false === update_post_meta( $post_id, '_elementor_page_settings', wp_slash( $next ) ) && $next !== $existing ) {
 						return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
 					}
 

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
 use Stonewright\WpMcp\Support\TreeSummary;
@@ -357,38 +358,11 @@ final class GetPageStructure extends AbilityKernel {
 	 * a re-save that only reorders JSON keys or changes escaping does not read as
 	 * a content change. It describes the document, not the response, so summary
 	 * and full mode report the same value and a caller can compare across modes.
+	 * It is the hash every writer takes as expected_tree_hash, so a value read here can be sent there.
 	 *
 	 * @param array<int, mixed> $tree
 	 */
 	private static function tree_hash( array $tree ): string {
-		return hash(
-			'sha256',
-			(string) wp_json_encode(
-				self::canonicalize_tree( $tree ),
-				JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-			)
-		);
-	}
-
-	/**
-	 * Sort object keys recursively while preserving list order.
-	 *
-	 * Elementor element order is semantic, so lists must stay untouched. Object
-	 * key order is serialization noise and must not invalidate a known hash.
-	 */
-	private static function canonicalize_tree( mixed $value ): mixed {
-		if ( ! is_array( $value ) ) {
-			return $value;
-		}
-
-		if ( ! array_is_list( $value ) ) {
-			ksort( $value );
-		}
-
-		foreach ( $value as $key => $item ) {
-			$value[ $key ] = self::canonicalize_tree( $item );
-		}
-
-		return $value;
+		return TreeHasher::hash( $tree );
 	}
 }

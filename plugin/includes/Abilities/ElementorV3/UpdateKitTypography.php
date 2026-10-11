@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\KitRows;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -27,7 +29,7 @@ final class UpdateKitTypography extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates global typography (font family, weight, size, line height) in the Elementor active kit. Font families are plain names, weights are keywords or 1 to 1000, sizes are numbers with a supported unit; other values are refused.', 'stonewright' );
+		return __( 'Updates the custom global typography (font family, weight, size, line height) in the Elementor active kit, merging by id. Font families are plain names, weights are keywords or 1 to 1000, sizes are numbers with a supported unit; other values are refused. Run elementor-css-regenerate afterwards.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -68,6 +70,9 @@ final class UpdateKitTypography extends AbilityKernel {
 			'properties' => [
 				'kit_id'      => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'unchanged'   => [ 'type' => 'boolean', 'description' => 'True when the kit already held this typography: nothing was snapshotted or written.' ],
+				'next_step'   => [ 'type' => 'object' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -117,12 +122,10 @@ final class UpdateKitTypography extends AbilityKernel {
 
 				$incoming = [];
 				foreach ( (array) $args['fonts'] as $f ) {
-					$entry = [
-						'_id'   => (string) ( $f['id'] ?? '' ),
-						'title' => (string) ( $f['title'] ?? '' ),
-					];
-					foreach ( [ 'typography_typography', 'typography_font_family', 'typography_font_weight' ] as $_ ) {
-						// Elementor expects keyed control values - we pass them through verbatim.
+					// Elementor expects keyed control values; they are passed through as sent. Only what the call sent is in the row.
+					$entry = [ '_id' => (string) ( $f['id'] ?? '' ) ];
+					if ( isset( $f['title'] ) ) {
+						$entry['title'] = (string) $f['title'];
 					}
 					if ( isset( $f['font_family'] ) ) {
 						$entry['typography_font_family'] = (string) $f['font_family'];
@@ -143,18 +146,33 @@ final class UpdateKitTypography extends AbilityKernel {
 					$incoming[] = $entry;
 				}
 
-				$mode = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
-				$settings['custom_typography'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
+				$mode                        = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
+				$next                        = $settings;
+				$next['custom_typography']   = KitRows::merge( $existing, $incoming, $mode );
+				if ( $next === $settings ) {
+					// The kit already holds this typography; update_post_meta() reports an unchanged value as false, which is no failure.
+					return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
+				}
 
 				$snapshot_id = Backup::snapshot_post( $kit_id );
 				if ( '' === $snapshot_id ) {
 					return $this->backup_failed_error();
 				}
-				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $settings ) ) {
+				update_post_meta( $kit_id, '_elementor_page_settings', wp_slash( $next ) );
+				if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
 				}
 
-				return [ 'kit_id' => $kit_id, 'snapshot_id' => $snapshot_id ];
+				return [
+					'kit_id'      => $kit_id,
+					'snapshot_id' => $snapshot_id,
+					'next_step'   => [
+						'tool'    => 'stonewright/elementor-css-regenerate',
+						'post_id' => $kit_id,
+						'why'     => 'The kit typography is stored; regenerate the kit CSS so pages use it.',
+					],
+					'cache_purge' => PageCachePurger::purge_quietly( $kit_id ),
+				];
 			}
 		);
 	}

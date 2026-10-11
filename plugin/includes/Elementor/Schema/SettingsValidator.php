@@ -187,20 +187,24 @@ final class SettingsValidator {
 	 *
 	 * @param array<int, array<string, mixed>> $tree Elementor element tree.
 	 * @param list<string>|null $touched_ids Content-validation scope; null validates every node.
+	 * @param list<string> $tolerated_root_widget_ids Ids of widgets the stored document already has at its root. A widget at the
+	 *                                                root is a structure error whatever the scope, except for these.
 	 */
-	public static function validate_tree( array $tree, ?array $touched_ids = null ): bool {
+	public static function validate_tree( array $tree, ?array $touched_ids = null, array $tolerated_root_widget_ids = [] ): bool {
 		self::$last_error = null;
 		$seen_ids         = [];
 		$scope            = null === $touched_ids ? null : array_fill_keys( array_map( 'strval', $touched_ids ), true );
-		return self::validate_tree_nodes( $tree, 'root', $seen_ids, $scope );
+		$tolerated        = array_fill_keys( array_map( 'strval', $tolerated_root_widget_ids ), true );
+		return self::validate_tree_nodes( $tree, 'root', $seen_ids, $scope, $tolerated );
 	}
 
 	/**
 	 * @param array<int, mixed>        $tree
 	 * @param array<string, true>      $seen_ids
 	 * @param array<string, true>|null $scope
+	 * @param array<string, true>      $tolerated_root_widgets Root widgets that are not refused, by id.
 	 */
-	private static function validate_tree_nodes( array $tree, string $path, array &$seen_ids, ?array $scope = null ): bool {
+	private static function validate_tree_nodes( array $tree, string $path, array &$seen_ids, ?array $scope = null, array $tolerated_root_widgets = [] ): bool {
 		foreach ( $tree as $index => $element ) {
 			if ( ! is_array( $element ) ) {
 				return self::tree_error( $path . '.' . (string) $index, 'invalid_element', 'an Elementor element object', $element );
@@ -220,6 +224,9 @@ final class SettingsValidator {
 				return self::tree_error( $element_path . '.elType', 'missing_element_type', 'a non-empty Elementor element type', null );
 			}
 			if ( 'widget' === $element_type ) {
+				if ( 'root' === $path && ! isset( $tolerated_root_widgets[ $id ] ) ) {
+					return self::tree_error( $element_path, 'widget_at_root', 'a container, section or column at the document root; a widget belongs inside one', $element );
+				}
 				$widget_type = (string) ( $element['widgetType'] ?? '' );
 				if ( '' === $widget_type ) {
 					return self::tree_error( $element_path . '.widgetType', 'missing_widget_type', 'a non-empty Elementor widget type', null );

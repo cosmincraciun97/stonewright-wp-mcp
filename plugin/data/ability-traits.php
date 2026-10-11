@@ -83,7 +83,7 @@ return [
 	'stonewright/design-extract-tokens' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-implementation-contract' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-import-image' => [ 'write' => false, 'external' => false ],
-	'stonewright/design-mirror-export' => [ 'write' => true, 'external' => false ],
+	'stonewright/design-mirror-export' => [ 'write' => false, 'external' => false ],
 	'stonewright/design-motion-apply-elementor-v3' => [ 'write' => true, 'external' => false ],
 	'stonewright/design-motion-apply-gutenberg' => [ 'write' => true, 'external' => false ],
 	'stonewright/design-motion-capabilities' => [ 'write' => false, 'external' => false ],

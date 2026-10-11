@@ -64,6 +64,23 @@ final class PageCachePurger {
 	}
 
 	/**
+	 * Purges the post after a write that is already stored. A purger that fails is reported in the result and never
+	 * fails that write.
+	 *
+	 * @return array{ran:list<string>,failed?:list<array{purger:string,error_class:string}>,skipped?:array<string,string>,skipped_reason?:string}
+	 */
+	public static function purge_quietly( int $post_id ): array {
+		try {
+			return self::purge( $post_id );
+		} catch ( \Throwable $error ) {
+			return [
+				'ran'    => [],
+				'failed' => [ [ 'purger' => 'page_cache', 'error_class' => get_class( $error ) ] ],
+			];
+		}
+	}
+
+	/**
 	 * @return array{ran:list<string>,failed?:list<array{purger:string,error_class:string}>,skipped?:array<string,string>,skipped_reason?:string}
 	 */
 	public function run( int $post_id, ?string $url = null ): array {

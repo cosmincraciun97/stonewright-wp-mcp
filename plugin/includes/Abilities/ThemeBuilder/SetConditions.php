@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\ThemeBuilder\TemplateGuard;
@@ -76,6 +77,8 @@ final class SetConditions extends AbilityKernel {
 				'snapshot_id'         => [ 'type' => 'string' ],
 				'previous_conditions' => [ 'type' => 'array', 'description' => 'The rules this call replaced, in the stored form (e.g. include/general).' ],
 				'conditions'          => [ 'type' => 'array', 'description' => 'The rules stored now, read back.' ],
+				'next_step'           => [ 'type' => 'object' ],
+				'cache_purge'         => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'template_id', 'updated' ],
 		];
@@ -126,6 +129,12 @@ final class SetConditions extends AbilityKernel {
 					'snapshot_id'         => $snapshot_id,
 					'previous_conditions' => $previous,
 					'conditions'          => TemplateStore::get_conditions( $id ),
+					'next_step'           => [
+						'tool'    => 'stonewright/elementor-css-regenerate',
+						'post_id' => $id,
+						'why'     => 'The display rules are stored; regenerate the template CSS so the front end uses it.',
+					],
+					'cache_purge'         => PageCachePurger::purge_quietly( $id ),
 				];
 			}
 		);

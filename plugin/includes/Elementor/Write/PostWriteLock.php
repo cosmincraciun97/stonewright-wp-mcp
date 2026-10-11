@@ -61,6 +61,28 @@ final class PostWriteLock {
 		);
 	}
 
+	/**
+	 * Runs $callback while this call holds the write lease of the post, so the callback can read the document,
+	 * change it and write it with no other writer in between. The callback receives the lease owner; it passes
+	 * that as `lock_owner` to ElementorData::write(). The lease is released when the callback returns or throws.
+	 *
+	 * @param callable(string): mixed $callback
+	 * @return mixed The callback's result, or the busy WP_Error when another writer holds the lease.
+	 */
+	public static function with_lease( int $post_id, string $label, callable $callback, int $ttl = 30 ): mixed {
+		$owner = sanitize_key( $label ) . '-' . substr( hash( 'sha256', $post_id . '|' . $label . '|' . hrtime( true ) . '|' . wp_generate_uuid4() ), 0, 24 );
+		$lease = self::acquire( $post_id, $owner, $ttl );
+		if ( $lease instanceof \WP_Error ) {
+			return $lease;
+		}
+
+		try {
+			return $callback( $owner );
+		} finally {
+			self::release( $post_id, $owner );
+		}
+	}
+
 	public static function release( int $post_id, string $owner ): bool {
 		$key     = self::key( $post_id );
 		$current = get_option( $key, [] );

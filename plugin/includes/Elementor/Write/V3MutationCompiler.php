@@ -106,6 +106,10 @@ final class V3MutationCompiler {
 			);
 		}
 
+		if ( '' === $parent_id ) {
+			return ElementorData::widget_at_root_error();
+		}
+
 		$parent_path = [];
 		if ( '' !== $parent_id ) {
 			$parent_path = ElementorData::find_path( $tree, $parent_id );

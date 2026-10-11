@@ -191,6 +191,39 @@
 - `media-list` searches the whole library (title, caption, description, alt text
   and file name) instead of the newest 200 items.
 
+- Make the writers of kit colors, kit typography and Theme Builder templates
+  point to the CSS regeneration they need. `elementor-v3-update-kit-colors`,
+  `elementor-v3-update-kit-typography`, `theme-builder-create-template`,
+  `theme-builder-set-conditions` and `theme-builder-apply-template` return a
+  `next_step` for `elementor-css-regenerate` and purge the cached page of the
+  post they changed (`cache_purge`), as `elementor-css-regenerate` does.
+  `theme-builder-delete-template` purges the cache of the trashed template.
+  `elementor-v3-update-kit-colors` now says in its description that it changes
+  the custom colors (`custom_colors`) and leaves the four system colors alone.
+
+- Run the checks of the write in the dry run of `elementor-v3-update-element`,
+  `elementor-v3-batch-mutate` and `elementor-v3-transaction-run`, so a dry run
+  reports the same refusal the write would give. The dry run of
+  `elementor-v3-build-page-from-spec` reports in `checkpoint.would_block`
+  whether the design checkpoint would stop the write; it is still never refused
+  for it.
+
+- Bind the confirmation token of `elementor-build-tree` to the whole call,
+  the tree included, so a token authorises the tree it was issued for. A dry run
+  of `elementor-build-tree` needs no token, like the dry run of the other
+  Elementor writers. It also refuses a document that holds Elementor V4 Atomic
+  nodes, as `elementor-v3-build-page-from-spec` does.
+
+- Make `stonewright/design-mirror-export` a read (it writes nothing, so it needs
+  no confirmation token in production-safe mode) and
+  `stonewright/elementor-v3-legacy-debt-migrate` an audited write for `apply`,
+  with its confirmation check done by the common write wrapper. A dry run of
+  `legacy-debt-migrate` is a read.
+
+- Declare `custom_code_grant` in the input of the Elementor V3 writers that
+  read it: add container, add widget, update element, batch mutate, kit batch
+  mutate and update page settings.
+
 ### Fixed
 
 - Name the right tool in `next_ability` when a generic content write is refused
@@ -276,6 +309,64 @@
 - Fix `stock-image-import` rejecting image URLs that have no file extension. It
   downloads the file, reads its type, and sideloads it with the type's extension;
   a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
+
+- Take the write lease of the post before reading the document in
+  `elementor-v3-add-container`, `elementor-v3-add-widget`,
+  `elementor-v3-move-element`, `elementor-v3-remove-element`,
+  `elementor-v3-repair-document`, `elementor-v3-build-page-from-spec` and
+  `theme-builder-apply-template`, so two writers no longer read the same tree and
+  the second one overwrites the first. While another writer holds the lease the
+  call answers `stonewright_elementor_write_busy` before it snapshots or writes.
+  `elementor-v3-update-element`, `elementor-v3-batch-mutate` and the other
+  writers already did this.
+
+- Refuse a widget at the document root. `elementor-v3-move-element`, the
+  `move_element` and `add_widget` operations of `elementor-v3-batch-mutate` and
+  every document write answer `stonewright_widget_at_root` (or the structure
+  error `widget_at_root`) instead of storing a widget that belongs inside a
+  container, section or column. A document that already has one can still be
+  edited and repaired.
+
+- Make `elementor-v3-add-container` mark a container inside another element as
+  inner (`isInner: true`) and return the index the container really got in
+  `path`, not the largest integer, when no position was given.
+
+- Restore the snapshot after a failed `elementor-v3-transaction-run` only when
+  the write itself left the document changed and its own rollback did not
+  work. A busy write lock, a conflict or an operation that failed before it
+  wrote no longer overwrite what another writer saved.
+
+- Merge the rows of `elementor-v3-update-kit-colors` and
+  `elementor-v3-update-kit-typography` by their `_id`: a row for an id the kit
+  has changes that row, in place, and the fields the call did not send stay; no
+  id is added twice. Sending the colors or typography the kit already holds
+  succeeds (`unchanged: true`) instead of failing with `write_failed`.
+
+- Check the snapshot in `theme-builder-apply-template`, never repeat an element
+  id in `append` mode, return the real error of a write that failed, and delete
+  the template the call created when the call fails, so no empty published
+  template is left behind.
+
+- Return an error from `elementor-v3-backup-page` when the snapshot could not be
+  stored, instead of an empty `snapshot_id`; the snapshot no longer arms a
+  rescue, because it changes nothing.
+
+- Declare `write_receipt` and `change_set` in the output of
+  `elementor-v3-repair-document`, so the answer of a repair passes output
+  validation.
+
+- Ask for a confirmation token in `elementor-wire-loop` for every write that is
+  not a dry run in production-safe mode, also when the loop uses an existing
+  template.
+
+- Make `elementor-schema` redirect a container, section or column to
+  `elementor-v3-container-schema` with an input that ability accepts.
+
+- Store a backslash in the settings sent to `elementor-v3-update-page-settings`
+  and the kit writers unchanged.
+
+- Make the structure hash of `elementor-v3-get-page-structure` the hash every
+  Elementor writer takes as `expected_tree_hash`.
 
 ### Security
 
@@ -409,6 +500,10 @@
   `stonewright_runtime_data_purge_audit_requires_administrator`, whatever the
   confirmation token or acknowledgement, and the default scopes are memory,
   incidents and error patterns. Erasing the audit log is left to an administrator.
+
+- Pass the tree of a whole-document replace (`replace_tree`) through the HTML
+  widget policy and the custom code gate inside the transaction runner, so every
+  caller of it is gated, not only `elementor-v3-transaction-run`.
 
 ### Documentation
 

@@ -93,7 +93,8 @@ final class DesignMirrorExport extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit_write(
+		// The export only reads posts and returns the JSON; it changes nothing, so it is a read and needs no token.
+		return $this->audit_read(
 			$args,
 			function ( array $args ) {
 				$ids = isset( $args['post_ids'] ) && is_array( $args['post_ids'] ) ? $args['post_ids'] : [];

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\ThemeBuilder\TemplateGuard;
@@ -56,6 +57,7 @@ final class DeleteTemplate extends AbilityKernel {
 				'template_id' => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
 				'deleted'     => [ 'type' => 'boolean' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'template_id', 'deleted' ],
 		];
@@ -99,10 +101,13 @@ final class DeleteTemplate extends AbilityKernel {
 					return $this->backup_failed_error();
 				}
 				$deleted = wp_delete_post( $id, false );
+				$removed = false !== $deleted && null !== $deleted;
 				return [
 					'template_id' => $id,
 					'snapshot_id' => $snapshot_id,
-					'deleted'     => false !== $deleted && null !== $deleted,
+					'deleted'     => $removed,
+					// A trashed template no longer renders; its cached pages are purged. There is no CSS left to regenerate for it.
+					'cache_purge' => $removed ? PageCachePurger::purge_quietly( $id ) : [ 'ran' => [], 'skipped_reason' => 'not_deleted' ],
 				];
 			}
 		);
