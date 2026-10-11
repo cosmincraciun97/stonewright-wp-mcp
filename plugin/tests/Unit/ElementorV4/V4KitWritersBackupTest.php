@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Abilities\ElementorV4\UpdateClass;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateVariable;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 
 /**
@@ -160,5 +161,51 @@ final class V4KitWritersBackupTest extends TestCase {
 		self::assertSame( 'stonewright_atomic_readback_mismatch', $result->get_error_code() );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] );
 		self::assertSame( $before, $service->get_variables_list()['var_contract'], 'the value of the failed write is not left behind' );
+	}
+
+	/** @return array<string, array{0: class-string, 1: array<string, mixed>}> */
+	public static function kit_writer_calls(): array {
+		return [
+			'create class'    => [ CreateClass::class, [ 'label' => 'Busy', 'variants' => self::VARIANTS ] ],
+			'update class'    => [ UpdateClass::class, [ 'id' => 'cls_contract', 'label' => 'Busy', 'variants' => self::VARIANTS ] ],
+			'create variable' => [ CreateVariable::class, [ 'label' => 'Busy', 'type' => 'global-color-variable', 'value' => '#abcdef' ] ],
+			'update variable' => [ UpdateVariable::class, [ 'id' => 'var_contract', 'value' => '#222222' ] ],
+		];
+	}
+
+	/**
+	 * @dataProvider kit_writer_calls
+	 * @param class-string         $ability
+	 * @param array<string, mixed> $args
+	 */
+	public function test_the_writer_is_refused_as_busy_while_another_writer_holds_the_kit_lease( string $ability, array $args ): void {
+		\Elementor\Modules\Variables\Services\Variables_Service::reset( true );
+		$classes_before   = (array) GlobalClassesState::capture();
+		$variables_before = $this->kit_meta( '_elementor_global_variables' );
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		PostWriteLock::acquire( self::KIT, 'other-writer', 30 );
+
+		$result = ( new $ability() )->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertTrue( GlobalClassesState::same( $classes_before, (array) GlobalClassesState::capture() ) );
+		self::assertSame( $variables_before, $this->kit_meta( '_elementor_global_variables' ) );
+		self::assertTrue( PostWriteLock::owned_by( self::KIT, 'other-writer' ), 'The other writer keeps its lease.' );
+	}
+
+	/**
+	 * @dataProvider kit_writer_calls
+	 * @param class-string         $ability
+	 * @param array<string, mixed> $args
+	 */
+	public function test_the_writer_releases_the_kit_lease( string $ability, array $args ): void {
+		\Elementor\Modules\Variables\Services\Variables_Service::reset( true );
+
+		$result = ( new $ability() )->execute( $args );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertIsArray( PostWriteLock::acquire( self::KIT, 'next-writer', 30 ), 'The lease is free afterwards.' );
 	}
 }

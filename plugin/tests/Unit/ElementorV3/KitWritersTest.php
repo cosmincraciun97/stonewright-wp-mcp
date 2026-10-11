@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitColors;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitTypography;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 
 /**
  * The kit colour and typography writers merge rows by their _id, treat an unchanged re-apply as a success, and
@@ -72,6 +73,64 @@ final class KitWritersTest extends TestCase {
 	/** @return list<string> Meta keys written since the test began. */
 	private static function written_keys(): array {
 		return array_values( array_unique( array_map( static fn( array $call ): string => (string) $call['meta_key'], $GLOBALS['stonewright_test_post_meta_calls'] ) ) );
+	}
+
+	/**
+	 * @return iterable<string, array{0:callable():object, 1:array<string, mixed>}>
+	 */
+	public static function kit_writers(): iterable {
+		yield 'colors' => [ static fn () => new UpdateKitColors(), [ 'colors' => [ [ 'id' => 'fresh', 'title' => 'Fresh', 'color' => '#010203' ] ] ] ];
+		yield 'typography' => [ static fn () => new UpdateKitTypography(), [ 'fonts' => [ [ 'id' => 'fresh', 'title' => 'Fresh', 'font_family' => 'Georgia' ] ] ] ];
+	}
+
+	/**
+	 * @param callable():object    $make
+	 * @param array<string, mixed> $args
+	 * @dataProvider kit_writers
+	 */
+	public function test_a_kit_write_is_refused_as_busy_while_another_writer_holds_the_kit_lease( callable $make, array $args ): void {
+		$before = self::settings();
+		PostWriteLock::acquire( self::KIT, 'other-writer', 30 );
+
+		$result = $make()->execute( $args );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertSame( $before, self::settings() );
+		self::assertTrue( PostWriteLock::owned_by( self::KIT, 'other-writer' ), 'The other writer keeps its lease.' );
+	}
+
+	/**
+	 * @param callable():object    $make
+	 * @param array<string, mixed> $args
+	 * @dataProvider kit_writers
+	 */
+	public function test_a_kit_write_keeps_a_setting_another_writer_saved_while_the_call_was_starting( callable $make, array $args ): void {
+		// Fires right after this call takes the kit lease, which is where a read taken earlier would already be stale.
+		$GLOBALS['stonewright_test_after_add_option'] = static function (): void {
+			$GLOBALS['stonewright_test_posts'][ self::KIT ]->meta['_elementor_page_settings']['custom_colors'][]     = [ '_id' => 'added-by-other', 'title' => 'Other', 'color' => '#999999' ];
+			$GLOBALS['stonewright_test_posts'][ self::KIT ]->meta['_elementor_page_settings']['custom_typography'][] = [ '_id' => 'added-by-other', 'title' => 'Other', 'typography_font_family' => 'Verdana' ];
+		};
+
+		$result = $make()->execute( $args );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertContains( 'added-by-other', array_column( self::settings()['custom_colors'], '_id' ), 'The colour another writer saved is not lost.' );
+		self::assertContains( 'added-by-other', array_column( self::settings()['custom_typography'], '_id' ), 'The typography another writer saved is not lost.' );
+		self::assertContains( 'fresh', array_merge( array_column( self::settings()['custom_colors'], '_id' ), array_column( self::settings()['custom_typography'], '_id' ) ) );
+	}
+
+	/**
+	 * @param callable():object    $make
+	 * @param array<string, mixed> $args
+	 * @dataProvider kit_writers
+	 */
+	public function test_a_kit_write_releases_the_lease( callable $make, array $args ): void {
+		$result = $make()->execute( $args );
+
+		self::assertIsArray( $result );
+		self::assertIsArray( PostWriteLock::acquire( self::KIT, 'next-writer', 30 ), 'The lease is free afterwards.' );
 	}
 
 	public function test_colors_merge_by_id_updates_a_row_in_place_and_appends_a_new_one(): void {

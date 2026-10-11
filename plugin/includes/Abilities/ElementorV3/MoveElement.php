@@ -124,6 +124,11 @@ final class MoveElement extends AbilityKernel {
 			}
 		}
 
+		// A container or section inside another element is an inner one; at the root it is not.
+		if ( in_array( (string) ( $element['elType'] ?? '' ), [ 'container', 'section' ], true ) ) {
+			$element['isInner'] = [] !== $parent_path;
+		}
+
 		$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
 

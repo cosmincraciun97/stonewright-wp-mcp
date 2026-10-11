@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -60,6 +61,8 @@ final class TransactionRunnerSafetyTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in']  = false;
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_transients']      = [];
+		$GLOBALS['stonewright_test_filters']         = [];
+		unset( $GLOBALS['stonewright_test_after_add_option'] );
 	}
 
 	/** @return list<string> Meta keys written since the test began. */
@@ -128,6 +131,79 @@ final class TransactionRunnerSafetyTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
 		self::assertNotContains( '_elementor_data', self::written_keys() );
+	}
+
+	/** @return list<array<string, mixed>> */
+	private static function replacement_tree(): array {
+		return [ [ 'id' => 'n1', 'elType' => 'container', 'settings' => [], 'elements' => [] ] ];
+	}
+
+	/** @return list<array<string, mixed>> The stored tree plus one root element another writer added. */
+	private static function tree_with_a_concurrent_element(): array {
+		$tree   = json_decode( self::EXISTING, true );
+		$tree[] = [ 'id' => 'other-writer-el', 'elType' => 'container', 'settings' => [], 'elements' => [] ];
+		return $tree;
+	}
+
+	public function test_a_whole_tree_write_is_refused_before_a_snapshot_while_another_writer_holds_the_lease(): void {
+		PostWriteLock::acquire( self::POST, 'other-writer', 30 );
+
+		$result = ElementorTransactionRunner::run_full_tree( self::POST, self::replacement_tree() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'Nothing was snapshotted or written.' );
+		self::assertTrue( PostWriteLock::owned_by( self::POST, 'other-writer' ) );
+	}
+
+	public function test_a_whole_tree_write_checks_the_precondition_after_taking_the_lease(): void {
+		$read_hash = TreeHasher::hash( ElementorData::read( self::POST ) );
+		$GLOBALS['stonewright_test_after_add_option'] = function (): void {
+			$GLOBALS['stonewright_test_posts'][ self::POST ]->meta['_elementor_data'] = (string) wp_json_encode( self::tree_with_a_concurrent_element() );
+		};
+
+		$result = ElementorTransactionRunner::run_full_tree( self::POST, self::replacement_tree(), [], true, [], $read_hash );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_transaction_precondition', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'The stale read takes no snapshot and writes nothing.' );
+		self::assertSame( [ 'root', 'other-writer-el' ], array_column( ElementorData::read( self::POST ), 'id' ), 'The change another writer made is left as it is.' );
+	}
+
+	public function test_a_whole_tree_write_releases_the_lease_after_it_succeeds_and_after_it_is_refused(): void {
+		$ok = ElementorTransactionRunner::run_full_tree( self::POST, self::replacement_tree() );
+		self::assertIsArray( $ok, $ok instanceof \WP_Error ? $ok->get_error_code() : '' );
+		self::assertIsArray( PostWriteLock::acquire( self::POST, 'next-writer', 30 ), 'The lease is free after a write.' );
+		PostWriteLock::release( self::POST, 'next-writer' );
+
+		$refused = ElementorTransactionRunner::run_full_tree( self::POST, self::replacement_tree(), [], true, [], str_repeat( 'a', 64 ) );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertIsArray( PostWriteLock::acquire( self::POST, 'last-writer', 30 ), 'The lease is free after a refusal.' );
+	}
+
+	public function test_an_operation_batch_is_refused_when_the_page_changed_after_the_runner_took_its_snapshot(): void {
+		$GLOBALS['stonewright_test_filters'] = [];
+		$changed                             = false;
+		add_filter(
+			'update_post_metadata',
+			static function ( $check, int $post_id, string $meta_key ) use ( &$changed ) {
+				if ( ! $changed && self::POST === $post_id && '_stonewright_backups' === $meta_key ) {
+					$changed = true;
+					$GLOBALS['stonewright_test_posts'][ self::POST ]->meta['_elementor_data'] = (string) wp_json_encode( self::tree_with_a_concurrent_element() );
+				}
+				return $check;
+			},
+			10,
+			3
+		);
+
+		$result = ElementorTransactionRunner::run( self::POST, self::add_heading_envelope(), false );
+
+		self::assertTrue( $changed, 'The page was changed after the snapshot.' );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_revision_conflict', $result->get_error_code() );
+		self::assertSame( [ 'root', 'other-writer-el' ], array_column( ElementorData::read( self::POST ), 'id' ), 'The change another writer made is neither overwritten nor restored over.' );
+		self::assertSame( [], (array) ( ElementorData::read( self::POST )[0]['elements'][1] ?? [] ), 'The heading was not added to a page the snapshot does not describe.' );
 	}
 
 	public function test_a_write_that_fails_its_readback_is_still_restored(): void {

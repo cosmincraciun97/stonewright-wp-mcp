@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\V4\AtomicVariableRepositoryAdapter;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -36,11 +37,19 @@ return $this->error( 'no_kit', 'No active Elementor kit found.' ); }
 			$adapter = AtomicVariableRepositoryAdapter::runtime();
 			if ( is_wp_error( $adapter ) ) {
 return $adapter; }
-			$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS );
-			if ( '' === $snapshot_id ) {
-return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the variable write.' ); }
-			$item = $adapter->create( [ 'label' => (string) $args['label'], 'type' => (string) $args['type'], 'value' => $args['value'] ] );
-			return is_wp_error( $item ) ? $item : [ 'item' => $item, 'snapshot_id' => $snapshot_id ];
+			// The lease is taken before the kit is snapshotted and written, so no other writer changes it in between.
+			return PostWriteLock::with_lease(
+				$kit_id,
+				'create-variable',
+				function () use ( $adapter, $args, $kit_id ): array|\WP_Error {
+					$snapshot_id = Backup::snapshot_post( $kit_id, [], true, Backup::KIT_V4_META_KEYS );
+					if ( '' === $snapshot_id ) {
+						return $this->error( 'snapshot_failed', 'The active Elementor kit could not be snapshotted; refusing the variable write.' );
+					}
+					$item = $adapter->create( [ 'label' => (string) $args['label'], 'type' => (string) $args['type'], 'value' => $args['value'] ] );
+					return is_wp_error( $item ) ? $item : [ 'item' => $item, 'snapshot_id' => $snapshot_id ];
+				}
+			);
 		} );
 	}
 }

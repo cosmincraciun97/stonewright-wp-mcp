@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\V4\AtomicWriteReadback;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Renderers\ElementorV4SpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -138,7 +139,6 @@ return $gate; }
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$existing = [];
 				if ( $replace ) {
 					$verify_args = array_filter(
 						$args,
@@ -149,24 +149,41 @@ return $gate; }
 					if ( null !== $token_error ) {
 						return $token_error;
 					}
-					$new_tree = $atomic_tree;
-				} else {
-					$existing = ElementorData::read( $post_id );
-					$new_tree = array_merge( $existing, $atomic_tree );
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
+				// The lease is taken before the page is read, so no other writer changes it between the read and the write.
+				$written = PostWriteLock::with_lease(
+					$post_id,
+					'v4-render-from-spec',
+					function ( string $lock_owner ) use ( $post_id, $replace, $atomic_tree ) {
+						$existing = [];
+						$new_tree = $atomic_tree;
+						if ( ! $replace ) {
+							$existing = ElementorData::read( $post_id );
+							$new_tree = array_merge( $existing, $atomic_tree );
+						}
 
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+
+						if ( ! ElementorData::write( $post_id, $new_tree, [ 'lock_owner' => $lock_owner ] ) ) {
+							return ElementorData::write_error_for_ability();
+						}
+						$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec', [ 'ids' => array_keys( ElementorData::flatten( $atomic_tree ) ), 'before' => $existing ] );
+						if ( $readback instanceof \WP_Error ) {
+							return $readback;
+						}
+
+						return [ 'snapshot_id' => $snapshot_id, 'readback' => $readback ];
+					}
+				);
+				if ( $written instanceof \WP_Error ) {
+					return $written;
 				}
-				$readback = AtomicWriteReadback::verify_tree( $post_id, $new_tree, $snapshot_id, 'render_from_spec', [ 'ids' => array_keys( ElementorData::flatten( $atomic_tree ) ), 'before' => $existing ] );
-				if ( $readback instanceof \WP_Error ) {
-					return $readback;
-				}
+				$snapshot_id = $written['snapshot_id'];
+				$readback    = $written['readback'];
 
 				return [
 					'ok'          => true,
