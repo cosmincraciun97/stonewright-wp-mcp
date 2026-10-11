@@ -63,6 +63,23 @@ notice the plugin printed, never removed on a timer), headings without core's ma
 plugin row links and the two Help tabs. A page added to `STONEWRIGHT_PAGES` names its hub
 and its band link, so it is covered by all of this at once.
 
+**The layout check** (`tests/admin-layout.spec.ts`, with `tests/helpers/layout-probe.ts` and `layout-crawl.ts`) reads the pages from the
+admin menu of the signed-in administrator (the sidebar and the band), so a page added to the menu is measured without being
+listed anywhere. Each page is measured as loaded, with each of its tabs selected and with each of its dialogs opened (a
+dialog is opened with `showModal()`, nothing is submitted). In every state: controls (buttons, button-looking links, text,
+search and date inputs, selects) that share a row have the same height and the same centre line within 1px; no control and no
+text runs past the edge of the box that holds it (a box that scrolls or clips on purpose is exempt); no two interactive
+controls overlap. It runs at 1440, 782 and 390px, so the CI groups `desktop-1440`, `desktop-1024-tablet-782` and
+`mobile-390-320` each pick it up (the 1024 and 320 projects skip it). Run it alone:
+
+```bash
+WP_BASE_URL=http://127.0.0.1:8888 npx playwright test admin-layout.spec.ts --project=desktop-1440-light --project=tablet-782-light --project=mobile-390-light
+```
+
+`SW_LAYOUT_VERBOSE=1` lists the states measured on each page. A control that must break a rule on purpose is marked
+`data-sw-layout-ignore`; a new mark needs a reason in the review. The static companion, `scripts/check-admin-control-sizing.mjs`
+(run by the `docs` CI job), fails when a page stylesheet gives a height, padding or line-height to a button or an input.
+
 **The band** (`tests/top-band.spec.ts`) holds the band and the EXP markers on the real pages: the
 mark and name, the groups with their labels and rules, the current link, the sizes and colours of
 the links, the band's position and padding at each width, the EXP marker's position, the tooltip

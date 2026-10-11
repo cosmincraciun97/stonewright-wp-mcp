@@ -489,6 +489,12 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Line up the controls of the admin pages. A button beside a field whose label sits
+  above it (the Skills search and "New skill", the Audit log and Changes filters)
+  now meets the input instead of the middle of the field, whatever hint is under
+  the field. Button, input and select sizes come from one set of control-size
+  tokens in the shared admin layer, and a layout check measures every page of the
+  admin menu in CI.
 - Name the right tool in `next_ability` when a generic content write is refused
   for an executable-code post type: `stonewright-custom-code-provider`.
 - Show the real tool limit of the Bootstrap surface in the Setup surface menu

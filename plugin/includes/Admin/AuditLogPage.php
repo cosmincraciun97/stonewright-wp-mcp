@@ -547,7 +547,7 @@ final class AuditLogPage {
 			Html::text( __( 'Ability, operation class, root error code and path match part of what you type, in any case. Status, category, outcome, verification, rollback, user ID and change set ID match exactly.', 'stonewright' ) )
 		);
 
-		$body = Html::element( 'div', [ 'class' => 'sw-audit-filters__primary' ], $primary . $buttons )
+		$body = Html::element( 'div', [ 'class' => 'sw-ui-control-row sw-audit-filters__primary' ], $primary . $buttons )
 			. Html::element(
 				'details',
 				[ 'class' => 'sw-ui-disclosure sw-audit-filters__more', 'open' => $more_open ],

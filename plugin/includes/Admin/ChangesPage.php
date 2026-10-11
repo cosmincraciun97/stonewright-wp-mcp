@@ -308,7 +308,7 @@ final class ChangesPage {
 			'form',
 			[ 'class' => 'sw-ui-toolbar sw-changes-filters', 'method' => 'get', 'action' => admin_url( 'admin.php' ), 'role' => 'search', 'aria-label' => __( 'Filter the changes', 'stonewright' ) ],
 			Html::void( 'input', [ 'type' => 'hidden', 'name' => 'page', 'value' => self::SLUG ] )
-			. Html::element( 'div', [ 'class' => 'sw-changes-filters__row' ], $primary . $restorable . $buttons )
+			. Html::element( 'div', [ 'class' => 'sw-ui-control-row sw-changes-filters__row' ], $primary . $restorable . $buttons )
 			. Html::element( 'p', [ 'class' => 'sw-ui-toolbar__meta', 'role' => 'status' ], Html::text( $meta ) )
 		);
 	}
