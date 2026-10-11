@@ -634,7 +634,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-content-create-page',
-		'Create a page via core REST (Direct mode).',
+		'Create a page via core REST (Direct mode). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			title: z.string().min(1),
@@ -657,7 +657,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-content-create-post',
-		'Create a post via core REST (Direct mode).',
+		'Create a post via core REST (Direct mode). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			title: z.string().min(1),
@@ -680,7 +680,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-content-create',
-		'Create a content item of ANY registered post type via core REST (Direct mode). type accepts the post type slug or rest_base; rest_base is auto-resolved from /wp/v2/types. Registering NEW post types still requires server-side PHP (plugin).',
+		'Create a content item of ANY registered post type via core REST (Direct mode). type accepts the post type slug or rest_base; rest_base is auto-resolved from /wp/v2/types. Registering NEW post types still requires server-side PHP (plugin). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			type: z.string().min(1).describe('Post type slug or rest_base, e.g. "sector" or "portfolio"'),
@@ -702,7 +702,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-content-update',
-		'Update a content item of any registered post type via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content. type accepts slug or rest_base (auto-resolved).',
+		'Update a content item of any registered post type via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content. type accepts slug or rest_base (auto-resolved). The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			type: z.string().optional(),
@@ -1058,13 +1058,14 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-template-update',
-		'Update an FSE template via core REST (Direct mode).',
+		'Update an FSE template via core REST (Direct mode). Replaces the stored template, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
 			title: z.string().optional(),
 			content: z.string().optional(),
 			description: z.string().optional(),
+			confirm: confirmArg,
 		},
 		async (input) => {
 			try {
@@ -1108,13 +1109,14 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-template-part-update',
-		'Update an FSE template part via core REST (Direct mode).',
+		'Update an FSE template part via core REST (Direct mode). Replaces the stored template part, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
 			title: z.string().optional(),
 			content: z.string().optional(),
 			description: z.string().optional(),
+			confirm: confirmArg,
 		},
 		async (input) => {
 			try {
@@ -1141,7 +1143,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-global-styles-update',
-		'Update global styles via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		'Update global styles via core REST (Direct mode). Requires confirm:true on remote/confirm mode. The current resource is saved first and the result returns backup_path and backup_sha256; the write is refused if that backup cannot be read or stored (the last 20 are kept per resource). Refuses theme.json custom CSS (styles.css and per-block css) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().optional(),
@@ -1424,14 +1426,14 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-blueprint-apply',
-		'Apply a bundled blueprint as a Gutenberg draft via core REST. Elementor engine requires the Stonewright plugin.',
+		'Apply a bundled blueprint as a Gutenberg draft via core REST. Elementor engine requires the Stonewright plugin. With post_id it overwrites that page, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256) and the write is refused if that backup fails. Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
 			title: z.string().optional(),
 			status: z.enum(['draft', 'publish']).optional(),
 			post_id: z.number().int().positive().optional(),
-			confirm: z.boolean().optional(),
+			confirm: confirmArg,
 			engine: z.string().optional(),
 		},
 		async (input) => {
@@ -1521,7 +1523,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	w3('stonewright-content-autosaves', 'List or get autosaves for a post via core REST (Direct mode).', {
 		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), autosave_id: z.number().int().positive().optional(),
 	}, (input, runtime) => content.contentAutosaves(runtime, input as never));
-	w3('stonewright-content-autosave-create', 'Create an autosave via core REST (Direct mode).', {
+	w3('stonewright-content-autosave-create', 'Create an autosave via core REST (Direct mode). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.', {
 		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), title: z.string().optional(), content: z.string().optional(), confirm: confirmArg,
 	}, (input, runtime) => content.contentAutosaveCreate(runtime, input as never));
 	w3('stonewright-media-delete', 'Delete a media item via core REST (Direct mode).', {
@@ -1534,7 +1536,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	w3('stonewright-widget-list', 'List widgets via core REST (Direct mode).', {
 		site: siteArg, sidebar: z.string().optional(),
 	}, (input, runtime) => widgets.widgetList(runtime, input as never));
-	w3('stonewright-widget-manage', 'Create, update, or delete a widget via core REST (Direct mode).', {
+	w3('stonewright-widget-manage', 'Create, update, or delete a widget via core REST (Direct mode). Refuses HTML-type widgets and custom code in the instance (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.', {
 		site: siteArg, action: z.enum(['create', 'update', 'delete']), id: z.string().optional(),
 		id_base: z.string().optional(), sidebar: z.string().optional(),
 		instance: z.record(z.string(), z.unknown()).optional(), confirm: confirmArg,
@@ -1568,13 +1570,13 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		per_page: z.number().int().min(1).max(50).optional(), include_content: z.boolean().optional(),
 	}, (input, runtime) => search.patternDirectorySearch(runtime, input as never));
 
-	w3('stonewright-template-create', 'Create an FSE template via core REST (Direct mode).', {
+	w3('stonewright-template-create', 'Create an FSE template via core REST (Direct mode). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.', {
 		site: siteArg, slug: z.string().min(1), title: z.string().optional(), content: z.string().optional(), description: z.string().optional(), confirm: confirmArg,
 	}, (input, runtime) => templates.templateCreate(runtime, input as never));
 	w3('stonewright-template-delete', 'Delete an FSE template via core REST (Direct mode).', {
 		site: siteArg, id: z.string().min(1), force: z.boolean().optional(), confirm: confirmArg,
 	}, (input, runtime) => templates.templateDelete(runtime, input as never));
-	w3('stonewright-template-part-create', 'Create an FSE template part via core REST (Direct mode).', {
+	w3('stonewright-template-part-create', 'Create an FSE template part via core REST (Direct mode). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.', {
 		site: siteArg, slug: z.string().min(1), title: z.string().optional(), content: z.string().optional(), area: z.string().optional(), confirm: confirmArg,
 	}, (input, runtime) => templates.templatePartCreate(runtime, input as never));
 	w3('stonewright-template-part-delete', 'Delete an FSE template part via core REST (Direct mode).', {
@@ -1829,7 +1831,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Prefer plugin batch-mutate on production.',
+		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Refuses custom CSS setting keys, HTML-type widgets, and script/style/iframe markup in settings with an approval_required envelope (needs Plugin mode and its custom-code approval). Prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),

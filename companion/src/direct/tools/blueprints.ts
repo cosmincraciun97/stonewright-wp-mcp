@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { WpRestClient } from "../wp-rest-client.js";
 import { assertWriteAllowed, resolveDirectWriteMode } from "../writes.js";
+import { refuseCustomCode, scanMarkupFields } from "../custom-code-guard.js";
+import { storePreImage } from "../preimage.js";
 import {
   serializeDesignSpec,
   type DesignSpec,
@@ -116,6 +118,22 @@ export async function applyBlueprint(
       tool: "stonewright-blueprint-apply",
       site,
     });
+    const refusal = refuseCustomCode(
+      site,
+      "stonewright-blueprint-apply",
+      `pages/${args.post_id}`,
+      scanMarkupFields({ title, content }),
+      env,
+    );
+    if (refusal) return refusal;
+    const preImage = await storePreImage({
+      client,
+      site,
+      env,
+      tool: "stonewright-blueprint-apply",
+      restPath: `/wp/v2/pages/${args.post_id}`,
+      resourceId: `pages-${args.post_id}`,
+    });
     const updated = await client.post(`/wp/v2/pages/${args.post_id}`, {
       body: {
         title,
@@ -131,6 +149,7 @@ export async function applyBlueprint(
       page_id: args.post_id,
       blueprint_id: bp.id,
       updated,
+      ...preImage,
       note: "Direct mode Gutenberg apply (Elementor requires plugin).",
     };
   }
@@ -142,6 +161,14 @@ export async function applyBlueprint(
     tool: "stonewright-blueprint-apply",
     site,
   });
+  const createRefusal = refuseCustomCode(
+    site,
+    "stonewright-blueprint-apply",
+    "pages",
+    scanMarkupFields({ title, content }),
+    env,
+  );
+  if (createRefusal) return createRefusal;
   const created = await client.post<{ id?: number }>("/wp/v2/pages", {
     body: {
       title,

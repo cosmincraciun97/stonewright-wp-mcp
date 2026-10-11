@@ -20,6 +20,11 @@ development builds were never stable releases.
   The file must be an allowed image, audio, video, document, txt or csv type (no
   SVG, HTML or PHP), at most 25 MiB, and its first bytes must match its
   extension. See the companion changelog.
+- Direct mode refuses custom code (theme.json CSS, Elementor custom CSS and HTML
+  widgets, script, style, iframe, object, embed, link and meta http-equiv markup, inline event handlers and
+  `javascript:` URLs), saves a pre-image before whole-document writes, and asks
+  for `confirm: true` on template and template-part updates; see the companion
+  changelog.
 
 ### Fixed
 

@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanWidget } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpSidebar = {
@@ -85,6 +86,16 @@ export async function widgetManage(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-widget-manage",
   });
+  if (input.action !== "delete") {
+    const refusal = refuseCustomCode(
+      ctx.site,
+      "stonewright-widget-manage",
+      `widgets/${input.id ?? input.id_base ?? ""}`,
+      scanWidget({ id_base: input.id_base, instance: input.instance }),
+      ctx.env ?? process.env,
+    );
+    if (refusal) return refusal;
+  }
 
   if (input.action === "create") {
     if (!input.id_base || !input.sidebar) {

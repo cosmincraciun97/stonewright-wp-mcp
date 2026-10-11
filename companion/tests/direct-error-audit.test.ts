@@ -759,10 +759,15 @@ describe('direct error audit', () => {
 					STONEWRIGHT_WP_URL: 'http://example.test', STONEWRIGHT_WP_USERNAME: 'admin', STONEWRIGHT_WP_APP_PASSWORD: 'pw',
 					STONEWRIGHT_DIRECT_WRITES: 'on', STONEWRIGHT_DIRECT_REQUIRE_TASK_START: 'off',
 				},
-				fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ code: 'rest_write_failed', message: 'Synthetic write failure', data: { status: 500 } }), {
-					status: 500,
-					headers: { 'content-type': 'application/json' },
-				})),
+				// The pre-image read succeeds; only the write itself fails.
+				fetchImpl: (_url: Parameters<typeof fetch>[0], init?: RequestInit) => Promise.resolve(
+					(init?.method ?? 'GET') === 'GET'
+						? new Response(JSON.stringify({ id: 42, title: { raw: 'Before' }, content: { raw: '' } }), { status: 200, headers: { 'content-type': 'application/json' } })
+						: new Response(JSON.stringify({ code: 'rest_write_failed', message: 'Synthetic write failure', data: { status: 500 } }), {
+							status: 500,
+							headers: { 'content-type': 'application/json' },
+						}),
+				),
 			});
 			const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<unknown> }> })._registeredTools ?? {};
 			await tools['stonewright-content-update']?.handler?.({ id: 42, title: 'Synthetic title' });

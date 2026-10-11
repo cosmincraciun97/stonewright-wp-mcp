@@ -117,6 +117,25 @@ incidents are information. An incident with no new matching failure for seven
 days is closed and leaves the list, unless its latest failure row carries a
 resource and a change set (those wait for a verified repair, as in Plugin mode);
 a later matching failure reopens a closed incident.
+Before `template-update`, `template-part-update`, `global-styles-update`,
+`content-update`, and `blueprint-apply` with a `post_id`, Direct saves the
+current resource (`context=edit`) to
+`~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
+(mode 0600 where supported, 20 kept per resource, oldest deleted) and returns
+`backup_path` and `backup_sha256`. When the resource cannot be read or the file
+cannot be stored, the write is refused and nothing is sent. The file holds the
+REST resource only, never request headers or credentials. No tool restores a
+backup yet.
+
+Direct never writes custom code. `global-styles-update` refuses theme.json
+`styles.css` and per-block `css`; `elementor-data-update` refuses Elementor
+custom CSS setting keys and HTML-type widgets; content, template, and blueprint
+writes refuse `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta http-equiv>`, inline `on*=` event handlers,
+and `javascript:` URLs (case-insensitive, entity-encoded and JSON-escaped forms
+included). A refusal is a normal result with `approval_required` and
+`agent_must_stop`, and nothing is written. `template-update`,
+`template-part-update`, and `blueprint-apply` over an existing page need
+`confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote.
 
 Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
 token pairs atomically with mode `0600`. Status reports use schema version 3.
