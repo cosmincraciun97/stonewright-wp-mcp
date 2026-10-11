@@ -4,6 +4,50 @@
 
 ### Added
 
+- List and restore the copies Direct saves before it overwrites something.
+  `stonewright-direct-backup-list` lists the pre-images (pages, posts, templates,
+  template parts, global styles) and the Elementor file backups, newest first,
+  with a `backup_id`, the tool, the resource, the time, the size, the file hash
+  and an integrity check (`ok`, `tampered`, `unverifiable`, `unreadable`); it
+  never returns their content. `stonewright-direct-backup-restore` puts one back.
+  It needs `confirm:true` (`dry_run:true` shows what would change and needs none),
+  checks the hash stored in the file, checks that the resource still exists
+  (nothing is recreated), saves the current state first so the restore can be
+  undone, writes the stored fields back through the same REST route (Elementor
+  backups through the Elementor update path), reads the resource back and
+  compares it, and writes audit rows. Pre-images now carry a hash of their body
+  and return a `backup_id`; Elementor file backups carry a hash of the document,
+  the site and the collection, and return `backup_id` and `backup_sha256`. A
+  backup written by an older version has no stored hash and is restored only with
+  `expected_sha256`. The tools are named apart from the Plugin abilities
+  (`backup-restore`, `site-backup-page`, `rescue-*`) and sit on the `gutenberg`,
+  `content-model`, `elementor-design`, `site-admin` and `full` profiles, not on the
+  bootstrap or essential surface. The Direct tool count is 103; the `full` budget
+  in `tokens:measure` is 103.
+- Read every typed Direct write back. After the write the resource is read again
+  (`context=edit`) and the fields that were sent are compared with what WordPress
+  returns, the way WordPress returns them. The result carries `verification`
+  (`verified`, `mismatch`, `not_checked`) with the compared and differing fields
+  and the before and after hashes; a mismatch is returned as `ok:false`,
+  `error:"verification_mismatch"`, never as success, with `restore_with` when a
+  saved copy exists. The write audit row carries `before_sha256`, `after_sha256`,
+  `resource_type` and a change set id, and a `direct_verifier` row records the
+  outcome. This covers content, template, template-part, global-styles, blueprint,
+  Elementor, plugin, theme, settings, media, taxonomy, menu, comment, user,
+  application-password, widget and ACF writes; the generic REST request tool and
+  local WP-CLI commands are not read back.
+- Check the public page after a page, post, template or template-part write.
+  Direct fetches the permalink (the home page for a template) and checks for HTTP
+  200, a non-empty body, no PHP fatal or parse error text and not the WordPress
+  critical-error page, through the same pinned, redirect-checked fetch the media
+  download uses (only the site's own local host may be a non-public address). The
+  probe is on by default for a local site and off for a remote one; `probe:true`,
+  `probe:false` and `STONEWRIGHT_DIRECT_PROBE=on|off` change that. A failed check
+  returns `ok:false`, `site_status:"probe_failed"` and a `rollback_offer`; the saved
+  copy is restored only when the call has `rollback_on_probe_failure:true`
+  (`site_status:"rolled_back"`). A page that cannot be reached is reported as
+  `unavailable`, not as a failure.
+
 - Hold a local WP-CLI command that changes the site to the Direct write gate in a
   Direct session. `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start` take
   an optional `confirm` and, for a command that is not read-oriented, need

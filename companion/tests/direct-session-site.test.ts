@@ -140,6 +140,8 @@ describe('direct session site binding', () => {
 			expect(contentRequests.map((r) => `${r.method} ${new URL(r.url).host}`)).toEqual([
 				`GET ${HOST_B}`,
 				`PUT ${HOST_B}`,
+				// the readback after the write goes to the session site too
+				`GET ${HOST_B}`,
 			]);
 			expect(requests.some((r) => r.url.includes(HOST_A))).toBe(false);
 		});

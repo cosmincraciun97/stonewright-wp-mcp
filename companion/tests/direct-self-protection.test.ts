@@ -111,7 +111,8 @@ describe('direct self-protection and settings rules', () => {
 					: { plugin: 'stonewright-helper/stonewright-helper', name: 'Helper', status: 'inactive' },
 			);
 			await pluginDeactivate(ctx(fetchImpl), { plugin: 'stonewright-helper/stonewright-helper', confirm: true });
-			expect(calls.map((c) => c.method)).toEqual(['GET', 'PUT']);
+			// self-protection read, the write, and the readback
+			expect(calls.map((c) => c.method)).toEqual(['GET', 'PUT', 'GET']);
 		});
 
 		it('an ordinary plugin deactivates and deletes as before', async () => {
@@ -211,10 +212,11 @@ describe('direct self-protection and settings rules', () => {
 		it('keeping administrator, or not touching the roles, needs no extra reads', async () => {
 			const keep = usersApi();
 			await userUpdate(ctx(keep.fetchImpl), { id: ME.id, roles: ['administrator'], confirm: true });
-			expect(keep.calls.map((c) => c.method)).toEqual(['POST']);
+			// no extra reads before the write; one readback after it
+			expect(keep.calls.map((c) => c.method)).toEqual(['POST', 'GET']);
 			const rename = usersApi();
 			await userUpdate(ctx(rename.fetchImpl), { id: ME.id, name: 'New Name', confirm: true });
-			expect(rename.calls.map((c) => c.method)).toEqual(['POST']);
+			expect(rename.calls.map((c) => c.method)).toEqual(['POST', 'GET']);
 		});
 	});
 
@@ -259,7 +261,7 @@ describe('direct self-protection and settings rules', () => {
 		it.each([['subscriber'], ['contributor'], ['author'], ['editor']])('accepts default_role %s', async (role) => {
 			const { fetchImpl, calls } = makeFetch(() => ({ default_role: role }));
 			await settingsUpdate(ctx(fetchImpl), { settings: { default_role: role }, confirm: true });
-			expect(calls.map((c) => c.method)).toEqual(['POST']);
+			expect(calls.map((c) => c.method)).toEqual(['POST', 'GET']);
 		});
 
 		it('refuses object and array values for an allowed key', async () => {
@@ -283,7 +285,8 @@ describe('direct self-protection and settings rules', () => {
 			};
 			const { fetchImpl, calls } = makeFetch(() => settings);
 			await settingsUpdate(ctx(fetchImpl), { settings, confirm: true });
-			expect(calls).toHaveLength(1);
+			// the write and its readback
+			expect(calls).toHaveLength(2);
 			expect(calls[0]?.body).toEqual(settings);
 		});
 

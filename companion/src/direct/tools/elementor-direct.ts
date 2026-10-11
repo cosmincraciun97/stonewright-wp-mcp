@@ -1,6 +1,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { appendDirectAudit, defaultAuditPath, defaultStateDir } from "../audit.js";
+import { safeSegment } from "../preimage.js";
+import {
+  attachVerification,
+  recordVerification,
+  sha256Text,
+  stableJson,
+  type WriteVerification,
+} from "../verify.js";
+import { randomUUID } from "node:crypto";
 import {
   assertWriteAllowed as integrityAssertWrite,
   encodeTreeOnce,
@@ -633,7 +642,12 @@ export async function elementorDataUpdate(
   },
   cli: ElementorCli = runWpCli,
   rest?: ElementorRestClient,
+  options: {
+    /** Set by stonewright-direct-backup-restore: the write puts a stored document back. */
+    restore?: { tool: string; from: string };
+  } = {},
 ) {
+  const auditTool = options.restore?.tool ?? "stonewright-elementor-data-update";
   const targetUrl = rest?.target?.url ?? env["STONEWRIGHT_WP_URL"];
   // The same rule as every other Direct write tool: the target site decides, then the environment.
   const writeMode = resolveDirectWriteMode(env, targetUrl);
@@ -642,7 +656,7 @@ export async function elementorDataUpdate(
     mode: writeMode,
     destructive: true,
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
-    tool: "stonewright-elementor-data-update",
+    tool: auditTool,
     env,
     ...(rest?.target
       ? { site: rest.target }
@@ -667,13 +681,16 @@ export async function elementorDataUpdate(
   const tree = normalized.tree;
 
   // Direct never writes custom code: custom CSS keys, HTML widgets, script/style/iframe markup.
-  const refusal = refuseCustomCode(
-    { alias: resolveScope(input.site), url: auditTargetIdentity },
-    "stonewright-elementor-data-update",
-    `post:${input.post_id}`,
-    scanElementorTree(tree),
-    env,
-  );
+  // A restore puts back a document that was already on the site, so it is not screened again.
+  const refusal = options.restore
+    ? null
+    : refuseCustomCode(
+        { alias: resolveScope(input.site), url: auditTargetIdentity },
+        "stonewright-elementor-data-update",
+        `post:${input.post_id}`,
+        scanElementorTree(tree),
+        env,
+      );
   if (refusal) return refusal;
 
   const base = {
@@ -715,27 +732,83 @@ export async function elementorDataUpdate(
   // Encode once — never store an already-encoded JSON string as the meta value wrapper.
   const json = encodeTreeOnce(tree);
 
-  const scope = resolveScope(input.site);
-  const backupDir = join(defaultStateDir(env), "backups", scope);
+  const scope = rest?.target?.alias ?? resolveScope(input.site);
+  const backupDir = join(defaultStateDir(env), "backups", safeSegment(scope));
   mkdirSync(backupDir, { recursive: true, mode: 0o700 });
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupPath = join(backupDir, `post-${input.post_id}-${ts}.json`);
-  writeFileSync(
-    backupPath,
+  const backupId = `post-${input.post_id}-${ts}.json`;
+  const backupPath = join(backupDir, backupId);
+  const backupBytes = Buffer.from(
     JSON.stringify(
       {
         post_id: input.post_id,
         backed_up_at: new Date().toISOString(),
+        site: scope,
         transport: current.transport ?? null,
+        collection: current.collection ?? null,
         edit_mode: current.edit_mode ?? null,
         template_type: current.template_type ?? null,
+        // Checked again before a restore, so an edited or damaged file is refused.
+        data_sha256: sha256Text(stableJson(current.data ?? null)),
         data: current.data ?? null,
       },
       null,
       2,
     ),
-    { encoding: "utf8", mode: 0o600 },
+    "utf8",
   );
+  writeFileSync(backupPath, backupBytes, { mode: 0o600 });
+  const backupSha256 = sha256Text(backupBytes);
+  // The whole tree is hashed as stored: widget settings carry keys such as `link` that are content.
+  const beforeSha256 = sha256Text(stableJson(current.data ?? null));
+  const backupInfo = {
+    backup_path: backupPath,
+    backup_id: backupId,
+    backup_sha256: backupSha256,
+    before_sha256: beforeSha256,
+  };
+
+  /** Reads the document again and compares it with the tree that was written. */
+  const verifyDocument = async (): Promise<WriteVerification> => {
+    const result: WriteVerification = {
+      status: "not_checked",
+      checked_fields: [],
+      mismatched_fields: [],
+      skipped_fields: [],
+      before_sha256: beforeSha256,
+      after_sha256: null,
+      change_set_id: randomUUID(),
+    };
+    try {
+      const after = await readFullTree(env, input, cli, rest);
+      if (!after.ok || after.data === undefined || after.data === null) {
+        result.reason = `readback_failed: ${String(after.error ?? "no data returned").slice(0, 100)}`;
+      } else {
+        result.checked_fields = ["_elementor_data"];
+        result.after_sha256 = sha256Text(stableJson(after.data));
+        if (stableJson(after.data) === stableJson(tree)) {
+          result.status = "verified";
+        } else {
+          result.status = "mismatch";
+          result.mismatched_fields = ["_elementor_data"];
+        }
+      }
+    } catch (error) {
+      result.reason = `readback_failed: ${(error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 100)}`;
+    }
+    recordVerification(
+      {
+        site: { alias: scope, url: auditTargetIdentity },
+        env,
+        tool: auditTool,
+        resource: `post:${input.post_id}`,
+        resourceType: "elementor-document",
+        ...(options.restore ? { note: `restored from ${options.restore.from}` } : {}),
+      },
+      result,
+    );
+    return result;
+  };
 
   const transport = current.transport;
   const useCli = transport === "wp-cli";
@@ -760,7 +833,7 @@ export async function elementorDataUpdate(
     );
     if (!updated.ok) {
       appendDirectAudit({
-        tool: "stonewright-elementor-data-update",
+        tool: auditTool,
         site: scope,
         targetIdentity: auditTargetIdentity,
         resource: `post:${input.post_id}`,
@@ -819,7 +892,7 @@ export async function elementorDataUpdate(
     const cacheClosed = elementCacheAbsent && metadataReadbackIsAbsent(elementCacheReadback);
     if (!cacheClosed) {
       appendDirectAudit({
-        tool: "stonewright-elementor-data-update",
+        tool: auditTool,
         site: scope,
         targetIdentity: auditTargetIdentity,
         resource: `post:${input.post_id}`,
@@ -832,7 +905,7 @@ export async function elementorDataUpdate(
         ok: false,
         post_id: input.post_id,
         transport: "wp-cli" as const,
-        backup_path: backupPath,
+        ...backupInfo,
         element_cache_invalidated: false,
         css_meta_invalidated: false,
         css_flushed: false,
@@ -847,19 +920,13 @@ export async function elementorDataUpdate(
       };
     }
 
-    appendDirectAudit({
-      tool: "stonewright-elementor-data-update",
-      site: scope,
-      targetIdentity: auditTargetIdentity,
-      resource: `post:${input.post_id}`,
-      status: "ok",
-    }, defaultAuditPath(env));
+    const cliVerification = await verifyDocument();
 
-    return {
+    return attachVerification({
       ok: true,
       post_id: input.post_id,
       transport: "wp-cli" as const,
-      backup_path: backupPath,
+      ...backupInfo,
       element_cache_invalidated: cacheClosed,
       css_meta_invalidated: false,
       css_flushed: false,
@@ -876,7 +943,7 @@ export async function elementorDataUpdate(
             ]),
         "CSS metadata was intentionally preserved. Do not call Elementor flush-css; use Plugin mode post-write verification before accepting the change.",
       ],
-    };
+    }, cliVerification, { backupId });
   }
 
   // REST path for remote Direct (no WP-CLI).
@@ -906,7 +973,7 @@ export async function elementorDataUpdate(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     appendDirectAudit({
-      tool: "stonewright-elementor-data-update",
+      tool: auditTool,
       site: scope,
       targetIdentity: auditTargetIdentity,
       resource: `post:${input.post_id}`,
@@ -918,21 +985,15 @@ export async function elementorDataUpdate(
     );
   }
 
-  appendDirectAudit({
-    tool: "stonewright-elementor-data-update",
-    site: scope,
-    targetIdentity: auditTargetIdentity,
-    resource: `post:${input.post_id}`,
-    status: "ok",
-  }, defaultAuditPath(env));
+  const restVerification = await verifyDocument();
 
-  return {
+  return attachVerification({
     ok: true,
     post_id: input.post_id,
     transport: "rest" as const,
     collection,
     ...(current.wp_cli_refused ? { wp_cli_refused: current.wp_cli_refused } : {}),
-    backup_path: backupPath,
+    ...backupInfo,
     element_cache_invalidated: false,
     css_meta_invalidated: false,
     css_flushed: false,
@@ -944,5 +1005,5 @@ export async function elementorDataUpdate(
       "Updated via core REST meta (no WP-CLI). Elementor HTML and CSS cache closure is unavailable remotely, so this response is not frontend verification.",
       "This path has no Elementor schema validation. For production Loop Grid / complex widgets, use plugin stonewright-elementor-v3-batch-mutate.",
     ],
-  };
+  }, restVerification, { backupId });
 }

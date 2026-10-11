@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpPlugin = {
@@ -124,21 +125,14 @@ export async function pluginActivate(
   });
   const plugin = input.plugin.trim();
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.put<WpPlugin>(
+    result = await ctx.client.put<WpPlugin>(
       `/wp/v2/plugins/${encodePlugin(plugin)}`,
       {
         body: { status: "active" },
       },
     );
-    appendDirectAudit({
-      tool: "stonewright-plugin-activate",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: plugin,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-activate",
@@ -149,6 +143,18 @@ export async function pluginActivate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-activate",
+    resource: plugin,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    sent: { status: "active" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginDeactivate(
@@ -166,21 +172,14 @@ export async function pluginDeactivate(
   const plugin = input.plugin.trim();
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-deactivate");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.put<WpPlugin>(
+    result = await ctx.client.put<WpPlugin>(
       `/wp/v2/plugins/${encodePlugin(plugin)}`,
       {
         body: { status: "inactive" },
       },
     );
-    appendDirectAudit({
-      tool: "stonewright-plugin-deactivate",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: plugin,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-deactivate",
@@ -191,6 +190,18 @@ export async function pluginDeactivate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-deactivate",
+    resource: plugin,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    sent: { status: "inactive" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginInstall(
@@ -211,21 +222,14 @@ export async function pluginInstall(
   });
   const slug = input.slug.trim();
   if (!slug) throw new Error("slug is required (WordPress.org plugin slug)");
+  let result: WpPlugin;
   try {
-    const result = await ctx.client.post<WpPlugin>("/wp/v2/plugins", {
+    result = await ctx.client.post<WpPlugin>("/wp/v2/plugins", {
       body: {
         slug,
         status: input.status ?? "inactive",
       },
     });
-    appendDirectAudit({
-      tool: "stonewright-plugin-install",
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: slug,
-      status: "ok",
-    });
-    return compactPlugin(result);
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-plugin-install",
@@ -236,6 +240,18 @@ export async function pluginInstall(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-plugin-install",
+    resource: slug,
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(result.plugin ?? slug)}`,
+    readQuery: {},
+    sent: { status: input.status ?? "inactive" },
+  });
+  return attachVerification(compactPlugin(result), verification);
 }
 
 export async function pluginGet(
@@ -276,14 +292,23 @@ export async function pluginDelete(
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-delete");
   const result = await ctx.client.del(`/wp/v2/plugins/${encodePlugin(plugin)}`);
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-plugin-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: plugin,
-    status: "ok",
+    resourceType: "plugins",
+    readPath: `/wp/v2/plugins/${encodePlugin(plugin)}`,
+    readQuery: {},
+    expect: "absent",
   });
-  return (
-    result ?? { deleted: true, plugin, note: "Plugin must be inactive first." }
+  return attachVerification(
+    (result as object | undefined) ?? {
+      deleted: true,
+      plugin,
+      note: "Plugin must be inactive first.",
+    },
+    verification,
   );
 }

@@ -40,7 +40,16 @@ describe('blueprint-apply custom-code boundary', () => {
 	});
 
 	function client() {
-		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{"id":9}', { status: 200, headers: { 'content-type': 'application/json' } })));
+		// The page keeps what is written, so the readback after a write sees the new values.
+		const page: Record<string, unknown> = { id: 9 };
+		const fetchImpl = vi.fn((_url: unknown, init?: RequestInit) => {
+			if (init?.body) {
+				for (const [key, value] of Object.entries(JSON.parse(String(init.body)) as Record<string, unknown>)) {
+					page[key] = ['title', 'content'].includes(key) && typeof value === 'string' ? { raw: value } : value;
+				}
+			}
+			return Promise.resolve(new Response(JSON.stringify(page), { status: 200, headers: { 'content-type': 'application/json' } }));
+		});
 		return { fetchImpl, client: new WpRestClient(site, { fetchImpl }) };
 	}
 
@@ -88,6 +97,7 @@ describe('blueprint-apply custom-code boundary', () => {
 		const { fetchImpl, client: wp } = client();
 		const result = await applyBlueprint(wp, { id: 'agency' }, { ...process.env, STONEWRIGHT_DIRECT_WRITES: 'on' });
 		expect(result).toMatchObject({ ok: true, engine: 'gutenberg' });
-		expect(fetchImpl).toHaveBeenCalledOnce();
+		// the create and its readback
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 });

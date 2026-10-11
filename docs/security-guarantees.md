@@ -148,14 +148,14 @@ where the Stonewright plugin is active (a recovery-only override needs
 `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus `confirm: true` and is
 audited), require a recent `stonewright-task-start`, honor
 `STONEWRIGHT_DIRECT_WRITES`, refuse custom code in the writes that carry
-markup, text or CSS, save a pre-image before whole-document writes, limit
+markup, text or CSS, save a pre-image before whole-document writes and restore it only on `confirm:true` after a hash check, read every typed write back, limit
 `stonewright-media-upload` (and connect to the address they checked), refuse to
 remove Stonewright, the connection plugin, the signed-in account or the last
 administrator, send the Application Password only over https or to a local
 host, and never retry a write. In a Direct session the local
 `stonewright-wp-cli-run` and `-job-start` hold a command that changes the site
-to the same latch, confirmation and audit. They do not provide change sets, confirmation
-tokens, a restore tool, or after-write verification. See
+to the same latch, confirmation and audit. They do not provide change sets or confirmation
+tokens. See
 [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet).
 
 Enforced by:
@@ -168,6 +168,8 @@ Enforced by:
   `companion/src/direct/plugin-guard.ts`, `companion/src/direct/plugin-presence.ts`,
   `companion/src/direct/sites-config.ts`,
   `companion/src/direct/custom-code-guard.ts`, `companion/src/direct/preimage.ts`,
+  `companion/src/direct/backups.ts`, `companion/src/direct/verify.ts`,
+  `companion/src/direct/probe.ts`,
   `companion/src/direct/elementor-target.ts`, `companion/src/direct/media-source.ts`,
   `companion/src/direct/media-transport.ts`, `companion/src/direct/media-limits.ts`,
   `companion/src/direct/wp-rest-client.ts` and `companion/src/direct/wp-cli-gate.ts`

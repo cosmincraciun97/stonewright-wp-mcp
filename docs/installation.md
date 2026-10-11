@@ -93,7 +93,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- the route is reported as missing by WordPress → Direct mode (101 tools in the current full surface); an unclear answer keeps Plugin mode
+- the route is reported as missing by WordPress → Direct mode (103 tools in the current full surface); an unclear answer keeps Plugin mode
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with

@@ -60,7 +60,7 @@ export const PLUGIN_ONLY_CAPABILITIES = [
     id: "rescue",
     label: "Rescue snapshots and restore",
     reason:
-      "Rescue snapshots, probes and rollback are plugin-only. Direct keeps pre-image and backup files but has no tool that restores them.",
+      "Rescue snapshots, probes and rollback are plugin-only. Direct keeps pre-image and backup files for five whole-document writes and Elementor data, restores them with stonewright-direct-backup-restore, and can check the public page after a page, post or template write; it has no site-wide rollback.",
     upgrade:
       "Install the Stonewright plugin for Rescue snapshots and rollback.",
   },

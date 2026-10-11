@@ -5,6 +5,7 @@ import {
 } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import type { DirectToolContext } from "./types.js";
 
 const TOOL = "stonewright-settings-update";
@@ -110,21 +111,14 @@ export async function settingsUpdate(
     ctx.env ?? process.env,
   );
   if (refusal) return refusal;
+  let settings: Record<string, unknown>;
   try {
-    const settings = await ctx.client.post<Record<string, unknown>>(
+    settings = await ctx.client.post<Record<string, unknown>>(
       "/wp/v2/settings",
       {
         body: input.settings,
       },
     );
-    appendDirectAudit({
-      tool: TOOL,
-      site: ctx.site.alias,
-      targetIdentity: ctx.site.url,
-      resource: "settings",
-      status: "ok",
-    });
-    return { settings: settings ?? {} };
   } catch (err) {
     appendDirectAudit({
       tool: TOOL,
@@ -135,4 +129,16 @@ export async function settingsUpdate(
     });
     throw err;
   }
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: TOOL,
+    resource: "settings",
+    resourceType: "settings",
+    readPath: "/wp/v2/settings",
+    readQuery: {},
+    sent: input.settings,
+  });
+  return attachVerification({ settings: settings ?? {} }, verification);
 }

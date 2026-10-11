@@ -80,6 +80,18 @@ function makeFetch(handler: (call: Call) => unknown) {
 	return { fetchImpl, calls };
 }
 
+/** A fetch whose resource keeps what is written to it, so a readback sees the new values. */
+function makeEchoFetch(initial: Record<string, unknown>) {
+	const current: Record<string, unknown> = structuredClone(initial);
+	return makeFetch((call) => {
+		if (call.method === 'GET') return current;
+		for (const [key, value] of Object.entries((call.body ?? {}) as Record<string, unknown>)) {
+			current[key] = ['title', 'content', 'excerpt'].includes(key) && typeof value === 'string' ? { raw: value } : value;
+		}
+		return current;
+	});
+}
+
 const POST_ROW = { id: 4, title: { raw: 'Page' }, slug: 'page', status: 'publish', modified: '2026-10-01T00:00:00', link: 'http://example.test/page', type: 'page' };
 
 describe('direct write guards', () => {
@@ -88,8 +100,10 @@ describe('direct write guards', () => {
 
 	beforeEach(() => {
 		stateDir = mkdtempSync(join(tmpdir(), 'sw-guards-'));
-		for (const key of ['STONEWRIGHT_STATE_DIR', 'STONEWRIGHT_DIRECT_WRITES', 'STONEWRIGHT_DIRECT_REQUIRE_TASK_START']) saved[key] = process.env[key];
+		for (const key of ['STONEWRIGHT_STATE_DIR', 'STONEWRIGHT_DIRECT_WRITES', 'STONEWRIGHT_DIRECT_REQUIRE_TASK_START', 'STONEWRIGHT_DIRECT_PROBE']) saved[key] = process.env[key];
 		process.env['STONEWRIGHT_STATE_DIR'] = stateDir;
+		// The front-end probe has its own tests; here it would add a request to every call list.
+		process.env['STONEWRIGHT_DIRECT_PROBE'] = 'off';
 		delete process.env['STONEWRIGHT_DIRECT_WRITES'];
 	});
 
@@ -151,7 +165,8 @@ describe('direct write guards', () => {
 				const { fetchImpl, calls } = makeFetch((call) => ({ id: 12, title: 'Styles', settings: {}, styles: call.method === 'GET' ? {} : styles }));
 				const result = (await globalStylesUpdate(ctx(fetchImpl), { id: '12', styles })) as Record<string, unknown>;
 				expect(result['id']).toBe(12);
-				expect(calls.map((c) => c.method)).toEqual(['GET', 'POST']);
+				// pre-image read, write, then the readback
+				expect(calls.map((c) => c.method)).toEqual(['GET', 'POST', 'GET']);
 			});
 		});
 
@@ -288,7 +303,8 @@ describe('direct write guards', () => {
 				const { fetchImpl, calls } = makeFetch(() => ({ id: 'text-2', id_base: 'text', sidebar: 'sidebar-1', instance: {} }));
 				await widgetManage(ctx(fetchImpl), { action: 'create', id_base: 'text', sidebar: 'sidebar-1', instance: { text: '<p>Hello <a href="/about">about</a></p>' } });
 				await widgetManage(ctx(fetchImpl), { action: 'delete', id: 'text-2' });
-				expect(calls.map((c) => c.method)).toEqual(['POST', 'DELETE']);
+				// each write is read back: create, readback, delete, readback
+				expect(calls.map((c) => c.method)).toEqual(['POST', 'GET', 'DELETE', 'GET']);
 			});
 		});
 
@@ -305,9 +321,14 @@ describe('direct write guards', () => {
 
 		describe('elementor-data-update', () => {
 			function cliFor(tree: unknown) {
-				return vi.fn((input: { command: string[] }): Promise<WpCliCommandResult> => {
+				// The document keeps what is written, so the readback after a write sees the new tree.
+				let stored = tree;
+				return vi.fn((input: { command: string[]; stdin?: string }): Promise<WpCliCommandResult> => {
 					const key = input.command.join(' ');
-					const parsed = key.includes('meta get') && key.includes('_elementor_data') ? tree : undefined;
+					if (key.includes('meta update') && key.includes('_elementor_data') && typeof input.stdin === 'string') {
+						stored = JSON.parse(input.stdin) as unknown;
+					}
+					const parsed = key.includes('meta get') && key.includes('_elementor_data') ? stored : undefined;
 					return Promise.resolve({
 						ok: true,
 						available: true,
@@ -379,6 +400,7 @@ describe('direct write guards', () => {
 			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
 				'GET /wp/v2/templates/theme%2F%2Fhome',
 				'POST /wp/v2/templates/theme%2F%2Fhome',
+				'GET /wp/v2/templates/theme%2F%2Fhome',
 			]);
 			expect(calls[0]?.query.get('context')).toBe('edit');
 			expect(backupExistedAtWrite).toBe(true);
@@ -404,6 +426,7 @@ describe('direct write guards', () => {
 			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
 				'GET /wp/v2/template-parts/theme%2F%2Fheader',
 				'POST /wp/v2/template-parts/theme%2F%2Fheader',
+				'GET /wp/v2/template-parts/theme%2F%2Fheader',
 			]);
 			expect(String(result['backup_path'])).toContain('stonewright-template-part-update');
 		});
@@ -412,7 +435,7 @@ describe('direct write guards', () => {
 			const stored = { id: 12, title: { raw: 'Styles' }, settings: { color: {} }, styles: { color: { text: '#000' } } };
 			const { fetchImpl, calls } = makeFetch((call) => (call.method === 'GET' ? stored : { ...stored, styles: { color: { text: '#111' } } }));
 			const result = (await globalStylesUpdate(ctx(fetchImpl), { id: '12', styles: { color: { text: '#111' } } })) as Record<string, unknown>;
-			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/global-styles/12', 'POST /wp/v2/global-styles/12']);
+			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/global-styles/12', 'POST /wp/v2/global-styles/12', 'GET /wp/v2/global-styles/12']);
 			expect(calls[0]?.query.get('context')).toBe('edit');
 			const record = JSON.parse(readFileSync(String(result['backup_path']), 'utf8')) as { body: unknown };
 			expect(record.body).toEqual(stored);
@@ -424,7 +447,7 @@ describe('direct write guards', () => {
 			const stored = { id: 4, content: { raw: 'before' }, title: { raw: 'Page' }, meta: {} };
 			const { fetchImpl, calls } = makeFetch((call) => (call.method === 'GET' ? stored : POST_ROW));
 			const result = (await contentUpdate(ctx(fetchImpl), { id: 4, content: 'after' })) as Record<string, unknown>;
-			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/pages/4', 'PUT /wp/v2/pages/4']);
+			expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/pages/4', 'PUT /wp/v2/pages/4', 'GET /wp/v2/pages/4']);
 			expect(calls[0]?.query.get('context')).toBe('edit');
 			expect(result['id']).toBe(4);
 			expect(backupFiles('stonewright-content-update', 'pages-4')).toHaveLength(1);
@@ -433,18 +456,19 @@ describe('direct write guards', () => {
 
 		it('blueprint-apply with post_id stores a pre-image; a create does not read anything', async () => {
 			const stored = { id: 9, content: { raw: 'old page' }, title: { raw: 'Old' } };
-			const updateCalls = makeFetch((call) => (call.method === 'GET' ? stored : { id: 9 }));
+			const updateCalls = makeEchoFetch(stored);
 			const updated = await applyBlueprint(new WpRestClient(site, { fetchImpl: updateCalls.fetchImpl }), { id: 'agency', post_id: 9 }, process.env);
 			expect(updated['ok']).toBe(true);
-			expect(updateCalls.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/pages/9', 'POST /wp/v2/pages/9']);
+			expect(updateCalls.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /wp/v2/pages/9', 'POST /wp/v2/pages/9', 'GET /wp/v2/pages/9']);
 			expect(updated['backup_path']).toBeTruthy();
 			expect(updated['backup_sha256']).toMatch(/^[0-9a-f]{64}$/);
 			expect(backupFiles('stonewright-blueprint-apply', 'pages-9')).toHaveLength(1);
 
-			const createCalls = makeFetch(() => ({ id: 77 }));
+			const createCalls = makeEchoFetch({ id: 77 });
 			const created = await applyBlueprint(new WpRestClient(site, { fetchImpl: createCalls.fetchImpl }), { id: 'agency' }, process.env);
 			expect(created['ok']).toBe(true);
-			expect(createCalls.calls.map((c) => c.method)).toEqual(['POST']);
+			// the create reads nothing before it writes; the readback follows
+			expect(createCalls.calls.map((c) => c.method)).toEqual(['POST', 'GET']);
 			expect(created['backup_path']).toBeUndefined();
 		});
 
@@ -531,7 +555,7 @@ describe('direct write guards', () => {
 			expect(calls).toHaveLength(0);
 			const result = (await tool(ctx(fetchImpl, 'confirm', remoteSite), { ...input, confirm: true } as never)) as Record<string, unknown>;
 			expect(result['backup_path']).toBeTruthy();
-			expect(calls.map((c) => c.method)).toEqual(['GET', 'POST']);
+			expect(calls.map((c) => c.method)).toEqual(['GET', 'POST', 'GET']);
 		});
 
 		it.each([
@@ -550,12 +574,12 @@ describe('direct write guards', () => {
 
 		it('blueprint-apply over an existing page needs confirm:true in confirm mode, and a create does not', async () => {
 			const env = { ...process.env, STONEWRIGHT_DIRECT_WRITES: 'confirm' };
-			const first = makeFetch(() => ({ id: 9, content: { raw: 'x' } }));
+			const first = makeEchoFetch({ id: 9, content: { raw: 'x' } });
 			await expect(applyBlueprint(new WpRestClient(site, { fetchImpl: first.fetchImpl }), { id: 'agency', post_id: 9 }, env)).rejects.toMatchObject({ code: 'confirmation_required' });
 			expect(first.calls).toHaveLength(0);
 			const ok = await applyBlueprint(new WpRestClient(site, { fetchImpl: first.fetchImpl }), { id: 'agency', post_id: 9, confirm: true }, env);
 			expect(ok['ok']).toBe(true);
-			const created = makeFetch(() => ({ id: 3 }));
+			const created = makeEchoFetch({ id: 3 });
 			const make = await applyBlueprint(new WpRestClient(site, { fetchImpl: created.fetchImpl }), { id: 'agency' }, env);
 			expect(make['ok']).toBe(true);
 		});

@@ -1,5 +1,5 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
-import { appendDirectAudit } from "../audit.js";
+import { attachVerification, verifyWrite } from "../verify.js";
 import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -180,23 +180,28 @@ export async function userCreate(
     ctx.env ?? process.env,
   );
   if (refusal) return refusal;
+  const createBody: Record<string, unknown> = {
+    username: input.username,
+    email: input.email,
+    password: input.password,
+    ...(input.roles !== undefined ? { roles: input.roles } : {}),
+    ...(input.name !== undefined ? { name: input.name } : {}),
+  };
   const user = await ctx.client.post<WpUser>("/wp/v2/users", {
-    body: {
-      username: input.username,
-      email: input.email,
-      password: input.password,
-      ...(input.roles !== undefined ? { roles: input.roles } : {}),
-      ...(input.name !== undefined ? { name: input.name } : {}),
-    },
+    body: createBody,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-user-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `users/${user.id}`,
-    status: "ok",
+    resourceType: "users",
+    readPath: `/wp/v2/users/${user.id}`,
+    expect: "present",
+    sent: createBody,
   });
-  return compactUser(user, true);
+  return attachVerification(compactUser(user, true), verification);
 }
 
 export async function userUpdate(
@@ -242,14 +247,17 @@ export async function userUpdate(
   const user = await ctx.client.post<WpUser>(`/wp/v2/users/${input.id}`, {
     body,
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-user-update",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
-    status: "ok",
+    resourceType: "users",
+    readPath: `/wp/v2/users/${input.id}`,
+    sent: body,
   });
-  return compactUser(user, true);
+  return attachVerification(compactUser(user, true), verification);
 }
 
 export async function userDelete(
@@ -270,14 +278,20 @@ export async function userDelete(
   const result = await ctx.client.del(`/wp/v2/users/${input.id}`, {
     query: { force: true, reassign: input.reassign },
   });
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-user-delete",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `users/${input.id}`,
-    status: "ok",
+    resourceType: "users",
+    readPath: `/wp/v2/users/${input.id}`,
+    expect: "absent",
   });
-  return result ?? { deleted: true, id: input.id };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, id: input.id },
+    verification,
+  );
 }
 
 type AppPassword = {
@@ -334,19 +348,27 @@ export async function appPasswordCreate(
     `/wp/v2/users/${input.user_id}/application-passwords`,
     { body: { name: input.name } },
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-app-password-create",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords`,
-    status: "ok",
+    resourceType: "application-passwords",
+    readPath: `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(created.uuid)}`,
+    readQuery: {},
+    expect: "present",
+    sent: { name: input.name },
   });
-  return {
-    uuid: created.uuid,
-    name: created.name ?? input.name,
-    password: created.password ?? "",
-    note: "Store this now; it cannot be retrieved again.",
-  };
+  return attachVerification(
+    {
+      uuid: created.uuid,
+      name: created.name ?? input.name,
+      password: created.password ?? "",
+      note: "Store this now; it cannot be retrieved again.",
+    },
+    verification,
+  );
 }
 
 export async function appPasswordRevoke(
@@ -366,12 +388,19 @@ export async function appPasswordRevoke(
   const result = await ctx.client.del(
     `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(input.uuid)}`,
   );
-  appendDirectAudit({
+  const verification = await verifyWrite({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
     tool: "stonewright-app-password-revoke",
-    site: ctx.site.alias,
-    targetIdentity: ctx.site.url,
     resource: `users/${input.user_id}/application-passwords/${input.uuid}`,
-    status: "ok",
+    resourceType: "application-passwords",
+    readPath: `/wp/v2/users/${input.user_id}/application-passwords/${encodeURIComponent(input.uuid)}`,
+    readQuery: {},
+    expect: "absent",
   });
-  return result ?? { deleted: true, uuid: input.uuid };
+  return attachVerification(
+    (result as object | undefined) ?? { deleted: true, uuid: input.uuid },
+    verification,
+  );
 }

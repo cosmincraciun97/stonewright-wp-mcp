@@ -5,6 +5,9 @@ import type { WpRestClient } from "../wp-rest-client.js";
 import { assertWriteAllowed, resolveDirectWriteMode } from "../writes.js";
 import { refuseCustomCode, scanMarkupFields } from "../custom-code-guard.js";
 import { storePreImage } from "../preimage.js";
+import { attachVerification, verifyWrite } from "../verify.js";
+import { probeAfterWrite, type ProbeOptions } from "../probe.js";
+import type { DirectToolContext } from "./types.js";
 import {
   serializeDesignSpec,
   type DesignSpec,
@@ -76,8 +79,10 @@ export async function applyBlueprint(
     confirm?: boolean;
     engine?: string;
     site?: string;
-  },
+  } & ProbeOptions,
   env: NodeJS.ProcessEnv,
+  /** The resolved site context; without it the page is not probed and nothing can be rolled back. */
+  runtime?: DirectToolContext,
 ): Promise<Record<string, unknown>> {
   if (args.engine && args.engine !== "gutenberg" && args.engine !== "auto") {
     return {
@@ -134,24 +139,52 @@ export async function applyBlueprint(
       restPath: `/wp/v2/pages/${args.post_id}`,
       resourceId: `pages-${args.post_id}`,
     });
-    const updated = await client.post(`/wp/v2/pages/${args.post_id}`, {
-      body: {
-        title,
-        content,
-        status: args.status ?? "draft",
-      },
+    const pageBody = { title, content, status: args.status ?? "draft" };
+    const updated = await client.post<{ status?: string; link?: string }>(
+      `/wp/v2/pages/${args.post_id}`,
+      { body: pageBody },
+    );
+    const verification = await verifyWrite({
+      client,
+      site,
+      env,
+      tool: "stonewright-blueprint-apply",
+      resource: `pages/${args.post_id}`,
+      resourceType: "pages",
+      readPath: `/wp/v2/pages/${args.post_id}`,
+      sent: pageBody,
+      beforeSha256: preImage.before_sha256,
+      backupId: preImage.backup_id,
     });
-    return {
-      ok: true,
-      engine: "gutenberg",
-      mode: "direct",
-      post_id: args.post_id,
-      page_id: args.post_id,
-      blueprint_id: bp.id,
-      updated,
-      ...preImage,
-      note: "Direct mode Gutenberg apply (Elementor requires plugin).",
-    };
+    const result = attachVerification(
+      {
+        ok: true,
+        engine: "gutenberg",
+        mode: "direct",
+        post_id: args.post_id,
+        page_id: args.post_id,
+        blueprint_id: bp.id,
+        updated,
+        ...preImage,
+        note: "Direct mode Gutenberg apply (Elementor requires plugin).",
+      },
+      verification,
+      { backupId: preImage.backup_id },
+    );
+    return runtime
+      ? probeAfterWrite(
+          runtime,
+          {
+            tool: "stonewright-blueprint-apply",
+            resource: `pages/${args.post_id}`,
+            input: args,
+            target: { kind: "page", status: updated?.status, link: updated?.link },
+            sentText: content,
+            backupId: preImage.backup_id,
+          },
+          result,
+        )
+      : result;
   }
 
   assertWriteAllowed({
@@ -169,22 +202,46 @@ export async function applyBlueprint(
     env,
   );
   if (createRefusal) return createRefusal;
-  const created = await client.post<{ id?: number }>("/wp/v2/pages", {
-    body: {
-      title,
-      content,
-      status: args.status ?? "draft",
-    },
+  const createBody = { title, content, status: args.status ?? "draft" };
+  const created = await client.post<{ id?: number; status?: string; link?: string }>(
+    "/wp/v2/pages",
+    { body: createBody },
+  );
+  const createdId = created.id ?? 0;
+  const verification = await verifyWrite({
+    client,
+    site,
+    env,
+    tool: "stonewright-blueprint-apply",
+    resource: `pages/${createdId}`,
+    resourceType: "pages",
+    readPath: `/wp/v2/pages/${createdId}`,
+    sent: createBody,
   });
-
-  return {
-    ok: true,
-    engine: "gutenberg",
-    mode: "direct",
-    post_id: created.id ?? 0,
-    page_id: created.id ?? 0,
-    blueprint_id: bp.id,
-    created: true,
-    note: "Direct mode Gutenberg apply (Elementor requires plugin).",
-  };
+  const result = attachVerification(
+    {
+      ok: true,
+      engine: "gutenberg",
+      mode: "direct",
+      post_id: createdId,
+      page_id: createdId,
+      blueprint_id: bp.id,
+      created: true,
+      note: "Direct mode Gutenberg apply (Elementor requires plugin).",
+    },
+    verification,
+  );
+  return runtime
+    ? probeAfterWrite(
+        runtime,
+        {
+          tool: "stonewright-blueprint-apply",
+          resource: `pages/${createdId}`,
+          input: args,
+          target: { kind: "page", status: created.status, link: created.link },
+          sentText: content,
+        },
+        result,
+      )
+    : result;
 }
