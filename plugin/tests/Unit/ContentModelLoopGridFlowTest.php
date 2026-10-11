@@ -69,7 +69,13 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		$GLOBALS['stonewright_test_inserted_posts']         = [];
 		$GLOBALS['stonewright_test_user_logged_in']         = false;
 		$GLOBALS['stonewright_test_user_caps']              = [];
-		unset( $GLOBALS['stonewright_test_user_can_callback'], $GLOBALS['stonewright_test_loop_control_overrides'] );
+		unset(
+			$GLOBALS['stonewright_test_user_can_callback'],
+			$GLOBALS['stonewright_test_loop_control_overrides'],
+			$GLOBALS['stonewright_test_acf_active'],
+			$GLOBALS['stonewright_test_acf_import_callback'],
+			$GLOBALS['stonewright_test_cptui_active']
+		);
 		WidgetSchemaRepository::reset_request_cache();
 	}
 
@@ -274,6 +280,102 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
 		self::assertSame( 'loop_grid', $result->get_error_data()['failed_step'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_inserted_posts'] );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function acf_flow_args( string $slug = 'speaker' ): array {
+		return [
+			'post_type' => [ 'slug' => $slug, 'singular' => 'Speaker', 'plural' => 'Speakers' ],
+			'fields'    => [
+				[ 'name' => 'role', 'label' => 'Role', 'type' => 'text', 'required' => true ],
+				[ 'name' => 'site', 'label' => 'Site', 'type' => 'url' ],
+			],
+			'items'     => [ [ 'slug' => 'ana', 'title' => 'Ana' ] ],
+		];
+	}
+
+	public function test_fields_are_saved_through_the_acf_import(): void {
+		$this->include_registered_post_types_in_loop_schema();
+		$GLOBALS['stonewright_test_acf_active']  = true;
+		$GLOBALS['stonewright_test_acf_groups']  = [];
+		$GLOBALS['stonewright_test_acf_import_callback'] = static function ( array $group ): array {
+			$GLOBALS['stonewright_test_acf_groups'][] = $group;
+			return $group;
+		};
+
+		$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'acf', $result['acf']['saved'] );
+		$group = $GLOBALS['stonewright_test_acf_groups'][0];
+		self::assertSame( 'group_stonewright_speaker', $group['key'] );
+		self::assertSame( [ 'field_stonewright_speaker_role', 'field_stonewright_speaker_site' ], array_column( $group['fields'], 'key' ) );
+		self::assertSame( 1, $group['fields'][0]['required'] );
+		self::assertSame( 0, $group['fields'][1]['required'] );
+		self::assertSame( 'post_type', $group['location'][0][0]['param'] );
+	}
+
+	public function test_an_acf_import_failure_is_reported_as_a_failed_step_after_the_post_type(): void {
+		$GLOBALS['stonewright_test_acf_active']          = true;
+		$GLOBALS['stonewright_test_acf_import_callback'] = static fn (): \WP_Error => new \WP_Error( 'acf_invalid', 'Bad field type.' );
+
+		$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'acf_invalid', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 'acf', $data['failed_step'] );
+		$by_id = [];
+		foreach ( (array) $data['steps'] as $step ) {
+			$by_id[ (string) $step['id'] ] = $step['status'];
+		}
+		self::assertSame( 'applied', $by_id['post_type'] );
+		self::assertSame( 'failed', $by_id['acf'] );
+		self::assertSame( 'not_started', $by_id['content'] );
+		self::assertSame( 'speaker', $data['created_resources']['post_type'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_inserted_posts'], 'No content is written after a failed field group.' );
+	}
+
+	public function test_without_acf_the_contract_is_stored_and_said_to_be_only_that(): void {
+		$this->include_registered_post_types_in_loop_schema();
+		$GLOBALS['stonewright_test_acf_active']  = false;
+		$GLOBALS['stonewright_test_acf_groups']  = [];
+
+		$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'contract_only', $result['acf']['saved'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_acf_groups'] );
+		self::assertSame( 'group_stonewright_speaker', $GLOBALS['stonewright_test_options']['stonewright_acf_field_groups']['speaker']['field_group_key'] );
+	}
+
+	public function test_a_reserved_or_long_slug_is_refused_before_any_write_even_in_a_dry_run(): void {
+		foreach ( [ 'post', 'wp_thing', str_repeat( 'a', 21 ) ] as $slug ) {
+			foreach ( [ true, false ] as $dry_run ) {
+				$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args( $slug ) + [ 'dry_run' => $dry_run ] );
+				self::assertInstanceOf( \WP_Error::class, $result, $slug );
+				self::assertSame( 'stonewright_cpt_slug_invalid', $result->get_error_code(), $slug );
+			}
+		}
+		self::assertArrayNotHasKey( 'cptui_post_types', $GLOBALS['stonewright_test_options'] );
+	}
+
+	public function test_an_existing_cpt_ui_entry_is_merged_and_the_result_says_what_persists(): void {
+		$this->include_registered_post_types_in_loop_schema();
+		$GLOBALS['stonewright_test_cptui_active']                = false;
+		$GLOBALS['stonewright_test_options']['cptui_post_types'] = [ 'speaker' => [ 'name' => 'speaker', 'menu_icon' => 'dashicons-megaphone', 'supports' => [ 'title' ] ] ];
+
+		$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $result );
+		$entry = $GLOBALS['stonewright_test_options']['cptui_post_types']['speaker'];
+		self::assertSame( 'dashicons-megaphone', $entry['menu_icon'] );
+		self::assertSame( [ 'title' ], $entry['supports'], 'supports was not sent, so the stored value stays.' );
+		self::assertSame( 'Speakers', $entry['label'] );
+		self::assertFalse( $result['post_type']['persistent'] );
+		unset( $GLOBALS['stonewright_test_cptui_active'] );
 	}
 
 	private function last_audit_row( string $ability ): array {

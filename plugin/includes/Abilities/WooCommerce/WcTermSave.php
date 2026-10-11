@@ -132,13 +132,26 @@ final class WcTermSave extends AbilityKernel {
 						]
 					);
 				}
-				$mismatches = [];
-				$expected   = [ 'name' => sanitize_text_field( (string) $args['name'] ) ] + $term_args;
+				$mismatches   = [];
+				$slug_adjusted = '';
+				$expected     = [ 'name' => sanitize_text_field( (string) $args['name'] ) ] + $term_args;
 				foreach ( $expected as $field => $value ) {
 					$received = match ( $field ) {
 						'parent' => (int) $readback->parent,
 						default  => (string) $readback->{$field},
 					};
+					// Core stores a name and a description with their special characters as entities (Tom &amp; Jerry), so
+					// both sides are compared decoded.
+					if ( in_array( $field, [ 'name', 'description' ], true ) ) {
+						$value    = html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+						$received = html_entity_decode( (string) $received, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+					}
+					// Core makes a slug unique by adding a suffix (stone-2) when another term has it. The term was saved; the
+					// caller is told which slug it got.
+					if ( 'slug' === $field && $value !== $received && 1 === preg_match( '/^' . preg_quote( (string) $value, '/' ) . '-[a-z0-9-]+$/', (string) $received ) ) {
+						$slug_adjusted = (string) $received;
+						continue;
+					}
 					if ( $value !== $received ) {
 						$mismatches[] = $field;
 					}
@@ -164,7 +177,7 @@ final class WcTermSave extends AbilityKernel {
 					'verification_status' => 'passed',
 					'effect_verified'     => true,
 					'term'                => WcTermList::payload( $readback ),
-				];
+				] + ( '' === $slug_adjusted ? [] : [ 'slug_adjusted' => $slug_adjusted ] );
 			}
 		);
 	}

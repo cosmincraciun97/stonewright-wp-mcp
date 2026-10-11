@@ -43,6 +43,7 @@ final class UpdatePost extends AbilityKernel {
 				'content' => [ 'type' => 'string' ],
 				'excerpt' => [ 'type' => 'string' ],
 				'status'  => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ] ],
+				'date'    => PostDate::schema(),
 				'meta'    => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'id' ],
@@ -86,6 +87,11 @@ final class UpdatePost extends AbilityKernel {
 			);
 		}
 
+		$refusal = PostTypeGuard::revision_error( $post );
+		if ( null !== $refusal ) {
+			return $refusal;
+		}
+
 		$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
 		if ( $blocked instanceof \WP_Error ) {
 			return $blocked;
@@ -121,19 +127,32 @@ final class UpdatePost extends AbilityKernel {
 			function ( array $args ) {
 				$id   = (int) $args['id'];
 				$post = get_post( $id );
-				if ( $post ) {
-					$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
-					if ( $blocked instanceof \WP_Error ) {
-						return $blocked;
-					}
+				if ( ! $post ) {
+					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
+				}
+				$refusal = PostTypeGuard::revision_error( $post );
+				if ( null !== $refusal ) {
+					return $refusal;
+				}
+				$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+				if ( $blocked instanceof \WP_Error ) {
+					return $blocked;
+				}
+
+				$date = PostDate::resolve( $args['date'] ?? null, (string) ( $args['status'] ?? '' ), $post );
+				if ( is_wp_error( $date ) ) {
+					return $date;
 				}
 
 				if ( ! empty( $args['meta'] ) && is_array( $args['meta'] ) ) {
 					RescueGuard::note_post_meta_keys( $id, array_map( 'sanitize_key', array_map( 'strval', array_keys( $args['meta'] ) ) ) );
 				}
 				$snapshot_id = Backup::snapshot_post( $id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
-				$payload = [ 'ID' => $id ];
+				$payload = [ 'ID' => $id ] + $date;
 				foreach ( [ 'title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt', 'status' => 'post_status' ] as $arg => $field ) {
 					if ( isset( $args[ $arg ] ) ) {
 						if ( 'content' === $arg ) {

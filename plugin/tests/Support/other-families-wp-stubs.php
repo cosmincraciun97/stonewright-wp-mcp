@@ -50,6 +50,14 @@ if ( ! function_exists( 'get_term' ) ) {
 				$known->description = (string) ( $known->description ?? '' );
 				$known->parent      = (int) ( $known->parent ?? 0 );
 				$known->count       = (int) ( $known->count ?? 0 );
+				// Core returns a WP_Term, and abilities type against it.
+				if ( class_exists( 'WP_Term', false ) && ! $known instanceof \WP_Term ) {
+					$term = new \WP_Term();
+					foreach ( get_object_vars( $known ) as $property => $value ) {
+						$term->{$property} = $value;
+					}
+					return $term;
+				}
 				return $known;
 			}
 		}

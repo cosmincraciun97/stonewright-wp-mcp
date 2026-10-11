@@ -20,7 +20,7 @@ final class AcfFieldGroupSave extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates or updates an ACF field group schema. Confirmation token required in production-safe mode.', 'stonewright' );
+		return __( 'Creates or updates an ACF field group and its fields through ACF\'s own import, and returns an error when ACF cannot import. The field group and field posts are recorded in the change ledger. Confirmation token required in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -60,7 +60,7 @@ final class AcfFieldGroupSave extends AbilityKernel {
 				if ( null !== $err ) {
 					return $err;
 				}
-				if ( ! AcfRuntime::is_active() || ( ! function_exists( 'acf_import_field_group' ) && ! function_exists( 'acf_update_field_group' ) ) ) {
+				if ( ! AcfRuntime::is_active() ) {
 					return new \WP_Error(
 						'stonewright_plugin_missing',
 						__( 'ACF is not active on this site.', 'stonewright' ),
@@ -71,14 +71,8 @@ final class AcfFieldGroupSave extends AbilityKernel {
 				if ( '' === (string) ( $group['key'] ?? '' ) ) {
 					return new \WP_Error( 'stonewright_acf_group_key_required', 'group.key is required.' );
 				}
-				if ( function_exists( 'acf_import_field_group' ) ) {
-					$result = acf_import_field_group( $group );
-				} else {
-					// acf_update_field_group is optional; import is preferred when present.
-					$GLOBALS['stonewright_test_acf_groups']   = $GLOBALS['stonewright_test_acf_groups'] ?? [];
-					$GLOBALS['stonewright_test_acf_groups'][] = $group;
-					$result = $group;
-				}
+				// acf_import_field_group saves the group and its fields. Without it nothing is saved, and the call says so.
+				$result = AcfRuntime::import_field_group( $group );
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}

@@ -126,6 +126,12 @@ final class ContractTest extends TestCase {
 			[ 'key' => 'group_test', 'title' => 'Test', 'active' => true, 'location' => [] ],
 		];
 		$GLOBALS['stonewright_test_seo_plugin']  = 'yoast';
+		// A stock image import reads the type of the file it downloads, so a stock URL serves a real 1x1 PNG.
+		$GLOBALS['stonewright_test_download_url'] = static function ( string $url ) {
+			$path = tempnam( sys_get_temp_dir(), 'stonewright-download-' );
+			file_put_contents( $path, str_contains( $url, '/stock/' ) ? (string) base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' ) : 'test' );
+			return $path;
+		};
 		$GLOBALS['stonewright_test_post_types']  = [
 			'post' => (object) [ 'name' => 'post', 'label' => 'Posts', 'public' => true ],
 			'page' => (object) [ 'name' => 'page', 'label' => 'Pages', 'public' => true ],
@@ -197,6 +203,7 @@ final class ContractTest extends TestCase {
 		$this->remove_elementor_css_fixtures();
 		unset( $GLOBALS['stonewright_test_home_url'] );
 		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		unset( $GLOBALS['stonewright_test_download_url'] );
 	}
 
 	private function remove_elementor_css_fixtures(): void {

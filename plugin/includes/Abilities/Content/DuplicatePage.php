@@ -146,12 +146,24 @@ final class DuplicatePage extends AbilityKernel {
 					if ( '_edit_lock' === $key || '_edit_last' === $key ) {
 						continue;
 					}
-					if ( ! Permissions::can_edit_post_meta( (int) $new_id, $key ) ) {
+					// A protected key on the allowlist (template, featured image, Elementor data) is copied directly: core's
+					// generic meta gate refuses every key that starts with an underscore, which would drop an Elementor page's data.
+					// The caller has already been checked for edit access to the source, and ProtectedMeta checks the copy.
+					$protected = ProtectedMeta::is_allowed( (string) $key );
+					if ( ! $protected && ! Permissions::can_edit_post_meta( (int) $new_id, $key ) ) {
 						$meta_skipped[] = $key;
 						continue;
 					}
 					foreach ( (array) $values as $value ) {
-						add_post_meta( (int) $new_id, $key, maybe_unserialize( $value ) );
+						$value = maybe_unserialize( $value );
+						if ( $protected ) {
+							if ( ! ProtectedMeta::add( (int) $new_id, $key, $value ) ) {
+								$meta_skipped[] = $key;
+								break;
+							}
+							continue;
+						}
+						add_post_meta( (int) $new_id, $key, wp_slash( $value ) );
 					}
 				}
 

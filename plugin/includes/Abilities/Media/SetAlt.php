@@ -22,7 +22,7 @@ final class SetAlt extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Updates the alt text for an attachment.', 'stonewright' );
+		return __( 'Updates the alt text for an attachment. Requires a confirmation token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -34,6 +34,7 @@ final class SetAlt extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'confirmation_token' => [ 'type' => 'string' ],
 				'id'  => [ 'type' => 'integer', 'minimum' => 1 ],
 				'alt' => [ 'type' => 'string', 'maxLength' => 500 ],
 			],
@@ -57,7 +58,7 @@ final class SetAlt extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
 				$id  = (int) $args['id'];

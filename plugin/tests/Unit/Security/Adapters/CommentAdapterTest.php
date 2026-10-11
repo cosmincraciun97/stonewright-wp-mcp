@@ -81,7 +81,7 @@ final class CommentAdapterTest extends OtherFamilyLedgerTestCase {
 
 		$result = ( new CommentDelete() )->execute( [ 'id' => 5, 'force' => true ] );
 
-		self::assertSame( [ 'deleted' => true, 'id' => 5 ], $result );
+		self::assertSame( [ 'deleted' => true, 'trashed' => false, 'id' => 5 ], $result );
 		self::assertArrayNotHasKey( 5, $GLOBALS['stonewright_test_comments'] );
 		$row = $this->row_of( 'comment' );
 		self::assertStringStartsWith( 'Deleted comment', $row['summary'] );
@@ -120,9 +120,12 @@ final class CommentAdapterTest extends OtherFamilyLedgerTestCase {
 	}
 
 	public function test_a_created_comment_is_recorded_and_its_undo_moves_it_to_the_trash(): void {
+		$GLOBALS['stonewright_test_posts'][31] = (object) [ 'ID' => 31, 'post_type' => 'post', 'post_status' => 'publish', 'comment_status' => 'open' ];
+
 		$result = ( new CommentCreate() )->execute( [ 'post_id' => 31, 'content' => 'Written by an agent' ] );
 
-		self::assertSame( [ 'id' => 5001 ], $result );
+		self::assertIsArray( $result );
+		self::assertSame( 5001, $result['id'] );
 		$row = $this->row_of( 'comment' );
 		self::assertSame( '5001', $row['resource_id'] );
 		self::assertStringStartsWith( 'Created comment', $row['summary'] );

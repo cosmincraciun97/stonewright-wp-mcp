@@ -67,7 +67,7 @@ final class CommentGet extends AbilityKernel {
 				return [
 					'id'          => (int) $c->comment_ID,
 					'post'        => (int) $c->comment_post_ID,
-					'status'      => (string) $c->comment_approved,
+					'status'      => CommentStatus::of( $c ),
 					'author_name' => (string) $c->comment_author,
 					'date'        => (string) $c->comment_date,
 					'content'     => (string) $c->comment_content,

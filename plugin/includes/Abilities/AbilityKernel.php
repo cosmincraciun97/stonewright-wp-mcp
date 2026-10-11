@@ -302,6 +302,22 @@ abstract class AbilityKernel implements Ability {
 		);
 	}
 
+	/**
+	 * Audit wrapper for one write that runs inside a call whose confirmation token has already been verified for
+	 * the whole call, such as one item of a batch. It declares the call a write and records its own audit row and
+	 * ledger entry, but asks for no token: the outer call's token covers the batch, and asking again for every item
+	 * would make a production-safe batch fail on its first item.
+	 *
+	 * Only a caller that has itself passed audit_write() may use this.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_covered_write( array $args, callable $callback ) {
+		return $this->audit_declared( $args, $callback, 'write' );
+	}
+
 	private static function is_blocked_error_code( string $code ): bool {
 		foreach ( [ 'forbidden', 'blocked', 'permission', 'confirmation_required', 'grant_required', 'approval_required', 'read_only', 'raw_elementor', 'architecture_mismatch', 'migration_has_loss', 'rule_violation', 'not_approved' ] as $marker ) {
 			if ( str_contains( $code, $marker ) ) {

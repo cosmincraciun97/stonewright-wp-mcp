@@ -22,7 +22,7 @@ final class UploadMediaBatch extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Uploads multiple media items in one request and returns per-item success or error details.', 'stonewright' );
+		return __( 'Uploads multiple media items in one request and returns per-item success or error details. One confirmation token covers the whole batch in production-safe mode; each item is recorded in the audit log.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -75,8 +75,21 @@ final class UploadMediaBatch extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * @stonewright-cap upload_files + edit_post(parent_post_id) for each item that names a parent
+	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::upload_files();
+		if ( ! Permissions::upload_files() ) {
+			return false;
+		}
+		foreach ( (array) ( $args['items'] ?? [] ) as $index => $item ) {
+			$error = UploadMedia::parent_error( is_array( $item ) ? (int) ( $item['parent_post_id'] ?? 0 ) : 0 );
+			if ( null !== $error ) {
+				$error->add_data( array_merge( (array) $error->get_error_data(), [ 'failed_index' => $index ] ) );
+				return $error;
+			}
+		}
+		return true;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -88,6 +101,8 @@ final class UploadMediaBatch extends AbilityKernel {
 					return $this->error( 'missing_items', __( 'At least one media item is required.', 'stonewright' ), [ 'status' => 400 ] );
 				}
 
+				// The confirmation token was verified for the whole batch before this ran. Each item is uploaded through
+				// the item method, which records its own audit row and asks for no token of its own.
 				$stop_on_error = ! empty( $args['stop_on_error'] );
 				$worker        = new UploadMedia();
 				$results       = [];
@@ -96,7 +111,7 @@ final class UploadMediaBatch extends AbilityKernel {
 
 				foreach ( $items as $index => $item ) {
 					$item = is_array( $item ) ? $item : [];
-					$result = $worker->execute( $item );
+					$result = $worker->execute_batch_item( $item );
 					if ( is_wp_error( $result ) ) {
 						++$failed;
 						$results[] = self::wp_error_item( $index, $result );
