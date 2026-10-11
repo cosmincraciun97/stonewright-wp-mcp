@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T08:13:45+00:00",
+    "generated_at": "2026-10-11T10:14:11+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -34,7 +34,11 @@
             "stonewright/elementor-v4-update-node",
             "stonewright/theme-backup-restore",
             "stonewright/theme-chrome-update",
-            "stonewright/site-environment"
+            "stonewright/site-environment",
+            "stonewright/settings-update",
+            "stonewright/theme-builder-delete-template",
+            "stonewright/theme-builder-set-conditions",
+            "stonewright/user-list"
         ]
     },
     "abilities": [
@@ -5584,7 +5588,7 @@
             "kind": "Read",
             "input_schema_hash": "3df2a0bb6e1f22f70958c255cc83d22d5502335e5bbbd790956bf8a17a3fb48d",
             "output_schema_hash": "5ddc77fad847c8a4654afcf312266e7f4736a1cd2a0ad1b5a20c7de14053dd73",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -5604,7 +5608,7 @@
             "kind": "Read",
             "input_schema_hash": "c2e6270c7bdd13152da1f8b7c8f1980a1a1033fe156936d16aa24ab04a3686cf",
             "output_schema_hash": "68d6e2fc050a9dc52e3fb81540c23d20fccb264b50495101ea85083fac884c48",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -6483,7 +6487,7 @@
             "mcp_name": "stonewright-settings-update",
             "kind": "Write",
             "input_schema_hash": "d5ccb63b711c4bcf5b064416069e945917cc16a7afe41e725701e5a0d7ceb1fb",
-            "output_schema_hash": "7ac1590940e6ee413b45a645eb5c38369a58032536f3773e12a05bad3a224815",
+            "output_schema_hash": "a5dca54736c880b00a7ed48cb4923f4b46a3ab051c0f5041ed192d7d263c1587",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -6884,7 +6888,7 @@
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
             "output_schema_hash": "930202cd5c7f166de6ffd02436e18b7e41645495cdfdff1de59ee970b08c0a64",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -7024,7 +7028,7 @@
             "kind": "Write",
             "input_schema_hash": "1528610ee1d49fc5d84355add44dd443b2a8ad4a2f78871e55131bd06fd5486c",
             "output_schema_hash": "43e3dc0b4406afd9de7abb6cca94202bd5df1a925498bace96051a8ab2761909",
-            "permission_class": "Permissions::edit_posts()",
+            "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -7042,9 +7046,9 @@
             "ability_name": "stonewright/theme-builder-delete-template",
             "mcp_name": "stonewright-theme-builder-delete-template",
             "kind": "Write",
-            "input_schema_hash": "b85f1068b3920b6a983443c02820df0ed2182b253c97f73a75f89f9316ca6cdc",
+            "input_schema_hash": "5d7cadb5c180292b8f44b60a159bd51194675e2b015d04079e4438b0c4630fb9",
             "output_schema_hash": "b16f6b8017c32eae4ab413474bab5b523eeaff80320d527437a7cb09b43a8268",
-            "permission_class": "Permissions::edit_posts()",
+            "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": true,
                 "token": true,
@@ -7064,7 +7068,7 @@
             "kind": "Read",
             "input_schema_hash": "ad0ac0ae8c6b6da02cb9bd05eb499531c642965dceb842a97069b00b53cf38fb",
             "output_schema_hash": "1f80b377076f5e1217068abfcb698567422eef8c4cebceb5637050227ade493f",
-            "permission_class": "Permissions::edit_posts()",
+            "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -7084,7 +7088,7 @@
             "kind": "Read",
             "input_schema_hash": "590859a7a9535b24fdc847b624b5a207ca6f7abde6d91e951ab52efa42c06cfd",
             "output_schema_hash": "b3d229937ea1d74f0ffa58f2fdfe4c2eb9499f5bc8dfea772458744cd40aaf9e",
-            "permission_class": "Permissions::edit_posts()",
+            "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -7103,10 +7107,10 @@
             "mcp_name": "stonewright-theme-builder-set-conditions",
             "kind": "Write",
             "input_schema_hash": "7ba7ddf72bc7487d00135645c3af6226218c1a914ed78dcc618ddd2ce8211ddc",
-            "output_schema_hash": "ef893afdecc2d1c99b33ce153c8bb8177f852d8c411be8eb7e3c34e775ca3098",
-            "permission_class": "Permissions::edit_posts()",
+            "output_schema_hash": "ca954459b052137bb1798f2d468312e7d76d47b6304e815634ee0389b9288d08",
+            "permission_class": "Permissions::edit_theme_options()",
             "gates": {
-                "backup": false,
+                "backup": true,
                 "token": true,
                 "validator": false,
                 "audit": true
@@ -7362,8 +7366,8 @@
             "ability_name": "stonewright/user-list",
             "mcp_name": "stonewright-user-list",
             "kind": "Read",
-            "input_schema_hash": "4e2d0feb6d26730c8573aa88e4641ddcbf685ae26f7a8127e9e0431db81caa1b",
-            "output_schema_hash": "38c62a8a856f87d8279c071578490d8b4bd0e6a6846bad8a3dc6b39b5829d5a7",
+            "input_schema_hash": "b40a67f4e570dc25575d4f2e0f702b988866452546d7d417e2948d15d9ad567e",
+            "output_schema_hash": "c79d969be612f1d7cb143b3c23db149eec40c678e1fabe84350fe4729ea22c76",
             "permission_class": "Permissions::list_users()",
             "gates": {
                 "backup": false,

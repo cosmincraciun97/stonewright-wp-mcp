@@ -184,30 +184,16 @@ final class TemplateStore {
 	 *
 	 * Pass an empty array to clear all conditions.
 	 *
+	 * Returns true only when the stored rules, read back, are the rules that were asked for.
+	 *
 	 * @param array<int, array<string, mixed>|string> $conditions
 	 */
 	public static function set_conditions( int $template_id, array $conditions ): bool {
 		$serialised = [];
 		foreach ( $conditions as $condition ) {
-			if ( is_string( $condition ) ) {
-				$serialised[] = trim( $condition, '/' );
-				continue;
-			}
-			if ( ! is_array( $condition ) ) {
-				continue;
-			}
-			// Strip internal `_id` field Elementor's admin UI adds.
-			unset( $condition['_id'] );
-			// Order must be type / name / sub_name / sub_id to match
-			// Conditions_Manager::save_conditions in ProElements.
-			$ordered = [];
-			foreach ( [ 'type', 'name', 'sub_name', 'sub_id' ] as $key ) {
-				if ( isset( $condition[ $key ] ) && '' !== (string) $condition[ $key ] ) {
-					$ordered[] = (string) $condition[ $key ];
-				}
-			}
-			if ( [] !== $ordered ) {
-				$serialised[] = implode( '/', $ordered );
+			$rule = self::serialise_condition( $condition );
+			if ( '' !== $rule ) {
+				$serialised[] = $rule;
 			}
 		}
 
@@ -219,7 +205,50 @@ final class TemplateStore {
 
 		self::prime_conditions_cache( $template_id, $serialised );
 
-		return true;
+		return self::get_conditions( $template_id ) === $serialised;
+	}
+
+	/**
+	 * The stored display rules of a template in their stored form (`include/general`), empty when it has none.
+	 *
+	 * @return array<int, string>
+	 */
+	public static function get_conditions( int $template_id ): array {
+		$stored = get_post_meta( $template_id, '_elementor_conditions', true );
+		if ( ! is_array( $stored ) ) {
+			return [];
+		}
+		$rules = [];
+		foreach ( $stored as $condition ) {
+			$rule = self::serialise_condition( $condition );
+			if ( '' !== $rule ) {
+				$rules[] = $rule;
+			}
+		}
+		return $rules;
+	}
+
+	/**
+	 * One display rule in the stored string form, empty when it is not a rule.
+	 */
+	private static function serialise_condition( mixed $condition ): string {
+		if ( is_string( $condition ) ) {
+			return trim( $condition, '/' );
+		}
+		if ( ! is_array( $condition ) ) {
+			return '';
+		}
+		// Strip internal `_id` field Elementor's admin UI adds.
+		unset( $condition['_id'] );
+		// Order must be type / name / sub_name / sub_id to match
+		// Conditions_Manager::save_conditions in ProElements.
+		$ordered = [];
+		foreach ( [ 'type', 'name', 'sub_name', 'sub_id' ] as $key ) {
+			if ( isset( $condition[ $key ] ) && '' !== (string) $condition[ $key ] ) {
+				$ordered[] = (string) $condition[ $key ];
+			}
+		}
+		return implode( '/', $ordered );
 	}
 
 	/**

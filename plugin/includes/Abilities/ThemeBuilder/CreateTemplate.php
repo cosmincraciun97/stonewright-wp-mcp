@@ -61,7 +61,14 @@ final class CreateTemplate extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::edit_theme_options() && Permissions::edit_posts();
+	}
+
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		if ( ! Permissions::edit_theme_options() || ! Permissions::edit_posts() ) {
+			return $this->error( 'template_forbidden', __( 'Creating Theme Builder templates needs permission to edit theme options.', 'stonewright' ), [ 'status' => 403 ] );
+		}
+		return null;
 	}
 
 	public function execute( array $args ): array|\WP_Error {

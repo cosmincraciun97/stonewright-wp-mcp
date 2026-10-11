@@ -293,6 +293,7 @@ final class Backup {
 	/**
 	 * Compact timeline rows (no heavy post_content / meta payloads).
 	 *
+	 * @param callable(int):bool|null $visible Decides per post whether its snapshots are listed; null lists every post.
 	 * @return list<array{
 	 *   snapshot_id: string,
 	 *   post_id: int,
@@ -302,7 +303,7 @@ final class Backup {
 	 *   meta_keys: list<string>
 	 * }>
 	 */
-	public static function list_timeline( int $limit = 50, int $post_id = 0 ): array {
+	public static function list_timeline( int $limit = 50, int $post_id = 0, ?callable $visible = null ): array {
 		$limit = max( 1, min( 200, $limit ) );
 		$rows  = [];
 
@@ -311,6 +312,9 @@ final class Backup {
 			: self::post_ids_with_snapshots( $limit * 5 );
 
 		foreach ( $post_ids as $id ) {
+			if ( null !== $visible && ! $visible( (int) $id ) ) {
+				continue;
+			}
 			$post = get_post( $id );
 			foreach ( self::list_snapshots( $id ) as $snapshot_id => $payload ) {
 				if ( ! is_array( $payload ) ) {

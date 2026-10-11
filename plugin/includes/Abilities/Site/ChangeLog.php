@@ -26,7 +26,7 @@ final class ChangeLog extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Lists Stonewright post snapshots compactly (id, post, when). Full payload only when snapshot_id is requested.', 'stonewright' );
+		return __( 'Lists Stonewright post snapshots compactly (id, post, when), only for posts the current user can edit. Full payload only when snapshot_id is requested.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -114,7 +114,12 @@ final class ChangeLog extends AbilityKernel {
 			];
 		}
 
-		$entries = Backup::list_timeline( $limit, $post_id );
+		// Without a post_id the timeline spans every post, so each post is listed only for a user who may edit it.
+		$entries = Backup::list_timeline(
+			$limit,
+			$post_id,
+			$post_id > 0 ? null : static fn( int $id ): bool => current_user_can( 'edit_post', $id )
+		);
 
 		return [
 			'entries' => $entries,

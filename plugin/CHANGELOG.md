@@ -175,6 +175,70 @@
   the change journal refers to, once the index of 100 entries trims and the
   file is over an hour old. They were never removed before.
 
+### Security
+
+- Check permissions per target in the user abilities. `stonewright-user-update`
+  and `stonewright-user-delete` now require that the current user can edit or
+  delete that specific user, and refuse an account that holds
+  `manage_options`, `promote_users` or `edit_users` when the current user does
+  not hold it. On multisite only a super admin can change or delete a
+  super admin. Setting `role` in `stonewright-user-update` or
+  `stonewright-user-create` now requires the permission to promote users and a
+  role from the current user's editable roles, and refuses a role with
+  `manage_options`, `promote_users` or `edit_users` when the current user lacks
+  it. A refusal happens before a confirmation token is used.
+- Refuse a role change in `stonewright-user-update` that would leave the site
+  without an administrator, whether the last administrator demotes themselves or
+  another user does. On multisite the rule applies per site; a super admin
+  target or a super admin acting is not affected.
+- Validate `reassign` in `stonewright-user-delete` (an existing user other than
+  the one being deleted) and refuse to delete the last administrator.
+  `stonewright-user-list` now returns the real `total` and takes `offset` or
+  `page`; the answer also carries `offset`, `number` and `has_more`.
+- Check Theme Builder templates per object. All `stonewright-theme-builder-*`
+  abilities now require `edit_theme_options`, and the abilities that read or
+  change one template require `edit_post` (`delete_post` for
+  `stonewright-theme-builder-delete-template`) on that template.
+  `stonewright-theme-builder-list-templates` lists a draft, private or other
+  unpublished template only for a user who can edit it.
+- Stop `stonewright-theme-builder-delete-template` when its snapshot cannot be
+  stored, and refuse `force=true`: the snapshots are stored in the template's
+  own meta, so a permanent delete would remove the way back. The template is
+  moved to the trash instead.
+- Take a snapshot before `stonewright-theme-builder-set-conditions` replaces
+  the display rules, refuse when it cannot be stored, return the replaced rules
+  as `previous_conditions`, and read the stored rules back. The call fails with
+  `write_failed` when the stored rules differ from the requested ones.
+- Check every key of `stonewright-settings-update` before writing any of them,
+  so a call no longer writes only part of its settings. The answer lists
+  `updated`, `unchanged` and `skipped` keys. `default_role` refuses
+  `administrator`, a role that does not exist and any role with
+  `manage_options`, `promote_users`, `edit_users`, `create_users`,
+  `delete_users`, `edit_plugins` or `install_plugins`. A write that fails
+  restores the keys written before it.
+- Require, in `stonewright-user-app-passwords`, that application passwords are
+  available for the target user and that the current user has the matching
+  capability (`list_app_passwords`, `create_app_password` or
+  `delete_app_password`). The `list` action is now recorded as a read in the
+  audit log.
+- Show `stonewright-change-log` rows without a `post_id` only for posts the
+  current user can edit. `stonewright-change-restore` now requires the publish
+  capability of the post type when the snapshot holds a published, scheduled or
+  private status.
+- Require `edit_post` for `stonewright-elementor-provider-discovery` when it is
+  given a `post_id`, and `read_post` for `stonewright-capability-preflight`.
+  `stonewright-memory-list`, `stonewright-memory-get` and
+  `stonewright-system-instructions-get` now require `manage_options`;
+  `stonewright-task-start` and `stonewright-context-bootstrap` do not call them
+  and are not affected.
+- Report `stonewright-plugin-delete` as deleted only when WordPress confirms
+  the deletion; a delete that needs filesystem credentials or fails is now an
+  error. `stonewright-plugin-activate`, `stonewright-plugin-deactivate` and
+  `stonewright-plugin-delete` refuse a plugin that is not installed, and the
+  Stonewright self-protection compares the plugin basename instead of looking
+  for "stonewright" anywhere in the name. These checks run before a
+  confirmation token is used.
+
 ### Documentation
 
 - Describe Client ID Metadata Documents and the `localhost` callback host in

@@ -19,7 +19,7 @@ final class ApplyTemplateTest extends TestCase {
 		$GLOBALS['stonewright_test_next_post_id']           = 8100;
 		$GLOBALS['stonewright_test_user_logged_in']         = true;
 		$GLOBALS['stonewright_test_user_caps']              = [ 'edit_posts' => true ];
-		$GLOBALS['stonewright_test_user_can_callback']      = static fn( string $cap ): bool => in_array( $cap, [ 'edit_posts', 'edit_post' ], true );
+		$GLOBALS['stonewright_test_user_can_callback']      = static fn( string $cap ): bool => in_array( $cap, [ 'edit_posts', 'edit_post', 'edit_theme_options' ], true );
 	}
 
 	protected function tearDown(): void {

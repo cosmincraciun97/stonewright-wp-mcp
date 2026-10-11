@@ -60,7 +60,8 @@ final class MemoryGet extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::read();
+		// Site memory and the custom instructions are site administration knowledge, not something every signed-in user may read.
+		return Permissions::manage_options();
 	}
 
 	public function execute( array $args ): array|\WP_Error {

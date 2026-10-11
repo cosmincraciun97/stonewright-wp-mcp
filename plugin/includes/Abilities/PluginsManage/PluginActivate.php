@@ -23,7 +23,7 @@ final class PluginActivate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Activates an installed plugin.', 'stonewright' );
+		return __( 'Activates an installed plugin. Refuses a plugin that is not installed.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -70,6 +70,10 @@ final class PluginActivate extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		return Permissions::activate_plugins();
+	}
+
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		return PluginTarget::exists( (string) ( $args['plugin'] ?? '' ) ) ? null : PluginTarget::not_found_error();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
