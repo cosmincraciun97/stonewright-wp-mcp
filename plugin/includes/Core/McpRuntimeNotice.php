@@ -85,7 +85,7 @@ final class McpRuntimeNotice {
 	/** Hides the notice for the current user for 7 days; the cause is read here, never taken from the request. */
 	public static function handle_dismiss(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to dismiss this notice.', 'stonewright' ) );
+			StonewrightWpMcpSecurityAccessDenied::deny( esc_html__( 'You are not allowed to dismiss this notice.', 'stonewright' ) );
 		}
 		check_admin_referer( self::DISMISS_ACTION );
 
