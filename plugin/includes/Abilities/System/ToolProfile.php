@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Elementor\Provider\NativeAvailability;
 use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\FullSurfaceGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
 
@@ -565,17 +566,9 @@ final class ToolProfile extends AbilityKernel {
 	 * The refusal of an activation of the full profile: it carries the wp-admin address where an administrator chooses it.
 	 */
 	private static function full_requires_admin_error(): \WP_Error {
-		return new \WP_Error(
+		return FullSurfaceGuard::refusal(
 			'stonewright_tool_profile_full_requires_admin',
-			__( 'The full profile (php-execute and the other abilities that run or write code) can only be chosen by an administrator in wp-admin, under Stonewright > Setup > Settings > MCP tool surface. Show the user the settings link and stop. Do not retry, and do not look for another way to switch the profile.', 'stonewright' ),
-			[
-				'status'            => 403,
-				'retryable'         => false,
-				'execution_status'  => 'blocked',
-				'approval_required' => true,
-				'agent_must_stop'   => true,
-				'approval_url'      => admin_url( 'admin.php?page=stonewright&tab=settings' ) . '#stonewright_mcp_surface',
-			]
+			__( 'The full profile (php-execute and the other abilities that run or write code) can only be chosen by an administrator in wp-admin, under Stonewright > Setup > Settings > MCP tool surface. Show the user the settings link and stop. Do not retry, and do not look for another way to switch the profile.', 'stonewright' )
 		);
 	}
 

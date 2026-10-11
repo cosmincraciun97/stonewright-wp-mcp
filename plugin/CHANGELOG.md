@@ -655,6 +655,8 @@
 - `wp-cli-batch-run` answers in the shape of its output schema (`count`,
   `succeeded`, `failed`, `stopped`, `results`) when the companion cannot be reached,
   instead of failing the schema check.
+- Every admin page and handler that refuses a user (no permission, a failed security
+  check) answers HTTP 403, not the default 500, with the same message as before.
 
 ### Security
 
@@ -849,6 +851,14 @@
   profiles switch as before, `action=resolve` still describes `full`, and a site
   whose administrator already chose the Full surface has nothing to switch. The
   tool descriptions, AGENTS.md and the docs say the same.
+- `POST /stonewright/v1/settings` with `essential_tools_mode:false`, which puts the Full
+  tool surface in effect, is accepted only from a cookie-authenticated wp-admin request
+  with a valid REST nonce. An Application Password, an OAuth bearer or any other sign-in
+  gets `stonewright_full_surface_requires_admin` (403, `approval_required`,
+  `agent_must_stop`, the settings link) and nothing in the request is written; the other
+  settings keep working with an Application Password. Writing the Full surface back from
+  the change ledger (an undo or redo of a tool-profile row) needs an admin screen and is
+  refused for an ability call or a REST request.
 
 ### Documentation
 

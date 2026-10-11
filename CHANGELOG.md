@@ -493,6 +493,13 @@ development builds were never stable releases.
   a tool result moves the companion onto `full` only when the site's tool surface is
   Full. `STONEWRIGHT_MCP_TOOL_PROFILE=full`, set by the person who runs the companion,
   is unchanged. The server instructions and `doctor` say who chooses `full`.
+- The companion does not forward a request for the `full` profile to the plugin: a
+  plugin older than the administrator-only rule would switch. `stonewright-tool-profile`
+  refuses an activation of `full`, or a call with no `action`, before it reaches the
+  plugin, with a settings link built from the configured site address, unless the
+  companion already runs `full` or the site surface is Full. A read-only
+  `action=resolve` still goes through. The companion itself only asks the plugin for
+  `action=resolve`, never for `full`.
 
 ### Fixed
 
@@ -842,6 +849,8 @@ development builds were never stable releases.
 - Direct `settings-get` names `default_role` and `users_can_register` in
   `not_available_in_direct`, with a note, because core REST does not expose them,
   instead of leaving them out or listing them as unknown keys.
+- Every admin page and handler that refuses a user (no permission, a failed security
+  check) answers HTTP 403, not the default 500, with the same message as before.
 
 ### Security
 
@@ -1044,6 +1053,14 @@ development builds were never stable releases.
   profiles switch as before, `action=resolve` still describes `full`, and a site
   whose administrator already chose the Full surface has nothing to switch. The
   tool descriptions, AGENTS.md and the docs say the same.
+- `POST /stonewright/v1/settings` with `essential_tools_mode:false`, which puts the Full
+  tool surface in effect, is accepted only from a cookie-authenticated wp-admin request
+  with a valid REST nonce. An Application Password, an OAuth bearer or any other sign-in
+  gets `stonewright_full_surface_requires_admin` (403, `approval_required`,
+  `agent_must_stop`, the settings link) and nothing in the request is written; the other
+  settings keep working with an Application Password. Writing the Full surface back from
+  the change ledger (an undo or redo of a tool-profile row) needs an admin screen and is
+  refused for an ability call or a REST request.
 
 ### Documentation
 

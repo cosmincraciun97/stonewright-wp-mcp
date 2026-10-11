@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Context\ContextSnapshot;
 use Stonewright\WpMcp\Context\UserContext;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -45,7 +46,7 @@ final class ContextPage {
 
 	public static function handle_save(): void {
 		if ( ! Permissions::manage_options() ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
 		}
 		check_admin_referer( self::SAVE_NONCE );
 

@@ -390,6 +390,13 @@
   a tool result moves the companion onto `full` only when the site's tool surface is
   Full. `STONEWRIGHT_MCP_TOOL_PROFILE=full`, set by the person who runs the companion,
   is unchanged. The server instructions and `doctor` say who chooses `full`.
+- The companion does not forward a request for the `full` profile to the plugin: a
+  plugin older than the administrator-only rule would switch. `stonewright-tool-profile`
+  refuses an activation of `full`, or a call with no `action`, before it reaches the
+  plugin, with a settings link built from the configured site address, unless the
+  companion already runs `full` or the site surface is Full. A read-only
+  `action=resolve` still goes through. The companion itself only asks the plugin for
+  `action=resolve`, never for `full`.
 
 ### Fixed
 

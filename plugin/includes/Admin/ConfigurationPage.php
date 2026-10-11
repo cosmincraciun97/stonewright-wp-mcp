@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupPage;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Companion\CompanionContract;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
@@ -132,7 +133,7 @@ final class ConfigurationPage {
 
 	public static function handle_run_diagnostics(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_run_diagnostics' );
@@ -466,7 +467,7 @@ final class ConfigurationPage {
 
 	public static function handle_generate_application_password(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		check_admin_referer( 'stonewright_generate_application_password' );
@@ -502,7 +503,7 @@ final class ConfigurationPage {
 
 	public static function handle_revoke_application_password(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		$uuid = isset( $_POST['stonewright_app_password_uuid'] )
@@ -569,7 +570,7 @@ final class ConfigurationPage {
 
 	public static function handle_reset_domain_lock(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_reset_domain_lock' );
 
@@ -588,7 +589,7 @@ final class ConfigurationPage {
 	 */
 	public static function handle_rebind_domain_lock(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_rebind_domain_lock' );
 
@@ -611,7 +612,7 @@ final class ConfigurationPage {
 	 */
 	public static function handle_rollback_domain_lock(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_rollback_domain_lock' );
 

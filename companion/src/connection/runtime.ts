@@ -569,6 +569,21 @@ function siteUrlFromEnv(env: NodeJS.ProcessEnv): string | null {
 	return raw || null;
 }
 
+/** Where an administrator chooses the tool surface, from the site address the companion is configured with. */
+function surfaceSettingsLinkFromEnv(env: NodeJS.ProcessEnv): string | null {
+	const raw = siteUrlFromEnv(env);
+	if (!raw) return null;
+	try {
+		const url = new URL(raw);
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+		const cut = url.pathname.indexOf('/wp-json');
+		const base = (cut >= 0 ? url.pathname.slice(0, cut) : url.pathname).replace(/\/+$/, '');
+		return `${url.origin}${base}/wp-admin/admin.php?page=stonewright&tab=settings#stonewright_mcp_surface`;
+	} catch {
+		return null;
+	}
+}
+
 function toolResponse<T extends Record<string, unknown>>(result: T): {
 	content: Array<{ type: 'text'; text: string }>;
 	structuredContent: T;
@@ -1019,6 +1034,31 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			},
 		},
 		wrap('stonewright-tool-profile', async (input) => {
+			// The full profile is chosen by a person: the one who runs the companion, or an administrator in wp-admin.
+			// A request for it is refused here, before it reaches a plugin: a plugin older than this rule would switch.
+			// A read-only resolve is still forwarded, and so is a request on a site whose surface is already Full.
+			const requestedByAgent = typeof input['profile'] === 'string' ? input['profile'] : '';
+			const connected = Boolean(runtime.callRemoteTool && runtime.status.connected);
+			const rawAction = typeof input['action'] === 'string' ? input['action'].trim().toLowerCase() : '';
+			const effectiveAction = rawAction || (connected ? 'activate' : 'resolve');
+			if (
+				requestedByAgent.trim() !== ''
+				&& coerceProxyToolProfile(requestedByAgent) === 'full'
+				&& effectiveAction !== 'resolve'
+				&& runtime.profile !== 'full'
+				&& runtime.effectiveWordPressSurface !== 'full'
+			) {
+				return {
+					ok: false,
+					source: connected ? 'plugin' : 'local',
+					isError: true,
+					error_code: 'stonewright_tool_profile_full_requires_admin',
+					approval_required: true,
+					agent_must_stop: true,
+					...(surfaceSettingsLinkFromEnv(runtime.env) ? { approval_url: surfaceSettingsLinkFromEnv(runtime.env) } : {}),
+					message: FULL_PROFILE_IS_A_PERSONS_CHOICE,
+				};
+			}
 			if (runtime.callRemoteTool && runtime.status.connected) {
 				try {
 					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input);
@@ -1056,18 +1096,6 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const requested = typeof input['profile'] === 'string' && input['profile'].trim()
 				? input['profile']
 				: runtime.profile;
-			// The full profile is chosen by a person: the one who runs the companion, or an administrator in wp-admin.
-			if (action.trim().toLowerCase() === 'activate' && coerceProxyToolProfile(requested) === 'full' && runtime.profile !== 'full') {
-				return {
-					ok: false,
-					source: 'local',
-					isError: true,
-					error_code: 'stonewright_tool_profile_full_requires_admin',
-					approval_required: true,
-					agent_must_stop: true,
-					message: FULL_PROFILE_IS_A_PERSONS_CHOICE,
-				};
-			}
 			const tools = proxyToolNamesForProfile(
 				// coerce via names lookup; unknown falls to current
 				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, inspect: 1, 'discover-execute': 1 }

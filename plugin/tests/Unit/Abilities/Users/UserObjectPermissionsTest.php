@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Abilities\Users\UserCreate;
 use Stonewright\WpMcp\Abilities\Users\UserDelete;
 use Stonewright\WpMcp\Abilities\Users\UserList;
 use Stonewright\WpMcp\Abilities\Users\UserUpdate;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Users\UserUpdate
@@ -42,6 +43,7 @@ final class UserObjectPermissionsTest extends TestCase {
 	private const NEW_SECRET = 'a-brand-new-passphrase';
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = self::ACTOR;
 		$GLOBALS['stonewright_test_user_caps']       = [];
@@ -70,6 +72,8 @@ final class UserObjectPermissionsTest extends TestCase {
 		$GLOBALS['stonewright_test_is_multisite']     = false;
 		$GLOBALS['stonewright_test_current_user_id']  = 0;
 		$GLOBALS['stonewright_test_options']          = [];
+		// The failed calls above record incidents in a static fallback that a later test would count.
+		IncidentStore::reset_for_tests();
 	}
 
 	/**

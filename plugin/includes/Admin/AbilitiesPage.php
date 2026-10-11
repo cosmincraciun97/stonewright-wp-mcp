@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Security\AccessDenied;
 
 /**
  * Admin page for enabling and reviewing Stonewright abilities.
@@ -90,7 +91,7 @@ final class AbilitiesPage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
 		}
 
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
@@ -587,7 +588,7 @@ final class AbilitiesPage {
 
 	public static function handle_toggle(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		check_admin_referer( self::NONCE_ACTION );
@@ -598,7 +599,7 @@ final class AbilitiesPage {
 
 	public static function handle_bulk(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 
 		check_admin_referer( self::BULK_NONCE_ACTION );

@@ -7,7 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createConnectionRuntime, registerPermanentGateways } from '../src/connection/runtime.js';
-import { adoptableProfileHint, handleToolsChangedResponse } from '../src/wordpress-mcp.js';
+import { adoptableProfileHint, handleToolsChangedResponse, resolvePluginProxyToolNames } from '../src/wordpress-mcp.js';
 
 const REFUSAL_TEXT =
 	'The full profile (php-execute and the other abilities that run or write code) can only be chosen by an administrator in wp-admin. Show the user the settings link and stop. '
@@ -39,10 +39,12 @@ async function newGateway() {
 }
 
 describe('the stonewright-tool-profile gateway', () => {
-	it('passes the plugin refusal of full through with the settings link, as an error', async () => {
+	it('passes a plugin refusal through with its code, flags and link, as an error', async () => {
 		const { runtime, call } = await newGateway();
 		runtime.status.connected = true;
 		runtime.status.mode = 'plugin';
+		// A site whose surface is Full forwards the call; this plugin answers it with the refusal text.
+		runtime.effectiveWordPressSurface = 'full';
 		runtime.callRemoteTool = vi.fn(() => Promise.resolve({ isError: true, content: [{ type: 'text', text: REFUSAL_TEXT }] }));
 
 		const out = (await call({ action: 'activate', profile: 'full' })).structuredContent;
@@ -68,6 +70,7 @@ describe('the stonewright-tool-profile gateway', () => {
 		expect(out['error_code']).toBe('stonewright_tool_profile_full_requires_admin');
 		expect(out['approval_required']).toBe(true);
 		expect(out['agent_must_stop']).toBe(true);
+		expect(out['approval_url']).toBe('https://example.test/wp-admin/admin.php?page=stonewright&tab=settings#stonewright_mcp_surface');
 		expect(String(out['message'])).toContain('STONEWRIGHT_MCP_TOOL_PROFILE');
 		expect(runtime.profile).toBe(before);
 	});
@@ -125,5 +128,87 @@ describe('a profile hint in a tool result', () => {
 		});
 
 		expect(result.profile).toBe('essential');
+	});
+});
+
+describe('a companion in front of a plugin that still lets an agent activate full', () => {
+	/** The answer such a plugin gives: it switches, and says so. */
+	const oldPluginAnswer = {
+		structuredContent: { ok: true, profile: 'full', requested_profile: 'full', session_tool_profile: 'full', mcp_surface: 'essential', tools_changed: true, tools: [] },
+	};
+
+	it('does not forward an agent request for full to it', async () => {
+		const { runtime, call } = await newGateway();
+		runtime.status.connected = true;
+		runtime.status.mode = 'plugin';
+		const remote = vi.fn(() => Promise.resolve(oldPluginAnswer));
+		runtime.callRemoteTool = remote;
+
+		const out = (await call({ action: 'activate', profile: 'full' })).structuredContent;
+
+		expect(remote).not.toHaveBeenCalled();
+		expect(out['ok']).toBe(false);
+		expect(out['error_code']).toBe('stonewright_tool_profile_full_requires_admin');
+		expect(out['approval_required']).toBe(true);
+		expect(out['agent_must_stop']).toBe(true);
+	});
+
+	it('does not forward the default action either, which the plugin takes as activate', async () => {
+		const { runtime, call } = await newGateway();
+		runtime.status.connected = true;
+		runtime.status.mode = 'plugin';
+		const remote = vi.fn(() => Promise.resolve(oldPluginAnswer));
+		runtime.callRemoteTool = remote;
+
+		const out = (await call({ profile: 'FULL' })).structuredContent;
+
+		expect(remote).not.toHaveBeenCalled();
+		expect(out['ok']).toBe(false);
+	});
+
+	it('still forwards a read-only resolve of full, and a request when the site surface is Full', async () => {
+		const { runtime, call } = await newGateway();
+		runtime.status.connected = true;
+		runtime.status.mode = 'plugin';
+		const remote = vi.fn(() => Promise.resolve({ structuredContent: { ok: true, profile: 'full', tools: [], mcp_surface: 'essential' } }));
+		runtime.callRemoteTool = remote;
+
+		await call({ action: 'resolve', profile: 'full' });
+		expect(remote).toHaveBeenCalledTimes(1);
+
+		runtime.effectiveWordPressSurface = 'full';
+		await call({ action: 'activate', profile: 'full' });
+		expect(remote).toHaveBeenCalledTimes(2);
+	});
+
+	it('never asks the plugin to activate or resolve full on its own initiative', async () => {
+		const profiles = ['bootstrap', 'essential-static', 'essential', 'low-tools', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'inspect', 'discover-execute', 'full'] as const;
+		for (const profile of profiles) {
+			const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+			const client = {
+				callTool: vi.fn((name: string, args: Record<string, unknown>) => {
+					calls.push({ name, args });
+					return Promise.resolve({ structuredContent: { ok: true, source: 'plugin', tools: ['stonewright-site-info'], mcp_surface: 'essential' } });
+				}),
+				listTools: vi.fn(() => Promise.resolve([{ name: 'stonewright-site-info' }])),
+			};
+
+			await resolvePluginProxyToolNames(client, profile);
+			await handleToolsChangedResponse({
+				server: { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer,
+				client,
+				structured: { tools_changed: true, session_tool_profile: profile },
+				activeProfile: profile,
+				maxTools: null,
+				registered: new Map(),
+				registerProxyTool: vi.fn(),
+			});
+
+			for (const call of calls) {
+				expect(call.name).toBe('stonewright-tool-profile');
+				expect(call.args['action'], profile).toBe('resolve');
+				expect(call.args['profile'], profile).not.toBe('full');
+			}
+		}
 	});
 });

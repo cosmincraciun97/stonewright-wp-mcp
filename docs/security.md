@@ -463,6 +463,31 @@ administrator already chose Full has nothing to switch. In the companion,
 tool changes it, and a profile hint in a tool result cannot move the companion
 onto `full` unless the site surface is already Full.
 
+No other route changes the surface for an agent either. `POST /stonewright/v1/settings`
+with `essential_tools_mode:false`, which puts the Full surface in effect, is accepted
+only from a person in wp-admin: a cookie sign-in with a valid REST nonce
+(`X-WP-Nonce`). An Application Password, an OAuth bearer and any other sign-in get
+`stonewright_full_surface_requires_admin` (403, `approval_required`,
+`agent_must_stop`, the settings link) and nothing in the request is written; the
+other settings in that route keep working with an Application Password. Writing the
+Full surface back from the change ledger (an undo or redo of a tool-profile row)
+needs an admin screen, so `stonewright-change-rollback` refuses it. The Setup
+screen applies the surface through admin-ajax with a nonce, and `options.php`
+saves it from the Settings form; both are cookie requests. No ability, settings
+import or blueprint writes the surface options.
+
+A companion in front of a plugin older than this rule does not offer or forward a
+switch to `full` either. `stonewright-tool-profile` in the companion refuses a
+request for `full` (an activation, or a call with no `action`, which the plugin
+takes as an activation) before it reaches the plugin, unless the companion
+already runs `full` or the site surface is Full; a read-only `action=resolve` is
+still forwarded. The companion itself only ever calls `action=resolve`, never
+with `full`, and never activates a profile.
+
+Every `wp_die()` in the plugin's admin pages and handlers that refuses a user (no
+permission, a failed security check) answers 403 through `AccessDenied::deny()`,
+with the same message as before.
+
 These guards do not make php-execute a sandbox. Prefer typed abilities for
 Elementor, FSE, options, and post writes. A successful call whose snippet uses
 post meta, option, Elementor data, or menu patterns returns a `routing_hint`

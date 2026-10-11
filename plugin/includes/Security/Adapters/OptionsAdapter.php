@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\DesignTokens\BrandKit;
 use Stonewright\WpMcp\Security\ChangeImage;
 use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\FullSurfaceGuard;
 
 /**
  * Site settings, the front page, the custom instructions, the content model (custom post types, taxonomies
@@ -279,6 +280,14 @@ final class OptionsAdapter {
 		$rules = self::rules( $ability );
 		if ( null === $rules ) {
 			return new \WP_Error( 'stonewright_option_not_allowed', __( 'This ability does not write options that the ledger restores.', 'stonewright' ) );
+		}
+
+		// Writing the Full surface back is choosing it. A person in wp-admin (the Changes page) may; an ability call,
+		// a REST request or any other sign-in may not, and nothing is written.
+		foreach ( $image['options'] as $name => $payload ) {
+			if ( is_array( $payload ) && ! empty( $payload['exists'] ) && FullSurfaceGuard::puts_full_in_effect( (string) $name, $payload['value'] ?? null ) && ! FullSurfaceGuard::human_in_wp_admin() ) {
+				return FullSurfaceGuard::refusal();
+			}
 		}
 
 		$skipped  = [];

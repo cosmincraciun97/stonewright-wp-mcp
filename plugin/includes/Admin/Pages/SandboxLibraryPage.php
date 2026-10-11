@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\SandboxManifest;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
@@ -966,7 +967,7 @@ final class SandboxLibraryPage {
 
 		$nonce = isset( $_POST['_stonewright_lib_nonce'] ) ? wp_unslash( (string) $_POST['_stonewright_lib_nonce'] ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		$action = isset( $_POST['stonewright_lib_action'] ) ? sanitize_key( wp_unslash( (string) $_POST['stonewright_lib_action'] ) ) : '';
@@ -1020,7 +1021,7 @@ final class SandboxLibraryPage {
 		$nonce = isset( $_GET['_wpnonce'] ) ? wp_unslash( (string) $_GET['_wpnonce'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! wp_verify_nonce( $nonce, 'stonewright_sandbox_view_' . $file ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		$validated = self::resolve_sandbox_basename( $file );
@@ -1072,7 +1073,7 @@ final class SandboxLibraryPage {
 
 		$nonce = isset( $_POST['_stonewright_widget_nonce'] ) ? wp_unslash( (string) $_POST['_stonewright_widget_nonce'] ) : '';
 		if ( ! wp_verify_nonce( $nonce, 'stonewright_widget_project' ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'Security check failed.', 'stonewright' ) );
 		}
 
 		if ( ! Permissions::can_manage_sandbox() ) {

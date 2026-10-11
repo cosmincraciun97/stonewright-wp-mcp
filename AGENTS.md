@@ -25,6 +25,9 @@ override default behavior.
    every mode with `approval_required` and `agent_must_stop` and the settings
    link: show the link to the user and stop. The person who runs the
    companion may set `STONEWRIGHT_MCP_TOOL_PROFILE=full`; no tool changes it.
+   Nor does a REST call with an Application Password or an OAuth bearer
+   (`POST /stonewright/v1/settings` with `essential_tools_mode:false` needs a
+   cookie sign-in and a REST nonce) or an undo from the change ledger.
    Do not replace it with another MCP adapter, direct REST runner calls, shell
    scripts, or private client-config workarounds.
 2. **No `__return_true` for writes.** Every ability that writes, updates, or

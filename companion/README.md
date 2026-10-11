@@ -691,7 +691,11 @@ surface to Full in wp-admin. No tool switches to it: `stonewright-tool-profile`
 with `action=activate` and `profile=full` returns the plugin's refusal
 (`approval_required`, `agent_must_stop` and the settings link) or, with no
 plugin, its own, and a profile hint in a tool result does not move the companion
-onto `full` unless the site surface is Full.
+onto `full` unless the site surface is Full. The companion does not forward a
+request for `full` to the plugin either (a plugin older than this rule would
+switch): it refuses an activation, or a call with no `action`, unless it already
+runs `full` or the site surface is Full, and a read-only `action=resolve` still
+goes through. It only ever asks the plugin for `action=resolve`, never for `full`.
 For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
 It registers discovery, read, and verify tools plus the permanent gateways and
 the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It

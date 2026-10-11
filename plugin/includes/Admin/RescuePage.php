@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
 use Stonewright\WpMcp\Security\ChangeLedger;
@@ -111,7 +112,7 @@ final class RescuePage {
 
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to view Stonewright Rescue.', 'stonewright' ) );
+			AccessDenied::deny( esc_html__( 'You do not have permission to view Stonewright Rescue.', 'stonewright' ) );
 		}
 		self::add_to_menu_registry();
 		// Bring in anything a fatal recorded while the database was unavailable.
