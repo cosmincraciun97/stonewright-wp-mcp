@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
@@ -55,6 +56,8 @@ final class CreateTemplate extends AbilityKernel {
 			'properties' => [
 				'template_id'   => [ 'type' => 'integer' ],
 				'template_type' => [ 'type' => 'string' ],
+				'next_step'     => [ 'type' => 'object' ],
+				'cache_purge'   => [ 'type' => 'object' ],
 			],
 			'required' => [ 'template_id', 'template_type' ],
 		];
@@ -85,6 +88,12 @@ final class CreateTemplate extends AbilityKernel {
 				return [
 					'template_id'   => $id,
 					'template_type' => (string) $args['template_type'],
+					'next_step'     => [
+						'tool'    => 'stonewright/elementor-css-regenerate',
+						'post_id' => $id,
+						'why'     => 'Once the template has content and display conditions, regenerate its CSS so the front end uses it.',
+					],
+					'cache_purge'   => PageCachePurger::purge_quietly( $id ),
 				];
 			}
 		);

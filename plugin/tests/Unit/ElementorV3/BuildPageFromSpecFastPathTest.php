@@ -296,6 +296,42 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 		self::assertTrue( $result['dry_run'] );
 	}
 
+	public function test_dry_run_reports_that_the_checkpoint_would_block_the_write(): void {
+		$args = [
+			'post_id'      => 777,
+			'design_scope' => 'rebrand',
+			'spec'         => self::multi_section_spec(),
+		];
+
+		$dry = ( new BuildPageFromSpec() )->execute( $args + [ 'dry_run' => true ] );
+
+		self::assertIsArray( $dry );
+		self::assertTrue( $dry['checkpoint']['would_block'] );
+		self::assertSame( DesignCheckpoint::ERROR_REQUIRED, $dry['checkpoint']['code'] );
+		// The apply is refused for exactly that, and stays untouched.
+		$apply = ( new BuildPageFromSpec() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $apply );
+		self::assertSame( DesignCheckpoint::ERROR_REQUIRED, $apply->get_error_code() );
+	}
+
+	public function test_dry_run_reports_no_block_with_a_valid_checkpoint_token_or_a_maintenance_scope(): void {
+		$with_token = ( new BuildPageFromSpec() )->execute(
+			[
+				'post_id'          => 777,
+				'design_scope'     => 'rebrand',
+				'checkpoint_token' => $this->checkpoint_token(),
+				'dry_run'          => true,
+				'spec'             => self::multi_section_spec(),
+			]
+		);
+		$maintenance = ( new BuildPageFromSpec() )->execute( [ 'post_id' => 777, 'design_scope' => 'repair', 'dry_run' => true, 'spec' => self::multi_section_spec() ] );
+
+		self::assertIsArray( $with_token );
+		self::assertFalse( $with_token['checkpoint']['would_block'] );
+		self::assertIsArray( $maintenance );
+		self::assertFalse( $maintenance['checkpoint']['would_block'] );
+	}
+
 	/**
 	 * Approval of the `keep` section that setUp seeds, bound to live state.
 	 */

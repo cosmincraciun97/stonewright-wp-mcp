@@ -272,11 +272,18 @@ final class SettingsValueSafetyTest extends TestCase {
 	public function test_tree_validation_with_preserve_unknown_still_refuses_unsafe_colour(): void {
 		$tree = [
 			[
-				'id'         => 'abc12345',
-				'elType'     => 'widget',
-				'widgetType' => 'safety-widget',
-				'settings'   => [ 'title_color' => 'red;}body{display:none}' ],
-				'elements'   => [],
+				'id'       => 'wrap1234',
+				'elType'   => 'container',
+				'settings' => [],
+				'elements' => [
+					[
+						'id'         => 'abc12345',
+						'elType'     => 'widget',
+						'widgetType' => 'safety-widget',
+						'settings'   => [ 'title_color' => 'red;}body{display:none}' ],
+						'elements'   => [],
+					],
+				],
 			],
 		];
 

@@ -30,11 +30,28 @@ final class ElementorTransactionRunner {
 	 *
 	 * Blueprint apply and DesignSpec writes use this path (not BatchMutate ops).
 	 *
+	 * The tree passes the HTML widget policy and the custom code gate first, whoever the caller is.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $expected_readback
+	 * @param array<string, mixed>             $gate_args allow_html_widget and custom_code_grant of the call that asked for the write.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true, array $gate_args = [] ) {
+		$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $gate_args );
+		if ( $code_gate instanceof \WP_Error ) {
+			return $code_gate;
+		}
+
+		return self::write_full_tree( $post_id, $tree, $expected_readback, $rollback_on_error );
+	}
+
+	/**
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<string, mixed>             $expected_readback
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true ) {
+	private static function write_full_tree( int $post_id, array $tree, array $expected_readback, bool $rollback_on_error ) {
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_transaction_not_found',
@@ -65,9 +82,10 @@ final class ElementorTransactionRunner {
 
 		$written = ElementorData::write( $post_id, $tree );
 		if ( ! $written ) {
-			// Integrity and schema gates are the only path to _elementor_data.
+			// Integrity and schema gates are the only path to _elementor_data. A refused or busy write stored nothing, and
+			// ElementorData put back what it had when it failed after storing; the snapshot is restored only when that did not work.
 			$gate_error = ElementorData::last_write_error();
-			if ( $rollback_on_error ) {
+			if ( $rollback_on_error && self::left_changes( $gate_error ) ) {
 				Backup::restore( $post_id, $snapshot_id );
 			}
 			return $gate_error instanceof \WP_Error
@@ -75,7 +93,7 @@ final class ElementorTransactionRunner {
 				: new \WP_Error(
 					'stonewright_transaction_write_rejected',
 					__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
-					[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => $rollback_on_error ]
+					[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => false ]
 				);
 		}
 
@@ -139,9 +157,11 @@ final class ElementorTransactionRunner {
 
 	/**
 	 * @param array<string, mixed> $raw_envelope
+	 * @param array<string, mixed> $gate_args    allow_html_widget and custom_code_grant of the call that asked for the write; they
+	 *                                           apply to the tree of a replace_tree, which passes the code gates for every caller.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function run( int $post_id, array $raw_envelope, bool $dry_run = false ) {
+	public static function run( int $post_id, array $raw_envelope, bool $dry_run = false, array $gate_args = [] ) {
 		// Full-tree shortcut: operations: [{ action: replace_tree, tree: [...] }]
 		$ops = $raw_envelope['operations'] ?? null;
 		if ( is_array( $ops ) && 1 === count( $ops ) && is_array( $ops[0] ?? null ) && ( $ops[0]['action'] ?? '' ) === 'replace_tree' ) {
@@ -150,7 +170,16 @@ final class ElementorTransactionRunner {
 				? $raw_envelope['expected_readback']
 				: [];
 			$rollback = ! array_key_exists( 'rollback_on_error', $raw_envelope ) || (bool) $raw_envelope['rollback_on_error'];
+			$code_gate = ElementorTreeCodeGate::assert_tree( $tree, $gate_args, $dry_run );
+			if ( $code_gate instanceof \WP_Error ) {
+				return $code_gate;
+			}
 			if ( $dry_run ) {
+				// The checks the write runs against the stored document, so the dry run reports what the apply would.
+				$preflight = ElementorData::preflight( ElementorData::read( $post_id ), $tree, [ 'force_destructive' => true ] );
+				if ( $preflight instanceof \WP_Error ) {
+					return $preflight;
+				}
 				return [
 					'ok'          => true,
 					'dry_run'     => true,
@@ -160,7 +189,7 @@ final class ElementorTransactionRunner {
 					'snapshot_id' => '',
 				];
 			}
-			return self::run_full_tree( $post_id, $tree, $expected, $rollback );
+			return self::write_full_tree( $post_id, $tree, $expected, $rollback );
 		}
 
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
@@ -217,13 +246,16 @@ final class ElementorTransactionRunner {
 		);
 
 		if ( $result instanceof \WP_Error ) {
-			if ( ! $dry_run && $envelope['rollback_on_error'] && '' !== $snapshot_id ) {
+			// A batch that failed before it wrote, or that was refused because another writer holds the lock, left this
+			// document as it was, and the snapshot is never restored over it. The batch puts back what it wrote itself;
+			// the snapshot is restored only when that rollback did not work.
+			if ( ! $dry_run && $envelope['rollback_on_error'] && '' !== $snapshot_id && self::left_changes( $result ) ) {
 				$restored = Backup::restore( $post_id, $snapshot_id );
 				$result->add_data(
 					array_merge(
 						(array) $result->get_error_data(),
 						[
-							'rolled_back' => true,
+							'rolled_back' => $restored,
 							'restored'    => $restored,
 							'snapshot_id' => $snapshot_id,
 						]
@@ -278,6 +310,25 @@ final class ElementorTransactionRunner {
 			],
 			'rolled_back'     => false,
 		];
+	}
+
+	/**
+	 * Whether a failed write left the document changed: the rollback of the write itself did not succeed.
+	 *
+	 * ElementorData and the batch writer put back what they stored when a write fails after storing it, and
+	 * report the result in the write receipt. A write that was refused or never started (a busy lock, a
+	 * conflict, a gate) stored nothing, so there is nothing to restore, and a restore would overwrite the
+	 * work of whoever else wrote in the meantime.
+	 */
+	private static function left_changes( ?\WP_Error $error ): bool {
+		if ( null === $error ) {
+			return false;
+		}
+		$data    = $error->get_error_data();
+		$data    = is_array( $data ) ? $data : [];
+		$receipt = is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [];
+
+		return 'failed' === (string) ( $receipt['rollback_status'] ?? $data['rollback_status'] ?? '' );
 	}
 
 	/**

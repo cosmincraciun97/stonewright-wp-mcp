@@ -166,4 +166,58 @@ final class PostWriteLockTest extends TestCase {
 		self::assertSame( 'txn-foreign', $GLOBALS['stonewright_test_options']['stonewright_elementor_lock_9049']['owner'] );
 		self::assertFalse( PostWriteLock::owned_by( 9049, 'txn-one' ) );
 	}
+
+	public function test_with_lease_runs_the_callback_under_the_lease_and_releases_it(): void {
+		$seen   = [];
+		$result = PostWriteLock::with_lease(
+			9050,
+			'unit',
+			static function ( string $owner ) use ( &$seen ) {
+				$seen['owned'] = PostWriteLock::owned_by( 9050, $owner );
+				$seen['busy']  = PostWriteLock::acquire( 9050, 'someone-else', 30 );
+				return 'done';
+			}
+		);
+
+		self::assertSame( 'done', $result );
+		self::assertTrue( $seen['owned'] );
+		self::assertInstanceOf( \WP_Error::class, $seen['busy'] );
+		self::assertIsArray( PostWriteLock::acquire( 9050, 'someone-else', 30 ), 'The lease is released afterwards.' );
+	}
+
+	public function test_with_lease_returns_the_busy_error_without_running_the_callback(): void {
+		PostWriteLock::acquire( 9050, 'holder', 30 );
+		$ran = false;
+
+		$result = PostWriteLock::with_lease(
+			9050,
+			'unit',
+			static function () use ( &$ran ) {
+				$ran = true;
+				return 'done';
+			}
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertFalse( $ran );
+		self::assertTrue( PostWriteLock::owned_by( 9050, 'holder' ), 'The other writer keeps its lease.' );
+	}
+
+	public function test_with_lease_releases_the_lease_when_the_callback_throws(): void {
+		try {
+			PostWriteLock::with_lease(
+				9050,
+				'unit',
+				static function (): void {
+					throw new \RuntimeException( 'boom' );
+				}
+			);
+			self::fail( 'The exception must reach the caller.' );
+		} catch ( \RuntimeException $e ) {
+			self::assertSame( 'boom', $e->getMessage() );
+		}
+
+		self::assertIsArray( PostWriteLock::acquire( 9050, 'next', 30 ) );
+	}
 }

@@ -105,6 +105,7 @@ final class BatchMutate extends AbilityKernel {
 					'type'        => 'boolean',
 					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
 				],
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string', 'description' => 'Required in production-safe mode for every write that is not a dry run. Issue it with stonewright-security-issue-confirmation-token for this ability and these arguments.' ],
 				'operations'         => [
 					'type'     => 'array',
@@ -318,8 +319,9 @@ final class BatchMutate extends AbilityKernel {
 					}
 				}
 
-				$read_start = microtime( true );
-				$tree       = ElementorData::read( $post_id );
+				$read_start  = microtime( true );
+				$tree        = ElementorData::read( $post_id );
+				$stored_tree = $tree;
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
 				$targeted_ids = self::operation_target_ids( $operations );
@@ -455,6 +457,20 @@ final class BatchMutate extends AbilityKernel {
 					}
 				}
 				$touched_ids = array_values( array_unique( array_filter( $touched_ids ) ) );
+
+				if ( $dry_run ) {
+					// The checks the write runs against the stored document, so the dry run reports what the apply would. A plan that
+					// drops settings of a third party is shown with the hash that approves it, so that removal is not refused here;
+					// the apply refuses it without the approval.
+					$plans_unknown_removal = false;
+					foreach ( $items as $item ) {
+						$plans_unknown_removal = $plans_unknown_removal || is_array( $item['third_party_risk'] ?? null );
+					}
+					$preflight = ElementorData::preflight( $stored_tree, $tree, [ 'force_destructive' => true, 'touched_ids' => $touched_ids, 'allow_unknown_setting_removal' => $allow_unknown_setting_removal || $plans_unknown_removal ] );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
+					}
+				}
 
 				$snapshot_id = '';
 				$write_ms    = 0.0;
@@ -851,7 +867,7 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
-		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		$parent_error = $this->parent_container_error( $tree, $parent_path, 'container' );
 		if ( null !== $parent_error ) {
 			return $parent_error;
 		}
@@ -1250,7 +1266,7 @@ final class BatchMutate extends AbilityKernel {
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
-		$parent_error = $this->parent_container_error( $tree, $parent_path );
+		$parent_error = $this->parent_container_error( $tree, $parent_path, (string) ( $element['elType'] ?? '' ), $element_id );
 		if ( null !== $parent_error ) {
 			return $parent_error;
 		}
@@ -1477,14 +1493,18 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	/**
-	 * The error for a parent that cannot hold child elements, or null when the parent is the document root, a
-	 * container, a section or a column.
+	 * The error for a parent that cannot hold child elements, or null when the parent is a container, a section or
+	 * a column, or the document root for an element that may sit there. A widget never may.
 	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 * @param array<int, int>                  $parent_path
+	 * @param string                           $child_el_type elType of the element placed under the parent.
 	 */
-	private function parent_container_error( array $tree, array $parent_path ): ?\WP_Error {
-		if ( [] === $parent_path || ElementorData::accepts_children( $tree, $parent_path ) ) {
+	private function parent_container_error( array $tree, array $parent_path, string $child_el_type = '', string $child_id = '' ): ?\WP_Error {
+		if ( [] === $parent_path ) {
+			return 'widget' === $child_el_type ? ElementorData::widget_at_root_error( $child_id ) : null;
+		}
+		if ( ElementorData::accepts_children( $tree, $parent_path ) ) {
 			return null;
 		}
 		$parent = ElementorData::element_at( $tree, $parent_path ) ?? [];

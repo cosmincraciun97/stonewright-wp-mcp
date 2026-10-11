@@ -324,7 +324,9 @@ final class ElementorData {
 		// Always validate the full structure and the global ID set. Settings are
 		// validated separately as a before/after delta so untouched legacy values
 		// cannot poison an otherwise safe surgical write.
-		if ( ! SettingsValidator::validate_tree( $tree, [] ) ) {
+		// An id-only repair adds no structure, so a root widget the document has stays; any other write may not add one.
+		$tolerated_root_widgets = self::root_widget_ids( ! empty( $options['id_only_repair'] ) ? $tree : $previous );
+		if ( ! SettingsValidator::validate_tree( $tree, [], $tolerated_root_widgets ) ) {
 			$error = SettingsValidator::last_error()
 				?? new \WP_Error(
 					'stonewright_elementor_tree_invalid',
@@ -346,6 +348,23 @@ final class ElementorData {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Ids of the widgets the stored document keeps at its root. A document that already has one stays editable;
+	 * a write that adds one is refused.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @return list<string>
+	 */
+	private static function root_widget_ids( array $tree ): array {
+		$ids = [];
+		foreach ( $tree as $element ) {
+			if ( is_array( $element ) && 'widget' === (string) ( $element['elType'] ?? '' ) && isset( $element['id'] ) && is_scalar( $element['id'] ) ) {
+				$ids[] = trim( (string) $element['id'] );
+			}
+		}
+		return $ids;
 	}
 
 	/**
@@ -845,6 +864,17 @@ final class ElementorData {
 		return 'builder' === (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
 	}
 
+	/**
+	 * The refusal for a widget that would sit at the document root. A widget belongs inside a container, a section or a column.
+	 */
+	public static function widget_at_root_error( string $element_id = '' ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_widget_at_root',
+			__( 'A widget cannot be placed at the document root; it must sit inside a container, a section or a column. Name a parent container.', 'stonewright' ),
+			[ 'status' => 400, 'element_id' => $element_id ]
+		);
+	}
+
 	public static function generate_id(): string {
 		return substr( md5( uniqid( '', true ) ), 0, 7 );
 	}
@@ -969,6 +999,22 @@ final class ElementorData {
 			: [];
 		$tree[ $head ]['elements'] = self::set( $children, $path, $element );
 		return $tree;
+	}
+
+	/**
+	 * The index insert() gives an element placed at $position in the children of the element at $parent_path
+	 * (the root when the path is empty): the position, kept within the children there are.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, int>                  $parent_path Empty = root.
+	 */
+	public static function insertion_index( array $tree, array $parent_path, int $position ): int {
+		$children = $tree;
+		if ( [] !== $parent_path ) {
+			$parent   = self::element_at( $tree, $parent_path );
+			$children = is_array( $parent['elements'] ?? null ) ? $parent['elements'] : [];
+		}
+		return max( 0, min( $position, count( $children ) ) );
 	}
 
 	/**

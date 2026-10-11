@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -40,6 +41,7 @@ final class AddContainer extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'custom_code_grant'  => [ 'type' => 'string', 'description' => 'Single-use human-issued custom-code grant for custom CSS or an HTML widget style tag in this call, bound to the exact candidate code. Send it only when the user has approved that code.' ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'post_id'        => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'      => [ 'type' => 'string' ],
@@ -78,7 +80,6 @@ final class AddContainer extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$tree        = ElementorData::read( $post_id );
 				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
 				$css_gate    = ElementorCustomCssGate::assert_incoming( $settings, $args, 'container' );
 				if ( $css_gate instanceof \WP_Error ) {
@@ -97,44 +98,54 @@ final class AddContainer extends AbilityKernel {
 					'settings' => $settings,
 					'elements' => [],
 				];
-				$element['isInner'] = false;
 
-				$parent_path = [];
-				if ( ! empty( $args['parent_id'] ) ) {
-					$parent_path = ElementorData::find_path( $tree, (string) $args['parent_id'] );
-					if ( null === $parent_path ) {
-						return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
+				// The lease is taken before the document is read, so no other writer changes it between the read and the write.
+				return PostWriteLock::with_lease(
+					$post_id,
+					'add-container',
+					function ( string $lock_owner ) use ( $args, $post_id, $element ) {
+						$tree        = ElementorData::read( $post_id );
+						$parent_path = [];
+						if ( ! empty( $args['parent_id'] ) ) {
+							$parent_path = ElementorData::find_path( $tree, (string) $args['parent_id'] );
+							if ( null === $parent_path ) {
+								return $this->error( 'parent_not_found', __( 'Parent element not found.', 'stonewright' ) );
+							}
+							if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
+								return $this->error(
+									'parent_not_container',
+									__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
+									[
+										'status'         => 400,
+										'parent_id'      => (string) $args['parent_id'],
+										'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
+									]
+								);
+							}
+						}
+
+						// A container inside another element is an inner container; one at the root is not.
+						$element['isInner'] = [] !== $parent_path;
+
+						$position = ElementorData::insertion_index( $tree, $parent_path, isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX );
+
+						$new_tree    = ElementorData::insert( $tree, $parent_path, $position, $element );
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						if ( '' === $snapshot_id ) {
+							return $this->backup_failed_error();
+						}
+						if ( ! ElementorData::write( $post_id, $new_tree, [ 'lock_owner' => $lock_owner ] ) ) {
+							return ElementorData::write_error_for_ability();
+						}
+
+						return [
+							'post_id'     => $post_id,
+							'element_id'  => $element['id'],
+							'snapshot_id' => $snapshot_id,
+							'path'        => array_merge( $parent_path, [ $position ] ),
+						];
 					}
-					if ( ! ElementorData::accepts_children( $tree, $parent_path ) ) {
-						return $this->error(
-							'parent_not_container',
-							__( 'The parent must be a container, a section or a column; a widget cannot hold other elements.', 'stonewright' ),
-							[
-								'status'         => 400,
-								'parent_id'      => (string) $args['parent_id'],
-								'parent_el_type' => (string) ( ElementorData::element_at( $tree, $parent_path )['elType'] ?? '' ),
-							]
-						);
-					}
-				}
-
-				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
-
-				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $element );
-				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( '' === $snapshot_id ) {
-					return $this->backup_failed_error();
-				}
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
-					return ElementorData::write_error_for_ability();
-				}
-
-				return [
-					'post_id'     => $post_id,
-					'element_id'  => $element['id'],
-					'snapshot_id' => $snapshot_id,
-					'path'        => array_merge( $parent_path, [ $position ] ),
-				];
+				);
 			}
 		);
 	}

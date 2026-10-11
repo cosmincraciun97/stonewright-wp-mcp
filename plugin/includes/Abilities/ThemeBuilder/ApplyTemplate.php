@@ -5,8 +5,11 @@ namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -84,6 +87,8 @@ final class ApplyTemplate extends AbilityKernel {
 				'verify'             => [ 'type' => 'object' ],
 				'repair_hints'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'next_required_call' => [ 'type' => 'object' ],
+				'next_step'          => [ 'type' => 'object' ],
+				'cache_purge'        => [ 'type' => 'object' ],
 				'preview'            => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 			],
 		];
@@ -180,36 +185,72 @@ final class ApplyTemplate extends AbilityKernel {
 					$created     = true;
 				}
 
-				$snapshot_id = Backup::snapshot_post( $template_id );
-				if ( ! ElementorData::write( $template_id, $tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor template data.', 'stonewright' ) );
-				}
-				if ( ! TemplateStore::set_conditions( $template_id, $conditions ) ) {
-					return $this->error(
-						'write_failed',
-						__( 'The template was saved, but its display conditions were not stored as requested.', 'stonewright' ),
-						[ 'status' => 500, 'template_id' => $template_id, 'snapshot_id' => $snapshot_id ]
-					);
+				// The lease is taken before the stored tree is read, so no other writer changes the template between the read and the write.
+				$result = PostWriteLock::with_lease(
+					$template_id,
+					'apply-template',
+					fn ( string $lock_owner ) => $this->store( $args, $template_id, $created, $template_type, $mode, $rendered, $conditions, $diagnostics, $lock_owner )
+				);
+				if ( $result instanceof \WP_Error && $created ) {
+					// A template this call created and could not finish is not left behind as an empty published template.
+					TemplateStore::discard( $template_id );
 				}
 
-				return self::response(
-					true,
-					$created,
-					false,
-					$template_id,
-					$template_type,
-					$snapshot_id,
-					$tree,
-					self::serialise_conditions_for_response( $conditions ),
-					$diagnostics,
-					self::verify_payload( (string) ( $args['verify_url'] ?? '' ), $template_id ),
-					self::repair_hints( $template_type, $conditions, true ),
-					[]
-				);
+				return $result;
 			}
 		);
 	}
 
+	/**
+	 * Snapshots, writes the tree and the display rules of the template, and builds the response.
+	 *
+	 * @param array<string, mixed>             $args
+	 * @param array<int, array<string, mixed>> $rendered
+	 * @param array<int, mixed>                $conditions
+	 * @param array<int, mixed>                $diagnostics
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private function store( array $args, int $template_id, bool $created, string $template_type, string $mode, array $rendered, array $conditions, array $diagnostics, string $lock_owner ): array|\WP_Error {
+		$snapshot_id = Backup::snapshot_post( $template_id );
+		if ( '' === $snapshot_id ) {
+			return $this->backup_failed_error();
+		}
+
+		$tree = $created ? $rendered : self::merge_tree( ElementorData::read( $template_id ), $rendered, $mode );
+		if ( ! ElementorData::write( $template_id, $tree, [ 'lock_owner' => $lock_owner ] ) ) {
+			return ElementorData::write_error_for_ability();
+		}
+		if ( ! TemplateStore::set_conditions( $template_id, $conditions ) ) {
+			return $this->error(
+				'write_failed',
+				__( 'The template was saved, but its display conditions were not stored as requested.', 'stonewright' ),
+				[ 'status' => 500, 'template_id' => $template_id, 'snapshot_id' => $snapshot_id ]
+			);
+		}
+
+		$response                = self::response(
+			true,
+			$created,
+			false,
+			$template_id,
+			$template_type,
+			$snapshot_id,
+			$tree,
+			self::serialise_conditions_for_response( $conditions ),
+			$diagnostics,
+			self::verify_payload( (string) ( $args['verify_url'] ?? '' ), $template_id ),
+			self::repair_hints( $template_type, $conditions, true ),
+			[]
+		);
+		$response['next_step']   = [
+			'tool'    => 'stonewright/elementor-css-regenerate',
+			'post_id' => $template_id,
+			'why'     => 'The template is stored; regenerate its CSS so the front end uses it.',
+		];
+		$response['cache_purge'] = PageCachePurger::purge_quietly( $template_id );
+
+		return $response;
+	}
 	/**
 	 * @param array<string, mixed> $args
 	 */
@@ -225,7 +266,8 @@ final class ApplyTemplate extends AbilityKernel {
 	 */
 	private static function merge_tree( array $existing, array $rendered, string $mode ): array {
 		if ( 'append' === $mode ) {
-			return array_merge( $existing, $rendered );
+			// The renderer derives ids from the position in the spec, so a second apply repeats the first one's ids.
+			return array_merge( $existing, BuildPageFromSpec::with_unused_ids( $rendered, $existing ) );
 		}
 		if ( 'replace_section' !== $mode ) {
 			return $rendered;
@@ -245,11 +287,14 @@ final class ApplyTemplate extends AbilityKernel {
 		foreach ( $existing as $index => $section ) {
 			$id = isset( $section['id'] ) ? (string) $section['id'] : '';
 			if ( '' !== $id && isset( $rendered_by_id[ $id ] ) ) {
-				$existing[ $index ] = $rendered_by_id[ $id ];
+				$others = $existing;
+				unset( $others[ $index ] );
+				// The replacement keeps the id of the section it replaces; its other elements take a new id where another section uses theirs.
+				$existing[ $index ] = BuildPageFromSpec::with_unused_ids( [ $rendered_by_id[ $id ] ], array_values( $others ) )[0];
 				unset( $rendered_by_id[ $id ] );
 			}
 		}
-		return array_merge( $existing, array_values( $rendered_by_id ) );
+		return array_merge( $existing, BuildPageFromSpec::with_unused_ids( array_values( $rendered_by_id ), $existing ) );
 	}
 
 	/**
