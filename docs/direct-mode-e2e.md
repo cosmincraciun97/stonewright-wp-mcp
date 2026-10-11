@@ -111,8 +111,10 @@ site, so its protections are the companion's own:
   tokens, OAuth grants, typed Elementor V3 and V4 engines, Design Direction and
   site Context stay Plugin mode. Hard rules in the native registry are enforced
   only where the plugin runs.
-- **`task-start` `write_mode`** is reported from the environment variable only,
-  so a `.test` or `.local` site shows `confirm` although its tools run `on`.
+- **`task-start` `write_mode`** is the mode the site's tools use: the
+  environment variable when set, otherwise `on` for localhost, `.local` and
+  `.test` hosts and `confirm` for the rest. `elementor-data-update` is the one
+  exception, as described under Write mode.
 
 ## Live run log
 

@@ -292,8 +292,11 @@ final class SmokeTest extends TestCase {
 	}
 
 	/**
-	 * Hard rule 6: Companion never writes to WordPress.
-	 * companion/src must not contain direct wp-json REST write method calls.
+	 * Hard rule 6: In Plugin mode the companion never writes to WordPress.
+	 * Direct mode is the exception (AGENTS.md rule 7): with no plugin installed,
+	 * its typed tools write through core REST. The write calls are made through
+	 * the shared REST client, so no companion file pairs a wp-json reference with
+	 * an inline HTTP write method.
 	 */
 	public function test_hard_rule_6_companion_no_wp_rest_writes(): void {
 		$companion_src = dirname( __DIR__, 3 ) . '/companion/src';
