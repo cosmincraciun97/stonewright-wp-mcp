@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ContentModel;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Acf\AcfRuntime;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Loop\LoopIntentCompiler;
@@ -31,7 +32,7 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates a CPT UI-style post type config, ACF field contract, repeated CPT rows, optional Elementor loop-item template, and Loop Grid widget settings in one flow.', 'stonewright' );
+		return __( 'Creates a CPT UI-style post type config, ACF field contract, repeated CPT rows, optional Elementor loop-item template, and Loop Grid widget settings in one flow. The ACF fields are saved through ACF\'s own import, and a failed step is reported with what was already applied. The post type is registered again on later requests only when the CPT UI plugin is active, and the answer says whether it is. Needs manage_options and edit_theme_options.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -48,7 +49,7 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 					'type'                 => 'object',
 					'additionalProperties' => true,
 					'properties'           => [
-						'slug'     => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 32 ],
+						'slug'     => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => ReservedNames::POST_TYPE_MAX_LENGTH ],
 						'singular' => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 80 ],
 						'plural'   => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 80 ],
 						'public'   => [ 'type' => 'boolean', 'default' => true ],
@@ -115,8 +116,14 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 		];
 	}
 
+	/**
+	 * The flow writes the cptui_post_types and stonewright_acf_field_groups options (manage_options), creates an
+	 * ACF group, and creates an Elementor loop template (edit_theme_options).
+	 *
+	 * @stonewright-cap manage_options + edit_theme_options
+	 */
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::manage_options() && Permissions::edit_theme_options();
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -127,6 +134,11 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 				$slug      = sanitize_key( (string) ( $post_type['slug'] ?? '' ) );
 				if ( '' === $slug ) {
 					return $this->error( 'invalid_post_type_slug', __( 'post_type.slug is required.', 'stonewright' ), [ 'status' => 400 ] );
+				}
+				// The same name and length rules as cpt-register, checked before anything is written, a dry run included.
+				$invalid_slug = ReservedNames::post_type_error( $slug, null !== CptUiStore::existing( CptUiStore::POST_TYPES, $slug ) );
+				if ( null !== $invalid_slug ) {
+					return $invalid_slug;
 				}
 
 				$singular = sanitize_text_field( (string) ( $post_type['singular'] ?? $slug ) );
@@ -171,9 +183,40 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 					);
 				}
 
-				self::persist_cptui_post_type( $slug, $post_type_payload );
-				self::register_runtime_post_type( $slug, $singular, $plural, $post_type_payload );
-				self::persist_acf_contract( $slug, $acf_payload );
+				$post_type_steps = static fn ( string $post_type_status, string $acf_status ): array => [
+					[ 'id' => 'post_type', 'status' => $post_type_status ],
+					[ 'id' => 'acf', 'status' => $acf_status ],
+					[ 'id' => 'content', 'status' => 'not_started' ],
+					[ 'id' => 'loop_template', 'status' => 'not_started' ],
+					[ 'id' => 'loop_grid', 'status' => 'not_started' ],
+				];
+
+				$existing_entry = CptUiStore::existing( CptUiStore::POST_TYPES, $slug );
+				$stored_entry   = self::cptui_entry( $post_type_payload, $post_type, $existing_entry );
+				$registered     = self::register_runtime_post_type( $slug, $singular, $plural, array_replace( (array) $existing_entry, $stored_entry ) );
+				if ( $registered instanceof \WP_Error ) {
+					return self::wrap_child_error( $registered, 'post_type', $post_type_steps( 'failed', 'not_started' ), 'not_required' );
+				}
+				if ( ! CptUiStore::save( CptUiStore::POST_TYPES, $slug, $stored_entry ) ) {
+					return self::wrap_child_error(
+						new \WP_Error( 'stonewright_cpt_store_failed', __( 'The post type was registered for this request, but its entry could not be stored.', 'stonewright' ), [ 'status' => 500 ] ),
+						'post_type',
+						$post_type_steps( 'failed', 'not_started' ),
+						'not_required'
+					);
+				}
+
+				$acf_saved = self::persist_acf_contract( $slug, $acf_payload );
+				if ( $acf_saved instanceof \WP_Error ) {
+					return self::wrap_child_error(
+						$acf_saved,
+						'acf',
+						$post_type_steps( 'applied', 'failed' ),
+						'not_attempted',
+						self::created_resources( $slug, [], null, null )
+					);
+				}
+				$acf_payload['saved'] = $acf_saved;
 
 				$upsert_args = [
 					'post_type' => $slug,
@@ -262,7 +305,14 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 				return self::response(
 					true,
 					false,
-					array_merge( $post_type_payload, [ 'registered_runtime' => true ] ),
+					array_merge(
+						$post_type_payload,
+						[
+							'registered_runtime' => true,
+							'persistent'         => CptUiStore::is_active(),
+							'persistence'        => CptUiStore::persistence_note(),
+						]
+					),
 					$acf_payload,
 					$content,
 					$loop_template,
@@ -355,34 +405,47 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 	}
 
 	/**
-	 * @param array<string, mixed> $payload
+	 * The CPT UI entry to store: the payload without the keys that are not CPT UI settings. An existing entry
+	 * keeps the settings the call did not name, so only the sent ones are merged into it.
+	 *
+	 * @param array<string, mixed>      $payload
+	 * @param array<string, mixed>      $sent     The post_type arguments of the call.
+	 * @param array<string, mixed>|null $existing
+	 * @return array<string, mixed>
 	 */
-	private static function persist_cptui_post_type( string $slug, array $payload ): void {
-		$config = get_option( 'cptui_post_types', [] );
-		if ( ! is_array( $config ) ) {
-			$config = [];
+	private static function cptui_entry( array $payload, array $sent, ?array $existing ): array {
+		$entry = array_diff_key( $payload, [ 'slug' => true, 'registered_runtime' => true ] );
+		if ( null !== $existing ) {
+			foreach ( [ 'public', 'has_archive', 'supports' ] as $setting ) {
+				if ( ! array_key_exists( $setting, $sent ) ) {
+					unset( $entry[ $setting ] );
+				}
+			}
 		}
-		$config[ $slug ] = $payload;
-		update_option( 'cptui_post_types', $config, false );
+		return $entry;
 	}
 
 	/**
-	 * @param array<string, mixed> $payload
+	 * @param array<string, mixed> $entry The effective CPT UI entry.
+	 * @return true|\WP_Error
 	 */
-	private static function register_runtime_post_type( string $slug, string $singular, string $plural, array $payload ): void {
+	private static function register_runtime_post_type( string $slug, string $singular, string $plural, array $entry ): bool|\WP_Error {
 		$args = [
 			'labels'       => [
 				'name'          => $plural,
 				'singular_name' => $singular,
 			],
-			'public'       => (bool) $payload['public'],
+			'public'       => CptUiStore::to_bool( $entry['public'] ?? null, true ),
 			'show_in_rest' => true,
-			'has_archive'  => (bool) $payload['has_archive'],
-			'supports'     => (array) $payload['supports'],
+			'has_archive'  => CptUiStore::to_bool( $entry['has_archive'] ?? null, true ),
+			'supports'     => array_values( array_map( 'strval', (array) ( $entry['supports'] ?? [ 'title', 'editor' ] ) ) ),
 		];
 
 		if ( function_exists( 'register_post_type' ) ) {
-			register_post_type( $slug, $args );
+			$registered = register_post_type( $slug, $args );
+			if ( is_wp_error( $registered ) ) {
+				return $registered;
+			}
 		}
 
 		if ( isset( $GLOBALS['stonewright_test_post_types'] ) && is_array( $GLOBALS['stonewright_test_post_types'] ) ) {
@@ -394,27 +457,45 @@ final class CptAcfLoopGridFlow extends AbilityKernel {
 				],
 			];
 		}
+
+		return true;
 	}
 
 	/**
+	 * Saves the field group and its fields through the ACF import, which is what stores the fields
+	 * (acf_update_field_group stores only the group), and keeps the Stonewright contract mirror.
+	 *
 	 * @param array<string, mixed> $payload
+	 * @return string|\WP_Error 'acf' when ACF saved the group, 'contract_only' when ACF is not active and only the contract was stored.
 	 */
-	private static function persist_acf_contract( string $slug, array $payload ): void {
-		if ( function_exists( 'acf_update_field_group' ) ) {
-			acf_update_field_group(
+	private static function persist_acf_contract( string $slug, array $payload ): string|\WP_Error {
+		$saved = 'contract_only';
+		if ( AcfRuntime::is_active() ) {
+			$fields = [];
+			foreach ( (array) $payload['fields'] as $field ) {
+				$field['required'] = ! empty( $field['required'] ) ? 1 : 0;
+				$fields[]          = $field;
+			}
+			$imported = AcfRuntime::import_field_group(
 				[
 					'key'      => $payload['field_group_key'],
 					'title'    => $payload['title'],
-					'fields'   => $payload['fields'],
+					'fields'   => $fields,
 					'location' => $payload['location'],
+					'active'   => true,
 				]
 			);
+			if ( $imported instanceof \WP_Error ) {
+				return $imported;
+			}
+			$saved = 'acf';
 		}
 
 		$groups          = get_option( 'stonewright_acf_field_groups', [] );
 		$groups          = is_array( $groups ) ? $groups : [];
 		$groups[ $slug ] = $payload;
 		update_option( 'stonewright_acf_field_groups', $groups, false );
+		return $saved;
 	}
 
 	/**

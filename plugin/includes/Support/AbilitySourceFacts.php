@@ -122,7 +122,7 @@ final class AbilitySourceFacts {
 		'/\bdownload_url\s*\(/',
 		'/\bwp_oembed_get\s*\(/',
 		'/\bmedia_sideload_image\s*\(/',
-		'/\b(?:AssetSideloader|AssetReferences|StockImageClient)\b/',
+		'/\b(?:AssetSideloader|AssetReferences|StockImageClient|RemoteDownload)\b/',
 		'/\bnew\s+UploadMedia\b/',
 	];
 

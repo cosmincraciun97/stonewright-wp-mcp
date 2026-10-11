@@ -13,6 +13,9 @@ use Stonewright\WpMcp\Security\Permissions;
  */
 final class ListMedia extends AbilityKernel {
 
+	/** Most matching ids a search reads before it pages them. Ids are cheap; this only bounds a very large library. */
+	private const SEARCH_ID_LIMIT = 2000;
+
 	public function name(): string {
 		return 'stonewright/media-list';
 	}
@@ -22,7 +25,7 @@ final class ListMedia extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Searches existing media by title, alt text, caption, mime, and filename before uploading duplicates.', 'stonewright' );
+		return __( 'Searches the whole media library by title, caption, description, alt text, and file name, with a mime filter, before uploading duplicates.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -38,7 +41,7 @@ final class ListMedia extends AbilityKernel {
 					'type'        => 'string',
 					'default'     => '',
 					'maxLength'   => 120,
-					'description' => 'Optional text matched against attachment title, filename slug, caption, description, and alt text.',
+					'description' => 'Optional text matched against attachment title, caption, description, alt text, and file name, across the whole library.',
 				],
 				'mime_type' => [
 					'type'        => 'string',
@@ -103,35 +106,52 @@ final class ListMedia extends AbilityKernel {
 		$mime_type = isset( $args['mime_type'] ) && is_string( $args['mime_type'] ) ? trim( sanitize_text_field( $args['mime_type'] ) ) : 'image';
 		$per_page  = isset( $args['per_page'] ) ? max( 1, min( 50, (int) $args['per_page'] ) ) : 20;
 		$page      = isset( $args['page'] ) ? max( 1, min( 100, (int) $args['page'] ) ) : 1;
-		$candidate_limit = '' === $search ? $per_page : 200;
+		$base = [
+			'post_type'      => 'attachment',
+			'post_status'    => 'inherit',
+			'post_mime_type' => '' !== $mime_type ? $mime_type : null,
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		];
 
-		$posts = get_posts(
-			[
-				'post_type'      => 'attachment',
-				'post_status'    => 'inherit',
-				'post_mime_type' => '' !== $mime_type ? $mime_type : null,
-				'posts_per_page' => $candidate_limit,
-				'offset'         => '' === $search ? ( $page - 1 ) * $per_page : 0,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-			]
-		);
-
-		$items = [];
-		foreach ( $posts as $post ) {
-			if ( ! is_object( $post ) ) {
-				continue;
-			}
-
-			$row = self::attachment_row( $post );
-			if ( '' !== $search && ! self::matches_search( $row, $post, $search ) ) {
-				continue;
-			}
-			$items[] = $row;
+		$page_args = $base + [
+			'posts_per_page' => $per_page,
+			'offset'         => ( $page - 1 ) * $per_page,
+		];
+		if ( '' !== $search ) {
+			// Look at the whole library, not at its newest items: WordPress search covers the title, caption and description,
+			// and a meta query covers the alt text and the file name. The matching ids are joined, then the page is read
+			// from them in date order.
+			$ids = array_values(
+				array_unique(
+					array_merge(
+						array_map( 'intval', (array) get_posts( $base + [ 's' => $search, 'fields' => 'ids', 'posts_per_page' => self::SEARCH_ID_LIMIT, 'no_found_rows' => true ] ) ),
+						array_map(
+							'intval',
+							(array) get_posts(
+								$base + [
+									'fields'         => 'ids',
+									'posts_per_page' => self::SEARCH_ID_LIMIT,
+									'no_found_rows'  => true,
+									'meta_query'     => [
+										'relation' => 'OR',
+										[ 'key' => '_wp_attachment_image_alt', 'value' => $search, 'compare' => 'LIKE' ],
+										[ 'key' => '_wp_attached_file', 'value' => $search, 'compare' => 'LIKE' ],
+									],
+								]
+							)
+						)
+					)
+				)
+			);
+			$page_args['post__in'] = [] === $ids ? [ 0 ] : $ids;
 		}
 
-		if ( '' !== $search ) {
-			$items = array_slice( $items, ( $page - 1 ) * $per_page, $per_page );
+		$items = [];
+		foreach ( get_posts( $page_args ) as $post ) {
+			if ( is_object( $post ) ) {
+				$items[] = self::attachment_row( $post );
+			}
 		}
 
 		return [
@@ -165,26 +185,5 @@ final class ListMedia extends AbilityKernel {
 			'width'   => is_array( $meta ) && isset( $meta['width'] ) ? (int) $meta['width'] : 0,
 			'height'  => is_array( $meta ) && isset( $meta['height'] ) ? (int) $meta['height'] : 0,
 		];
-	}
-
-	/**
-	 * @param array<string, mixed> $row
-	 */
-	private static function matches_search( array $row, object $post, string $search ): bool {
-		$needle   = strtolower( $search );
-		$haystack = strtolower(
-			implode(
-				' ',
-				[
-					(string) $row['title'],
-					(string) $row['alt'],
-					(string) $row['caption'],
-					(string) ( $post->post_name ?? '' ),
-					(string) ( $post->post_content ?? '' ),
-				]
-			)
-		);
-
-		return str_contains( $haystack, $needle );
 	}
 }

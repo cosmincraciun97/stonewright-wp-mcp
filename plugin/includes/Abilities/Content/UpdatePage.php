@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Content;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\CustomCode\ContentSurfacePolicy;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
@@ -42,6 +43,7 @@ final class UpdatePage extends AbilityKernel {
 				'content' => [ 'type' => 'string' ],
 				'excerpt' => [ 'type' => 'string' ],
 				'status'  => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ] ],
+				'date'    => PostDate::schema(),
 				'template' => [
 					'type'        => 'string',
 					'description' => 'Optional page template slug, e.g. elementor_canvas to remove theme header/footer.',
@@ -90,9 +92,14 @@ final class UpdatePage extends AbilityKernel {
 			);
 		}
 
-		$refusal = self::refuse_revision( $post );
+		$refusal = PostTypeGuard::revision_error( $post );
 		if ( null !== $refusal ) {
 			return $refusal;
+		}
+
+		$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+		if ( $blocked instanceof \WP_Error ) {
+			return $blocked;
 		}
 
 		if ( ! Permissions::edit_post( $id ) ) {
@@ -128,17 +135,29 @@ final class UpdatePage extends AbilityKernel {
 				if ( ! $post ) {
 					return $this->error( 'not_found', __( 'Page not found.', 'stonewright' ) );
 				}
-				$refusal = self::refuse_revision( $post );
+				$refusal = PostTypeGuard::revision_error( $post );
 				if ( null !== $refusal ) {
 					return $refusal;
+				}
+				$blocked = ContentSurfacePolicy::assert_generic_write_allowed( (string) $post->post_type );
+				if ( $blocked instanceof \WP_Error ) {
+					return $blocked;
+				}
+
+				$date = PostDate::resolve( $args['date'] ?? null, (string) ( $args['status'] ?? '' ), $post );
+				if ( is_wp_error( $date ) ) {
+					return $date;
 				}
 
 				if ( ! empty( $args['meta'] ) && is_array( $args['meta'] ) ) {
 					RescueGuard::note_post_meta_keys( $id, array_map( 'sanitize_key', array_map( 'strval', array_keys( $args['meta'] ) ) ) );
 				}
 				$snapshot_id = Backup::snapshot_post( $id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
-				$payload = [ 'ID' => $id ];
+				$payload = [ 'ID' => $id ] + $date;
 				if ( isset( $args['title'] ) ) {
 					$payload['post_title'] = sanitize_text_field( (string) $args['title'] );
 				}
@@ -159,10 +178,9 @@ final class UpdatePage extends AbilityKernel {
 
 				$meta_skipped = [];
 				if ( ! empty( $args['template'] ) ) {
+					// The key is protected, so the generic meta gate would refuse it; it is written directly from the allowlist.
 					$template_key = '_wp_page_template';
-					if ( Permissions::can_edit_post_meta( $id, $template_key ) ) {
-						update_post_meta( $id, $template_key, sanitize_text_field( (string) $args['template'] ) );
-					} else {
+					if ( ! ProtectedMeta::set( $id, $template_key, sanitize_text_field( (string) $args['template'] ) ) ) {
 						$meta_skipped[] = $template_key;
 					}
 				}
@@ -187,21 +205,6 @@ final class UpdatePage extends AbilityKernel {
 					'meta_skipped' => $meta_skipped,
 				];
 			}
-		);
-	}
-
-	/**
-	 * A revision is a saved copy of a page, not a page. Writing to one changes nothing a visitor can see
-	 * and leaves a change that cannot be checked, so the id of the page itself is required.
-	 */
-	private static function refuse_revision( object $post ): ?\WP_Error {
-		if ( 'revision' !== (string) ( $post->post_type ?? '' ) ) {
-			return null;
-		}
-		return new \WP_Error(
-			'stonewright_invalid_post_type',
-			__( 'This id is a revision, not a page. Pass the id of the page itself.', 'stonewright' ),
-			[ 'status' => 400 ]
 		);
 	}
 }

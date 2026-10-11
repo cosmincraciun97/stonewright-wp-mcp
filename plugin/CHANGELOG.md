@@ -112,6 +112,23 @@
   list`, `diff <change>` and `rollback <change>` (`--dry-run`, `--force-drift`,
   `--yes`, `--issue-token`) do the same from the command line, with the same
   rules; the command line is not an administrator, so it cannot approve code.
+- Add an optional `date` to `content-create-page`, `content-create-post`,
+  `content-update-page`, `content-update-post`, `content-bulk-create` and, per
+  item, `content-bulk-upsert-posts`. It is an ISO 8601 date or date-time, read
+  in the site timezone unless it carries an offset, and a value that cannot be
+  read is refused. The status `future` now needs a date that is still ahead (or,
+  on an update, a post that already has one) and is refused otherwise, where it
+  used to publish the post at once.
+- Add `trashed` to the answer of `comment-delete` and `post_id`, `parent` and
+  `status` to the answer of `comment-create`. Add `created`, `updated`,
+  `persistent` and `persistence` to `cpt-register` and `taxonomy-register`, and
+  `write_supported` to `seo-meta-get` and `seo-meta-update`. Add
+  `post_type.persistent`, `post_type.persistence` and `acf.saved` to
+  `content-model-loop-grid-flow`, and `slug_adjusted` to `wc-term-save` when
+  WordPress made the slug unique.
+- Add a size cap of 25 MB to `media-upload`, `media-upload-batch` and
+  `stock-image-import` (the `stonewright_media_max_bytes` filter changes it), and
+  check edit access to the parent post when a `parent_post_id` is given.
 
 ### Changed
 
@@ -131,6 +148,48 @@
   instructions, the workflow preflight call sequence, the specialization and
   context hints, the Elementor capabilities summary and the bundled skills and
   docs name it for `full` only. See the companion changelog.
+- `content-model-loop-grid-flow` now needs `manage_options` and
+  `edit_theme_options`. It writes the `cptui_post_types` and
+  `stonewright_acf_field_groups` options, creates an ACF field group and an
+  Elementor loop template, and `edit_posts` was not enough for that.
+- `comment-create` now needs edit access to the target post (`edit_post`), which
+  is the capability core checks when an editor replies in wp-admin, instead of
+  `edit_posts` for every post. The post must exist, must not be a draft, pending
+  or trashed post, and must take comments (a user who can moderate comments may
+  reply on a closed post, as in wp-admin). A parent comment must belong to the
+  same post.
+- `media-set-alt` now needs a confirmation token in production-safe mode, like
+  the other writes.
+- Comment status is one vocabulary: `comment-get`, `comment-list` and
+  `comment-update` return `approve`, `hold`, `spam` or `trash`, not core's `1`
+  and `0`. `comment-list` takes a status from that list or `all`, and its
+  `total` counts every match, not only the page. `comment-delete` moves a live
+  comment to the trash (`trashed: true`, `deleted: false`), deletes for good only
+  with `force` (`deleted: true`), and refuses a comment that is already in the
+  trash or spam unless `force` is set, where core would have deleted it.
+  `content-bulk-create` now returns `ok`.
+- `content-create-post`, `content-bulk-create` and `content-bulk-upsert-posts`
+  refuse attachments, revisions, menu items and the other internal post types,
+  and a post type that is not registered. `content-update-post` refuses the id of
+  a revision, as `content-update-page` already did.
+- `cpt-register`, `taxonomy-register` and the post type of
+  `content-model-loop-grid-flow` refuse a slug that is too long (20 characters
+  for a post type, 32 for a taxonomy), a name WordPress reserves, and a name that
+  another plugin or the theme registered. They check what `register_post_type`
+  and `register_taxonomy` return, store nothing when WordPress refuses, and
+  merge into an existing CPT UI entry instead of replacing it: a setting the call
+  does not send keeps its stored value. Their descriptions and answers now say
+  that the entry is registered again on later requests only when the CPT UI
+  plugin is active.
+- `seo-meta-get` and `seo-meta-update` read and write "do not index" in the shape
+  each plugin uses: an array of robots values for Rank Math, `yes` for SEOPress,
+  and the existing values for Yoast. All in One SEO v4 keeps its data in its own
+  table, so it is read and written through its post model when that is available;
+  without it `noindex` is `null`, a write returns
+  `stonewright_seo_write_unsupported` and nothing is written. A `noindex` that
+  does not read back as sent is an error.
+- `media-list` searches the whole library (title, caption, description, alt text
+  and file name) instead of the newest 200 items.
 
 ### Fixed
 
@@ -182,6 +241,41 @@
   arguments or another ability, and a missing token are still refused, the human
   `custom_code_grant` is still checked and single-use, and a dry run of these
   providers needs no token because it writes nothing.
+- Fix `media-upload-batch` in production-safe mode: every item failed because
+  each upload asked for a confirmation token again. The token of the batch now
+  covers its items, which are still recorded one by one in the audit log and the
+  change history.
+- Fix `content-bulk-upsert-posts` matching a post of another type by slug (an
+  attachment with the same slug was turned into a post). It also now checks every
+  item before it writes any, so a bad item no longer leaves a partial write.
+- Fix `comment-create` storing the text unfiltered. It now goes through core's
+  comment pipeline (`wp_new_comment`), which filters the content as core does for
+  a user without `unfiltered_html`, runs the duplicate and flood checks and
+  decides the status.
+- Fix `comment-update` ignoring failures: it now checks what `wp_update_comment`
+  and `wp_set_comment_status` return, slashes the content as core expects, and
+  returns the status that was stored instead of the one that was asked for.
+- Fix `content-update-page` skipping the custom-code check that
+  `content-update-post` applies, and `content-update-page`, `content-update-post`
+  and `seo-meta-update` writing when the snapshot could not be stored; they now
+  stop with `stonewright_backup_failed`.
+- Fix `content-duplicate-page` and the `template` field of `content-create-page`
+  and `content-update-page` losing protected meta. A copy now keeps
+  `_elementor_data` and the other Elementor keys, `_wp_page_template` and
+  `_thumbnail_id` from a fixed list, written after the edit check, and values
+  keep their backslashes.
+- Fix `acf-field-group-save` answering `ok` without saving when ACF cannot import
+  a field group. It now returns `stonewright_acf_import_unavailable`, reads the
+  group back after the import, and records the field group and field posts in the
+  change history. `content-model-loop-grid-flow` saves its fields through the same
+  import (`acf_update_field_group` stored only the group) and reports a failed
+  ACF step as a failed step, with nothing written after it.
+- Fix `wc-term-save` reporting a failed save when WordPress stores the name with
+  entities (`Tom &amp; Jerry`) or makes the slug unique (`stone-2`); a retry could
+  then create a duplicate term.
+- Fix `stock-image-import` rejecting image URLs that have no file extension. It
+  downloads the file, reads its type, and sideloads it with the type's extension;
+  a download that is not a JPEG, PNG, GIF, WebP or AVIF image is refused.
 
 ### Security
 
@@ -323,6 +417,8 @@
 - Document in the Design Spec reference the two versions the validator accepts,
   `1.0.0` and `2.0.0`, what a 2.0.0 spec adds, and the native policy and motion
   rules the validator enforces.
+- Correct `docs/abilities.md`: Search is WordPress content search and oEmbed
+  resolution, not OpenSearch, and Comments lists get and create.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

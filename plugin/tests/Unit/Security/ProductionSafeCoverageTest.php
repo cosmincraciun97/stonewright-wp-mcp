@@ -34,7 +34,6 @@ final class ProductionSafeCoverageTest extends TestCase {
 	 * @var array<string, string>
 	 */
 	private const LOW_RISK_ALLOWLIST = [
-		'stonewright/media-set-alt' => 'Updates attachment alt meta only; no post/user/menu/template/skill/memory/plugin/settings mutation.',
 		'stonewright/site-backup-page' => 'Creates a restore snapshot; does not change live post content.',
 		'stonewright/elementor-v3-backup-page' => 'Creates an Elementor restore snapshot; does not change live post content.',
 	];

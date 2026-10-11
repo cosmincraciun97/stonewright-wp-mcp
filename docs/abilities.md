@@ -42,7 +42,7 @@ matrix after changing the registry.
 | Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. The Elementor articles live in a private folder under uploads that `elementor-knowledge-refresh` fills; the readers return nothing until the first refresh. |
 | Expertise | 4 | Expertise pack discovery and reads. |
 | Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
-| Comments | 5 | Comment list, update, moderation, and deletion. |
+| Comments | 5 | Comment reads (get, list), creation through the core comment pipeline, update and moderation, and deletion (trash or permanent). |
 | Users | 6 | User and application-password administration. |
 | Widgets | 4 | WordPress widget-area reads and writes. |
 | Settings | 2 | Site settings reads and guarded updates. |
@@ -51,7 +51,7 @@ matrix after changing the registry.
 | Custom Code | 1 | Typed dry-run then human-approval apply for WPCode / Code Snippets / equivalent providers. |
 | Plugins Manage | 3 | Plugin install, activate, and deactivate operations. |
 | Revisions | 3 | Revision listing, inspection, and restore. |
-| Search | 2 | WordPress search and OpenSearch discovery. |
+| Search | 2 | WordPress content search and oEmbed URL resolution. |
 | WooCommerce | 17 | Product, variation, term, catalog-audit, order, and sales operations. |
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |

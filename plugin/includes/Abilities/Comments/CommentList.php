@@ -35,7 +35,7 @@ final class CommentList extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'post_id'  => [ 'type' => 'integer', 'minimum' => 1 ],
-				'status'   => [ 'type' => 'string' ],
+				'status'   => [ 'type' => 'string', 'enum' => [ 'approve', 'hold', 'spam', 'trash', 'all' ], 'description' => 'Moderation status to list. Without it, approved and pending comments are listed; spam and trash are listed only when asked for by name.' ],
 				'search'   => [ 'type' => 'string' ],
 				'per_page' => [ 'type' => 'integer', 'minimum' => 1, 'maximum' => 50, 'default' => 20 ],
 				'page'     => [ 'type' => 'integer', 'minimum' => 1, 'default' => 1 ],
@@ -49,7 +49,7 @@ final class CommentList extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'items' => [ 'type' => 'array' ],
-				'total' => [ 'type' => 'integer' ],
+				'total' => [ 'type' => 'integer', 'description' => 'Number of comments that match the filters, across all pages.' ],
 			],
 			'required'   => [ 'items', 'total' ],
 		];
@@ -63,33 +63,36 @@ final class CommentList extends AbilityKernel {
 		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
-				$query = [
+				$filters = [];
+				if ( isset( $args['post_id'] ) ) {
+					$filters['post_id'] = (int) $args['post_id'];
+				}
+				if ( isset( $args['status'] ) ) {
+					$filters['status'] = (string) $args['status'];
+				}
+				if ( isset( $args['search'] ) ) {
+					$filters['search'] = (string) $args['search'];
+				}
+				$query    = $filters + [
 					'number' => min( (int) ( $args['per_page'] ?? 20 ), 50 ),
 					'paged'  => max( 1, (int) ( $args['page'] ?? 1 ) ),
 				];
-				if ( isset( $args['post_id'] ) ) {
-					$query['post_id'] = (int) $args['post_id'];
-				}
-				if ( isset( $args['status'] ) ) {
-					$query['status'] = (string) $args['status'];
-				}
-				if ( isset( $args['search'] ) ) {
-					$query['search'] = (string) $args['search'];
-				}
 				$comments = get_comments( $query );
+				// The total counts every match, not only this page.
+				$total = get_comments( $filters + [ 'count' => true ] );
 				$items    = [];
 				foreach ( (array) $comments as $c ) {
 					$content = (string) ( $c->comment_content ?? '' );
 					$items[] = [
 						'id'          => (int) $c->comment_ID,
 						'post'        => (int) ( $c->comment_post_ID ?? 0 ),
-						'status'      => (string) ( $c->comment_approved ?? '' ),
+						'status'      => CommentStatus::of( $c ),
 						'author_name' => (string) ( $c->comment_author ?? '' ),
 						'date'        => (string) ( $c->comment_date ?? '' ),
 						'excerpt'     => mb_substr( $content, 0, 200 ),
 					];
 				}
-				return [ 'items' => $items, 'total' => count( $items ) ];
+				return [ 'items' => $items, 'total' => is_int( $total ) ? $total : count( $items ) ];
 			}
 		);
 	}
