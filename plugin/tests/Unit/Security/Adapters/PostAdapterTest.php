@@ -11,7 +11,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Security\Adapters;
 
 use Elementor\Modules\GlobalClasses\Global_Classes_Repository;
+use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
+use Stonewright\WpMcp\Tests\Unit\Elementor\V4\DefaultStylesRepositoryFixture;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Security\ChangeImage;
 use Stonewright\WpMcp\Security\ChangeLedger;
@@ -32,6 +34,7 @@ final class PostAdapterTest extends PostLedgerTestCase {
 	}
 
 	protected function tearDown(): void {
+		DefaultStylesState::use_factory_for_tests( null );
 		unset( $GLOBALS['stonewright_test_seo_plugin'] );
 		parent::tearDown();
 	}
@@ -191,6 +194,54 @@ final class PostAdapterTest extends PostLedgerTestCase {
 		self::assertTrue( $result['ok'], 'Differences: ' . implode( ',', $result['differences'] ) );
 		self::assertNotNull( Global_Classes_Repository::make()->get( 'cls_contract' ) );
 		Global_Classes_Repository::reset();
+	}
+
+	public function test_a_kit_image_holds_the_default_styles_of_the_repository_and_a_restore_brings_them_back(): void {
+		$repository = new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [ [ 'meta' => [ 'breakpoint' => 'desktop', 'state' => null ], 'props' => [ 'color' => [ '$$type' => 'color', 'value' => '#111' ] ] ] ] ] ] );
+		DefaultStylesState::use_factory_for_tests( static fn(): object => $repository );
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = self::POST;
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+		$image = PostAdapter::image( self::POST );
+
+		self::assertSame( [ 'h1' ], array_keys( $image['default_styles']['items'] ) );
+
+		$repository->put( 'h1', [ 'type' => 'class', 'variants' => [] ] );
+		$repository->put( 'h2', [ 'type' => 'class', 'variants' => [] ] );
+		self::assertNotSame( ChangeImage::hash_of( $image, 'post', '41' ), ChangeImage::hash_of( PostAdapter::image( self::POST ), 'post', '41' ), 'a default style change is a change of the kit image' );
+
+		$result = PostAdapter::restore( self::POST, $image );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'], 'Differences: ' . implode( ',', $result['differences'] ) );
+		self::assertSame( [ 'h1' ], array_keys( $repository->all( true ) ), 'the style the change added is removed' );
+		self::assertSame( '#111', $repository->all( true )['h1']['variants'][0]['props']['color']['value'] );
+		DefaultStylesState::use_factory_for_tests( null );
+	}
+
+	public function test_a_default_style_restore_the_repository_does_not_confirm_is_a_difference_and_a_skip(): void {
+		$repository = new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [] ] ] );
+		DefaultStylesState::use_factory_for_tests( static fn(): object => $repository );
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = self::POST;
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+		$image = PostAdapter::image( self::POST );
+		DefaultStylesState::use_factory_for_tests( static fn(): object => new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [ 'changed' ] ] ], false ) );
+
+		$result = PostAdapter::restore( self::POST, $image );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['ok'] );
+		self::assertContains( 'default_styles', $result['skipped'] );
+		self::assertContains( 'default_styles', $result['differences'] );
+		DefaultStylesState::use_factory_for_tests( null );
+	}
+
+	public function test_a_template_that_is_not_the_active_kit_has_no_default_styles_in_its_image(): void {
+		DefaultStylesState::use_factory_for_tests( static fn(): object => new DefaultStylesRepositoryFixture( [ 'h1' => [ 'type' => 'class', 'variants' => [] ] ] ) );
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 999;
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+
+		self::assertArrayNotHasKey( 'default_styles', PostAdapter::image( self::POST ) );
+		DefaultStylesState::use_factory_for_tests( null );
 	}
 
 	public function test_a_template_that_is_not_the_active_kit_has_no_global_classes_in_its_image(): void {

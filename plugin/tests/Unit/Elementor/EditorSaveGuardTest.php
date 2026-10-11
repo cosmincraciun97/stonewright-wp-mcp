@@ -6,7 +6,11 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Security\Adapters\PostAdapter;
+use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
+
+require_once dirname( __DIR__, 2 ) . '/Support/post-adapter-wp-stubs.php';
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\EditorSaveGuard
@@ -216,6 +220,110 @@ final class EditorSaveGuardTest extends TestCase {
 			]
 		);
 		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ) );
+	}
+
+	public function test_refreshing_after_a_restore_makes_every_users_baseline_match_the_document(): void {
+		foreach ( [ 1, 2, 3 ] as $user ) {
+			$GLOBALS['stonewright_test_current_user_id'] = $user;
+			EditorSaveGuard::capture( 501 );
+		}
+		$GLOBALS['stonewright_test_posts'][ 502 ] = (object) [ 'ID' => 502, 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'Other', 'post_content' => '', 'post_excerpt' => '', 'meta' => [ '_elementor_data' => '[]' ] ];
+		EditorSaveGuard::capture( 502 );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'restored' => 'yes' ], 'elements' => [] ] ] );
+		self::write_tree( 502, [ [ 'id' => 'other', 'elType' => 'container', 'settings' => [], 'elements' => [] ] ] );
+		$GLOBALS['stonewright_test_current_user_id'] = 1;
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ), 'the restore left every baseline behind' );
+
+		EditorSaveGuard::refresh_all_users( 501 );
+
+		foreach ( [ 1, 2, 3 ] as $user ) {
+			$GLOBALS['stonewright_test_current_user_id'] = $user;
+			self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'user ' . $user );
+		}
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 502 ), 'another post keeps its baseline' );
+		unset( $GLOBALS['stonewright_test_posts'][ 502 ] );
+	}
+
+	public function test_a_refresh_still_catches_a_later_change_and_creates_no_baseline_of_its_own(): void {
+		EditorSaveGuard::refresh_all_users( 501 );
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'], 'no baseline existed, so none is made' );
+
+		EditorSaveGuard::capture( 501 );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'restored' => 'yes' ], 'elements' => [] ] ] );
+		EditorSaveGuard::refresh_all_users( 501 );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'later' => 'change' ], 'elements' => [] ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ), 'a change after the refresh is still a stale editor' );
+	}
+
+	public function test_a_legacy_baseline_of_the_current_user_is_refreshed_too(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'] = [ 'hash' => str_repeat( 'a', 64 ), 'post_status' => 'draft', 'user_id' => 1, 'captured_at' => 1 ];
+
+		EditorSaveGuard::refresh_all_users( 501 );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+	}
+
+	public function test_a_backup_restore_leaves_the_next_native_write_unrefused(): void {
+		EditorSaveGuard::capture( 501 );
+		$snapshot = Backup::snapshot_post( 501, [], false );
+		self::assertNotSame( '', $snapshot );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'native' => 'write' ], 'elements' => [] ] ] );
+		EditorSaveGuard::on_after_save( new class() { public function get_main_id(): int { return 501; } } );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+
+		self::assertTrue( Backup::restore( 501, $snapshot ) );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the restore did not leave a stale baseline behind' );
+	}
+
+	public function test_a_ledger_undo_of_the_post_leaves_the_next_native_write_unrefused(): void {
+		$image = PostAdapter::image( 501 );
+		self::assertIsArray( $image );
+		EditorSaveGuard::capture( 501 );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'native' => 'write' ], 'elements' => [] ] ] );
+		EditorSaveGuard::on_after_save( new class() { public function get_main_id(): int { return 501; } } );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+
+		$result = PostAdapter::restore( 501, $image );
+
+		self::assertIsArray( $result );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the undo did not leave a stale baseline behind' );
+	}
+
+	public function test_a_stonewright_write_refreshes_the_writers_own_baseline_so_a_native_write_right_after_is_not_refused(): void {
+		EditorSaveGuard::capture( 501 );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+		$tree = [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ];
+
+		self::assertTrue( ElementorData::write( 501, $tree, [ 'skip_integrity' => true ] ), ElementorData::last_write_error()?->get_error_message() ?? '' );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the writer is not refused as a stale editor by its own earlier write' );
+	}
+
+	public function test_a_stonewright_write_keeps_the_baseline_of_another_user_who_has_the_editor_open(): void {
+		$GLOBALS['stonewright_test_current_user_id'] = 2;
+		EditorSaveGuard::capture( 501 );
+		$GLOBALS['stonewright_test_current_user_id'] = 1;
+		EditorSaveGuard::capture( 501 );
+		$tree = [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ];
+
+		self::assertTrue( ElementorData::write( 501, $tree, [ 'skip_integrity' => true ] ) );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the writer' );
+		$GLOBALS['stonewright_test_current_user_id'] = 2;
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ), 'the editor of another user is still told the document changed' );
+	}
+
+	public function test_a_failed_stonewright_write_leaves_the_baseline_alone(): void {
+		EditorSaveGuard::capture( 501 );
+		$before = $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'];
+		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+
+		self::assertFalse( ElementorData::write( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ], [ 'skip_integrity' => true ] ) );
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+
+		self::assertSame( $before, $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'] );
 	}
 
 	/** @param array<int, array<string, mixed>> $tree */

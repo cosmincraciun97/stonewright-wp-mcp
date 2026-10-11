@@ -7,11 +7,15 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode
  */
 final class V4UpdateNodeTest extends TestCase {
+	use ElementorKsesSimulation;
 
 	private const POST_V4    = 9101;
 	private const POST_V3    = 9102;
@@ -98,6 +102,7 @@ final class V4UpdateNodeTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		\Stonewright\WpMcp\Elementor\V4\V4FeatureGate::set_atomic_module_present_for_tests( null );
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
@@ -162,6 +167,25 @@ final class V4UpdateNodeTest extends TestCase {
 		// elType / widgetType untouched.
 		self::assertSame( 'widget', $tree[0]['elements'][0]['elType'] );
 		self::assertSame( 'e-heading', $tree[0]['elements'][0]['widgetType'] );
+	}
+
+	public function test_a_user_without_unfiltered_html_gets_the_filtered_node_verified_against_what_was_stored(): void {
+		$this->simulate_elementor_kses();
+
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [ 'title' => [ '$$type' => 'html-v3', 'value' => [ 'content' => [ '$$type' => 'string', 'value' => '<b>Hi</b><script>alert(1)</script>' ], 'children' => [] ] ] ],
+				'mode'       => 'merge',
+				'dry_run'    => false,
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['content_filtered'] );
+		$tree = json_decode( stripslashes( (string) $GLOBALS['stonewright_test_posts'][ self::POST_V4 ]->meta['_elementor_data'] ), true );
+		self::assertSame( '<b>Hi</b>', $tree[0]['elements'][0]['settings']['title']['value']['content']['value'] );
 	}
 
 	public function test_a_write_is_refused_while_another_transaction_holds_the_page_lock(): void {

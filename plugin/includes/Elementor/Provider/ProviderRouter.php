@@ -300,7 +300,7 @@ final class ProviderRouter {
 				'count'             => 0,
 				'samples'           => [],
 				'samples_truncated' => false,
-			];
+			] + self::issue_explanation( $code );
 		}
 
 		++$issues[ $severity ][ $key ]['count'];
@@ -317,6 +317,25 @@ final class ProviderRouter {
 			return;
 		}
 		$issues[ $severity ][ $key ]['samples'][] = $sample;
+	}
+
+	/**
+	 * What a known diagnostic means, so that a long list of one code is not a mystery.
+	 *
+	 * @return array{effect?:string,note?:string}
+	 */
+	private static function issue_explanation( string $code ): array {
+		return match ( $code ) {
+			'descriptor_unavailable' => [
+				'effect' => 'inventory_only',
+				'note'   => 'A prop of these Atomic types could not be turned into a bounded descriptor, so the types are listed in the inventory only and no native write is offered for them. Nothing is broken: the certified native abilities and the Stonewright V4 writers are not affected.',
+			],
+			'schema_unavailable', 'schema_invalid' => [
+				'effect' => 'inventory_only',
+				'note'   => 'An Atomic extension did not expose a usable props schema, so its types are listed in the inventory only and no native write is offered for them. Other Atomic types are not affected.',
+			],
+			default => [],
+		};
 	}
 
 	/** @param array<string,mixed> $issue */

@@ -359,9 +359,11 @@ final class ChangeLedger {
 	 * Settle a recorded change after the write: set its status and, when the write produced one, the
 	 * after image. The after image is written once. A later call can still move the status, for example
 	 * to rolled_back_by. An after image that had a credential masked out of it makes a restorable row not
-	 * restorable (masked_secret), as a masked before image does at record().
+	 * restorable (masked_secret), as a masked before image does at record(). A caller that knows the change left nothing
+	 * to undo (a refused call) can settle the row with restorable false and a restorable_reason; a settle never makes a
+	 * row restorable, and never replaces the reason a row already had.
 	 *
-	 * @param array<string, mixed> $result status (required); after (an image); summary.
+	 * @param array<string, mixed> $result status (required); after (an image); summary; restorable (only false counts); restorable_reason.
 	 * @return array<string, mixed>|\WP_Error The row as get() returns it.
 	 */
 	public static function settle( string $change_id, array $result ): array|\WP_Error {
@@ -401,6 +403,11 @@ final class ChangeLedger {
 				$data['restorable']        = 0;
 				$data['restorable_reason'] = 'masked_secret';
 			}
+		}
+		if ( false === ( $result['restorable'] ?? null ) && $row['restorable'] && ! isset( $data['restorable'] ) ) {
+			$given                     = isset( $result['restorable_reason'] ) && is_scalar( $result['restorable_reason'] ) ? substr( sanitize_key( (string) $result['restorable_reason'] ), 0, 48 ) : '';
+			$data['restorable']        = 0;
+			$data['restorable_reason'] = '' !== $given ? $given : 'not_restorable';
 		}
 
 		global $wpdb;

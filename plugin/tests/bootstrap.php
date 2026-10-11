@@ -1732,7 +1732,9 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 if ( ! function_exists( 'wp_kses_post' ) ) {
 	function wp_kses_post( string $content ): string {
 		$GLOBALS['stonewright_test_wp_kses_post_calls'][] = $content;
-		return $content;
+		// A test that needs kses to strip something installs a callback; without one the content passes through.
+		$callback = $GLOBALS['stonewright_test_wp_kses_post_callback'] ?? null;
+		return is_callable( $callback ) ? (string) $callback( $content ) : $content;
 	}
 }
 

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\KitLiveSettings;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -79,15 +80,15 @@ final class GetKitGlobals extends AbilityKernel {
 		$max_items = isset( $args['max_items'] ) ? max( 1, min( 200, (int) $args['max_items'] ) ) : 80;
 		$post      = get_post( $kit_id );
 
+		// Elementor keeps the global colors and fonts in these four lists and nowhere else. A kit that was never saved has no stored list
+		// but still reports its default system colors and fonts, so the lists are read the way Elementor reports them.
 		$colors = [
-			'system' => self::limit_items( self::normalize_colors( $settings['system_colors'] ?? [] ), $max_items ),
-			'custom' => self::limit_items( self::normalize_colors( $settings['custom_colors'] ?? [] ), $max_items ),
-			'global' => self::limit_items( self::normalize_colors( $settings['global_colors'] ?? [] ), $max_items ),
+			'system' => self::limit_items( self::normalize_colors( self::kit_list( $settings, 'system_colors' ) ), $max_items ),
+			'custom' => self::limit_items( self::normalize_colors( self::kit_list( $settings, 'custom_colors' ) ), $max_items ),
 		];
 		$typography = [
-			'system' => self::limit_items( self::normalize_typography( $settings['system_typography'] ?? [] ), $max_items ),
-			'custom' => self::limit_items( self::normalize_typography( $settings['custom_typography'] ?? [] ), $max_items ),
-			'global' => self::limit_items( self::normalize_typography( $settings['global_typography'] ?? [] ), $max_items ),
+			'system' => self::limit_items( self::normalize_typography( self::kit_list( $settings, 'system_typography' ) ), $max_items ),
+			'custom' => self::limit_items( self::normalize_typography( self::kit_list( $settings, 'custom_typography' ) ), $max_items ),
 		];
 
 		return [
@@ -117,6 +118,20 @@ final class GetKitGlobals extends AbilityKernel {
 				'Run build-page-from-spec after globals are settled so section specs do not repeat raw values unnecessarily.',
 			],
 		];
+	}
+
+	/**
+	 * One list of the kit as Elementor reports it, else as the kit stores it.
+	 *
+	 * @param array<string, mixed> $stored
+	 * @return list<mixed>
+	 */
+	private static function kit_list( array $stored, string $key ): array {
+		$live = KitLiveSettings::get( $key );
+		if ( is_array( $live ) ) {
+			return array_values( $live );
+		}
+		return isset( $stored[ $key ] ) && is_array( $stored[ $key ] ) ? array_values( $stored[ $key ] ) : [];
 	}
 
 	/**

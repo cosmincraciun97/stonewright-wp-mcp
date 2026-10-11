@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\V4;
 
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -26,6 +27,8 @@ final class AtomicWriteReadback {
 	 */
 	public static function verify_tree( int $post_id, array $expected, string $snapshot_id, string $context, ?array $text_scope = null ): array|\WP_Error {
 		$stored = ElementorData::read( $post_id );
+		// For a user without unfiltered_html Elementor stores the tree after its own filtering; the tree that was stored is the one to expect.
+		$expected = EditorKses::filter( $expected );
 		$report = AtomicReadbackVerifier::verify( $expected, $stored, [ 'exact_children' => true, 'root_parent' => '' ] );
 		$wanted = self::root_ids( $expected );
 		foreach ( array_diff( self::root_ids( $stored ), $wanted ) as $extra ) {

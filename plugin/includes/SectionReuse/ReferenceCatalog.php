@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\SectionReuse;
 
+use Stonewright\WpMcp\Elementor\KitLiveSettings;
 use Stonewright\WpMcp\Elementor\V4\AtomicClassRepositoryAdapter;
 use Stonewright\WpMcp\Elementor\V4\AtomicVariableRepositoryAdapter;
 
@@ -144,18 +145,6 @@ final class ReferenceCatalog {
 
 	/** One setting of the active kit as Elementor reports it, or null when Elementor is not there to ask. */
 	private static function live_kit_setting( string $key ): mixed {
-		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return null;
-		}
-		try {
-			$manager = isset( \Elementor\Plugin::$instance ) ? ( \Elementor\Plugin::$instance->kits_manager ?? null ) : null;
-			$active  = is_object( $manager ) && method_exists( $manager, 'get_active_kit' ) ? $manager->get_active_kit() : null;
-
-			return is_object( $active ) && method_exists( $active, 'get_settings' ) ? $active->get_settings( $key ) : null;
-		} catch ( \Throwable $failure ) {
-			unset( $failure );
-
-			return null;
-		}
+		return KitLiveSettings::get( $key );
 	}
 }

@@ -12,11 +12,16 @@ use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate
  */
 final class BatchMutateTest extends TestCase {
+	use ElementorKsesSimulation;
+
 	private object $original_elementor;
 
 	protected function setUp(): void {
@@ -137,6 +142,7 @@ final class BatchMutateTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		\Elementor\Plugin::$instance = $this->original_elementor;
 		WidgetSchemaRepository::reset_request_cache();
 		$GLOBALS['stonewright_test_posts'] = [];
@@ -303,6 +309,25 @@ final class BatchMutateTest extends TestCase {
 		$post = $GLOBALS['stonewright_test_posts'][501];
 		$tree = json_decode( stripslashes( (string) $post->meta['_elementor_data'] ), true );
 		self::assertSame( 'After', $tree[0]['elements'][0]['elements'][0]['settings']['title'] );
+	}
+
+	public function test_a_user_without_unfiltered_html_gets_the_filtered_tree_compared_with_what_was_stored(): void {
+		$this->simulate_elementor_kses();
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[ 'action' => 'add_widget', 'op_id' => 'headline', 'parent_id' => 'root', 'widget_type' => 'heading', 'settings' => [ 'title' => '<b>Hi</b><script>alert(1)</script>' ] ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() . wp_json_encode( $result->get_error_data() ) : '' );
+		self::assertSame( 1, $result['applied'] );
+		self::assertTrue( $result['content_filtered'] );
+		self::assertSame( $result['after_hash'], $result['readback_hash'], 'the hash planned is the hash of the filtered tree that was stored' );
+		self::assertSame( '<b>Hi</b>', ElementorData::read( 501 )[0]['elements'][0]['settings']['title'] );
 	}
 
 	public function test_dry_run_returns_preview_without_backup_or_write(): void {

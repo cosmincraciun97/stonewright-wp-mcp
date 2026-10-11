@@ -11,7 +11,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security\Adapters;
 
 use Stonewright\WpMcp\Abilities\Seo\SeoAdapter;
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeImage;
@@ -141,6 +143,11 @@ final class PostAdapter {
 			$classes = GlobalClassesState::capture();
 			if ( null !== $classes ) {
 				$image['global_classes'] = $classes;
+			}
+			// The default styles are posts of their own too (e_default_style), reached through the kit's tag map.
+			$styles = DefaultStylesState::capture();
+			if ( null !== $styles ) {
+				$image['default_styles'] = $styles;
 			}
 		}
 
@@ -322,10 +329,15 @@ final class PostAdapter {
 	 * Close a recorded row with its status and the image the write produced.
 	 *
 	 * @param array<string, mixed>|null $after
+	 * @param bool                      $nothing_to_undo True for a call that failed and left the post as it was: the row is then not restorable.
 	 */
-	public static function settle( string $change_id, ?array $after, string $status ): bool {
+	public static function settle( string $change_id, ?array $after, string $status, bool $nothing_to_undo = false ): bool {
 		try {
 			$result = [ 'status' => $status ];
+			if ( $nothing_to_undo ) {
+				$result['restorable']        = false;
+				$result['restorable_reason'] = 'nothing_changed';
+			}
 			if ( null !== $after ) {
 				$result['after'] = $after;
 			}
@@ -473,9 +485,14 @@ final class PostAdapter {
 		if ( is_array( $image['global_classes'] ?? null ) && ! GlobalClassesState::restore( $image['global_classes'] ) ) {
 			$skipped[] = 'global_classes';
 		}
+		if ( is_array( $image['default_styles'] ?? null ) && ! DefaultStylesState::restore( $image['default_styles'] ) ) {
+			$skipped[] = 'default_styles';
+		}
 
 		if ( array_key_exists( '_elementor_data', $meta ) || in_array( '_elementor_data', $absent, true ) ) {
 			PostCacheInvalidator::invalidate( $post_id );
+			// The document was put back on purpose: no editor baseline taken before the undo may call it a stale editor.
+			EditorSaveGuard::refresh_all_users( $post_id );
 		}
 
 		$live        = self::image( $post_id, array_merge( array_keys( $meta ), $absent ) );
@@ -759,6 +776,9 @@ final class PostAdapter {
 		}
 		if ( is_array( $wanted['global_classes'] ?? null ) && ( ! is_array( $live['global_classes'] ?? null ) || ! GlobalClassesState::same( $wanted['global_classes'], $live['global_classes'] ) ) ) {
 			$out[] = 'global_classes';
+		}
+		if ( is_array( $wanted['default_styles'] ?? null ) && ( ! is_array( $live['default_styles'] ?? null ) || ! DefaultStylesState::same( $wanted['default_styles'], $live['default_styles'] ) ) ) {
+			$out[] = 'default_styles';
 		}
 		$keys = array_unique( array_merge( array_keys( (array) ( $wanted['meta'] ?? [] ) ), array_keys( (array) ( $live['meta'] ?? [] ) ) ) );
 		foreach ( $keys as $key ) {

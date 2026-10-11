@@ -3,7 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Support\Json;
 
@@ -13,6 +15,12 @@ use Stonewright\WpMcp\Support\Json;
 final class Backup {
 
 	private const META_KEY = '_stonewright_backups';
+
+	/** Post meta of the snapshots the observer takes of calls Stonewright does not run: a pool of its own, so they never push a real snapshot out. */
+	private const META_KEY_OBSERVED = '_stonewright_observed_backups';
+
+	/** How many observed snapshots a post keeps. */
+	private const OBSERVED_LIMIT = 3;
 
 	/** Option that stores option/theme_mod restore points. */
 	public const OPTION_SNAPSHOTS = 'stonewright_option_snapshots';
@@ -136,9 +144,46 @@ final class Backup {
 	 * @param bool         $arm  Whether the snapshot arms a rescue entry for the write that follows. False for a snapshot that only saves the current state.
 	 * @param list<string> $extra_meta_keys Kit meta to cover as well; only the keys of KIT_V4_META_KEYS count, any other key is ignored.
 	 * @param bool         $global_classes Whether to capture the Elementor global classes through the repository as well (a kit snapshot of a class write).
+	 * @param bool         $default_styles Whether to capture the Elementor default styles through the repository as well (a kit snapshot of a default style write).
 	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
 	 */
-	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true, array $extra_meta_keys = [], bool $global_classes = false ): string {
+	public static function snapshot_post( int $post_id, array $keep = [], bool $arm = true, array $extra_meta_keys = [], bool $global_classes = false, bool $default_styles = false ): string {
+		return self::store_snapshot( $post_id, self::META_KEY, 0, $keep, $arm, $extra_meta_keys, $global_classes, $default_styles );
+	}
+
+	/**
+	 * Snapshot a post that the observer is about to see changed by a call Stonewright does not run. The snapshot goes
+	 * to a pool of its own that keeps only the newest few, so a call that fails or changes nothing never pushes a
+	 * snapshot of a real Stonewright write out of the history. It arms nothing, and is read and restored by its id.
+	 *
+	 * @param bool $kit_state Whether the post is the active kit, so the snapshot covers the global classes and the default styles too.
+	 * @return string The new snapshot id, or '' when the snapshot could not be stored and read back.
+	 */
+	public static function snapshot_observed( int $post_id, bool $kit_state = false ): string {
+		return self::store_snapshot( $post_id, self::META_KEY_OBSERVED, self::OBSERVED_LIMIT, [], false, [], $kit_state, $kit_state );
+	}
+
+	/** Drops an observed snapshot, for a call that failed or changed nothing. A snapshot of the real history is never touched. */
+	public static function discard_observed( int $post_id, string $snapshot_id ): void {
+		$snapshots = get_post_meta( $post_id, self::META_KEY_OBSERVED, true );
+		if ( ! is_array( $snapshots ) || ! isset( $snapshots[ $snapshot_id ] ) ) {
+			return;
+		}
+		unset( $snapshots[ $snapshot_id ] );
+		if ( [] === $snapshots ) {
+			self::delete_meta( $post_id, self::META_KEY_OBSERVED );
+			return;
+		}
+		self::update_meta( $post_id, self::META_KEY_OBSERVED, $snapshots );
+	}
+
+	/**
+	 * @param string       $meta_key The snapshot pool: the history, or the observed pool.
+	 * @param int          $limit    Snapshots the pool keeps; 0 for the history limit.
+	 * @param list<string> $keep
+	 * @param list<string> $extra_meta_keys
+	 */
+	private static function store_snapshot( int $post_id, string $meta_key, int $limit, array $keep, bool $arm, array $extra_meta_keys, bool $global_classes, bool $default_styles ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return '';
@@ -161,11 +206,16 @@ final class Backup {
 			$payload['global_classes'] = $classes;
 		}
 
-		$snapshots                 = get_post_meta( $post_id, self::META_KEY, true );
+		$styles = $default_styles ? DefaultStylesState::capture() : null;
+		if ( null !== $styles ) {
+			$payload['default_styles'] = $styles;
+		}
+
+		$snapshots                 = get_post_meta( $post_id, $meta_key, true );
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
 		$snapshots[ $snapshot_id ] = $payload;
-		$snapshots                 = self::trim( $snapshots, $keep );
-		self::update_meta( $post_id, self::META_KEY, $snapshots );
+		$snapshots                 = self::trim( $snapshots, $keep, $limit );
+		self::update_meta( $post_id, $meta_key, $snapshots );
 		$readback = self::get_snapshot( $post_id, $snapshot_id );
 		if ( ! is_array( $readback ) || ! self::values_match( $readback, $payload ) || ! hash_equals( Json::hash( $payload ), Json::hash( $readback ) ) ) {
 			return '';
@@ -191,7 +241,11 @@ final class Backup {
 
 	public static function get_snapshot( int $post_id, string $snapshot_id ): ?array {
 		$snapshots = self::list_snapshots( $post_id );
-		return $snapshots[ $snapshot_id ] ?? null;
+		if ( isset( $snapshots[ $snapshot_id ] ) ) {
+			return $snapshots[ $snapshot_id ];
+		}
+		$observed = get_post_meta( $post_id, self::META_KEY_OBSERVED, true );
+		return is_array( $observed ) && isset( $observed[ $snapshot_id ] ) && is_array( $observed[ $snapshot_id ] ) ? $observed[ $snapshot_id ] : null;
 	}
 
 	public static function restore( int $post_id, string $snapshot_id ): bool {
@@ -229,6 +283,8 @@ final class Backup {
 
 		if ( array_key_exists( '_elementor_data', $expected['meta'] ) ) {
 			PostCacheInvalidator::invalidate( $post_id );
+			// The document was put back on purpose: no editor baseline taken before the restore may call it a stale editor.
+			EditorSaveGuard::refresh_all_users( $post_id );
 		}
 
 		$readback = self::read_restore_state( $post_id, $expected['meta'] );
@@ -238,6 +294,10 @@ final class Backup {
 		// The global classes live in Elementor's repository, not in the meta above: put them back and read them back.
 		if ( isset( $snapshot['global_classes'] ) && is_array( $snapshot['global_classes'] ) ) {
 			$operations_verified = GlobalClassesState::restore( $snapshot['global_classes'] ) && $operations_verified;
+		}
+		// The default styles live in Elementor's repository as well.
+		if ( isset( $snapshot['default_styles'] ) && is_array( $snapshot['default_styles'] ) ) {
+			$operations_verified = DefaultStylesState::restore( $snapshot['default_styles'] ) && $operations_verified;
 		}
 
 		return $operations_verified
@@ -266,6 +326,12 @@ final class Backup {
 		if ( isset( $snapshot['global_classes'] ) && is_array( $snapshot['global_classes'] ) ) {
 			$classes = GlobalClassesState::capture();
 			if ( null === $classes || ! GlobalClassesState::same( $snapshot['global_classes'], $classes ) ) {
+				return true;
+			}
+		}
+		if ( isset( $snapshot['default_styles'] ) && is_array( $snapshot['default_styles'] ) ) {
+			$styles = DefaultStylesState::capture();
+			if ( null === $styles || ! DefaultStylesState::same( $snapshot['default_styles'], $styles ) ) {
 				return true;
 			}
 		}
@@ -561,8 +627,8 @@ final class Backup {
 	 * @param list<string>                        $keep      Snapshot ids that stay however old they are.
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function trim( array $snapshots, array $keep = [] ): array {
-		$limit = (int) apply_filters( 'stonewright_backup_history_limit', 10 );
+	private static function trim( array $snapshots, array $keep = [], int $limit = 0 ): array {
+		$limit = $limit > 0 ? $limit : (int) apply_filters( 'stonewright_backup_history_limit', 10 );
 		if ( count( $snapshots ) <= $limit ) {
 			return $snapshots;
 		}

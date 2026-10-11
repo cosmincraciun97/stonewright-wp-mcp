@@ -11,7 +11,10 @@ use Stonewright\WpMcp\Abilities\ElementorV3\KitBatchMutate;
  */
 final class KitBatchMutateTest extends TestCase {
 
+	private object $elementor_instance;
+
 	protected function setUp(): void {
+		$this->elementor_instance                    = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_options']         = [ 'elementor_active_kit' => 44 ];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_mode']                 = 'development';
@@ -50,11 +53,68 @@ final class KitBatchMutateTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Elementor\Plugin::$instance                  = $this->elementor_instance;
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		unset( $GLOBALS['stonewright_mode'] );
+	}
+
+	public function test_the_bucket_offers_only_the_kit_keys_elementor_has(): void {
+		$schema = ( new KitBatchMutate() )->input_schema();
+
+		self::assertSame( [ 'system', 'custom' ], $schema['properties']['operations']['items']['properties']['bucket']['enum'] );
+	}
+
+	public function test_a_bucket_elementor_has_no_key_for_is_refused_and_nothing_is_written(): void {
+		$payloads = [
+			'colors'     => [ 'colors' => [ [ 'id' => 'x', 'title' => 'X', 'color' => '#112233' ] ] ],
+			'typography' => [ 'fonts' => [ [ 'id' => 'x', 'title' => 'X', 'font_family' => 'Inter' ] ] ],
+		];
+		foreach ( $payloads as $group => $payload ) {
+			$result = ( new KitBatchMutate() )->execute( [ 'operations' => [ [ 'group' => $group, 'bucket' => 'global' ] + $payload ] ] );
+
+			self::assertInstanceOf( \WP_Error::class, $result, $group );
+			self::assertSame( 'stonewright_kit_operation_invalid', $result->get_error_code(), $group );
+		}
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		self::assertArrayNotHasKey( 'global_colors', $GLOBALS['stonewright_test_posts'][44]->meta['_elementor_page_settings'] );
+		self::assertArrayNotHasKey( 'global_typography', $GLOBALS['stonewright_test_posts'][44]->meta['_elementor_page_settings'] );
+	}
+
+	public function test_a_system_color_change_on_a_kit_that_never_stored_its_system_colors_keeps_the_other_defaults(): void {
+		unset( $GLOBALS['stonewright_test_posts'][44]->meta['_elementor_page_settings']['system_colors'] );
+		$defaults = [
+			[ '_id' => 'primary', 'title' => 'Primary', 'color' => '#6EC1E4' ],
+			[ '_id' => 'secondary', 'title' => 'Secondary', 'color' => '#54595F' ],
+			[ '_id' => 'text', 'title' => 'Text', 'color' => '#7A7A7A' ],
+			[ '_id' => 'accent', 'title' => 'Accent', 'color' => '#61CE70' ],
+		];
+		\Elementor\Plugin::$instance = (object) [
+			'kits_manager' => new class( $defaults ) {
+				public function __construct( private array $defaults ) {}
+
+				public function get_active_kit(): object {
+					return new class( $this->defaults ) {
+						public function __construct( private array $defaults ) {}
+
+						public function get_settings( string $key ): mixed {
+							return 'system_colors' === $key ? $this->defaults : null;
+						}
+					};
+				}
+			},
+		];
+
+		$result = ( new KitBatchMutate() )->execute( [ 'operations' => [ [ 'group' => 'colors', 'bucket' => 'system', 'mode' => 'merge', 'colors' => [ [ 'id' => 'primary', 'title' => 'Primary', 'color' => '#112233' ] ] ] ] ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		$stored = $GLOBALS['stonewright_test_posts'][44]->meta['_elementor_page_settings']['system_colors'];
+		self::assertSame( [ 'primary', 'secondary', 'text', 'accent' ], array_column( $stored, '_id' ), 'the three colors the change did not name are still there' );
+		self::assertSame( '#112233', $stored[0]['color'] );
+		self::assertSame( '#54595F', $stored[1]['color'] );
 	}
 
 	public function test_dry_run_plans_1140_container_and_montserrat_without_write(): void {

@@ -224,6 +224,7 @@ final class BatchMutate extends AbilityKernel {
 				'before_hash'   => [ 'type' => 'string' ],
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; the hashes are those of the filtered tree.' ],
 				'idempotent_replay' => [ 'type' => 'boolean' ],
 				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'post_write'    => [ 'type' => 'object' ],
@@ -475,6 +476,7 @@ final class BatchMutate extends AbilityKernel {
 
 				$snapshot_id = '';
 				$write_ms    = 0.0;
+				$content_filtered = [];
 				$after_hash  = TreeHasher::hash( $tree );
 				$had_effect  = ! hash_equals( $before_hash, $after_hash );
 				$readback_hash = $dry_run ? $after_hash : '';
@@ -550,6 +552,10 @@ final class BatchMutate extends AbilityKernel {
 							);
 						}
 						$write_ms      = self::elapsed_ms( $write_start );
+						// For a user without unfiltered_html Elementor stores the tree after its own filtering; compare with the tree that was stored.
+						$tree          = ElementorData::tree_as_written( $tree );
+						$after_hash    = TreeHasher::hash( $tree );
+						$content_filtered = ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [];
 						$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 						if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 							$restored = Backup::restore( $post_id, $snapshot_id );
@@ -579,7 +585,7 @@ final class BatchMutate extends AbilityKernel {
 				if ( $dry_run ) {
 					$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $after_hash )->verified( 'planned' );
 				}
-				$response      = [
+				$response      = $content_filtered + [
 					'ok'            => 0 === $failed,
 					'post_id'       => $post_id,
 					'dry_run'       => $dry_run,

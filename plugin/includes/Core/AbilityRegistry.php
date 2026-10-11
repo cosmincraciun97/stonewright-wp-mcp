@@ -774,7 +774,7 @@ final class AbilityRegistry {
 		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 
-		foreach ( self::public_classes() as $class ) {
+		foreach ( self::public_classes( true ) as $class ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
@@ -1632,16 +1632,39 @@ final class AbilityRegistry {
 	/**
 	 * @return array<int, class-string<Ability>>
 	 */
-	private static function public_classes(): array {
-		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile() );
+	private static function public_classes( bool $for_registration = false ): array {
+		return self::classes_for_surface( self::mcp_surface(), self::session_tool_profile(), $for_registration );
+	}
+
+	/**
+	 * Names of the abilities register_all() registers with the Abilities API on this request. The server lists its
+	 * tools later (mcp_server_ability_names()) and every tool it lists must be among these, or the MCP adapter looks up
+	 * an ability that does not exist.
+	 *
+	 * @return list<string>
+	 */
+	public static function registration_ability_names_for_test(): array {
+		$names = [];
+		foreach ( self::public_classes( true ) as $class ) {
+			if ( class_exists( $class ) ) {
+				/** @var Ability $ability */
+				$ability = new $class();
+				$names[] = $ability->name();
+			}
+		}
+		return $names;
 	}
 
 	/**
 	 * @param array{profile:string, ability_names:list<string>}|null $session
+	 * @param bool                                                    $for_registration Whether the classes are the ones to register with the Abilities API. The gated route to native Elementor is registered
+	 *                                                                whatever the live native state is at that moment (Elementor registers its own abilities on the same hook, so it is not known yet);
+	 *                                                                it is listed as a tool only when the state allows it, and its own permission check refuses a call when it does not.
 	 * @return array<int, class-string<Ability>>
 	 */
-	private static function classes_for_surface( string $surface, ?array $session ): array {
+	private static function classes_for_surface( string $surface, ?array $session, bool $for_registration = false ): array {
 		$classes = self::list();
+		$gated   = $for_registration ? [ 'stonewright/elementor-native-execute' ] : [];
 		if ( 'full' === $surface ) {
 			// An operator-selected full surface is never narrowed by a session profile.
 			return self::filter_hidden_abilities( $classes );
@@ -1657,7 +1680,8 @@ final class AbilityRegistry {
 					self::bootstrap_ability_names(),
 					$base,
 					$session['ability_names'],
-					self::essential_extra_ability_names()
+					self::essential_extra_ability_names(),
+					$gated
 				),
 				true
 			);
@@ -1669,7 +1693,8 @@ final class AbilityRegistry {
 			array_merge(
 				$base,
 				// Extras apply to bootstrap and essential compact surfaces.
-				self::essential_extra_ability_names()
+				self::essential_extra_ability_names(),
+				$gated
 			),
 			true
 		);

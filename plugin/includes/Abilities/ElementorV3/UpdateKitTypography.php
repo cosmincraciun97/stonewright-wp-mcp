@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\KitRows;
 use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -72,6 +73,7 @@ final class UpdateKitTypography extends AbilityKernel {
 				'kit_id'      => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
 				'unchanged'   => [ 'type' => 'boolean', 'description' => 'True when the kit already held this typography: nothing was snapshotted or written.' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the settings before they were stored.' ],
 				'next_step'   => [ 'type' => 'object' ],
 				'cache_purge' => [ 'type' => 'object' ],
 			],
@@ -155,6 +157,10 @@ final class UpdateKitTypography extends AbilityKernel {
 						$mode                        = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 						$next                        = $settings;
 						$next['custom_typography']   = KitRows::merge( $existing, $incoming, $mode );
+						// For a user without unfiltered_html Elementor filters the settings when it stores them; filter first, the way its editor does.
+						$filtered         = EditorKses::filter( $next );
+						$content_filtered = $filtered !== $next ? [ 'content_filtered' => true ] : [];
+						$next             = $filtered;
 						if ( $next === $settings ) {
 							// The kit already holds this typography; update_post_meta() reports an unchanged value as false, which is no failure.
 							return [ 'kit_id' => $kit_id, 'snapshot_id' => '', 'unchanged' => true ];
@@ -169,7 +175,7 @@ final class UpdateKitTypography extends AbilityKernel {
 							return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
 						}
 
-						return [
+						return $content_filtered + [
 							'kit_id'      => $kit_id,
 							'snapshot_id' => $snapshot_id,
 							'next_step'   => [

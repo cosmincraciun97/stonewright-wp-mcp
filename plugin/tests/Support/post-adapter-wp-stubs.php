@@ -50,3 +50,13 @@ if ( ! function_exists( 'wp_trash_post' ) ) {
 		return $post;
 	}
 }
+
+if ( ! function_exists( 'wp_get_post_autosave' ) ) {
+	/**
+	 * The autosave of a fake post: $GLOBALS['stonewright_test_autosaves'][ post id ] names the fake revision post that holds it.
+	 */
+	function wp_get_post_autosave( int $post_id, int $user_id = 0 ): object|false {
+		$autosave_id = (int) ( $GLOBALS['stonewright_test_autosaves'][ $post_id ] ?? 0 );
+		return $autosave_id > 0 && isset( $GLOBALS['stonewright_test_posts'][ $autosave_id ] ) ? $GLOBALS['stonewright_test_posts'][ $autosave_id ] : false;
+	}
+}

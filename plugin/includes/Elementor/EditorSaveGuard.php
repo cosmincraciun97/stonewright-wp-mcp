@@ -12,10 +12,17 @@ use Stonewright\WpMcp\Support\ElementorData;
  * Baseline is the server tree hash and post_status at editor load, never the
  * in-memory dirty tree. Persist re-reads the server; a change between
  * precheck and persist still blocks with zero overwrite.
+ *
+ * A Stonewright restore or undo of a post puts the document back on purpose, so it refreshes the baseline of
+ * every user who has one ({@see self::refresh_all_users()}); otherwise the next Elementor save of that post
+ * would be refused as a stale editor although nothing is open.
  */
 final class EditorSaveGuard {
 
 	private const OPTION_PREFIX = 'stonewright_elementor_editor_baseline_';
+
+	/** Most users whose baseline of one post is remembered, so a restore can refresh them all. */
+	private const MAX_USERS = 50;
 
 	public static function register(): void {
 		add_action( 'elementor/editor/init', [ self::class, 'capture_from_editor' ], 20 );
@@ -38,7 +45,54 @@ final class EditorSaveGuard {
 			'captured_at' => time(),
 		];
 		update_option( self::option_key( $post_id ), $baseline, false );
+		self::remember_user( $post_id, (int) $baseline['user_id'] );
 		return $baseline;
+	}
+
+	/**
+	 * Brings the current user's baseline up to the document as it is now, after a Stonewright write by that user. The writer made
+	 * the change on purpose, so its own earlier baseline must not make its next Elementor save look like a stale editor. The
+	 * baselines of other users are left as they are: an editor another user has open still has to be told the document changed.
+	 * A user without a baseline gets none.
+	 */
+	public static function refresh_current_user( int $post_id ): void {
+		if ( $post_id < 1 ) {
+			return;
+		}
+		$key = self::option_key( $post_id );
+		if ( ! is_array( get_option( $key, null ) ) ) {
+			return;
+		}
+		self::capture( $post_id );
+	}
+
+	/**
+	 * Brings the baseline of every user who has one up to the document as it is now, for a Stonewright restore or undo of the
+	 * post. A user without a baseline gets none, and the baselines of other posts are not touched.
+	 */
+	public static function refresh_all_users( int $post_id ): void {
+		if ( $post_id < 1 ) {
+			return;
+		}
+		$hash   = TreeHasher::hash( ElementorData::read( $post_id ) );
+		$status = (string) get_post_status( $post_id );
+		foreach ( array_unique( array_merge( [ get_current_user_id() ], self::remembered_users( $post_id ) ) ) as $user_id ) {
+			$key      = self::option_key( $post_id, $user_id );
+			$baseline = get_option( $key, null );
+			if ( ! is_array( $baseline ) ) {
+				continue;
+			}
+			update_option(
+				$key,
+				[
+					'hash'        => $hash,
+					'post_status' => $status,
+					'user_id'     => $user_id,
+					'captured_at' => time(),
+				],
+				false
+			);
+		}
 	}
 
 	public static function capture_from_editor(): void {
@@ -120,8 +174,27 @@ final class EditorSaveGuard {
 		}
 	}
 
-	private static function option_key( int $post_id ): string {
-		return self::OPTION_PREFIX . $post_id . '_' . get_current_user_id();
+	private static function option_key( int $post_id, ?int $user_id = null ): string {
+		return self::OPTION_PREFIX . $post_id . '_' . ( $user_id ?? get_current_user_id() );
+	}
+
+	private static function users_key( int $post_id ): string {
+		return self::OPTION_PREFIX . 'users_' . $post_id;
+	}
+
+	/** @return list<int> */
+	private static function remembered_users( int $post_id ): array {
+		$stored = get_option( self::users_key( $post_id ), [] );
+		return is_array( $stored ) ? array_values( array_map( 'intval', $stored ) ) : [];
+	}
+
+	private static function remember_user( int $post_id, int $user_id ): void {
+		$known = self::remembered_users( $post_id );
+		if ( in_array( $user_id, $known, true ) ) {
+			return;
+		}
+		$known[] = $user_id;
+		update_option( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ), false );
 	}
 
 	private static function document_post_id( object $document ): int {

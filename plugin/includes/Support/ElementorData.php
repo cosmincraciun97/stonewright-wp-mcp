@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
@@ -10,6 +11,7 @@ use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -28,6 +30,34 @@ final class ElementorData {
 	private static array $last_write_receipt = [];
 	/** @var array<string, mixed> */
 	private static array $last_elementor_write_receipt = [];
+	/** @var array<int, array<string, mixed>>|null */
+	private static ?array $last_written_tree = null;
+
+	/**
+	 * The tree the last write really stored: the tree it was given, or that tree after the filtering Elementor applies for a user
+	 * without unfiltered_html. Null when the last write did not succeed. A caller that compares the stored tree with its own
+	 * compares with this one, so a string kses changed is not reported as a mismatch.
+	 *
+	 * @return array<int, array<string, mixed>>|null
+	 */
+	public static function last_written_tree(): ?array {
+		return self::$last_written_tree;
+	}
+
+	/**
+	 * The tree a caller should expect to read back after a successful write of $tree.
+	 *
+	 * @param array<int, array<string, mixed>> $tree The tree that was passed to write().
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function tree_as_written( array $tree ): array {
+		return self::$last_written_tree ?? $tree;
+	}
+
+	/** Whether the last successful write stored a tree that differs from the one it was given because the user cannot unfiltered_html. */
+	public static function last_write_content_filtered(): bool {
+		return true === ( self::$last_elementor_write_receipt['content_filtered'] ?? false );
+	}
 
 	public static function last_write_error(): ?\WP_Error {
 		return self::$last_write_error;
@@ -58,6 +88,7 @@ final class ElementorData {
 		self::$last_write_error             = null;
 		self::$last_write_receipt           = [];
 		self::$last_elementor_write_receipt = [];
+		self::$last_written_tree           = null;
 	}
 
 	/**
@@ -174,12 +205,20 @@ final class ElementorData {
 	 * @param array<string, mixed>             $options
 	 */
 	private static function write_locked( int $post_id, array $tree, array $options ): bool {
+		// For a user without unfiltered_html Elementor filters the tree on every save, in its editor and again in the sanitize callback of the
+		// meta. Writing the unfiltered tree would read back as something else, so the tree is filtered first, the way the editor does it.
+		$filtered         = EditorKses::filter( $tree );
+		$content_filtered = $filtered !== $tree;
+		$tree             = $filtered;
 		$previous            = self::read( $post_id );
 		$previous_meta_state = self::capture_document_meta_state( $post_id );
 		$before_status        = get_post_status( $post_id );
 		$before_hash          = TreeHasher::hash( $previous );
 		$planned_hash         = TreeHasher::hash( $tree );
 		$receipt              = self::new_write_receipt( $post_id, $tree, $options, $previous, $before_hash, $planned_hash );
+		if ( $content_filtered ) {
+			$receipt->set( 'content_filtered', true )->set( 'content_filtered_reason', 'user_cannot_unfiltered_html' );
+		}
 		self::$last_elementor_write_receipt = $receipt->to_array();
 
 		$failure = self::preflight_failure( $previous, $tree, $options );
@@ -217,9 +256,12 @@ final class ElementorData {
 				return false;
 			}
 			self::$last_write_receipt = PostCacheInvalidator::invalidate( $post_id );
+			// The writer's own editor baseline now matches the document it just wrote.
+			EditorSaveGuard::refresh_current_user( $post_id );
 			$after_hash = TreeHasher::hash( self::read( $post_id ) );
 			$receipt->set_hashes( $before_hash, $planned_hash, $after_hash, $after_hash )->verified();
 			self::$last_elementor_write_receipt = $receipt->to_array();
+			self::$last_written_tree           = $tree;
 			return true;
 		}
 

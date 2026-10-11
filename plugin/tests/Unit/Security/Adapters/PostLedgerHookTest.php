@@ -181,6 +181,39 @@ final class PostLedgerHookTest extends PostLedgerTestCase {
 		self::assertSame( 'failed', $this->only_row()['status'] );
 	}
 
+	public function test_a_refused_call_that_left_the_post_alone_is_not_a_restorable_row(): void {
+		$this->make_post( self::POST, [ 'post_content' => 'original body' ] );
+
+		$error = new \WP_Error( 'stonewright_elementor_stale_editor', 'The Elementor document changed on the server after this editor loaded.' );
+		$this->call( 'stonewright/elementor-native-execute', self::POST, static function (): void {}, $error );
+
+		$row = $this->only_row();
+		self::assertSame( 'failed', $row['status'] );
+		self::assertFalse( $row['restorable'], 'there is nothing to undo, so the history does not offer an undo' );
+		self::assertSame( 'nothing_changed', $row['restorable_reason'] );
+		self::assertSame( $row['before_sha256'], $row['after_sha256'] );
+	}
+
+	public function test_a_failed_call_that_did_change_the_post_stays_restorable(): void {
+		$this->make_post( self::POST, [ 'post_content' => 'original body' ] );
+
+		$this->call( 'stonewright/content-update-page', self::POST, fn () => $this->change_content(), new \WP_Error( 'stonewright_invalid', 'nope' ) );
+
+		$row = $this->only_row();
+		self::assertSame( 'failed', $row['status'] );
+		self::assertTrue( $row['restorable'] );
+	}
+
+	public function test_a_call_that_reported_a_failure_and_left_the_post_alone_is_not_restorable_either(): void {
+		$this->make_post( self::POST, [ 'post_content' => 'original body' ] );
+
+		$this->call( 'stonewright/content-update-page', self::POST, static function (): void {}, [ 'ok' => false ] );
+
+		$row = $this->only_row();
+		self::assertSame( 'failed', $row['status'] );
+		self::assertFalse( $row['restorable'] );
+	}
+
 	public function test_a_call_that_changed_nothing_is_settled_verified_with_equal_images(): void {
 		$this->make_post( self::POST );
 

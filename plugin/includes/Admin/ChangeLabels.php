@@ -91,6 +91,7 @@ final class ChangeLabels {
 			'store_full'      => __( 'the content store was full', 'stonewright' ),
 			'store_unavailable' => __( 'the content store could not be written', 'stonewright' ),
 			'no_before_image' => __( 'there is no copy of the content from before the change', 'stonewright' ),
+			'nothing_changed' => __( 'the call failed and left the content as it was, so there is nothing to undo', 'stonewright' ),
 			'not_restorable'  => __( 'this kind of change cannot be undone', 'stonewright' ),
 			'not_encodable'   => __( 'the content could not be stored', 'stonewright' ),
 			default           => self::humanize( $code ),

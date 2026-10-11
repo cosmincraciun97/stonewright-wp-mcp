@@ -151,7 +151,9 @@ final class NativeExecute extends AbilityKernel {
 	/**
 	 * ChangeSetV1 of a native write: the planned changes the request names, the hashes the closure
 	 * measured, and the rollback the closure performed. A staged edit is queued, never applied; a
-	 * kit-level write reports no rollback recipe because a kit snapshot does not cover default style posts.
+	 * kit-level write names its kit snapshot as the rollback recipe only when that snapshot holds the
+	 * default styles (they are posts of their own that kit meta never shows), which is the same
+	 * condition under which the change history marks the row restorable.
 	 *
 	 * @param array<string, mixed>           $args
 	 * @param array<string, mixed>|\WP_Error $result

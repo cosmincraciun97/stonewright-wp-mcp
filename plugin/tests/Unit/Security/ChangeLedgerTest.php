@@ -364,6 +364,31 @@ final class ChangeLedgerTest extends TestCase {
 		self::assertStringNotContainsString( self::MARKER, json_encode( $this->read_all_blobs() ) );
 	}
 
+	public function test_a_row_can_be_settled_as_not_restorable_and_keeps_its_image(): void {
+		$row = $this->record( [ 'family' => 'option', 'resource_type' => 'option', 'resource_id' => 'blogname', 'before' => [ 'value' => 'Old name' ] ] );
+		self::assertTrue( $row['restorable'] );
+
+		$settled = ChangeLedger::settle( $row['change_id'], [ 'status' => 'failed', 'restorable' => false, 'restorable_reason' => 'nothing_changed' ] );
+
+		self::assertIsArray( $settled );
+		self::assertSame( 'failed', $settled['status'] );
+		self::assertFalse( $settled['restorable'] );
+		self::assertSame( 'nothing_changed', $settled['restorable_reason'] );
+		self::assertNotSame( '', $settled['before_ref'] );
+	}
+
+	public function test_settling_cannot_make_a_row_restorable_or_change_the_reason_it_already_had(): void {
+		$row = $this->record( [ 'restorable' => false, 'restorable_reason' => 'too_large' ] );
+
+		$settled = ChangeLedger::settle( $row['change_id'], [ 'status' => 'failed', 'restorable' => false, 'restorable_reason' => 'nothing_changed' ] );
+		self::assertIsArray( $settled );
+		self::assertSame( 'too_large', $settled['restorable_reason'] );
+
+		$again = ChangeLedger::settle( $row['change_id'], [ 'status' => 'failed', 'restorable' => true ] );
+		self::assertIsArray( $again );
+		self::assertFalse( $again['restorable'] );
+	}
+
 	public function test_a_masked_after_image_keeps_the_reason_a_row_already_had(): void {
 		$row = $this->record( [ 'restorable' => false, 'restorable_reason' => 'too_large' ] );
 
