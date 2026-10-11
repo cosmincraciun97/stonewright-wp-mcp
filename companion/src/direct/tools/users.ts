@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpUser = {
@@ -86,6 +87,61 @@ export async function userMe(ctx: DirectToolContext) {
   return compactUser(user, true);
 }
 
+/** The account the session signs in as: the user behind the Application Password. */
+async function sessionUser(ctx: DirectToolContext): Promise<{ id: number }> {
+  const me = await ctx.client.get<WpUser>("/wp/v2/users/me", {
+    query: { context: "edit", _fields: "id" },
+  });
+  return { id: me.id };
+}
+
+/** Refuses when no other administrator would be left once `id` stops being one. */
+async function assertAnotherAdministrator(
+  ctx: DirectToolContext,
+  id: number,
+  tool: string,
+): Promise<void> {
+  const admins = await ctx.client.get<Array<{ id: number }>>("/wp/v2/users", {
+    query: { roles: "administrator", context: "edit", per_page: 100, _fields: "id" },
+  });
+  const others = (Array.isArray(admins) ? admins : []).filter((row) => row.id !== id);
+  if (others.length === 0) {
+    throw new DirectSafetyBlockedError(
+      "last_administrator",
+      `Refusing ${tool}: user ${id} is the last administrator, and the site needs one. Nothing was changed.`,
+      tool,
+      ctx.site.alias,
+    );
+  }
+}
+
+/**
+ * Refuses to remove the session's own account (delete it, or take administrator away from it) and to
+ * remove the last administrator. Reads only; the caller writes after it returns.
+ */
+async function assertAccountMayBeRemoved(
+  ctx: DirectToolContext,
+  id: number,
+  tool: string,
+  action: string,
+): Promise<void> {
+  const me = await sessionUser(ctx);
+  if (me.id === id) {
+    throw new DirectSafetyBlockedError(
+      "self_protection",
+      `Refusing ${tool}: user ${id} is the account whose Application Password Stonewright signs in with, so ${action} would lock this session out. Nothing was changed.`,
+      tool,
+      ctx.site.alias,
+    );
+  }
+  const target = await ctx.client.get<WpUser>(`/wp/v2/users/${id}`, {
+    query: { context: "edit", _fields: "id,roles" },
+  });
+  if ((target.roles ?? []).includes("administrator")) {
+    await assertAnotherAdministrator(ctx, id, tool);
+  }
+}
+
 function requireConfirm(confirm: boolean | undefined, tool: string, site: string): void {
   if (confirm !== true) {
     throw new DirectSafetyBlockedError(
@@ -116,6 +172,14 @@ export async function userCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-user-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-user-create",
+    "users",
+    scanTextFields({ name: input.name }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const user = await ctx.client.post<WpUser>("/wp/v2/users", {
     body: {
       username: input.username,
@@ -154,6 +218,22 @@ export async function userUpdate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-user-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-user-update",
+    `users/${input.id}`,
+    scanTextFields({ name: input.name }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
+  if (input.roles !== undefined && !input.roles.includes("administrator")) {
+    await assertAccountMayBeRemoved(
+      ctx,
+      input.id,
+      "stonewright-user-update",
+      "removing its administrator role",
+    );
+  }
   const body: Record<string, unknown> = {};
   if (input.email !== undefined) body.email = input.email;
   if (input.name !== undefined) body.name = input.name;
@@ -186,6 +266,7 @@ export async function userDelete(
     env: ctx.env ?? process.env,
   });
   requireConfirm(input.confirm, "stonewright-user-delete", ctx.site.alias);
+  await assertAccountMayBeRemoved(ctx, input.id, "stonewright-user-delete", "deleting it");
   const result = await ctx.client.del(`/wp/v2/users/${input.id}`, {
     query: { force: true, reassign: input.reassign },
   });
@@ -241,6 +322,14 @@ export async function appPasswordCreate(
     env: ctx.env ?? process.env,
   });
   requireConfirm(input.confirm, "stonewright-app-password-create", ctx.site.alias);
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-app-password-create",
+    `users/${input.user_id}/application-passwords`,
+    scanTextFields({ name: input.name }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const created = await ctx.client.post<AppPassword>(
     `/wp/v2/users/${input.user_id}/application-passwords`,
     { body: { name: input.name } },

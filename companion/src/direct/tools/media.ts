@@ -7,6 +7,7 @@ import {
   type DirectWriteMode,
 } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { ResolvedSite } from "../sites-config.js";
 import {
   assertMediaContent,
@@ -132,6 +133,19 @@ export async function mediaUpload(
   });
 
   const env = ctx.env ?? process.env;
+  // The text goes first: a refused upload downloads and reads nothing.
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-media-upload",
+    "media",
+    scanTextFields({
+      title: input.title,
+      alt_text: input.alt_text,
+      caption: input.caption,
+    }),
+    env,
+  );
+  if (refusal) return refusal;
   const maxBytes = mediaMaxBytes(env);
   let bytes: Buffer;
   let chosen: { filename: string; extension: string };
@@ -224,6 +238,18 @@ export async function mediaUpdate(
     destructive: false,
     tool: "stonewright-media-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-media-update",
+    `media/${input.id}`,
+    scanTextFields({
+      title: input.title,
+      alt_text: input.alt_text,
+      caption: input.caption,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.title !== undefined) body.title = input.title;
   if (input.alt_text !== undefined) body.alt_text = input.alt_text;

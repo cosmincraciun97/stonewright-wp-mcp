@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpComment = {
@@ -95,6 +96,17 @@ export async function commentCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-comment-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-comment-create",
+    `post/${input.post}`,
+    scanTextFields({
+      content: input.content,
+      author_name: input.author_name,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const c = await ctx.client.post<WpComment>("/wp/v2/comments", {
     body: {
       post: input.post,
@@ -135,6 +147,14 @@ export async function commentUpdate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-comment-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-comment-update",
+    `comments/${input.id}`,
+    scanTextFields({ content: input.content }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.content !== undefined) body.content = input.content;
   if (input.status !== undefined) body.status = input.status;

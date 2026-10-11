@@ -16,6 +16,9 @@ node scripts/e2e-direct.mjs
 
 HTTP local URLs are supported. For Application Passwords on plain HTTP, WordPress
 requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability filter).
+Direct sends the Application Password over plain http only to `localhost`, a
+loopback address, `.localhost`, `.test` and `.local` hosts; another http site is
+refused before a request is made unless `STONEWRIGHT_DIRECT_ALLOW_HTTP=on`.
 
 ## Capability matrix (Direct vs Plugin)
 
@@ -23,10 +26,10 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 |---|---|---|
 | Site discover / REST types | Yes | Yes (richer via abilities) |
 | Pages/posts list create update delete | Yes (core REST) | Yes |
-| Media upload | Yes (core REST). A local `path` must sit inside the working directory, `<state dir>/media` or `STONEWRIGHT_DIRECT_MEDIA_ROOTS`, else `confirm:true`; a `url` must be http or https and resolve to a public address on every redirect hop. Images, audio, video, PDF, Office, txt and csv only (never SVG, HTML or PHP), at most 25 MiB | Yes |
+| Media upload | Yes (core REST). A local `path` must sit inside the working directory, `<state dir>/media` or `STONEWRIGHT_DIRECT_MEDIA_ROOTS`, else `confirm:true`; a `url` must be http or https and resolve to a public address on every redirect hop, and the download connects to the address that was checked. Images, audio, video, PDF, Office, txt and csv only (never SVG, HTML or PHP), at most 25 MiB | Yes |
 | Menus | Limited (core REST menus when available) | Yes + WP-CLI |
 | Taxonomy terms | Yes | Yes |
-| Settings read | Yes | Yes |
+| Settings read / update | Yes; update takes an allowlist of keys and a limited `default_role` | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
 | Global styles / FSE | Yes when endpoints exist; updates save a pre-image first, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
@@ -35,7 +38,7 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
 | Audit log / backups / tokens | Local redacted JSONL audit with aligned effect/incident fields; a pre-image file before five whole-document writes; Elementor data keeps its own file backup. **No Rescue snapshots, change sets, or confirmation tokens, and no tool restores a backup.** `confirm:true` is a flag the caller sets for destructive tools. Details: [What Direct mode protects](#what-direct-mode-protects) | Yes |
-| WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin) | Yes |
+| WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin); a command that changes the site is a Direct write with task-start, `confirm` and an audit row | Yes |
 
 ## What Direct mode protects
 
@@ -51,16 +54,33 @@ site, so its protections are the companion's own:
   `confirm: true` on destructive tools: plugin, theme, settings, user, comment
   and widget writes, template and template-part creates, updates and deletes,
   `global-styles-update`, `elementor-data-update`, most other deletes, and
-  `blueprint-apply` with `post_id`. `elementor-data-update` reads only the
-  environment variable, not the site URL, so it asks for `confirm: true` on local
-  hosts too unless `STONEWRIGHT_DIRECT_WRITES=on`. Content, media, ACF, menu and
+  `blueprint-apply` with `post_id`. `elementor-data-update` resolves its mode from
+  the site URL like the other tools. Content, media, ACF, menu and
   taxonomy writes need no confirmation. `confirm: true` is a flag the caller
   sets; it is not bound to the call's arguments.
 - **Custom-code refusal.** `global-styles-update`, `elementor-data-update`,
   content create, update and autosave, template and template-part create and
-  update, `blueprint-apply` and `widget-manage` refuse custom code and send
-  nothing. A page, template or widget that already holds custom code cannot be
-  saved through Direct either.
+  update, `blueprint-apply`, `widget-manage`, `acf-fields-update`, `media-upload`,
+  `media-update`, menu and menu-item writes, comment writes, taxonomy-term writes,
+  user and Application Password writes and `settings-update` refuse custom code
+  in the text they send and send nothing. A page, template or widget that already
+  holds custom code cannot be saved through Direct either.
+- **Self-protection.** `plugin-deactivate` and `plugin-delete` refuse Stonewright
+  and the MCP adapter. `user-delete` refuses the account the session signs in as
+  and the last administrator; `user-update` refuses a role change that removes
+  administrator from either. `settings-update` accepts only allowlisted keys and
+  `default_role` only for `subscriber`, `contributor`, `author` or `editor`.
+- **WP-CLI writes.** In a Direct session `stonewright-wp-cli-run` and
+  `-job-start` treat a command that is not read-oriented as a write: task-start
+  for the site, `confirm: true` in `confirm` mode, a local install that is the
+  Direct site, and an audit row (command words only). The shared command policy
+  still refuses `eval`, `shell`, `package`, `config`, the database, users and
+  roles, and plugin, theme and core installs and updates.
+  `-batch-run` is read-oriented only. In Plugin mode these tools are unchanged.
+- **Transport and retries.** The Application Password goes over https, or over
+  http to a local host only (`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` for a trusted
+  private network). A GET is retried once after a network error; a write is
+  never retried.
 - **Pre-image.** `template-update`, `template-part-update`,
   `global-styles-update`, `content-update` and `blueprint-apply` with `post_id`
   save the current resource first and refuse the write if that fails (20 files
@@ -72,7 +92,8 @@ site, so its protections are the companion's own:
   the size and remap checks. WP-CLI is used only after the local install's `home` or `siteurl` matches the alias URL;
   otherwise the tool uses REST and returns `wp_cli_refused`.
 - **Media upload.** Local paths, URLs, types, size, content and file names are
-  limited as described in the matrix above.
+  limited as described in the matrix above. Each URL hop resolves the host once,
+  checks every address and connects to the checked address.
 - **Audit.** A redacted local JSONL row for refusals and errors on every tool and
   for success on most write tools (`blueprint-apply` and `acf-fields-update`
   write none on success).
@@ -86,23 +107,15 @@ site, so its protections are the companion's own:
 - **No after-write verification.** REST writes are not read back, and there is no
   front-end probe or rollback. A local Elementor write reads back the element
   cache only; a remote one reports `not_checked`.
-- **Custom-code screening is partial.** `acf-fields-update`, `media-upload`,
-  `media-update`, menu, comment, taxonomy-term, settings and user writes are not
-  screened for custom code.
 - **Pre-images are partial.** Plugin, theme, settings, menu, media, ACF and
   taxonomy writes save none.
-- **DNS rebinding is not pinned.** `media-upload` resolves a URL's host before
-  the request; a host that changes its answer between the check and the download
-  is not caught.
 - **Elementor raw writes are unchecked beyond the gate above.** There is no
   schema validation, unique-id check, element or depth cap, per-post lease or
   base hash (a concurrent edit is overwritten), and no readback of
   `_elementor_data`.
-- **`stonewright-wp-cli-run` and `-batch-run`** block only `eval`, `eval-file`,
-  `shell`, `package`, `--exec`, `--require` and `--prompt`. They have no
-  task-start latch, confirmation, audit row or target check, in either mode.
-- **REST retries.** The REST client retries a request once after some network
-  errors, for every method, so a retried create can be duplicated.
+- **WP-CLI in Plugin mode.** `stonewright-wp-cli-run` and `-job-start` apply the
+  shared command policy only; the companion adds no task-start latch,
+  confirmation or audit row there.
 - **Audit proves little.** Audit rows carry no change set id or before and after
   hashes, and no tool reads the audit file. No Direct tool writes the
   `direct_verifier` row that `stonewright-incident-repair-record` needs, so
@@ -113,8 +126,7 @@ site, so its protections are the companion's own:
   only where the plugin runs.
 - **`task-start` `write_mode`** is the mode the site's tools use: the
   environment variable when set, otherwise `on` for localhost, `.local` and
-  `.test` hosts and `confirm` for the rest. `elementor-data-update` is the one
-  exception, as described under Write mode.
+  `.test` hosts and `confirm` for the rest.
 
 ## Live run log
 

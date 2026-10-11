@@ -440,10 +440,16 @@ export async function runWpCliBatch(
 	};
 }
 
+export interface WpCliJobOptions {
+	/** Called once when the job has finished or failed, with its outcome. */
+	onSettled?: (outcome: { ok: boolean; error?: string }) => void;
+}
+
 export function startWpCliJob(
 	input: WpCliJobStartInput,
 	runner: ExecFileRunner = defaultExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
+	options: WpCliJobOptions = {},
 ): WpCliJobStatusResult {
 	const kind = Array.isArray(input.commands) ? 'batch' : 'command';
 	const commandCount = kind === 'batch' ? input.commands?.length ?? 0 : 1;
@@ -489,6 +495,11 @@ export function startWpCliJob(
 			record.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			record.completedAt = new Date().toISOString();
+			try {
+				options.onSettled?.({ ok: record.status === 'succeeded', ...(record.error ? { error: record.error } : {}) });
+			} catch {
+				// A failing observer never changes the job.
+			}
 		}
 	})();
 

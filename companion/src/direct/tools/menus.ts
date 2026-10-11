@@ -1,5 +1,6 @@
 import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
 
 type WpMenu = {
@@ -113,6 +114,17 @@ export async function menuCreate(
     destructive: false,
     tool: "stonewright-menu-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-menu-create",
+    "menus",
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   try {
     const menu = await ctx.client.post<WpMenu>("/wp/v2/menus", {
       body: {
@@ -157,6 +169,17 @@ export async function menuUpdate(
     destructive: false,
     tool: "stonewright-menu-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-menu-update",
+    `menus/${input.id}`,
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;
   if (input.description !== undefined) body.description = input.description;
@@ -277,6 +300,17 @@ export async function menuItems(
       destructive: false,
       tool: "stonewright-menu-items",
     });
+    const refusal = refuseCustomCode(
+      ctx.site,
+      "stonewright-menu-items",
+      "menu-items",
+      scanTextFields({
+        title: input.title,
+        url: input.url,
+      }),
+      ctx.env ?? process.env,
+    );
+    if (refusal) return refusal;
     if (!input.menu_id) throw new Error("menu_id is required for create");
     if (!input.title) throw new Error("title is required for create");
     try {
@@ -320,6 +354,17 @@ export async function menuItems(
       destructive: false,
       tool: "stonewright-menu-items",
     });
+    const refusal = refuseCustomCode(
+      ctx.site,
+      "stonewright-menu-items",
+      "menu-items",
+      scanTextFields({
+        title: input.title,
+        url: input.url,
+      }),
+      ctx.env ?? process.env,
+    );
+    if (refusal) return refusal;
     if (!input.id) throw new Error("id is required for update");
     const body: Record<string, unknown> = {};
     if (input.title !== undefined) body.title = input.title;

@@ -33,7 +33,9 @@ style, iframe, object, embed, link, and `meta http-equiv` elements, inline event
 handlers (`on*=`), and `javascript:` URLs in content, template, and blueprint markup (element and attribute names are
 matched case-insensitively, and entity-encoded or JSON-escaped forms are
 detected). The check covers everything sent, so a page, template, or widget that
-already holds custom code cannot be saved through Direct either. The refusal is a normal result with `approval_required` and
+already holds custom code cannot be saved through Direct either. The same check covers the text of ACF field values,
+media titles, captions and alt text, menu and menu-item names, descriptions and URLs, comments, taxonomy terms, user
+display names, Application Password names, and the string values of settings. The refusal is a normal result with `approval_required` and
 `agent_must_stop`; custom code needs Plugin mode and its custom-code approval.
 
 MIT License.
@@ -64,7 +66,7 @@ refresh token.
 
 In Plugin mode the companion sends each WordPress MCP request once and does not
 repeat it after a timeout or network error. (Direct mode's REST client retries a
-request once after some network errors.) The one exception is a token refresh that got no
+read once after a network error and never retries a write.) The one exception is a token refresh that got no
 response at all: it is sent once more with the same refresh credential, at most
 30 seconds after the first request and ended 50 seconds after it, inside the
 server's 60-second window for presenting a refresh token again. On OAuth connections an HTTP 401 refreshes the
@@ -125,15 +127,15 @@ site-hosted state.
 | Menus + menu items | yes | yes |
 | FSE templates / template parts | yes; pre-image before update, `confirm: true` for updates in `confirm` mode, custom code refused | yes |
 | Global styles (theme.json) | yes; pre-image before update, custom CSS refused | yes |
-| Settings get/update | yes; no before-state saved | yes |
-| Plugins list/activate/deactivate/install | yes | yes |
+| Settings get/update | yes; allowlisted keys only, `default_role` limited to non-administrative core roles; no before-state saved | yes |
+| Plugins list/activate/deactivate/install | yes; Stonewright and the MCP adapter are never deactivated or deleted | yes |
 | Themes list | yes | yes |
 | Users list/get/me | yes | yes |
 | Search + block patterns | yes | yes |
 | WooCommerce products/orders/sales read | yes | yes |
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
 | Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
-| WP-CLI tokenized tools | yes (local host only; `stonewright-wp-cli-run` has no task-start latch, confirmation or audit row) | yes (local host only) |
+| WP-CLI tokenized tools | yes (local host only; a command that changes the site needs task-start, `confirm: true` in `confirm` mode and a matching local install, and is audited) | yes (local host only; no latch, confirmation or audit row from the companion) |
 | `stonewright/php-execute` | no | yes (`full` profile only) |
 | Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup, no restore tool; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
@@ -171,8 +173,9 @@ the companion media folder (`<state dir>/media`) or a root listed in
 `confirm: true` on the call. A `url` must be http or https and must resolve only
 to public addresses; private, loopback, link-local, multicast and reserved IPv4
 and IPv6 addresses are refused, and so is a redirect to one. Each redirect hop (at
-most five) is checked again. A name is resolved before the request is sent, so a
-host that changes its answer between the check and the download is not caught.
+most five) resolves the name once, checks every address, and connects to the
+addresses it checked, with the original Host header and TLS server name, so a
+host that changes its answer after the check cannot move the download.
 The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies. The size is checked before a local file is read and while a download streams, and a download has a 60 second limit.
 
 For a configured site alias, the Elementor tools use WP-CLI only when the local
@@ -192,22 +195,43 @@ Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for
 the closed-loop `stonewright-elementor-post-write-verify` ability.
 
+Direct sends the Application Password only over https, or over http to
+`localhost`, a loopback address, `.localhost`, `.test` or `.local`. A site on
+any other plain-http address is refused before anything is sent;
+`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` allows plain http for a trusted private
+network. The REST client retries a read (GET) once after a network error and
+never retries a write.
+
+A Direct write does not remove the ground it stands on. `plugin-deactivate` and
+`plugin-delete` refuse Stonewright itself and the MCP adapter (`mcp-adapter`).
+`user-delete` refuses the user the session signs in as (found through
+`/wp/v2/users/me`) and the last administrator; `user-update` refuses a role
+change that takes administrator from either. `settings-update` writes only
+allowlisted keys (title, description, time and date formats, timezone, week
+start, posts per page, comment and ping defaults, registration, `default_role`,
+front page settings, site icon), never the site address or administrator email,
+and accepts `default_role` only for `subscriber`, `contributor`, `author` or
+`editor`. A refusal sends nothing.
+
+In a Direct session, `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
+treat a command that is not read-oriented as a Direct write: it needs
+`stonewright-task-start` for the site, `confirm: true` when writes are in
+`confirm` mode, and a local WordPress that is the Direct site; the run leaves an
+audit row (the command words, no values). The commands the shared command
+policy refuses stay refused. `stonewright-wp-cli-batch-run` runs read-oriented
+commands only. In Plugin mode these tools behave as before.
+
 ### What Direct mode does not do yet
 
 - No tool restores a pre-image or an Elementor backup.
 - No after-write verification: REST writes are not read back, and there is no
   front-end probe or rollback.
-- Custom-code screening covers global styles, Elementor data, content, template,
-  blueprint and widget writes. ACF, media, menu, comment, taxonomy-term, settings
-  and user writes are not screened.
+- Custom-code screening covers every Direct write that sends text or markup;
+  a write to a field that holds custom code needs Plugin mode.
 - Pre-images cover five tools; plugin, theme, settings, menu, media, ACF and
   taxonomy writes save no before-state.
-- `stonewright-media-upload` does not pin the DNS answer, so rebinding between
-  the address check and the download is not caught.
 - Elementor raw writes have no schema validation, unique-id check, per-post
   lease or base hash, and no readback of `_elementor_data`.
-- The REST client retries a request once after some network errors, for every
-  method.
 - Audit rows carry no change set id or hashes, and Direct writes no verifier row,
   so `stonewright-incident-repair-record` returns guidance only.
 

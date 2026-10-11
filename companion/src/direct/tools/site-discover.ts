@@ -1,4 +1,5 @@
 import { assertToolEnabled } from "../writes.js";
+import { assertSecureTransport } from "../wp-rest-client.js";
 import type { DirectToolContext } from "./types.js";
 
 export const PLUGIN_ONLY_CAPABILITIES = [
@@ -151,6 +152,8 @@ export async function siteDiscover(ctx: DirectToolContext) {
   try {
     index = await ctx.client.get<WpIndex>("/");
   } catch {
+    // The raw fallback sends the same credential, so it keeps the same transport rule.
+    assertSecureTransport(ctx.site, ctx.env);
     // Some hosts reject bare `/`; fall back via absolute rest root fetch.
     const fetchImpl = ctx.fetchImpl ?? fetch;
     const response = await fetchImpl(ctx.client.restBase.replace(/\/+$/, ""), {

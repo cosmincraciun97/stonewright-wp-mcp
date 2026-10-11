@@ -5,6 +5,7 @@ import {
   type DirectWriteMode,
 } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import { resolveRestBase } from "../rest-discovery.js";
 import type { ResolvedSite } from "../sites-config.js";
 
@@ -12,6 +13,7 @@ export interface TaxonomyToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
+  env?: NodeJS.ProcessEnv | undefined;
 }
 
 type WpTerm = {
@@ -105,6 +107,17 @@ export async function taxonomyCreate(
     destructive: false,
     tool: "stonewright-taxonomy-terms",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-taxonomy-terms",
+    input.taxonomy ?? "categories",
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.taxonomy ?? "categories");
   try {
     const term = await ctx.client.post<WpTerm>(`/wp/v2/${collection}`, {
@@ -153,6 +166,17 @@ export async function taxonomyUpdate(
     destructive: false,
     tool: "stonewright-taxonomy-terms",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-taxonomy-terms",
+    `${input.taxonomy ?? "categories"}/${input.id}`,
+    scanTextFields({
+      name: input.name,
+      description: input.description,
+    }),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.taxonomy ?? "categories");
   const body: Record<string, unknown> = {};
   if (input.name !== undefined) body.name = input.name;

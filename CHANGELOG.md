@@ -619,6 +619,14 @@ development builds were never stable releases.
 
 ### Security
 
+- Direct mode holds a local WP-CLI command that changes the site to the Direct
+  write gate (task-start, `confirm`, a matching local install, an audit row),
+  refuses custom code in the remaining text-sending writes (ACF, media, menu,
+  comment, taxonomy-term, user, settings), refuses to remove Stonewright, the MCP
+  adapter, the signed-in account or the last administrator, limits
+  `settings-update` to an allowlist, sends the Application Password only over
+  https or to a local host, never retries a write, and connects media downloads to
+  the address it checked. See the companion changelog.
 - Check permissions per target in the user abilities. `stonewright-user-update`
   and `stonewright-user-delete` now require that the current user can edit or
   delete that specific user, and refuse an account that holds

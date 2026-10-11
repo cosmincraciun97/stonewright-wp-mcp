@@ -43,7 +43,7 @@ function siteKey(value: string): string | null {
 
 async function readOption(
   name: "home" | "siteurl",
-  base: { cwd?: string; path?: string },
+  base: { cwd?: string; path?: string; url?: string },
   cli: CliRunner,
   env: NodeJS.ProcessEnv,
 ): Promise<string | null> {
@@ -63,13 +63,14 @@ async function readOption(
 export async function checkLocalWpTarget(
   env: NodeJS.ProcessEnv,
   target: { url: string },
-  base: { cwd?: string; path?: string },
+  base: { cwd?: string; path?: string; url?: string },
   cli: CliRunner,
 ): Promise<LocalTargetCheck> {
   const cacheKey = [
     target.url,
     base.cwd ?? "",
     base.path ?? "",
+    base.url ?? "",
     env["STONEWRIGHT_WP_ROOT"] ?? "",
   ].join("|");
   const cached = cache.get(cacheKey);

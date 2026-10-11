@@ -58,12 +58,19 @@ override default behavior.
    custom code (CSS, script, style, iframe, object, embed, link, meta
    http-equiv, inline event handlers, `javascript:` URLs, HTML widgets) in
    global styles, Elementor data, content, template, blueprint, and widget
-   writes; a pre-image saved under `~/.stonewright/backups` before template,
+   writes, and in the text of ACF, media, menu, comment, taxonomy-term,
+   settings, and user writes; a refusal to deactivate or delete Stonewright or
+   the MCP adapter, to delete the signed-in account or the last administrator,
+   and to write settings outside an allowlist; the Application Password sent
+   only over https or to a local host, and no automatic retry of a write; a
+   pre-image saved under `~/.stonewright/backups` before template,
    template-part, global-styles, content, and blueprint-over-page writes, with
    the write refused when it cannot be saved (Elementor data keeps its own file
    backup); the Elementor integrity gate and a check that a local WP-CLI install
-   is the target site; limits on `stonewright-media-upload` sources, types, and
-   size; and a redacted local audit log. Direct mode has no change sets,
+   is the target site; the same latch, `confirm`, target check, and audit row for
+   a local WP-CLI command that changes the site in a Direct session; limits on
+   `stonewright-media-upload` sources, types, size, and connection address; and
+   a redacted local audit log. Direct mode has no change sets,
    confirmation tokens, restore tool, or after-write verification;
    `docs/direct-mode-e2e.md` lists what it does not do yet.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,

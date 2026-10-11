@@ -56,6 +56,7 @@ import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from '
 import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, type ProbeResult } from './direct/mode.js';
 import { type EndpointEvidence } from './connection/status-contract.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
+import { gateDirectWpCli, type DirectWpCliTool } from './direct/wp-cli-gate.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import {
 	PERMANENT_GATEWAY_TOOL_NAMES,
@@ -148,7 +149,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	// 1) Permanent gateways BEFORE any remote handshake (local-ready).
 	registerPermanentGateways(server, runtime);
 	// 2) WP-CLI helpers (local; not removed by profiles).
-	registerWpCliTools(server, commonInput, env, profile);
+	registerWpCliTools(server, commonInput, env, profile, () => runtime.status.mode);
 	registerCommandTools(server, env, profile);
 	runtime.refreshSurfaceFromServer();
 
@@ -860,7 +861,9 @@ function registerWpCliTools(
 	commonInput: Record<string, z.ZodTypeAny>,
 	env: NodeJS.ProcessEnv,
 	profile: ProxyToolProfile,
+	sessionMode: () => 'plugin' | 'direct',
 ): void {
+	const confirmInput = z.boolean().optional().describe('Direct mode: required true for a WP-CLI write when writes are in confirm mode (remote sites).');
 	for (const name of localAliases(profile, 'stonewright-wp-cli-status', 'companion_wp_cli_status')) {
 		server.registerTool(
 			name,
@@ -895,15 +898,34 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress content and cache commands; refuses eval, shell, package, config, plugin and theme install/update/delete/activate, db, user and role changes, core download/update, cron event run, and search-replace without --dry-run.',
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress content and cache commands; refuses eval, shell, package, config, plugin and theme install/update/delete/activate, db, user and role changes, core download/update, cron event run, and search-replace without --dry-run. In Direct mode a command that changes the site needs stonewright-task-start first, confirm:true in confirm mode, and is audited.',
 				inputSchema: {
 					...commonInput,
 					command: z.array(z.string()).min(1),
 					parseJson: z.boolean().optional(),
 					responseMode: z.enum(['full', 'summary']).optional(),
+					confirm: confirmInput,
 				},
 			},
-			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
+			async (input) => {
+				const { confirm, ...rest } = input as Record<string, unknown> & { confirm?: boolean };
+				const wpInput = toWpCliInput(rest) as WpCliRunInput;
+				return toolResponse(
+					await runGatedWpCli({
+						mode: sessionMode(),
+						env,
+						tool: 'stonewright-wp-cli-run',
+						commands: [wpInput.command],
+						confirm,
+						target: wpInput,
+						run: async (settled) => {
+							const result = await runWpCli(wpInput, undefined, env);
+							settled({ ok: result.ok === true, ...(result.ok === true ? {} : { code: 'wp_cli_failed' }) });
+							return result;
+						},
+					}),
+				);
+			},
 		);
 	}
 
@@ -932,7 +954,7 @@ function registerWpCliTools(
 	server.registerTool(
 		'stonewright-wp-cli-job-start',
 		{
-			description: 'Start a tokenized WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately.',
+			description: 'Start a tokenized WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately. In Direct mode a job that changes the site needs stonewright-task-start first, confirm:true in confirm mode, and is audited when it ends.',
 			inputSchema: {
 				...commonInput,
 				command: z.array(z.string()).min(1).optional(),
@@ -940,9 +962,28 @@ function registerWpCliTools(
 				parseJson: z.boolean().optional(),
 				stopOnError: z.boolean().optional(),
 				responseMode: z.enum(['full', 'summary']).optional(),
+				confirm: confirmInput,
 			},
 		},
-		(input) => toolResponse(startWpCliJob(toWpCliInput(input) as WpCliJobStartInput, undefined, env)),
+		async (input) => {
+			const { confirm, ...rest } = input as Record<string, unknown> & { confirm?: boolean };
+			const wpInput = toWpCliInput(rest) as WpCliJobStartInput;
+			const commands = Array.isArray(wpInput.commands) ? wpInput.commands : Array.isArray(wpInput.command) ? [wpInput.command] : [];
+			return toolResponse(
+				await runGatedWpCli({
+					mode: sessionMode(),
+					env,
+					tool: 'stonewright-wp-cli-job-start',
+					commands,
+					confirm,
+					target: wpInput,
+					// The job outlives this call: its audit row is written when it settles.
+					run: (settled) => Promise.resolve(startWpCliJob(wpInput, undefined, env, {
+						onSettled: (outcome) => settled({ ok: outcome.ok, ...(outcome.ok ? {} : { code: 'wp_cli_failed' }) }),
+					})),
+				}),
+			);
+		},
 	);
 
 	server.registerTool(
@@ -1096,6 +1137,38 @@ function registerCommandTools(server: McpServer, env: NodeJS.ProcessEnv, profile
 			}
 		},
 	);
+}
+
+/**
+ * In a Direct session a WP-CLI call that changes the site goes through the Direct write gate first
+ * (task-start latch, confirm, local-install check) and leaves an audit row. In Plugin mode, and for reads,
+ * the call runs as it always did.
+ */
+async function runGatedWpCli<T extends Record<string, unknown>>(args: {
+	mode: 'plugin' | 'direct';
+	env: NodeJS.ProcessEnv;
+	tool: DirectWpCliTool;
+	commands: string[][];
+	confirm: boolean | undefined;
+	target: { cwd?: string | undefined; path?: string | undefined; url?: string | undefined };
+	/** Runs the call; `settled` records the outcome of an allowed write (called once). */
+	run: (settled: (outcome: { ok: boolean; code?: string }) => void) => Promise<T>;
+}): Promise<T> {
+	if (args.mode !== 'direct') return args.run(() => undefined);
+	const gate = await gateDirectWpCli({
+		tool: args.tool,
+		commands: args.commands,
+		confirm: args.confirm,
+		env: args.env,
+		target: { cwd: args.target.cwd, path: args.target.path, url: args.target.url },
+	});
+	if (!gate.write) return args.run(() => undefined);
+	try {
+		return await args.run(gate.finish);
+	} catch (error) {
+		gate.finish({ ok: false, code: 'wp_cli_failed' });
+		throw error;
+	}
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {

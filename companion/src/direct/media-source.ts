@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { defaultStateDir } from "./audit.js";
 import { mediaBlocked, mediaTooLarge } from "./media-limits.js";
+import { pinnedRequest, type PinnedAddress } from "./media-transport.js";
 
 /**
  * Where `stonewright-media-upload` may read its bytes from.
@@ -13,7 +14,9 @@ import { mediaBlocked, mediaTooLarge } from "./media-limits.js";
  *   (`<state dir>/media`) or a root listed in `STONEWRIGHT_DIRECT_MEDIA_ROOTS`.
  *   Any other file needs an explicit `confirm: true`.
  * - A `url` must be http or https and must resolve only to public addresses.
- *   Redirects are followed by hand so each hop is checked the same way.
+ *   Redirects are followed by hand so each hop is checked the same way. Each hop resolves
+ *   the host once and connects to the addresses it checked (see media-transport.ts), so a
+ *   second DNS answer cannot move the connection.
  */
 
 export const MEDIA_ROOTS_ENV = "STONEWRIGHT_DIRECT_MEDIA_ROOTS";
@@ -24,6 +27,13 @@ const DOWNLOAD_TIMEOUT_MS = 60_000;
 export type MediaLookup = (
   hostname: string,
 ) => Promise<Array<{ address: string; family: number }>>;
+
+/** Sends one GET to `url`, connecting to one of the already validated `addresses`. */
+export type MediaTransport = (
+  url: URL,
+  addresses: readonly PinnedAddress[],
+  signal: AbortSignal,
+) => Promise<Response>;
 
 const blocked = mediaBlocked;
 
@@ -186,10 +196,11 @@ export function isPublicAddress(address: string): boolean {
 const defaultLookup: MediaLookup = async (hostname) =>
   dnsLookup(hostname, { all: true, verbatim: true });
 
-async function assertPublicUrl(
+/** Resolves the host once and returns the addresses, all checked to be public. */
+async function resolvePublicAddresses(
   url: URL,
   lookup: MediaLookup,
-): Promise<void> {
+): Promise<PinnedAddress[]> {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw blocked(
       "media-upload url must use http or https.",
@@ -204,7 +215,7 @@ async function assertPublicUrl(
   const host = url.hostname.replace(/^\[|\]$/g, "");
   if (isIP(host) !== 0) {
     if (!isPublicAddress(host)) throw notPublic();
-    return;
+    return [{ address: host, family: isIP(host) }];
   }
   let answers: Array<{ address: string; family: number }>;
   try {
@@ -216,6 +227,7 @@ async function assertPublicUrl(
     throw blocked("media-upload url host did not resolve.", "media_url_unresolved");
   }
   if (!answers.every((a) => isPublicAddress(a.address))) throw notPublic();
+  return answers.map((a) => ({ address: a.address, family: a.family }));
 }
 
 // --- download --------------------------------------------------------------
@@ -270,25 +282,31 @@ async function readBounded(response: Response, maxBytes: number): Promise<Buffer
 export async function downloadMediaUrl(
   rawUrl: string,
   opts: {
+    /** Test seam: replaces the pinned transport with a plain fetch. Production passes none. */
     fetchImpl?: typeof fetch | undefined;
+    /** Test seam: replaces the pinned transport. Production passes none. */
+    transportImpl?: MediaTransport | undefined;
     lookupImpl?: MediaLookup | undefined;
     maxBytes?: number | undefined;
   } = {},
 ): Promise<{ bytes: Buffer; finalUrl: URL; contentType: string }> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
+  const fetchImpl = opts.fetchImpl;
+  const transport: MediaTransport =
+    opts.transportImpl ??
+    (fetchImpl
+      ? (url, _addresses, signal) =>
+          fetchImpl(url.toString(), { redirect: "manual", signal })
+      : pinnedRequest);
   const lookup = opts.lookupImpl ?? defaultLookup;
   const maxBytes = opts.maxBytes ?? Number.MAX_SAFE_INTEGER;
   // One deadline for every hop and the body.
   const signal = AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS);
   let current = parseMediaUrl(rawUrl);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    await assertPublicUrl(current, lookup);
+    const addresses = await resolvePublicAddresses(current, lookup);
     let response: Response;
     try {
-      response = await fetchImpl(current.toString(), {
-        redirect: "manual",
-        signal,
-      });
+      response = await transport(current, addresses, signal);
     } catch (error) {
       throw downloadFailure(error);
     }

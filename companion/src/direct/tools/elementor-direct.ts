@@ -632,8 +632,10 @@ export async function elementorDataUpdate(
   cli: ElementorCli = runWpCli,
   rest?: ElementorRestClient,
 ) {
-  const writeMode = resolveDirectWriteMode(env);
-  const auditTargetIdentity = rest?.target?.url ?? env["STONEWRIGHT_WP_URL"] ?? `direct-global:${resolveScope(input.site)}`;
+  const targetUrl = rest?.target?.url ?? env["STONEWRIGHT_WP_URL"];
+  // The same rule as every other Direct write tool: the target site decides, then the environment.
+  const writeMode = resolveDirectWriteMode(env, targetUrl);
+  const auditTargetIdentity = targetUrl ?? `direct-global:${resolveScope(input.site)}`;
   assertWriteAllowed({
     mode: writeMode,
     destructive: true,

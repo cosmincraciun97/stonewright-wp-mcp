@@ -4,6 +4,40 @@
 
 ### Added
 
+- Hold a local WP-CLI command that changes the site to the Direct write gate in a
+  Direct session. `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start` take
+  an optional `confirm` and, for a command that is not read-oriented, need
+  `stonewright-task-start` for the site, `confirm: true` when writes are in
+  `confirm` mode, and a local WordPress whose `home` or `siteurl` is the Direct
+  site, and they write an audit row (command words only; a job writes it when it
+  ends). The commands the shared command policy refuses stay refused, with the
+  same message as in Plugin mode, and a refusal writes a blocked audit row.
+  `stonewright-wp-cli-batch-run` is unchanged (read-oriented commands only). In
+  Plugin mode the tools behave as before.
+- Refuse custom code in the remaining Direct writes: `acf-fields-update` (values
+  at any depth, and a custom CSS field), `media-update` and `media-upload` (title,
+  alt text, caption; checked before any download or file read), menu and menu-item
+  writes (names, descriptions, titles, URLs), comment writes, taxonomy-term writes
+  (name, description), `user-create` and `user-update` (display name),
+  `app-password-create` (name) and `settings-update` (string values). The refusal
+  is the same approval envelope as for content writes; nothing is sent.
+- Protect what Direct stands on. `plugin-deactivate` and `plugin-delete` refuse
+  Stonewright and the MCP adapter (`self_protection`); a Stonewright folder with a
+  different name is recognised by its text domain. `user-delete` refuses the
+  account whose Application Password the session uses (found with
+  `/wp/v2/users/me`) and the last administrator, and `user-update` refuses a role
+  change that takes administrator from either (`self_protection`,
+  `last_administrator`).
+- Limit `settings-update` to an allowlist of keys (the plugin's list, under the core
+  REST names and the option names). The site address, the administrator email and
+  any other key are refused with `settings_key_not_allowed`, and `default_role`
+  takes only `subscriber`, `contributor`, `author` or `editor`
+  (`settings_value_not_allowed`). A call that carries a refused key writes nothing.
+- Refuse to send the Application Password over plain `http://` to a host that is not
+  local (`localhost`, loopback addresses, `.localhost`, `.test`, `.local`), with
+  `insecure_transport` and before any request is made.
+  `STONEWRIGHT_DIRECT_ALLOW_HTTP=on` allows plain http for a trusted private network.
+
 - Refuse custom code in Direct writes. `stonewright-global-styles-update` refuses
   theme.json `styles.css` and any per-block `css`. `stonewright-elementor-data-update`
   refuses custom CSS setting keys (`custom_css`, `_custom_css`, `customcss`,
@@ -36,6 +70,13 @@
 
 ### Changed
 
+- Direct REST writes (POST, PUT, PATCH, DELETE) are never retried after a network
+  error; a GET is retried once, and the system code is now read from the cause of
+  a failed fetch as well.
+- `stonewright-media-upload` with a `url` connects to the address it checked. Each
+  hop resolves the host once, requires every address to be public, and connects to
+  those addresses with the original Host header and TLS server name, so a host that
+  answers differently the second time cannot reach a private address.
 - Refuse more WP-CLI commands in the agent-facing runners (`stonewright-wp-cli-run`,
   `-batch-run`, `-job-start` and their HTTP routes): `config`, `scaffold`, plugin
   and theme `install`, `update`, `delete`, `activate` (and plugin `uninstall`), `db`
@@ -93,6 +134,9 @@
 
 ### Fixed
 
+- `stonewright-elementor-data-update` resolves its write mode from the target site
+  like the other Direct tools: a local `.test`, `.local` or localhost site no
+  longer asks for `confirm: true` unless `STONEWRIGHT_DIRECT_WRITES` says so.
 - Direct `stonewright-task-start` reports the write mode the site's tools use.
   `write_mode` (and `target_context.stonewright_mode`) was read from
   `STONEWRIGHT_DIRECT_WRITES` alone, so a `localhost`, `.local` or `.test` site
