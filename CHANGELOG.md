@@ -13,11 +13,28 @@ development builds were never stable releases.
 
 ### Changed
 
+- Limit Direct-mode `stonewright-media-upload`: a local path must sit inside the
+  working directory, the companion media folder or a root in
+  `STONEWRIGHT_DIRECT_MEDIA_ROOTS`, or the call needs `confirm: true`; a URL must
+  be http or https and resolve only to public addresses, on every redirect hop.
+  The file must be an allowed image, audio, video, document, txt or csv type (no
+  SVG, HTML or PHP), at most 25 MiB, and its first bytes must match its
+  extension. See the companion changelog.
 - Direct mode refuses custom code (theme.json CSS, Elementor custom CSS and HTML
   widgets, script, style, iframe, object, embed, link and meta http-equiv markup, inline event handlers and
   `javascript:` URLs), saves a pre-image before whole-document writes, and asks
   for `confirm: true` on template and template-part updates; see the companion
   changelog.
+
+### Fixed
+
+- Direct Elementor tools no longer use WP-CLI when the local WordPress install
+  is not the configured site; they answer through core REST and report
+  `wp_cli_refused`. See the companion changelog.
+- Direct `stonewright-task-start` asks for `repair_open_incidents_first` only for
+  an open incident that `stonewright-incident-repair-record` can close. Other
+  incidents stay listed as information and close after seven days without a new
+  failure. See the companion changelog.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

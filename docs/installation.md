@@ -387,6 +387,8 @@ Optional env vars:
 |---|---|
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; used for `cwd`, `--path`, and LocalWP discovery. |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Direct mode: comma/semicolon list of folders, besides the working directory and the companion media folder, that `stonewright-media-upload` may read local files from without `confirm: true`. |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Direct mode: largest file `stonewright-media-upload` sends, in bytes. Default 25 MiB, at most 512 MiB. |
 | `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
 | `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
 | `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |

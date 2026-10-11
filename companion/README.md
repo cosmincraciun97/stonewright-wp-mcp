@@ -161,6 +161,25 @@ resource only, never request headers or credentials. An Elementor data update
 keeps its own file backup under `backups/<site alias>/post-<id>-<timestamp>.json`.
 No tool restores a backup yet.
 
+`stonewright-media-upload` reads a local `path` only from the working directory,
+the companion media folder (`<state dir>/media`) or a root listed in
+`STONEWRIGHT_DIRECT_MEDIA_ROOTS`. The path is resolved first, so a symlink or a
+`..` that leaves those folders counts as outside them. Any other file needs
+`confirm: true` on the call. A `url` must be http or https and must resolve only
+to public addresses; private, loopback, link-local, multicast and reserved IPv4
+and IPv6 addresses are refused, and so is a redirect to one. Each redirect hop (at
+most five) is checked again. A name is resolved before the request is sent, so a
+host that changes its answer between the check and the download is not caught.
+The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies. The size is checked before a local file is read and while a download streams, and a download has a 60 second limit.
+
+For a configured site alias, the Elementor tools use WP-CLI only when the local
+install is that site: they compare the install's `home` option (then `siteurl`)
+with the alias URL, once per alias and process. When the addresses differ, or the
+local address cannot be read, the tool uses core REST instead and returns
+`wp_cli_refused` ("the local WordPress is not the target site"), without naming
+either host. Set `STONEWRIGHT_WP_ROOT` or `path` to the install of the alias site
+to use WP-CLI for it.
+
 Local WP-CLI Elementor updates invalidate only the post-scoped
 `_elementor_element_cache` after verified readback and preserve `_elementor_css`
 metadata. They never run Elementor's global CSS flush command; use Plugin mode
@@ -486,6 +505,8 @@ cp .env.example .env
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | optional | Largest file `stonewright-media-upload` sends, in bytes; default 26214400 (25 MiB), at most 536870912 |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | optional | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that `stonewright-media-upload` may read local files from without `confirm: true` |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |
 

@@ -13,6 +13,10 @@ import { withOwnedFileLock } from './file-lock.js';
 const FINGERPRINT_RE = /^[a-f0-9]{64}$/;
 const MAX_INCIDENTS = 100;
 const OPEN_THRESHOLD = 2;
+// An incident with no new matching failure for this long is closed as quiet,
+// unless its latest failure has a repair path (the plugin keeps write incidents
+// open until a verified repair too).
+const QUIET_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type DirectIncidentState = 'observing' | 'open' | 'resolved' | 'suppressed';
 export type DirectLearningStatus = 'none' | 'promoted' | 'stale';
@@ -26,6 +30,8 @@ export type DirectIncidentFailure = {
 	timestamp?: string;
 	correlation_id?: string;
 	idempotency_key?: string;
+	/** The failure row names a resource and a change set, so a verifier row can match it. */
+	repair_path?: boolean;
 };
 
 export type DirectIncident = {
@@ -46,6 +52,12 @@ export type DirectIncident = {
 	correlation_id: string;
 	last_idempotency_key: string;
 	repair_phase: 'diagnose' | 'verify' | 'complete';
+	/**
+	 * True when the latest failure can be closed through incident-repair-record.
+	 * Direct tools write no change set or verifier row today, so most incidents
+	 * stay false and inform without blocking task start.
+	 */
+	repair_path: boolean;
 	learning_status: DirectLearningStatus;
 	learning_memory_key: string | null;
 	repair_receipt_id: string | null;
@@ -173,6 +185,7 @@ export class DirectIncidentStore {
 				const leftOpen = left.state === 'open' ? 1 : 0;
 				const rightOpen = right.state === 'open' ? 1 : 0;
 				return rightSurface - leftSurface
+					|| Number(right.repair_path) - Number(left.repair_path)
 					|| rightOpen - leftOpen
 					|| right.occurrences - left.occurrences
 					|| right.last_seen.localeCompare(left.last_seen);
@@ -190,6 +203,39 @@ export class DirectIncidentStore {
 				retry_policy: 'repair_then_retry_once',
 				learning_policy: 'record_only_after_verified_repair',
 			}));
+	}
+
+	/** An open incident whose latest failure has a verifier path blocks task start. */
+	requiresRepair(): boolean {
+		return this.list().some((incident) => incident.state === 'open' && incident.repair_path);
+	}
+
+	/**
+	 * Closes open and observing incidents that had no matching failure for seven
+	 * days, except those whose latest failure has a repair path. The close time is the end of the quiet period. A later matching
+	 * failure reopens the incident and counts the reopening.
+	 */
+	expireStale(now: number = Date.now()): number {
+		if (!existsSync(this.file)) return 0;
+		return this.withLock(() => {
+			const document = this.read();
+			let expired = 0;
+			for (const incident of document.incidents) {
+				if (incident.state !== 'open' && incident.state !== 'observing') continue;
+				if (incident.repair_path) continue;
+				const quietUntil = Date.parse(incident.last_seen) + QUIET_PERIOD_MS;
+				if (!Number.isFinite(quietUntil) || quietUntil > now) continue;
+				incident.state = 'resolved';
+				incident.repair_phase = 'complete';
+				incident.resolved_at = new Date(quietUntil).toISOString();
+				incident.resolution_event_id = 'quiet-period';
+				incident.generation += 1;
+				incident.updated_at = incident.resolved_at;
+				expired += 1;
+			}
+			if (expired > 0) this.write(document);
+			return expired;
+		});
 	}
 
 	observeFailure(input: DirectIncidentFailure): DirectIncident {
@@ -219,6 +265,7 @@ export class DirectIncidentStore {
 			existing.severity = severity(input.severity);
 			existing.state = 'open';
 			existing.repair_phase = 'diagnose';
+			existing.repair_path = input.repair_path === true;
 			if (wasResolved) {
 				existing.reopened_count += 1;
 				if (existing.learning_status === 'promoted') {
@@ -250,6 +297,7 @@ export class DirectIncidentStore {
 			correlation_id: classification(input.correlation_id ?? input.event_id, 'unknown-correlation'),
 			last_idempotency_key: idempotencyKey,
 			repair_phase: 'diagnose',
+			repair_path: input.repair_path === true,
 			learning_status: 'none',
 			learning_memory_key: null,
 			repair_receipt_id: null,
@@ -353,6 +401,7 @@ export class DirectIncidentStore {
 			}
 			parsed.incidents = parsed.incidents.map((incident) => ({
 				...incident,
+				repair_path: incident.repair_path === true,
 				generation: Number.isInteger(incident.generation) && incident.generation > 0
 					? incident.generation
 					: Math.max(1, Number(incident.occurrences) || 1),

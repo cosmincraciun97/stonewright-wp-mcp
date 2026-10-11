@@ -797,7 +797,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-media-upload',
-		'Upload media from a local path or URL via core REST (Direct mode).',
+		'Upload media from a local path or URL via core REST (Direct mode). A local path must be inside the working directory, the companion media folder or STONEWRIGHT_DIRECT_MEDIA_ROOTS, otherwise confirm:true is required. A URL must be http or https and resolve to a public address. Images, audio, video, PDF, Office and txt/csv only (never SVG, HTML, PHP or scripts), at most 25 MiB; the file name is sanitized.',
 		{
 			site: siteArg,
 			path: z.string().optional(),
@@ -806,6 +806,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			title: z.string().optional(),
 			alt_text: z.string().optional(),
 			caption: z.string().optional(),
+			confirm: z.boolean().optional().describe('Required true to upload a local file outside the allowed media roots'),
 		},
 		async (input) => {
 			try {

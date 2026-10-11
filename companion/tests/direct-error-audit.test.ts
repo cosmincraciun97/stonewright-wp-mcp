@@ -344,7 +344,8 @@ describe('direct error audit', () => {
 			ability: 'stonewright-foo',
 			state: 'open',
 		}));
-		expect(body.required_actions).toContain('repair_open_incidents_first');
+		// Nothing can close this incident (no change set or verifier path), so it informs and does not block.
+		expect(body.required_actions).toEqual([]);
 		expect(body.guidance.some((g) => g.includes('incident_actions'))).toBe(true);
 	});
 

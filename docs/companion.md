@@ -55,6 +55,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
+| `STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` | Largest file Direct `stonewright-media-upload` sends, in bytes; default 25 MiB, at most 512 MiB |
+| `STONEWRIGHT_DIRECT_MEDIA_ROOTS` | Comma- or semicolon-separated folders, besides the working directory and `<state dir>/media`, that Direct `stonewright-media-upload` may read local files from without `confirm: true` |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
 
 ## Direct mode private state
@@ -92,6 +94,29 @@ Credential-like memory and skill writes are rejected. Authorization headers,
 tokens, and Application Passwords are redacted from Direct audit diagnostics
 before persistence.
 
+Direct `stonewright-media-upload` limits where its bytes come from. A local
+`path` is resolved (symlinks and `..` included) and must sit inside the working
+directory, `<state dir>/media` or a folder in `STONEWRIGHT_DIRECT_MEDIA_ROOTS`;
+any other file needs `confirm: true`. A `url` must be http or https and resolve
+only to public addresses (private, loopback, link-local, multicast and reserved
+ranges are refused, for IPv4 and IPv6). Redirects are followed by hand, at most
+five, and each hop is checked again. The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies.
+
+Direct Elementor tools (`stonewright-elementor-status`, `-data-get`,
+`-data-update`) use local WP-CLI for a configured alias only when the local
+install's `home` (then `siteurl`) option matches the alias URL. Otherwise they
+use core REST and return `wp_cli_refused`, which says the local WordPress is not
+the target site and names neither host. The check runs once per alias and local
+install for the life of the process.
+
+Direct `stonewright-task-start` lists open incidents in `incident_actions`. It
+asks for `repair_open_incidents_first` in `required_actions` only for an open
+incident whose failure row carries a resource and a change set, because only
+such an incident can be closed with `stonewright-incident-repair-record`. Other
+incidents are information. An incident with no new matching failure for seven
+days is closed and leaves the list, unless its latest failure row carries a
+resource and a change set (those wait for a verified repair, as in Plugin mode);
+a later matching failure reopens a closed incident.
 Before `template-update`, `template-part-update`, `global-styles-update`,
 `content-update`, and `blueprint-apply` with a `post_id`, Direct saves the
 current resource (`context=edit`) to

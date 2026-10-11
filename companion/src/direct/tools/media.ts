@@ -8,12 +8,29 @@ import {
 } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { ResolvedSite } from "../sites-config.js";
+import {
+  assertMediaContent,
+  chooseMediaFilename,
+  mediaMaxBytes,
+  mediaTooLarge,
+  mediaTypeFor,
+} from "../media-limits.js";
+import {
+  downloadMediaUrl,
+  resolveLocalMediaPath,
+  type MediaLookup,
+} from "../media-source.js";
 
 export interface MediaToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
   fetchImpl?: typeof fetch | undefined;
+  env?: NodeJS.ProcessEnv | undefined;
+  /** Working directory for relative upload paths; defaults to the process cwd. */
+  cwd?: string | undefined;
+  /** DNS lookup for url uploads; defaults to the system resolver. */
+  lookupImpl?: MediaLookup | undefined;
 }
 
 type WpMedia = {
@@ -85,6 +102,15 @@ export async function mediaGet(ctx: MediaToolContext, input: { id: number }) {
   };
 }
 
+function decodedBasename(pathname: string): string {
+  const last = basename(pathname);
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+}
+
 export async function mediaUpload(
   ctx: MediaToolContext,
   input: {
@@ -94,6 +120,7 @@ export async function mediaUpload(
     title?: string | undefined;
     alt_text?: string | undefined;
     caption?: string | undefined;
+    confirm?: boolean | undefined;
   },
 ) {
   assertToolEnabled(ctx.site, "stonewright-media-upload");
@@ -104,29 +131,50 @@ export async function mediaUpload(
     tool: "stonewright-media-upload",
   });
 
+  const env = ctx.env ?? process.env;
+  const maxBytes = mediaMaxBytes(env);
   let bytes: Buffer;
-  let filename = input.filename ?? "upload.bin";
+  let chosen: { filename: string; extension: string };
 
   if (input.path) {
-    bytes = readFileSync(input.path);
-    filename = input.filename ?? basename(input.path);
+    const real = resolveLocalMediaPath(input.path, {
+      env,
+      cwd: ctx.cwd ?? process.cwd(),
+      confirm: input.confirm,
+      maxBytes,
+    });
+    // The type is decided from the name before any byte is read.
+    chosen = chooseMediaFilename({
+      supplied: input.filename,
+      source: basename(real),
+    });
+    bytes = readFileSync(real);
+    if (bytes.length > maxBytes) throw mediaTooLarge(maxBytes);
   } else if (input.url) {
-    const fetchImpl = ctx.fetchImpl ?? fetch;
-    const response = await fetchImpl(input.url);
-    if (!response.ok) {
-      throw new Error(
-        `Failed to download media from URL (HTTP ${response.status})`,
-      );
-    }
-    bytes = Buffer.from(await response.arrayBuffer());
-    const fromUrl = basename(new URL(input.url).pathname);
-    filename = input.filename ?? (fromUrl || "download.bin");
+    const downloaded = await downloadMediaUrl(input.url, {
+      fetchImpl: ctx.fetchImpl,
+      lookupImpl: ctx.lookupImpl,
+      maxBytes,
+    });
+    bytes = downloaded.bytes;
+    chosen = chooseMediaFilename({
+      supplied: input.filename,
+      source: decodedBasename(downloaded.finalUrl.pathname),
+      contentType: downloaded.contentType,
+    });
   } else {
     throw new Error("media-upload requires path or url");
   }
+  assertMediaContent(chosen.extension, bytes);
 
   const form = new FormData();
-  form.append("file", new Blob([new Uint8Array(bytes)]), filename);
+  form.append(
+    "file",
+    new Blob([new Uint8Array(bytes)], {
+      type: mediaTypeFor(chosen.extension) ?? "",
+    }),
+    chosen.filename,
+  );
   if (input.title) form.append("title", input.title);
   if (input.alt_text) form.append("alt_text", input.alt_text);
   if (input.caption) form.append("caption", input.caption);
