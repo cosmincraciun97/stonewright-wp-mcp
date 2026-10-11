@@ -517,6 +517,22 @@ development builds were never stable releases.
   `stonewright_elementor_readback_failed_restored`. The tree is filtered the way
   Elementor's own editor filters it for that user before it is written, stored,
   read back and verified, and the write receipt carries `content_filtered: true`.
+  The page and kit settings writers (`update-page-settings`, `update-kit-colors`,
+  `update-kit-typography`, `kit-batch-mutate`, the Design Direction kit sync and the
+  brand kit) do the same with the settings Elementor filters when it stores them,
+  and their results carry `content_filtered: true` when the filtering changed
+  something.
+- The writers that compare the stored tree with their own tree
+  (`stonewright-elementor-v3-batch-mutate`, `-build-page-from-spec`,
+  `-v4-update-node`, `-v4-render-from-spec`, `-v4-migrate` and the whole-tree
+  transaction) compare with the filtered tree that was really stored, so a string
+  Elementor's filtering changed is no longer reported as a readback mismatch. Their
+  results carry `content_filtered: true`, and the hashes they report are those of the
+  stored tree.
+- A Stonewright write of an Elementor document refreshes the writer's own saved
+  editor baseline, so an Elementor save by the same user right after a V3 or V4
+  Stonewright write is no longer refused as a stale editor. The baselines of other
+  users, who may have the editor open, are left as they are.
 - `stonewright-elementor-v3-get-kit-globals` and
   `stonewright-elementor-v3-kit-batch-mutate` use the kit keys Elementor has:
   `system_colors`, `custom_colors`, `system_typography` and `custom_typography`.

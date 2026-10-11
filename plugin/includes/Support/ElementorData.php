@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
@@ -10,6 +11,7 @@ use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -28,6 +30,34 @@ final class ElementorData {
 	private static array $last_write_receipt = [];
 	/** @var array<string, mixed> */
 	private static array $last_elementor_write_receipt = [];
+	/** @var array<int, array<string, mixed>>|null */
+	private static ?array $last_written_tree = null;
+
+	/**
+	 * The tree the last write really stored: the tree it was given, or that tree after the filtering Elementor applies for a user
+	 * without unfiltered_html. Null when the last write did not succeed. A caller that compares the stored tree with its own
+	 * compares with this one, so a string kses changed is not reported as a mismatch.
+	 *
+	 * @return array<int, array<string, mixed>>|null
+	 */
+	public static function last_written_tree(): ?array {
+		return self::$last_written_tree;
+	}
+
+	/**
+	 * The tree a caller should expect to read back after a successful write of $tree.
+	 *
+	 * @param array<int, array<string, mixed>> $tree The tree that was passed to write().
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function tree_as_written( array $tree ): array {
+		return self::$last_written_tree ?? $tree;
+	}
+
+	/** Whether the last successful write stored a tree that differs from the one it was given because the user cannot unfiltered_html. */
+	public static function last_write_content_filtered(): bool {
+		return true === ( self::$last_elementor_write_receipt['content_filtered'] ?? false );
+	}
 
 	public static function last_write_error(): ?\WP_Error {
 		return self::$last_write_error;
@@ -58,6 +88,7 @@ final class ElementorData {
 		self::$last_write_error             = null;
 		self::$last_write_receipt           = [];
 		self::$last_elementor_write_receipt = [];
+		self::$last_written_tree           = null;
 	}
 
 	/**
@@ -176,7 +207,7 @@ final class ElementorData {
 	private static function write_locked( int $post_id, array $tree, array $options ): bool {
 		// For a user without unfiltered_html Elementor filters the tree on every save, in its editor and again in the sanitize callback of the
 		// meta. Writing the unfiltered tree would read back as something else, so the tree is filtered first, the way the editor does it.
-		$filtered         = self::filter_for_current_user( $tree );
+		$filtered         = EditorKses::filter( $tree );
 		$content_filtered = $filtered !== $tree;
 		$tree             = $filtered;
 		$previous            = self::read( $post_id );
@@ -225,9 +256,12 @@ final class ElementorData {
 				return false;
 			}
 			self::$last_write_receipt = PostCacheInvalidator::invalidate( $post_id );
+			// The writer's own editor baseline now matches the document it just wrote.
+			EditorSaveGuard::refresh_current_user( $post_id );
 			$after_hash = TreeHasher::hash( self::read( $post_id ) );
 			$receipt->set_hashes( $before_hash, $planned_hash, $after_hash, $after_hash )->verified();
 			self::$last_elementor_write_receipt = $receipt->to_array();
+			self::$last_written_tree           = $tree;
 			return true;
 		}
 
@@ -298,33 +332,6 @@ final class ElementorData {
 		}
 
 		return false;
-	}
-
-	/**
-	 * The tree as Elementor stores it for the current user: every string run through kses when the user lacks the
-	 * `unfiltered_html` capability (a role without it, or DISALLOW_UNFILTERED_HTML), unchanged otherwise.
-	 *
-	 * @param array<int, array<string, mixed>> $tree
-	 * @return array<int, array<string, mixed>>
-	 */
-	private static function filter_for_current_user( array $tree ): array {
-		if ( ! function_exists( 'current_user_can' ) || current_user_can( 'unfiltered_html' ) ) {
-			return $tree;
-		}
-		$filtered = self::kses_deep( $tree );
-		return is_array( $filtered ) ? $filtered : $tree;
-	}
-
-	private static function kses_deep( mixed $value ): mixed {
-		if ( is_string( $value ) ) {
-			return wp_kses_post( $value );
-		}
-		if ( is_array( $value ) ) {
-			foreach ( $value as $key => $item ) {
-				$value[ $key ] = self::kses_deep( $item );
-			}
-		}
-		return $value;
 	}
 
 	/**

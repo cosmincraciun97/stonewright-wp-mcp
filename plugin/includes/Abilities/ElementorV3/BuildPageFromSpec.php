@@ -98,6 +98,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'before_hash'   => [ 'type' => 'string' ],
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; the hashes are those of the filtered tree.' ],
 				'evidence_hash' => [ 'type' => 'string' ],
 				'checkpoint'    => [ 'type' => 'object', 'description' => 'Dry run only: whether the write would be refused by the design checkpoint gate (would_block), and the code, message and next_action when it would.' ],
 				'write_receipt' => [ 'type' => 'object' ],
@@ -267,6 +268,10 @@ final class BuildPageFromSpec extends AbilityKernel {
 						return $error;
 					}
 					$write_ms = self::elapsed_ms( $write_started_at );
+					// For a user without unfiltered_html Elementor stores the tree after its own filtering; compare with the tree that was stored.
+					$tree             = ElementorData::tree_as_written( $tree );
+					$after_hash       = TreeHasher::hash( $tree );
+					$content_filtered = ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [];
 					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 					if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 						$restored = Backup::restore( $post_id, $snapshot_id );
@@ -282,7 +287,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 					}
 
 					$element_count = count( ElementorData::flatten( $tree ) );
-					return [
+					return $content_filtered + [
 						'post_id'       => $post_id,
 						'snapshot_id'   => $snapshot_id,
 						'elements'      => $element_count,

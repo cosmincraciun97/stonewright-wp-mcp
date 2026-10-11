@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\DesignTokens;
 
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 
@@ -689,9 +690,14 @@ final class BrandKit {
 				}
 				$settings['custom_typography'] = array_values( $typo_by_id );
 
+				// For a user without unfiltered_html Elementor filters the settings when it stores them; filter first, the way its editor does.
+				$filtered         = EditorKses::filter( $settings );
+				$content_filtered = $filtered !== $settings ? [ 'content_filtered' => true ] : [];
+				$settings         = $filtered;
+
 				update_post_meta( $kit_id, '_elementor_page_settings', $settings );
 
-				return [
+				return $content_filtered + [
 					'applied'     => true,
 					'reason'      => 'merged_custom_colors_typography',
 					'kit_id'      => $kit_id,

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -55,6 +56,7 @@ final class UpdatePageSettings extends AbilityKernel {
 			'properties' => [
 				'post_id'     => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the settings before they were stored.' ],
 			],
 		];
 	}
@@ -101,6 +103,10 @@ final class UpdatePageSettings extends AbilityKernel {
 					$next = 'replace' === $mode
 						? $incoming
 						: array_merge( $existing, $incoming );
+					// For a user without unfiltered_html Elementor filters the settings when it stores them; filter first, the way its editor does.
+					$filtered         = EditorKses::filter( $next );
+					$content_filtered = $filtered !== $next ? [ 'content_filtered' => true ] : [];
+					$next             = $filtered;
 
 					if ( false === update_post_meta( $post_id, '_elementor_page_settings', wp_slash( $next ) ) && $next !== $existing ) {
 						return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
@@ -108,7 +114,7 @@ final class UpdatePageSettings extends AbilityKernel {
 
 					PostCacheInvalidator::invalidate( $post_id );
 
-					return [
+					return $content_filtered + [
 						'post_id'     => $post_id,
 						'snapshot_id' => $snapshot_id,
 					];

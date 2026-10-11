@@ -66,6 +66,7 @@ final class Migrate extends AbilityKernel {
 				'counts'              => [ 'type' => 'object' ],
 				'snapshot_id'         => [ 'type' => 'string' ],
 				'readback_hash'       => [ 'type' => 'string' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; it was verified against the filtered tree.' ],
 				'before_hash'         => [ 'type' => 'string' ],
 				'rollback_status'     => [ 'type' => 'string', 'enum' => [ 'not_attempted', 'succeeded', 'failed' ] ],
 				'implicit_conversion' => [ 'type' => 'boolean' ],
@@ -153,12 +154,16 @@ final class Migrate extends AbilityKernel {
 			return $this->rolled_back_error( $post_id, $snapshot_id, 'v4_migration_write_failed', __( 'Migration write failed', 'stonewright' ) );
 		}
 		$readback_hash = self::hash( ElementorData::read( $post_id ) );
-		if ( self::hash( $tree ) !== $readback_hash ) {
+		// For a user without unfiltered_html Elementor stores the tree after its own filtering; compare with the tree that was stored.
+		if ( self::hash( ElementorData::tree_as_written( $tree ) ) !== $readback_hash ) {
 			return $this->rolled_back_error( $post_id, $snapshot_id, 'v4_migration_readback_failed', __( 'Migration readback differed', 'stonewright' ) );
 		}
 		$plan['applied']       = true;
 		$plan['snapshot_id']   = $snapshot_id;
 		$plan['readback_hash'] = $readback_hash;
+		if ( ElementorData::last_write_content_filtered() ) {
+			$plan['content_filtered'] = true;
+		}
 		return $plan;
 	}
 

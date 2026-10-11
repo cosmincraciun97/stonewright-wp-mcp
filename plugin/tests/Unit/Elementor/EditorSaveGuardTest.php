@@ -291,6 +291,41 @@ final class EditorSaveGuardTest extends TestCase {
 		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the undo did not leave a stale baseline behind' );
 	}
 
+	public function test_a_stonewright_write_refreshes_the_writers_own_baseline_so_a_native_write_right_after_is_not_refused(): void {
+		EditorSaveGuard::capture( 501 );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+		$tree = [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ];
+
+		self::assertTrue( ElementorData::write( 501, $tree, [ 'skip_integrity' => true ] ), ElementorData::last_write_error()?->get_error_message() ?? '' );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the writer is not refused as a stale editor by its own earlier write' );
+	}
+
+	public function test_a_stonewright_write_keeps_the_baseline_of_another_user_who_has_the_editor_open(): void {
+		$GLOBALS['stonewright_test_current_user_id'] = 2;
+		EditorSaveGuard::capture( 501 );
+		$GLOBALS['stonewright_test_current_user_id'] = 1;
+		EditorSaveGuard::capture( 501 );
+		$tree = [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ];
+
+		self::assertTrue( ElementorData::write( 501, $tree, [ 'skip_integrity' => true ] ) );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'the writer' );
+		$GLOBALS['stonewright_test_current_user_id'] = 2;
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ), 'the editor of another user is still told the document changed' );
+	}
+
+	public function test_a_failed_stonewright_write_leaves_the_baseline_alone(): void {
+		EditorSaveGuard::capture( 501 );
+		$before = $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'];
+		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+
+		self::assertFalse( ElementorData::write( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ], [ 'skip_integrity' => true ] ) );
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+
+		self::assertSame( $before, $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'] );
+	}
+
 	/** @param array<int, array<string, mixed>> $tree */
 	private static function write_tree( int $post_id, array $tree ): void {
 		$GLOBALS['stonewright_test_posts'][ $post_id ]->meta['_elementor_data'] = wp_json_encode( $tree );

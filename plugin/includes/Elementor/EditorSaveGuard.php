@@ -50,6 +50,23 @@ final class EditorSaveGuard {
 	}
 
 	/**
+	 * Brings the current user's baseline up to the document as it is now, after a Stonewright write by that user. The writer made
+	 * the change on purpose, so its own earlier baseline must not make its next Elementor save look like a stale editor. The
+	 * baselines of other users are left as they are: an editor another user has open still has to be told the document changed.
+	 * A user without a baseline gets none.
+	 */
+	public static function refresh_current_user( int $post_id ): void {
+		if ( $post_id < 1 ) {
+			return;
+		}
+		$key = self::option_key( $post_id );
+		if ( ! is_array( get_option( $key, null ) ) ) {
+			return;
+		}
+		self::capture( $post_id );
+	}
+
+	/**
 	 * Brings the baseline of every user who has one up to the document as it is now, for a Stonewright restore or undo of the
 	 * post. A user without a baseline gets none, and the baselines of other posts are not touched.
 	 */

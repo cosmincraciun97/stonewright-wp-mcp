@@ -142,6 +142,12 @@ final class ElementorTransactionRunner {
 					);
 				}
 
+				// For a user without unfiltered_html Elementor stores the tree after its own filtering. A tree_hash the caller computed from the
+				// tree it sent is met by the hash of the tree that was stored.
+				$content_filtered = ElementorData::last_write_content_filtered();
+				if ( $content_filtered && isset( $expected_readback['tree_hash'] ) && hash_equals( TreeHasher::hash( $tree ), (string) $expected_readback['tree_hash'] ) ) {
+					$expected_readback['tree_hash'] = TreeHasher::hash( ElementorData::tree_as_written( $tree ) );
+				}
 				$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
 				if ( null !== $readback_error ) {
 					$restored = false;
@@ -164,7 +170,7 @@ final class ElementorTransactionRunner {
 					);
 				}
 
-				return [
+				return ( $content_filtered ? [ 'content_filtered' => true ] : [] ) + [
 					'ok'            => true,
 					'post_id'       => $post_id,
 					'mode'          => 'full_tree',

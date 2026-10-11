@@ -9,6 +9,9 @@ use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * The V3 to V4 migration: error codes, the confirmation, the write lock with the tree recheck, and the rollback answer.
@@ -16,6 +19,7 @@ use Stonewright\WpMcp\Security\ConfirmationToken;
  * @covers \Stonewright\WpMcp\Abilities\ElementorV4\Migrate
  */
 final class MigrateTest extends TestCase {
+	use ElementorKsesSimulation;
 
 	private const POST  = 7101;
 	private const OTHER = 7102;
@@ -49,6 +53,7 @@ final class MigrateTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		V4FeatureGate::set_atomic_module_present_for_tests( null );
 		unset( $GLOBALS['stonewright_test_update_post_meta_returns'], $GLOBALS['stonewright_test_after_add_option'] );
 		$GLOBALS['stonewright_test_posts']           = [];
@@ -112,6 +117,18 @@ final class MigrateTest extends TestCase {
 		self::assertArrayHasKey( 'rollback_status', $result );
 		self::assertSame( 'not_attempted', $result['rollback_status'] );
 		self::assertIsArray( PostWriteLock::acquire( self::POST, 'next-writer', 30 ), 'a finished migration leaves no lock behind' );
+	}
+
+	public function test_a_user_without_unfiltered_html_migrates_and_the_readback_matches_the_filtered_tree(): void {
+		$this->simulate_elementor_kses();
+		$this->tree[0]['elements'][0]['settings']['title'] = 'Existing<script>alert(1)</script>';
+		$GLOBALS['stonewright_test_posts'][ self::POST ]   = $this->post( self::POST, $this->tree );
+
+		$result = ( new Migrate() )->execute( $this->apply_args() );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['applied'] );
+		self::assertStringNotContainsString( '<script>', $this->stored( self::POST ) );
 	}
 
 	public function test_production_safe_mode_needs_a_token_bound_to_the_post(): void {

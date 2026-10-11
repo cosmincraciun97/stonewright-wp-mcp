@@ -127,6 +127,7 @@ final class UpdateNode extends AbilityKernel {
 				'architecture' => [ 'type' => 'string', 'enum' => [ 'empty', 'v3', 'v4', 'mixed' ] ],
 				'warnings'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'readback'     => [ 'type' => 'object' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; it was verified against the filtered tree.' ],
 				'items'        => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'refs'         => [ 'type' => 'object' ],
 				'route'        => [ 'type' => 'object' ],
@@ -300,7 +301,7 @@ final class UpdateNode extends AbilityKernel {
 					PostWriteLock::release( $post_id, $owner );
 				}
 
-				return [
+				return ( ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [] ) + [
 					'post_id'      => $post_id,
 					'snapshot_id'  => $snapshot_id,
 					'element_id'   => $element_id,
@@ -469,6 +470,7 @@ final class UpdateNode extends AbilityKernel {
 
 		return array_merge(
 			$response,
+			ElementorData::last_write_content_filtered() ? [ 'content_filtered' => true ] : [],
 			[
 				'snapshot_id'         => $snapshot_id,
 				'readback'            => $readback,

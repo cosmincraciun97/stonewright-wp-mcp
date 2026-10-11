@@ -90,6 +90,7 @@ final class RenderFromSpec extends AbilityKernel {
 				'errors'      => [ 'type' => 'array' ],
 				'diagnostics' => [ 'type' => 'array' ],
 				'readback'    => [ 'type' => 'object' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the tree before it was stored; it was verified against the filtered tree.' ],
 			],
 		];
 	}
@@ -176,7 +177,7 @@ return $gate; }
 							return $readback;
 						}
 
-						return [ 'snapshot_id' => $snapshot_id, 'readback' => $readback ];
+						return [ 'snapshot_id' => $snapshot_id, 'readback' => $readback, 'content_filtered' => ElementorData::last_write_content_filtered() ];
 					}
 				);
 				if ( $written instanceof \WP_Error ) {
@@ -193,7 +194,7 @@ return $gate; }
 					'errors'      => [],
 					'diagnostics' => $diagnostics,
 					'readback'    => $readback,
-				];
+				] + ( true === $written['content_filtered'] ? [ 'content_filtered' => true ] : [] );
 			}
 		);
 	}

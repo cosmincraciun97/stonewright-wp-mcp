@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\KitLiveSettings;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
+use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -105,6 +106,7 @@ final class KitBatchMutate extends AbilityKernel {
 				'readback'      => [ 'type' => 'object' ],
 				'rollback'      => [ 'type' => 'boolean' ],
 				'noop'          => [ 'type' => 'boolean' ],
+				'content_filtered' => [ 'type' => 'boolean', 'description' => 'True when the user cannot unfiltered_html and Elementor\'s filtering changed the settings before they were stored.' ],
 				'cache_invalidation' => [ 'type' => 'object' ],
 			],
 		];
@@ -186,11 +188,16 @@ final class KitBatchMutate extends AbilityKernel {
 					++$applied;
 				}
 
+				// For a user without unfiltered_html Elementor filters the settings when it stores them; plan the filtered settings, the way its editor does.
+				$filtered         = EditorKses::filter( $planned );
+				$content_filtered = $filtered !== $planned ? [ 'content_filtered' => true ] : [];
+				$planned          = $filtered;
+
 				$after_hash = self::hash_settings( $planned );
 				$preview    = self::preview_diff( $current, $planned );
 
 				if ( ! empty( $args['dry_run'] ) ) {
-					return [
+					return $content_filtered + [
 						'ok'          => true,
 						'kit_id'      => $kit_id,
 						'dry_run'     => true,
@@ -258,7 +265,7 @@ final class KitBatchMutate extends AbilityKernel {
 
 				$cache_invalidation = PostCacheInvalidator::invalidate( $kit_id );
 
-				return [
+				return $content_filtered + [
 					'ok'            => true,
 					'kit_id'        => $kit_id,
 					'dry_run'       => false,

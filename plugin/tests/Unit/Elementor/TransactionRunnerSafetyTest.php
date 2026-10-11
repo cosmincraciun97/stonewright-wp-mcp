@@ -11,6 +11,9 @@ use Stonewright\WpMcp\Elementor\ElementorTransactionRunner;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Tests\Support\ElementorKsesSimulation;
+
+require_once dirname( __DIR__, 2 ) . '/Support/elementor-kses-simulation.php';
 
 /**
  * The transaction runner restores the snapshot only when its own write left the document changed, applies the
@@ -21,6 +24,7 @@ use Stonewright\WpMcp\Support\ElementorData;
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement
  */
 final class TransactionRunnerSafetyTest extends TestCase {
+	use ElementorKsesSimulation;
 
 	private const POST     = 611;
 	private const EXISTING = '[{"id":"root","elType":"container","settings":{"container_type":"flex"},"elements":[{"id":"h1","elType":"widget","widgetType":"heading","settings":{"title":"Kept"},"elements":[]}]}]';
@@ -52,6 +56,7 @@ final class TransactionRunnerSafetyTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$this->stop_simulating_elementor_kses();
 		ElementorCustomCssGate::reset();
 		ElementorTransactionRunner::set_read_override( null );
 		$GLOBALS['stonewright_test_posts']           = [];
@@ -143,6 +148,17 @@ final class TransactionRunnerSafetyTest extends TestCase {
 		$tree   = json_decode( self::EXISTING, true );
 		$tree[] = [ 'id' => 'other-writer-el', 'elType' => 'container', 'settings' => [], 'elements' => [] ];
 		return $tree;
+	}
+
+	public function test_a_whole_tree_write_by_a_user_without_unfiltered_html_meets_an_expected_hash_of_the_tree_it_sent(): void {
+		$this->simulate_elementor_kses();
+		$tree   = [ [ 'id' => 'n1', 'elType' => 'container', 'settings' => [], 'elements' => [ [ 'id' => 'h2', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => [ 'title' => 'Hi<script>alert(1)</script>' ], 'elements' => [] ] ] ] ];
+		$result = ElementorTransactionRunner::run_full_tree( self::POST, $tree, [ 'tree_hash' => TreeHasher::hash( $tree ), 'min_elements' => 2 ], true );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertTrue( $result['content_filtered'] );
+		self::assertSame( 'Hi', ElementorData::read( self::POST )[0]['elements'][0]['settings']['title'] );
+		self::assertSame( $result['after_hash'], $result['readback_hash'] );
 	}
 
 	public function test_a_whole_tree_write_is_refused_before_a_snapshot_while_another_writer_holds_the_lease(): void {
