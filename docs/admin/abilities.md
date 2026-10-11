@@ -1,10 +1,11 @@
 # AI Abilities
 
-The AI Abilities page lists the MCP tools currently exposed by Stonewright, lets
-you disable individual ones, and shows a live count per category. The Essential
-tool surface is the default, so the first view is the compact fast-path
-surface; set the MCP tool surface to Full in **Stonewright → Setup → Settings** when you
-need to inspect or expose every registered ability.
+The AI Abilities page lists every ability Stonewright registers, lets
+you disable individual ones, and shows a live count per category. The MCP tool
+surface decides how many of them a client sees: Essential, the compact fast-path
+surface, is the default. An administrator sets the surface to Full in
+**Stonewright → Setup → Settings** when every registered ability must be exposed;
+an agent cannot switch to Full.
 
 Source: `plugin/includes/Admin/AbilitiesPage.php`
 
@@ -14,7 +15,7 @@ Source: `plugin/includes/Admin/AbilitiesPage.php`
 
 An "ability" is a one-to-one mapping to an MCP tool. Each ability has:
 
-- **Name** — the MCP tool identifier (e.g. `stonewright/memory-write`)
+- **Name** — the MCP tool identifier (e.g. `stonewright/memory-save`)
 - **Label** — a human-readable display name
 - **Category** — groups related abilities together
 - **Description** — one-line summary shown in the table

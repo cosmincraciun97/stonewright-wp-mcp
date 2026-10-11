@@ -52,7 +52,7 @@ writing:
 ```
 "Confirm update:
   post_id: 42
-  snapshot_id: snap_1716300000_42
+  snapshot_id: snap_0123456789abcdef
   action: replace_page_content
 Reply YES to proceed."
 ```

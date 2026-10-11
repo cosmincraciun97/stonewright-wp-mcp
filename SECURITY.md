@@ -13,8 +13,11 @@ logs or screenshots that do not contain secrets.
 
 ## Security Model
 
-Typed write abilities use explicit permission callbacks. Destructive
-production-safe operations require confirmation tokens. Elementor/theme and
+Typed write abilities use explicit permission callbacks, and an ability that acts
+on one object checks the capability on that object. Destructive
+production-safe operations require confirmation tokens. Custom code, the
+undo of a change to code, promotion of knowledge to guidance, and a snippet
+rollback wait for a human approval in wp-admin. Elementor/theme and
 many content writes snapshot first. The companion runs WP-CLI through tokenized
 argv only.
 
@@ -24,8 +27,9 @@ change to code needs an administrator in wp-admin. See
 [docs/rescue.md](docs/rescue.md).
 
 `stonewright/php-execute` intentionally runs short PHP inside the loaded
-WordPress runtime. It is permission- and mode-gated and audited, but it is
-**not** a strict sandbox and does not receive the same structural guarantees as
+WordPress runtime. It is on the `full` tool profile only, which an administrator
+chooses in wp-admin and an agent cannot switch to. It is permission- and
+mode-gated and audited, but it is **not** a strict sandbox and does not receive the same structural guarantees as
 typed DesignSpec or validated mutation workflows. Prefer typed abilities when
 they exist. Stonewright is not a replacement for staging environments, human
 review, or normal WordPress security practice.
@@ -47,8 +51,11 @@ review, or normal WordPress security practice.
 | Update Elementor page      | `edit_post( $page_id )`             |
 | Update Elementor kit       | `edit_theme_options`                |
 | Update templates / styles  | `manage_options` + `edit_theme_options` |
+| Theme Builder templates    | `edit_theme_options` + `edit_post` / `delete_post` on the template |
+| Users                      | `edit_users` / `create_users` / `delete_users` + `edit_user` / `delete_user` on the target; a role change also needs `promote_users` and an editable role |
 | Upload media               | `upload_files`                      |
 | Sandbox plugin code        | `edit_plugins` + `manage_options`, and file changes allowed |
+| Run PHP (`php-execute`) or WP-CLI | `edit_plugins` + `manage_options`, and a super admin on multisite |
 | Destructive (delete)       | the capability of that domain, plus a confirmation token in production-safe mode |
 
 ## HTTP transport

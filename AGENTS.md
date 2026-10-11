@@ -22,8 +22,9 @@ override default behavior.
    lists it. An administrator chooses the `full` profile (the Full tool
    surface) in wp-admin under Stonewright > Setup > Settings; an agent never
    switches to it. `stonewright-tool-profile` refuses a request for `full` in
-   every mode with `approval_required` and `agent_must_stop` and the settings
-   link: show the link to the user and stop. The person who runs the
+   every mode (a site already on the Full surface has nothing to switch) with
+   `approval_required` and `agent_must_stop` and the settings link: show the
+   link to the user and stop. The person who runs the
    companion may set `STONEWRIGHT_MCP_TOOL_PROFILE=full`; no tool changes it.
    Nor does a REST call with an Application Password or an OAuth bearer
    (`POST /stonewright/v1/settings` with `essential_tools_mode:false` needs a
@@ -110,7 +111,17 @@ override default behavior.
    or retrieve a grant, or apply with `custom_code_grant` unless the user
    explicitly asks the agent to perform that approval step. Pluginless Direct
    mode may inspect custom CSS but must not write it because it has no
-   authenticated wp-admin grant boundary.
+   authenticated wp-admin grant boundary. Other changes wait for a person in
+   wp-admin the same way, and the agent shows the `approval_url` the error
+   carries and stops: rolling back a WPCode or Code Snippets snippet (it needs
+   the same grant as an apply, `stonewright_custom_code_grant_required`); the
+   undo of a verified change to code, which only an administrator on the Rescue
+   or Changes page runs (`stonewright_rescue_approval_required`, a confirmation
+   token does not lift it); promoting a knowledge candidate to an active skill
+   or an expertise pack to `verified` or `stable` (an administrator approves it
+   on the Skills screen; `user_approved` and `maintainer_approved` are ignored);
+   and memory stored as `needs_review` (an administrator approves it on the
+   Memory page).
 9. **Updater contract is part of every user-consumed release.** Do not ship a
    version, tag, or GitHub release that operators should install unless all of
    the following are true in the published artifacts (not only in source):
@@ -401,12 +412,21 @@ Recommend against stable 1.0 while any required gate is missing:
   retry a same-owner options CAS miss and continue while this writer still
   owns a live lease; `stonewright_elementor_lock_lost` /
   `stonewright_elementor_css_lease_lost` mean ownership is gone, expired, or
-  foreign. Never call a site-wide Elementor files-manager clear for one post.
+  foreign. When the stylesheet version of the post moves, the regenerator also
+  purges that one post's cached page in the page-cache plugins that expose a
+  per-post purge, never a whole-site purge. Never call a site-wide Elementor
+  files-manager clear for one post.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,
   cache, rewrite, plugin, option, post, media, menu, and taxonomy work when it
-  speeds up implementation or debugging.
+  speeds up implementation or debugging. `stonewright/wp-cli-batch-run` runs
+  read-oriented commands only.
+- For Elementor's own native abilities use `stonewright-elementor-native-execute`
+  rather than Elementor's own MCP tools: it adds the snapshot, write lock,
+  readback, rollback, and audit that a direct call to Elementor does not have
+  (such a call is only observed). It plans first (dry run); a real write needs a
+  confirmation token in `production-safe` mode.
 - On the `full` profile only (an administrator's choice in wp-admin, never an
   agent's), use `stonewright/php-execute` for direct WordPress runtime
   inspection, plugin API calls, and short PHP snippets when that is faster than

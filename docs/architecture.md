@@ -131,9 +131,11 @@ it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
 explicit rather than silently emulated. Direct mode writes through core REST
 (and local WP-CLI for Elementor data) with companion-side protections only; it
-has no change sets or confirmation tokens, and no Rescue journal. It saves a
-copy before whole-document writes and restores it on request, reads every typed
-write back, and can check the public page after a page, post or template write.
+has no change sets, no plugin confirmation tokens and no Rescue journal. A
+destructive tool needs a `confirmation_id` bound to the call's arguments (a plain
+`confirm: true` only on a local site). It saves a copy before whole-document
+writes and restores it on request, reads every typed write back, and can check
+the public page after a page, post or template write.
 [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) lists what
 it does not do yet.
 
@@ -403,7 +405,8 @@ visible client tool surface/private config and permission to install or
 configure a missing provider are separate decisions. Browser automation may
 verify rendered output or perform an explicitly approved dashboard interaction;
 it does not replace custom-code dry-run/approval, backup, permission, audit, or
-confirmation-token gates (Direct mode has no confirmation tokens).
+confirmation-token gates (Direct mode has no plugin confirmation tokens; its
+destructive tools use a `confirmation_id` bound to the call).
 
 ### Elementor write closure
 
@@ -466,9 +469,9 @@ registered `elementor/*` abilities, their ownership and schema fingerprints, and
 the certification result per contract. `stonewright/site-capabilities` and
 `stonewright/elementor-v3-status` return the full block, and
 `stonewright-task-start` returns its `state` and one short hint (`native_hint`).
-Reading it calls no Elementor ability. Elementor's own MCP server can stay
-connected next to Stonewright; Stonewright does not disable or replace it. A
-write made through Elementor's own server skips the tool's closure, so an
+Reading it calls no Elementor ability. Connect only Stonewright to the AI client
+([Elementor MCP](elementor-mcp.md)): a write made through Elementor's own server
+skips the tool's closure, so an
 observer on core's `wp_before_execute_ability` and `wp_after_execute_ability`
 snapshots the affected post or kit before the call and records a change-history
 row and an audit row (`observed_native`) after it. It never blocks or changes the
@@ -603,7 +606,7 @@ Section reuse copies a section from a saved page into the page being built. It i
 3. **Extract.** `PortableSection` builds `SectionPortableV1`: the section in its own format with element ids (and V4 local style ids) replaced by placeholders, Gutenberg anchors listed, and `references` reported by `SectionInspector` and resolved by `ReferenceCatalog` (global colors, fonts, classes, variables, dynamic tags, media, forms, synced patterns, nested templates, global widgets, third-party widgets). A synced pattern stays a `core/block` reference. For Gutenberg, `LegacyBlockAttributes` first moves the `textAlign` attribute of the blocks whose core deprecations move it to `style.typography.textAlign` (only where the site registers the block with that support and no `textAlign` attribute), so a section saved by an older WordPress is not refused by the strict attribute check of the insert, and reports it as a `legacy_attributes` warning; `SourceWarnings` adds `draft_source`, `pending_source`, `scheduled_source`, `private_source` and `password_protected_source` when the source is not public. A locator that matches nothing answers `stonewright_section_not_found`, `stonewright_section_not_copyable` (the element exists and is not a copy root) or `stonewright_no_elementor_document`, each with a `reason`; `SectionSource::resolve()` tells them apart.
 4. **Insert.** An `insert_section` operation of `elementor-v3-batch-mutate`, `elementor-v4-update-node` (`operations`), or `blocks-batch-mutate` validates the payload (shape and size only; it is untrusted), and `ElementorSectionInserter` or `GutenbergSectionInserter` builds the copy: fresh unique element ids, V4 local style ids that name their new element with every class list rewritten, existing global references kept and a missing one reported as the exact reference, dynamic tags kept and flagged, widget types never changed, settings never stripped (an Elementor V3 caller can approve removing exactly the settings the live schema rejects with `drop_settings`), duplicate Gutenberg anchors renamed with their `#links`, synced patterns kept as references unless `detach_patterns` (`true`, `false`, or a list of pattern ids) asks for a local copy, which gets the same legacy attribute move. The copy and the adaptations are applied to the document in memory, so one dry run and one apply cover them: one snapshot, one write lock, one write, the batch's readback (a recursive nested comparison for V4), post-scoped CSS only through `elementor-css-regenerate`, a ChangeSetV1 whose `reuse_source` names the source post and section locator, and the audit row. The custom CSS gate, the HTML widget policy, and the raw HTML gate see the copied content as they see content written by hand.
 
-A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. An `elementor-v3-batch-mutate` insert needs a confirmation token in `production-safe` like every write of that ability that is not a dry run; a `blocks-batch-mutate` insert needs one only when the same batch removes a block.
+A raw Atomic tree cannot be carried by Elementor's native composition without losing settings it does not know, so a V4 insert always runs on the Stonewright V4 writer; the result's `route` says so and reports what the document would route to. V4 writes stay blocked in `production-safe`. An `elementor-v3-batch-mutate` insert needs a confirmation token in `production-safe` like every write of that ability that is not a dry run; a `blocks-batch-mutate` insert needs one as well, because every write of that ability that is not a dry run does.
 
 What an Elementor copy is checked for, in the dry run as in the apply: a V3 section holding a setting the live Elementor schema does not list is refused with the exact setting, because the document write refuses an unknown setting on a new element and Stonewright never strips one on its own. `ElementorSectionInserter` checks each new element the way the write does, takes a rejected setting out of a working copy and checks again until nothing is rejected, so one refusal names every rejected setting (up to 25 in `violations`, five in the message) and the list that `drop_settings_proposal` offers is complete; the same pass reports CSS classes the site has not approved and custom CSS that needs a grant, by key. The `drop_settings` option of the operation is applied only when it equals that list: the copy is then made without exactly those settings and reports them as removed (`removed_settings`, the `settings_removed` warning, the write receipt and the audit row); a list that differs is refused with `stonewright_section_drop_settings_mismatch` and nothing is removed. The custom code gate of the batch does not read a setting the operation lists, and still refuses every other one. A stored select or choose value the live control no longer lists but still maps through its `selectors_dictionary` (a heading `align` of `left`) is accepted and kept as stored; any other unlisted value is refused naming the setting. A widget that Elementor registers as a placeholder because its plugin is not active (`WidgetAvailability::registration()` reads the live registry) is refused with `stonewright_section_placeholder_widget`, and a widget that is not registered with `stonewright_section_widget_unregistered`, with or without settings. CSS classes that are not in `stonewright_approved_css_classes`, custom CSS, and HTML widgets are refused as they are for a hand-written write, and `section-reuse-extract` warns about each (`ElementorInsertWarnings`) so the dead end shows before the question is asked. An id attribute the copy shares with the page or with another copy (`_element_id` in V3, `_cssid` in V4) is renamed `name-2`, `name-3` with the `#name` links of the copy and an `anchors_renamed` warning. A batch with a duplicate `op_id` is refused in the three batch writers, and the `insert_section` operations of one Elementor batch may add no more elements than the element cap of one write (`stonewright_section_batch_too_large`). V4 text (the title, paragraph and button text of the Atomic widgets) is written with the text prop type the live widget declares in its props schema; the bundled `html-v3` map applies only without a live schema, and the readback refuses text the live widget would render empty.
 

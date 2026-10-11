@@ -81,6 +81,27 @@ composer docs:matrix
 ```
 
 The documentation check validates version agreement, current release notes and
-their explicit channel, changelog heads, evergreen package URLs, the supported
-release block, required install-prompt contracts, and relative Markdown links.
-CI and the release workflow run it automatically.
+their explicit channel, changelog heads (at most five retained releases), the
+plugin ability and Direct tool counts in the files that state them (`README.md`,
+`companion/README.md`, `docs/direct-mode-e2e.md`, `docs/abilities.md`), evergreen
+package URLs, the supported release block, required install-prompt contracts,
+that every Markdown file matches exactly one rule of `scripts/docs-manifest.json`,
+imported-knowledge source metadata, the truth artifacts under `docs/contracts/`,
+and relative Markdown links. It also runs `git diff --check`. CI and the release
+workflow run it automatically.
+
+The `docs` CI job runs these checks as well, and they can be run from the
+repository root:
+
+```bash
+node scripts/check-license-metadata.mjs
+node scripts/check-admin-control-sizing.mjs
+node scripts/check-public-hygiene.mjs
+node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/package-verify.test.mjs
+```
+
+`check-license-metadata.mjs` checks the component licenses, and
+`check-admin-control-sizing.mjs` fails when an admin page stylesheet sizes a
+button or an input (see "Control size" in `DESIGN.md`). A change to admin UI also
+runs the layout check described in `e2e/README.md`: `cd e2e && npx playwright
+test admin-layout.spec.ts` against a test site.

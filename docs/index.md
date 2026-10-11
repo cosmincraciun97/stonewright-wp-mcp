@@ -2,8 +2,8 @@
 
 Stonewright exposes WordPress site-building primitives as MCP tools. Agents use
 those tools to create and edit Gutenberg blocks, Elementor pages, FSE templates,
-media, menus, skills, memory, direct PHP runtime snippets, and WP-CLI-assisted
-workflows with operator controls.
+media, menus, skills, memory, direct PHP runtime snippets (on the Full tool surface
+an administrator chooses), and WP-CLI-assisted workflows with operator controls.
 
 ## Where To Start
 
@@ -39,6 +39,7 @@ workflows with operator controls.
 - [Expertise and public capability parity](expertise-parity.md)
 - [Release notes](releases/README.md)
 - [Elementor write verification](elementor-write-verification.md)
+- [Elementor MCP with Stonewright](elementor-mcp.md)
 - [Permanent remediation contracts](permanent-remediation-contracts.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)

@@ -18,6 +18,9 @@ Enforced by:
   protected-meta writes, including concatenated keys; `read_only:true`)
 - `plugin/includes/Security/ProtectedFilesystemWriteGuard.php`
 - `plugin/includes/Security/ProtectedElementorWriteGuard.php`
+- `plugin/includes/Security/FullSurfaceGuard.php` and
+  `plugin/includes/Core/FullProfileOnlyAbilities.php` (the `full` profile and the
+  abilities no other profile lists)
 - `plugin/bin/security-audit.php`
 
 `php-execute` is registered on the **full** MCP profile only. Every other profile
@@ -25,6 +28,16 @@ omits it, including bootstrap, essential, low-tools, the specialist profiles,
 `discover-execute`, and the read-only `inspect` profile. The companion applies
 the same rule to its own profile lists, and keeps php-execute registered for the
 full profile only.
+
+The `full` profile is an administrator's choice in wp-admin (Stonewright > Setup
+> Settings), never an agent's: `stonewright-tool-profile` refuses a request for
+`full` in every mode (`stonewright_tool_profile_full_requires_admin`),
+`POST /stonewright/v1/settings` accepts `essential_tools_mode:false` only from a
+cookie sign-in with a REST nonce (`stonewright_full_surface_requires_admin`
+otherwise), and `extras` cannot add `php-execute`, a sandbox writer, a WP-CLI
+runner, `custom-code-provider` or a custom widget definer to a surface
+(`stonewright_tool_profile_extras_restricted`). `php-execute` and the WP-CLI
+runners need `edit_plugins` and `manage_options`, and a super admin on multisite.
 
 A successful `php-execute` response may carry a `routing_hint` that names the
 typed tool for a common pattern (post meta, options, Elementor data, menus). The
@@ -42,11 +55,16 @@ composer security:audit
 ## Rule 2 - No `__return_true` For Writes
 
 Every write/update/delete ability must use a real permission callback that calls
-`Stonewright\WpMcp\Security\Permissions`.
+`Stonewright\WpMcp\Security\Permissions`. An ability that acts on one object also
+checks the capability on that object (`edit_post`, `edit_comment`, `edit_user`,
+`delete_user`, `read_post`, and for a role change `promote_users` with the editable
+roles), as wp-admin does; see [Security](security.md#permissions-per-object).
 
 Enforced by:
 
 - `plugin/includes/Security/Permissions.php`
+- `plugin/includes/Security/UserGuard.php` and `plugin/includes/ThemeBuilder/TemplateGuard.php`
+  (the per-object checks of the user and Theme Builder abilities)
 - `plugin/tests/Unit/AbilityKernelAuditTest.php`
 
 Verify:
@@ -326,6 +344,47 @@ vendor/bin/phpunit tests/Unit/Security/RescueGuardTest.php
 vendor/bin/phpunit tests/Unit/Security/HealthProbeTest.php
 vendor/bin/phpunit tests/Unit/Security/RollbackRecipesTest.php
 vendor/bin/phpunit tests/Unit/Security/RescueAbilitiesTest.php
+```
+
+## Rule 14 - Human approval for code and guidance
+
+Hard rule 8 of `AGENTS.md` and its neighbours: some changes wait for a person in
+wp-admin, and an agent that meets one shows the approval link and stops:
+
+- custom code (theme files, Customizer CSS, WPCode and Code Snippets snippets, Elementor
+  custom CSS and raw HTML): a single-use grant that an administrator issues, bound to
+  the exact site, user, path, language, candidate hash and byte budget; rolling back a
+  snippet needs the same grant (`stonewright_custom_code_grant_required`);
+- the undo or rollback of a verified change to code: only an administrator pressing the
+  button on the Rescue or Changes page; an ability, REST or WP-CLI call is refused with
+  `stonewright_rescue_approval_required`, and a confirmation token does not lift it;
+- promoting a knowledge candidate to an active skill, or an expertise pack to `verified`
+  or `stable`: an administrator approves it on the Skills screen; the grant works once,
+  for that exact subject and target, and expires after an hour;
+- memory text that tells an agent to override the plugin rules or move credentials: it is
+  stored as `needs_review` and offered to no agent until an administrator approves it on
+  the Memory page;
+- the Full tool surface (see Rule 1).
+
+The refusal carries `approval_required`, `agent_must_stop` and `approval_url` in the
+error text that an MCP client receives, not only in the data a REST client reads.
+
+Enforced by:
+
+- `plugin/includes/Security/CustomCodeGrant.php`
+- `plugin/includes/Security/PromotionGrant.php`
+- `plugin/includes/Security/ChangeRollback.php`
+- `plugin/includes/Memory/MemoryScreen.php`
+- `plugin/includes/Support/ErrorEnvelope.php`
+
+Verify:
+
+```bash
+cd plugin
+vendor/bin/phpunit tests/Unit/CustomCode/ProviderPipelineTest.php
+vendor/bin/phpunit tests/Unit/Security/PromotionGrantTest.php
+vendor/bin/phpunit tests/Unit/Abilities/Security/ChangeRollbackAbilityTest.php
+vendor/bin/phpunit tests/Unit/Memory/MemoryScreenTest.php
 ```
 
 ## Threat Model

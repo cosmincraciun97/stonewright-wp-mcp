@@ -12,8 +12,8 @@ measured against.
 | `stonewright-design-direction-list` | Show the user what already exists before proposing a new one. |
 | `stonewright-design-direction-capture` | Turn evidence and stated intent into a draft direction. |
 | `stonewright-design-direction-save` | Persist a draft or an edit. Creates a new revision; it does not overwrite history. |
-| `stonewright-design-direction-activate` | Promote a revision to active. Review with the user first. |
-| `stonewright-design-direction-restore` | Roll back to an earlier revision when a change went wrong. |
+| `stonewright-design-direction-activate` | Make a ready direction (`id`) the active one; `id` 0 clears it. Review with the user first. |
+| `stonewright-design-direction-restore` | Write an earlier revision (`id`, `revision`) back as a new revision when a change went wrong. |
 | `stonewright-design-direction-sync-plan` | Compute the diff between the direction and the live Elementor kit. |
 | `stonewright-design-direction-sync-apply` | Write the approved part of that diff to the kit. |
 
@@ -48,10 +48,13 @@ same turn without showing it first.
 proposed value, and where the proposal came from. Read it out loud before
 proposing `sync-apply`.
 
-`sync-apply` writes global styles, so it takes a backup snapshot and, in
-`production-safe` mode, a confirmation token issued by
-`stonewright-security-issue-confirmation-token`. Apply the subset the user
-approved — not the whole plan because the whole plan was easier to pass along.
+`sync-apply` writes global styles, so it needs the `base_hash` that `sync-plan`
+returned (it is refused when the live kit moved since the plan), takes a
+backup snapshot and, in `production-safe` mode, a confirmation token issued by
+`stonewright-security-issue-confirmation-token`. Apply only what the user
+approved: `sync-apply` takes the whole plan and has no subset argument, so when
+the user approves only part of it, change the direction, plan again and apply
+that plan.
 
 Kit changes are site-wide. A global token edit made to satisfy one section is
 almost always the wrong fix; adjust the section instead, or say plainly that
@@ -59,7 +62,10 @@ the direction itself needs to change.
 
 ## Restore
 
-`stonewright-design-direction-restore` takes a revision id and makes it active
-again. Use it as soon as a direction change turns out to be wrong — it is
-cheaper and more honest than hand-editing values back one at a time. After a
-restore, re-run the kit sync plan: the kit does not roll back on its own.
+`stonewright-design-direction-restore` takes a direction `id` and a `revision`
+and writes that revision back as a new revision; history stays intact, and in
+`production-safe` mode it needs a confirmation token. Restoring a revision that
+is not ready, on the active direction, switches the direction off
+(`active_cleared`). Use it as soon as a direction change turns out to be wrong —
+it is cheaper and more honest than hand-editing values back one at a time. After
+a restore, re-run the kit sync plan: the kit does not roll back on its own.

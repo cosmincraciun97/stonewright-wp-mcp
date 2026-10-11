@@ -4,8 +4,9 @@ Status is evidence, not marketing. `candidate` means the curriculum contract
 passes but exact live runtime evidence is still missing. `verified` requires a
 matching fixture/schema fingerprint plus editor, frontend, and readback proof.
 `stable` additionally needs two runtime
-fingerprints or maintainer approval. Missing adapters remain `draft` or
-`absent`.
+fingerprints or an administrator's approval with a note. Promotion to `verified`
+or `stable` always waits for an administrator to approve it on the Skills screen.
+Missing adapters remain `draft` or `absent`.
 
 | Tier | Integration | Implementation evidence | Eval status | Pack status |
 |---|---|---|---|---|

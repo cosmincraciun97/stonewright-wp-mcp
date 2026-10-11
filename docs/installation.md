@@ -93,7 +93,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- the route is reported as missing by WordPress → Direct mode (105 tools in the current full surface); an unclear answer keeps Plugin mode
+- the route is reported as missing by WordPress → Direct mode (105 Direct tools; with the companion's own local tools `tools/list` shows 125 on the `full` profile); an unclear answer keeps Plugin mode
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
@@ -205,19 +205,20 @@ plugin-only capabilities that remain unavailable until you install Stonewright.
 | PHP execute, Elementor engines, DesignSpec | no | yes |
 | Custom PHP/CSS/JS/HTML write (approval grant) | no (refused in content, template, blueprint, widget, global-styles and Elementor data writes) | yes (human grant) |
 | Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
-| Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
+| Production-safe confirmation tokens | no (Direct has its own `confirmation_id`, bound to the call; `confirm: true` is a caller-set flag on a local site only) | yes |
 | Change sets, Rescue | no | yes |
 | Backup restore, after-write verification | yes (`stonewright-direct-backup-list` / `-restore`; every typed write is read back; an optional public-page check) | yes (snapshots and the change history; Rescue probes and rolls back) |
 
-Remote destructive Direct tools require `confirm: true` by default
-(`STONEWRIGHT_DIRECT_WRITES=confirm`), and so do template and template-part
-updates and a blueprint applied over an existing page. Local `.local`/`.test`
+Remote destructive Direct tools need a confirmation by default
+(`STONEWRIGHT_DIRECT_WRITES=confirm`): the refused call returns a
+`confirmation_id` and the same call is repeated with it. So do template and
+template-part updates and a blueprint applied over an existing page. Local `.local`/`.test`
 hosts default to `on`. Optional per-site `disabledTools` in
 `~/.stonewright/sites.json` can block writes on production aliases.
 
 Direct mode saves pre-images and Elementor file backups under
 `~/.stonewright/backups/`; `stonewright-direct-backup-list` and `-restore` list
-and restore them (`confirm:true`). It reads every typed write back, and can
+and restore them (a restore needs a confirmation). It reads every typed write back, and can
 fetch the public page after a page, post or template write (on by default for a
 local site, off for a remote one). The full list of what Direct mode protects
 and does not do yet is in [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).

@@ -36,6 +36,7 @@
 - [ ] `composer phpcs`
 - [ ] `composer security:audit`
 - [ ] `npm run typecheck` / `npm test` / `npm run build` (companion)
+- [ ] `node scripts/check-admin-control-sizing.mjs` and `cd e2e && npx playwright test admin-layout.spec.ts` (admin UI changes), or N/A
 - [ ] Other:
 
 ## Documentation
@@ -50,4 +51,4 @@
 
 ## Screenshots
 
-Required for admin UI changes (attach below).
+Required for admin UI changes: before and after (attach below).

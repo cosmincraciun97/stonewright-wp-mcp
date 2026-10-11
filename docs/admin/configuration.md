@@ -111,7 +111,7 @@ on in its own settings.
 |---|---|
 | `bootstrap` | Explicit progressive-discovery/transport diagnostic (≤ 12 tools, ≤ ~3,500 est. tokens). Use only when the client is proven to process live tool-list changes. |
 | `essential` | Fresh-install default and compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
-| `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
+| `full` | Entire registered ability catalog, including `php-execute` and the other abilities that run or write code. **Slow and high-context** — only for specialist sessions that truly need every ability. Chosen only by an administrator in wp-admin; an agent, an Application Password, an OAuth client or WP-CLI cannot switch to it. |
 
 The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
 essential map to enabled; full maps to disabled. Existing installs without
@@ -149,7 +149,7 @@ override or recovery; normal Bootstrap tasks expand from `task-start`.
 The `full` profile, which lists `php-execute` and the other abilities that run
 or write code, is not one of them: choose **Full** under **MCP tool surface**
 here. A request for `full` through `stonewright-tool-profile` is refused with a
-link to this setting.
+link to this setting, unless the site already uses the Full surface.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
 tasks on a compact set of batch-first tools. If a profile expects a disabled or
 gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
@@ -192,8 +192,11 @@ of shelling out to `wp ...` themselves.
 ### Elementor V4 atomic
 
 Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
-and related abilities. It is off by default and only relevant on sites running
-Elementor 3.18+.
+and related abilities. It is off by default and only relevant on sites running an
+Elementor version with the Atomic Widgets module. It does not gate the native
+Elementor MCP integration: `stonewright-elementor-native-execute` is available when
+the native Elementor state is `available` and at least one Elementor ability is
+certified.
 
 ### Reuse saved sections
 

@@ -20,7 +20,8 @@ of `stonewright-elementor-v4-update-node` (skip it when
 
 ## Gate check
 
-Before doing anything, verify the feature is enabled:
+Before using the Stonewright V4 renderer or writers, verify the feature is
+enabled (the native path below has its own gate):
 
 ```json
 { "ability": "stonewright/elementor-v4-status", "args": {} }
@@ -93,9 +94,20 @@ or an unexpected change is an error, not a success.
   names them and the V4 flag is on. They stay experimental and blocked in
   `production-safe`.
 
-If the user also has Elementor's own MCP server connected, do not repeat one
-change through both. Use Stonewright when you want snapshots, readback, audit,
-and rollback; Elementor's MCP alone is fine for a quick draft.
+`stonewright/elementor-native-execute` does not depend on the
+`stonewright_elementor_v4_atomic` flag: it is available when the native
+Elementor state is `available` and at least one ability is certified. Dry-run
+plans and the structure read need no token in any mode; in `production-safe`
+mode a real write (`dry_run: false`) needs a `confirmation_token` issued for the
+exact call.
+
+Never call `elementor/*` tools on Elementor's own MCP server, even when it is
+connected next to Stonewright: those calls skip the backup, the change history
+and the audit. Run the same ability through
+`stonewright/elementor-native-execute`. A call that is made there anyway is not
+blocked; Stonewright records it afterwards as a change-history row and an audit
+row marked `observed_native`.
+
 ## Dry-run first
 
 `design-spec-to-elementor-v4` defaults to `dry_run: true`. Always call it in

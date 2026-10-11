@@ -450,7 +450,8 @@ visual tasks, verify a browser or screenshot tool is visible before the first
 Stonewright write.
 
 Browser automation never removes custom-code dry-run, human approval, backup,
-permission, or confirmation-token boundaries of the mode in use (Direct mode has no confirmation tokens).
+permission, or confirmation boundaries of the mode in use (Direct mode confirms a destructive call with a
+`confirmation_id` bound to that call; `confirm: true` counts on a local site only).
 
 ---
 

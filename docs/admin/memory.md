@@ -117,6 +117,15 @@ is worth retaining. Nothing is auto-saved based on conversation content.
 Admins can also create entries manually via the Add new form on this page, or
 via the REST API (`POST /stonewright/v1/memory`).
 
+Text that tells an agent to override the plugin rules, safety gates or
+confirmation tokens, or to send credentials elsewhere, is not stored as active
+when an agent or an import writes it (`stonewright-memory-save`,
+`stonewright-learning-record`, a knowledge import, a repair lesson). The entry
+is stored with the status **Needs review**
+(`needs_review: true` in the answer), is never offered to agents at task start
+or as site context, and a later save under the same key does not clear it. An
+administrator approves or discards it on this page.
+
 Repeated errors can add a proposed lesson: when the same error repeats ten
 times, Stonewright writes a Reference entry in scope `audit` with status
 `draft`. See [Proposed lessons](#proposed-lessons).
@@ -152,7 +161,7 @@ incidents** list the incident store, with its own state filters (**Open**,
 ### The table
 
 One row per entry: name and key, type (a tag), scope, status (**Active**,
-**Draft**, **Stale** or **Rejected**, with the lifecycle state when there is
+**Draft**, **Needs review**, **Stale** or **Rejected**, with the lifecycle state when there is
 one), updated time, and the row's actions, each named after its entry. The
 table stacks into one card per row at 782px and below. It lists the newest 200
 entries of a view and says so when there are more. An empty store and an empty
@@ -189,9 +198,10 @@ needs that second step with or without JavaScript). The handler calls
 
 A draft lesson shows **Approve** and **Discard** in its Actions cell.
 **Approve** makes the entry active and records who approved it and when (UTC) in
-the entry's value; **Discard** rejects it. Only draft entries can be approved or
-discarded (anything else answers "not a draft" and changes nothing), and both
-actions need `manage_options` and a nonce. An approved lesson is offered to
+the entry's value; **Discard** rejects it. Only draft entries and entries that
+need review can be approved or discarded (anything else answers "not a draft or
+waiting for review" and changes nothing), and both actions need `manage_options`
+and a nonce. An approved lesson is offered to
 agents like any other active Reference entry; a proposed lesson that is not
 active and approved is not offered. A one-time repair returned proposed lessons
 that were active without a recorded approval to draft.

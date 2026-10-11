@@ -141,7 +141,7 @@ stonewright-php-execute is available on the full profile only.
 | Server appears but WordPress tools are missing | Call `stonewright-wordpress-mcp-status`, then run `stonewright connect verify site-a` and check the alias with `stonewright connect list`. |
 | Too many tools or startup failure | Confirm `STONEWRIGHT_MCP_TOOL_PROFILE` is `low-tools`, not `essential` or `full`. |
 | WP-CLI helpers missing a local site | Add `STONEWRIGHT_WP_ROOT` pointing at the WordPress root with `wp-config.php`. |
-| Agent tries shell `wp ...` commands | Restart the task and tell it to use `stonewright-wp-cli-status` or `stonewright-wp-cli-batch-run` instead. |
+| Agent tries shell `wp ...` commands | Restart the task and tell it to use `stonewright-wp-cli-status` or the read-only `stonewright-wp-cli-batch-run` instead. |
 
 ## Skill Search Duplicates In Codex
 

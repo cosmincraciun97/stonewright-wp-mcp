@@ -423,7 +423,7 @@ read, pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
 task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`).
 
 Protocol e2e for self-improvement runs with zero WordPress credentials
-(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **105** tools.
+(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **105** tools (the companion's own local tools come on top: `tools/list` shows 125 with the `full` profile).
 
 Lifecycle tests also prove that a new state directory has no user memory,
 user-created skills, or audit file; packaged generic built-ins are still

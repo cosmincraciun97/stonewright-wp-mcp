@@ -119,6 +119,8 @@ playbooks in `skills/playbooks/<name>.md` (for example `playbook-about-page`)
 ship with source `playbook`. Presence-gated
 Blocksy, Kadence, GenerateBlocks, and Spectra build-page skills remain.
 
+**Pending approvals.** An agent cannot turn researched knowledge into an active skill, or an expertise pack into a `verified` or `stable` one. It asks, and the request waits in a **Pending approvals** card on this screen, with what the approval would do. An administrator approves or rejects it (`manage_options` and a nonce; no ability exposes the decision). An approval works once, for that exact candidate or pack and target, and expires after an hour; a request that nobody decides expires after seven days. When the evidence is thin (a candidate with fewer than two verified successes, a stable pack from one runtime) the administrator must write a note to approve it. See [Knowledge and learning lifecycle](knowledge-learning-lifecycle.md) and [Expertise Engine](expertise-engine.md).
+
 **Editor.** Creating and editing a skill is a nonce-checked form that works
 with JavaScript disabled. It is the only write path on the page that does not
 go through the REST routes.

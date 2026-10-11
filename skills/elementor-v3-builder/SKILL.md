@@ -85,9 +85,11 @@ official source URL and SHA-256, fetch/expiry dates, Core/Pro/add-on version
 constraints, evidence type, and confidence. Then dry-run the recipe and verify
 the editor plus logged-out frontend against the exact runtime fingerprint.
 
-One successful use is not training. Promotion requires either two distinct
-verified task successes or explicit user approval with a note. Same-topic
-conflicts require an explicit replace decision. Elementor upgrades mark only
+One successful use is not training. A promotion always needs an administrator
+to approve it in wp-admin: the call stages a request and returns an
+`approval_url`; show it to the user and stop, and never approve it yourself.
+With fewer than two distinct verified task successes the approver must also
+write a note. Same-topic conflicts require an explicit replace decision. Elementor upgrades mark only
 incompatible verified candidates and their linked skills stale; stale knowledge
 must be researched again. Load candidate or memory bodies only when their compact
 refs match the current task.

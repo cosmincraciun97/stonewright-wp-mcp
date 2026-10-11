@@ -12,8 +12,8 @@ edit WordPress sites through MCP.
   core REST/WP-CLI with an Application Password. Content, media, menus,
   templates, taxonomy, users, raw Elementor document edits with integrity
   gates. Not available without the plugin: Elementor batch engines,
-  DesignSpec rendering, php-execute, confirmation tokens, content-model
-  registration, shared site memory.
+  DesignSpec rendering, php-execute, production-safe confirmation tokens,
+  content-model registration, shared site memory.
 - The companion can auto-detect the mode, but an installed-plugin connection
   should be registered as `plugin-only`. This fails closed instead of silently
   entering Direct mode when the wrong site entry or endpoint is selected.
@@ -83,8 +83,9 @@ characters), an active Design Direction pointer when one exists, relevant
 skills, persistent memory (site-hosted in plugin mode; `~/.stonewright/` in
 Direct mode), workflow followups, and the short-lived write token /
 confirmation guidance needed by write tools in Plugin mode. Direct mode writes
-check a recent task-start for the same site instead of a write token, and
-`confirm:true` where the write mode asks for it. Call
+check a recent task-start for the same site instead of a write token, and a
+destructive call is repeated with the `confirmation_id` its refusal returns
+(`confirm:true` counts on a local site only). Call
 `stonewright-design-direction-brief` when `context.design_direction_ref` is
 present. The MCP server instructions a client reads on connect name the active
 Design Direction too, so it is known before the first call. Pluginless Direct
@@ -244,7 +245,7 @@ For most tasks:
 3. Read the current target, such as page structure, blocks, menus, media, or
    theme settings
 4. Plan the edit and choose native abilities
-5. Write with the context token (and Direct-mode `confirm:true` when required)
+5. Write with the context token (and the Direct-mode `confirmation_id` when required)
 6. Verify through readback, tests, browser screenshots, and audit logs
 
 When using REST directly instead of a full MCP client in **plugin mode**,

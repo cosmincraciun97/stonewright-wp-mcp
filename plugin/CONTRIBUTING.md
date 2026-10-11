@@ -40,13 +40,14 @@ stonewright-wp-mcp/
 cd plugin
 composer install
 composer test        # PHPUnit
-composer phpstan     # PHPStan level 8 (configured in phpstan.neon)
+composer phpstan     # PHPStan level 5 (configured in phpstan.neon)
 composer phpcs       # WordPress Coding Standards
 composer phpcbf      # Auto-fix coding style where possible
 ```
 
-PHPUnit requires a running WordPress instance. Follow the
-`wp-phpunit/wp-phpunit` setup instructions or use a `wp-env` environment.
+PHPUnit needs no WordPress instance: `tests/bootstrap.php` stubs the WordPress
+functions the plugin calls. A change to an admin screen is also checked in a
+browser against a test site; see "Admin UI" below.
 
 ### Node side (companion)
 
@@ -87,11 +88,22 @@ A PR should include:
 For new abilities:
 
 - Place the class under the correct namespace in `includes/Abilities/<Category>/`.
-- Register it in `includes/Abilities/AbilityKernel.php`.
+- Register it in `AbilityRegistry::list()` (`includes/Core/AbilityRegistry.php`).
 - Declare the minimum capability in the `permission_callback` via `Permissions`.
 - Call `Backup::snapshot_post` before any write that touches post content or meta.
-- Add a `ConfirmationToken` check if the ability is destructive.
-- Record the result in `AuditLog::record`.
+- Add a `ConfirmationToken` check (required in `production-safe` mode) if the ability is destructive.
+- Record the result through `AbilityKernel::audit()`, which writes the audit row.
+
+## Admin UI
+
+Stonewright admin pages are built from the shared `sw-ui` components and the
+control-size tokens in `plugin/assets/admin/sw-ui.css` (see "Control size" in
+`DESIGN.md`). A page stylesheet places controls and never sets the height,
+padding or line-height of a button or an input; `node scripts/check-admin-control-sizing.mjs`
+enforces it. Before a PR that touches admin UI, run the layout check against a
+test site (`cd e2e && npx playwright test admin-layout.spec.ts`; see
+`e2e/README.md`) and attach before and after screenshots when the visible UI
+changes.
 
 ## Code style
 

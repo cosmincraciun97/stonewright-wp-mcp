@@ -38,8 +38,8 @@ If list returns `stonewright_plugin_missing`, stop. ACF is not loaded.
 
 Related, not ACF-named: `stonewright-cpt-list`, `stonewright-cpt-register`,
 `stonewright-taxonomy-register`, `stonewright-content-model-loop-grid-flow`
-(experimental Loop Grid path). Production-safe schema writes need
-`stonewright-security-issue-confirmation-token`.
+(experimental Loop Grid path). Production-safe schema and value writes need a
+token from `stonewright-security-issue-confirmation-token`.
 
 ## Field-group model
 
@@ -91,8 +91,9 @@ Rules:
    Optional `format_value` (default true) is `get_fields( $post_id, … )`.
 4. Plan the write. Schema goes through `stonewright-acf-field-group-save`
    (`confirmation_token` in production-safe). Values go through
-   `stonewright-acf-value-update` (`post_id`, `selector`, `value`). That
-   path snapshots the post first.
+   `stonewright-acf-value-update` (`post_id`, `selector`, `value`, and
+   `confirmation_token` in production-safe). That path snapshots the post on
+   a real change.
 5. Read back with `stonewright-acf-values-get` or, on the `full` profile,
    `get_field` via `stonewright-php-execute`. Meta-key peeking (`role_0_name`) is not
    completion.
@@ -166,7 +167,8 @@ calls. It is experimental. Still list/get the field group after it runs.
 
 `stonewright-php-execute` is on the `full` profile only. On any other
 profile the php-execute snippets in this skill are not available: use the typed
-tools, or switch to `full` when the user agrees. It is for official ACF API
+tools, or ask the user whether an administrator should choose the Full surface in
+wp-admin (an agent cannot switch to `full`). It is for official ACF API
 snippets the typed surface cannot take (options pages, full nested schema,
 `'option'` values). Do not replace `acf-field-group-save` with a homemade importer
 and do not write ACF tables through `$wpdb`.
