@@ -1002,12 +1002,6 @@ if ( ! function_exists( 'is_multisite' ) ) {
 	}
 }
 
-if ( ! function_exists( 'is_super_admin' ) ) {
-	function is_super_admin( int|false|null $user_id = null ): bool {
-		return (bool) ( $GLOBALS['stonewright_test_is_super_admin'] ?? false );
-	}
-}
-
 if ( ! function_exists( 'get_site_option' ) ) {
 	function get_site_option( string $option, mixed $default = false ): mixed {
 		return $GLOBALS['stonewright_test_site_options'][ $option ] ?? $default;
@@ -3871,9 +3865,15 @@ if ( ! function_exists( 'get_users' ) ) {
 }
 
 if ( ! function_exists( 'is_super_admin' ) ) {
-	/** Super admins are the ids in $GLOBALS['stonewright_test_super_admins']. */
+	/**
+	 * Super admins are the ids in $GLOBALS['stonewright_test_super_admins']. $GLOBALS['stonewright_test_is_super_admin'] = true
+	 * makes the current user a super admin.
+	 */
 	function is_super_admin( $user_id = false ): bool {
-		$id = false === $user_id ? (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ) : (int) $user_id;
+		if ( ( false === $user_id || null === $user_id ) && ! empty( $GLOBALS['stonewright_test_is_super_admin'] ) ) {
+			return true;
+		}
+		$id = ( false === $user_id || null === $user_id ) ? (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ) : (int) $user_id;
 		return in_array( $id, array_map( 'intval', (array) ( $GLOBALS['stonewright_test_super_admins'] ?? [] ) ), true );
 	}
 }
