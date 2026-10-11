@@ -301,8 +301,8 @@ see [Updating Stonewright](updates.md).
 Do not recover from a missing tool by running `wp cli info`, `wp plugin
 activate`, `wp option update`, or other `wp` commands in a normal shell, and do
 not switch to another PHP adapter. Use the live Stonewright MCP tools:
-`stonewright-wordpress-mcp-status`, `stonewright-php-execute`,
-`stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wordpress-mcp-status`, `stonewright-php-execute` (`full` profile
+only), `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`.

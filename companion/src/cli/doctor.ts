@@ -517,7 +517,7 @@ export async function runDoctor(argv: string[] = []): Promise<number> {
 		writeOut('');
 		writeOut('--- client-surface ---');
 		writeOut('Use MCP tool stonewright-client-surface-check inside the AI client for live companion state.');
-		writeOut('Typical mismatch: WP Setup=Full but companion env profile=bootstrap → php-execute filtered.');
+		writeOut('Typical mismatch: WP Setup=Full but companion env profile=bootstrap → full-profile tools such as php-execute stay filtered.');
 		writeOut('Fix order:');
 		writeOut('  1. stonewright-task-start (or stonewright-tool-profile action=activate profile=full)');
 		writeOut('  2. Re-list tools (honor tools/list_changed or re_list_instruction)');

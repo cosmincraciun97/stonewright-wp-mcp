@@ -48,7 +48,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
-		$this->assertStringContainsString( 'Use stonewright/php-execute for direct full WordPress runtime access', $instructions );
+		$this->assertStringContainsString( 'On the full profile only, use stonewright/php-execute for direct full WordPress runtime access', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php to replace Stonewright php-execute', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
 		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call', $instructions );
@@ -80,7 +80,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'registered woocommerce/* blocks', $instructions );
 		$this->assertStringContainsString( 'Deletes preview first and trash by default', $instructions );
 		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
-		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets', $instructions );
+		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute (full profile only) for PHP runtime snippets', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
 		$this->assertStringContainsString( 'HTML widgets are disabled by default at site level', $instructions );
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );

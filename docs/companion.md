@@ -19,8 +19,9 @@ HTTP proxying, and tokenized WP-CLI.
 
 The companion runs WP-CLI through `execFile` with argv tokens. It blocks
 WP-CLI PHP and shell entry points: `wp eval`, `wp eval-file`, `wp shell`,
-`wp package`, `--exec`, and `--require`. Use `stonewright/php-execute` for
-direct PHP runtime snippets inside WordPress.
+`wp package`, `--exec`, and `--require`. On the `full` profile, use
+`stonewright/php-execute` for direct PHP runtime snippets inside WordPress; no
+other profile has it.
 
 Use `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS` to restrict working
 directories. `STONEWRIGHT_WP_ROOT` is optional; when set, it must be the
@@ -173,7 +174,8 @@ MCP proxy status, and direct WP-CLI aliases. Use `fast_path.tool_profile` from
 `stonewright-tool-profile` call.
 The companion also sets mode-aware MCP server instructions at handshake time.
 Both modes call `stonewright-task-start` first and keep low-tools sessions
-compact. Plugin mode may use `stonewright-php-execute`; Direct mode explicitly
+compact. Plugin mode may use `stonewright-php-execute` on the `full` profile
+only; Direct mode explicitly
 has no PHP escape hatch and uses only typed Direct tools or tokenized companion
 `stonewright-wp-cli-*` tools. Both reject shell WP-CLI, generic PHP adapters,
 and ad hoc REST runners. When the WordPress plugin MCP is reachable, the companion appends the
@@ -225,7 +227,9 @@ to diagnose profile vs client registration mismatches. Set the env profile to
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools
-remain local, including batch runs and background jobs.
+remain local, including batch runs and background jobs. It registers no
+`stonewright-php-execute`, even when the site's saved surface is `full`; that
+tool is on the full profile only, as in the plugin.
 Common aliases normalize before filtering, so `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` select the closest
 compact canonical profile instead of silently falling back to `essential-static`.

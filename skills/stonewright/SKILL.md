@@ -109,8 +109,9 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
   the native Loop Grid/Carousel widget and loop-item template,
   `stonewright/content-bulk-upsert-posts` for repeated
   post/CPT/custom-field rows, `stonewright/media-upload-batch`,
-  `stonewright/php-execute` for short runtime snippets, and tokenized
-  `stonewright-wp-cli-run` for plugin/theme/content operations.
+  and tokenized `stonewright-wp-cli-run` for plugin/theme/content operations.
+  `stonewright/php-execute` for short runtime snippets is on the `full` profile
+  only.
 - For Theme Builder work, do not edit `_elementor_conditions` directly. Use
   `stonewright/theme-builder-apply-template`; it renders the spec, snapshots,
   applies conditions, clears/warms relevant state, and returns repair hints.
@@ -121,8 +122,8 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
   `stonewright/content-bulk-upsert-posts` after the post type exists. Do not
   fan out into dozens of `wp post meta update` calls unless the bulk ability is
   unavailable.
-- Use `stonewright/php-execute` when a direct WordPress/plugin API snippet is
-  faster than many typed calls.
+- On the `full` profile only, use `stonewright/php-execute` when a direct
+  WordPress/plugin API snippet is faster than many typed calls.
 - Use `stonewright-wp-cli-run` only with argv tokens.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline

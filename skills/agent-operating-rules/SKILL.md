@@ -203,7 +203,7 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 
 1. WP REST / Application Password
 2. Official plugin REST/APIs
-3. Stonewright typed abilities (`elementor-v3-*`, content, php-execute when appropriate)
+3. Stonewright typed abilities (`elementor-v3-*`, content; php-execute on the `full` profile only)
 4. Authenticated admin form POST + nonces
 5. Browser clicks only as last resort; screenshots and visual verification are fine
 

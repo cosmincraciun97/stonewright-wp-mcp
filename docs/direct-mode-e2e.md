@@ -29,7 +29,7 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | Settings read | Yes | Yes |
 | Global styles / FSE | Yes when endpoints exist | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
-| PHP execute | **No** | Yes (`stonewright/php-execute`) |
+| PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |

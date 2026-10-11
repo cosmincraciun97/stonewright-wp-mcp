@@ -31,7 +31,7 @@
 1. Use tools already active on the site (CPT UI, ACF / field plugins, Elementor, WooCommerce, etc.).
 2. Edit **existing** registered models via REST/Direct tools when available.
 3. For **new** post types / taxonomies / field groups: use the site’s existing admin tooling (additive) or tell the user registration requires server-side PHP (theme/plugin) — WordPress has no REST registration endpoint.
-4. Prefer Stonewright plugin mode when full runtime PHP (`php-execute`) is required and installed.
+4. Prefer Stonewright plugin mode on the `full` profile when full runtime PHP (`php-execute`) is required and installed.
 
 ## Forbidden
 

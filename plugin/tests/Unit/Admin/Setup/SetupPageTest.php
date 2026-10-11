@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Admin\Setup\Nonce;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
+use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
@@ -103,6 +104,13 @@ final class SetupPageTest extends TestCase {
 		self::assertStringNotContainsString( 'name="stonewright_enabled"', $started );
 		self::assertStringContainsString( 'data-stonewright-app-password-form', $started );
 		self::assertSame( 1, substr_count( $html, 'action="options.php"' ), 'One settings form.' );
+	}
+
+	public function test_the_bootstrap_surface_label_states_the_limit_the_registry_enforces(): void {
+		$html = self::render();
+
+		self::assertStringContainsString( 'Bootstrap (≤' . TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS . ' tools', $html );
+		self::assertStringNotContainsString( '≤8 tools', $html );
 	}
 
 	public function test_step_one_only_reports_and_points_to_settings(): void {

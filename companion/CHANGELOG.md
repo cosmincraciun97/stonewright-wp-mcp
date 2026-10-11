@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Keep `stonewright-php-execute` on the `full` profile only, as in the plugin. This changes behavior: the offline profile lists of every other profile (bootstrap, essential-static, essential, low-tools, elementor-design, content-model, gutenberg, wp-cli, site-admin) no longer include it, and those profiles and `discover-execute` no longer keep it registered when the site lists it. A client on one of those profiles no longer sees it; switch to `full` to use it. The setup profile (notes, agent tool list, refresh list, inventory notes), the MCP instructions and the WP-CLI tool descriptions of those profiles no longer tell the agent to call it.
+- `stonewright-client-surface-check` without `expected_tool` checks `stonewright-php-execute` on the `full` profile and `stonewright-task-start` on every other profile, so a profile without php-execute is no longer reported as missing it.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added

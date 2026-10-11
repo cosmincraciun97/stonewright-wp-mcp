@@ -59,8 +59,8 @@ have a universal trash lifecycle; their delete tools therefore preview first
 and treat apply as destructive.
 
 Use tokenized `stonewright-wp-cli-*` only for a missing typed operation or a
-large batch. Use `stonewright-php-execute` only when a short call to an official
-WooCommerce API is the smaller correct path. Never write hidden WooCommerce
+large batch. On the `full` profile only, use `stonewright-php-execute` when a short call to
+an official WooCommerce API is the smaller correct path. Never write hidden WooCommerce
 meta by guessing keys.
 
 ## Elementor, Gutenberg, and FSE

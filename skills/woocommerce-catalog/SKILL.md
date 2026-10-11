@@ -55,9 +55,9 @@ Before writing:
 8. Read back parent product, attributes, variations, prices, stock, and default
    attributes.
 
-Use `stonewright-php-execute` only when the typed catalog surface does not cover
-an official WooCommerce API operation and a short runtime snippet is clearer
-than WP-CLI. Use `stonewright-wp-cli-run` with argv tokens only. Do not run
+On the `full` profile only, use `stonewright-php-execute` when the typed catalog
+surface does not cover an official WooCommerce API operation and a short
+runtime snippet is clearer than WP-CLI. Use `stonewright-wp-cli-run` with argv tokens only. Do not run
 `wp ...` in a normal shell as Stonewright recovery, and do not use another PHP
 adapter to replace Stonewright tools.
 Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or

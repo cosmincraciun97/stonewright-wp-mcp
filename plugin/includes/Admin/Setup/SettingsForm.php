@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
+use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
  * Enabling, the mode, the MCP surface, the Elementor V4 switch, the section reuse row, optional API keys and the
@@ -177,7 +178,11 @@ final class SettingsForm {
 		$options = '';
 		foreach (
 			[
-				'bootstrap' => __( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ),
+				'bootstrap' => sprintf(
+					/* translators: %d: the most tools the Bootstrap surface lists */
+					__( 'Bootstrap (≤%d tools — progressive discovery)', 'stonewright' ),
+					TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS
+				),
 				'essential' => __( 'Essential (compact fast path)', 'stonewright' ),
 				'full'      => __( 'Full (slow / high-context — all registered tools)', 'stonewright' ),
 			] as $value => $text

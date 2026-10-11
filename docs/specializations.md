@@ -22,8 +22,8 @@ guidance for ACF, ACPT, Meta Box, ASE, Pods, and WooCommerce catalog work.
 - Use `stonewright/site-plugins-list`, `stonewright/wp-cli-status`, and
   `stonewright/wp-cli-discover` before relying on plugin commands.
 - Use `stonewright/wp-cli-run` only with argv tokens.
-- Use `stonewright/php-execute` for short plugin API or `$wpdb` snippets when
-  direct runtime access is faster than many typed calls.
+- On the `full` profile only, use `stonewright/php-execute` for short plugin API or
+  `$wpdb` snippets when direct runtime access is faster than many typed calls.
 - Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
   `--require`.
 - Do not invent hidden storage keys. Discover schema first.
