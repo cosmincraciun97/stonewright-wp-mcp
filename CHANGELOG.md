@@ -32,6 +32,14 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Direct `stonewright-task-start` reports the write mode the site's tools use
+  (`on` for `localhost`, `.local` and `.test` hosts unless
+  `STONEWRIGHT_DIRECT_WRITES` is set), and `stonewright-site-discover` lists
+  every plugin-only capability, including Rescue, change sets, section reuse,
+  Design Direction, site Context and Elementor V4 (Atomic) features; see the
+  companion changelog.
+- The "Fix my connection" prompt names `stonewright-site-info` for Plugin mode
+  and `stonewright-site-discover` for Direct mode.
 - Direct Elementor tools no longer use WP-CLI when the local WordPress install
   is not the configured site; they answer through core REST and report
   `wp_cli_refused`. See the companion changelog.

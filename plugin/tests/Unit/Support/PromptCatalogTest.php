@@ -50,6 +50,19 @@ final class PromptCatalogTest extends TestCase {
 		}
 	}
 
+	public function test_direct_prompts_name_the_direct_site_tool_beside_site_info(): void {
+		foreach ( PromptCatalog::all() as $prompt ) {
+			if ( ! in_array( 'direct', $prompt['modes'], true ) ) {
+				continue;
+			}
+			if ( ! str_contains( $prompt['prompt'], 'stonewright-site-info' ) ) {
+				continue;
+			}
+			self::assertStringContainsString( 'stonewright-site-discover', $prompt['prompt'], $prompt['id'] );
+			self::assertContains( 'stonewright-site-discover', $prompt['tools'], $prompt['id'] );
+		}
+	}
+
 	public function test_search_filters_by_outcome_and_query(): void {
 		$elementor = PromptCatalog::search( '', 'elementor' );
 		self::assertNotEmpty( $elementor );

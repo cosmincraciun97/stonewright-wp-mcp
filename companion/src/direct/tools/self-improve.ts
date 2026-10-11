@@ -657,7 +657,7 @@ export function taskStart(
       matched.push(hit);
     }
   }
-  const writeMode = resolveDirectWriteMode(ctx.env, undefined);
+  const writeMode = resolveDirectWriteMode(ctx.env, resolvedSite?.url);
   const recurring = recentRecurringErrors(baseDir, 3);
   const incidentStore = new DirectIncidentStore(
     baseDir,

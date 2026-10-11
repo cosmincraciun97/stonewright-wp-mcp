@@ -72,6 +72,19 @@
 
 ### Fixed
 
+- Direct `stonewright-task-start` reports the write mode the site's tools use.
+  `write_mode` (and `target_context.stonewright_mode`) was read from
+  `STONEWRIGHT_DIRECT_WRITES` alone, so a `localhost`, `.local` or `.test` site
+  showed `confirm` while its tools ran `on`. It now applies the same rule as the
+  tools: the variable when set, otherwise `on` for those hosts and `confirm` for
+  the rest. With no site resolved it is unchanged.
+- Direct `stonewright-site-discover` lists the plugin-only capabilities
+  accurately. `unavailable_without_plugin` (also shown in the setup profile and
+  connection status) now includes Rescue, change sets, section reuse, Design
+  Direction, site Context and Elementor V4 (Atomic) features, and its Elementor
+  entry says that Direct reads and writes raw `_elementor_data` over WP-CLI on
+  the local install or over core REST when the site exposes the meta, instead of
+  "only on local WP-CLI sites".
 - Stop Direct Elementor tools from using WP-CLI on the wrong site.
   `stonewright-elementor-status`, `-data-get` and `-data-update` now compare
   the `home` option (then `siteurl`) of the local WP-CLI install with the alias

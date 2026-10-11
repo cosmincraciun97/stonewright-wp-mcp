@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The "Fix my connection" prompt in the prompt catalog names
+  `stonewright-site-info` for Plugin mode and `stonewright-site-discover` for
+  Direct mode.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added

@@ -19,6 +19,7 @@ import {
 import { appendDirectAudit as appendDirectAuditRaw, type DirectAuditEntry } from '../src/direct/audit.js';
 import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
+import type { SitesConfig } from '../src/direct/sites-config.js';
 
 function appendDirectAudit(entry: DirectAuditEntry, path?: string) {
 	return appendDirectAuditRaw({
@@ -522,5 +523,37 @@ describe('direct self-improve tools', () => {
 			}),
 		).rejects.toThrow(/target_context_changed/i);
 		expect(c.fetchImpl).toHaveBeenCalledTimes(1);
+	});
+	describe('task-start write_mode', () => {
+		function siteCtx(url: string, env: Record<string, string> = {}): SelfImproveContext {
+			const sitesConfig: SitesConfig = {
+				default: 'one',
+				source: 'env',
+				sites: { one: { url, username: 'admin', appPassword: 'x' } },
+			};
+			return {
+				env: { STONEWRIGHT_SITES_FILE: '/tmp/does-not-exist-sw-sites-writemode.json', ...env } as NodeJS.ProcessEnv,
+				baseDir: mkdtempSync(join(tmpdir(), 'sw-si-wm-')),
+				sitesConfig,
+			};
+		}
+
+		it('reports on for a .test site when the variable is unset', () => {
+			const start = taskStart(siteCtx('https://shop.test'), { task: 'carry on', site: 'one' });
+			expect(start.write_mode).toBe('on');
+		});
+
+		it('reports confirm for a remote site when the variable is unset', () => {
+			const start = taskStart(siteCtx('https://shop.example.com'), { task: 'carry on', site: 'one' });
+			expect(start.write_mode).toBe('confirm');
+		});
+
+		it('lets the variable win over the host rule', () => {
+			const start = taskStart(siteCtx('https://shop.test', { STONEWRIGHT_DIRECT_WRITES: 'off' }), {
+				task: 'carry on',
+				site: 'one',
+			});
+			expect(start.write_mode).toBe('off');
+		});
 	});
 });

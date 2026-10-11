@@ -91,6 +91,20 @@ describe('direct wave 2 tools', () => {
 		expect(result.detected_plugins.acf).toBe(true);
 		expect(result.post_types.some((t) => t.slug === 'page')).toBe(true);
 		expect(result.unavailable_without_plugin.some((c) => c.id === 'elementor-engine')).toBe(true);
+		const ids = result.unavailable_without_plugin.map((c) => c.id);
+		for (const id of [
+			'rescue',
+			'change-sets',
+			'section-reuse',
+			'design-direction',
+			'site-context',
+			'elementor-v4-atomic',
+		]) {
+			expect(ids).toContain(id);
+		}
+		const elementor = result.unavailable_without_plugin.find((c) => c.id === 'elementor-engine');
+		expect(elementor?.reason).not.toMatch(/only on local WP-CLI/i);
+		expect(elementor?.reason).toMatch(/core REST/i);
 		expect(result.upgrade_hint).toMatch(/Stonewright plugin/i);
 	});
 
