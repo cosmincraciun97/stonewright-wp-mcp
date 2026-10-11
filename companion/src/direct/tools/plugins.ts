@@ -32,7 +32,17 @@ function compactPlugin(plugin: WpPlugin) {
     author: plugin.author ?? "",
     description: descriptionOf(plugin),
     network_only: plugin.network_only === true,
+    // The plugin's flag for the same fact as status.
+    active: (plugin.status ?? "") === "active" || plugin.status === "network-active",
   };
+}
+
+/**
+ * The plugin identifier core REST takes: folder/file without the .php. The plugin's tools take the file
+ * with its .php (akismet/akismet.php), so both are accepted.
+ */
+function pluginPath(value: string): string {
+  return value.trim().replace(/\.php$/i, "");
 }
 
 function encodePlugin(plugin: string): string {
@@ -123,7 +133,7 @@ export async function pluginActivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-activate",
   });
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   let result: WpPlugin;
   try {
@@ -169,7 +179,7 @@ export async function pluginDeactivate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-plugin-deactivate",
   });
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-deactivate");
   let result: WpPlugin;
@@ -259,7 +269,7 @@ export async function pluginGet(
   input: { plugin: string },
 ) {
   assertToolEnabled(ctx.site, "stonewright-plugin-get");
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   const result = await ctx.client.get<WpPlugin>(
     `/wp/v2/plugins/${encodePlugin(plugin)}`,
@@ -288,7 +298,7 @@ export async function pluginDelete(
       ctx.site.alias,
     );
   }
-  const plugin = input.plugin.trim();
+  const plugin = pluginPath(input.plugin);
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
   await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-delete");
   const result = await ctx.client.del(`/wp/v2/plugins/${encodePlugin(plugin)}`);

@@ -87,6 +87,8 @@ export async function menuList(
   const list = Array.isArray(items) ? items : [];
   return {
     items: list.map(compactMenu),
+    // The plugin's key for the same list.
+    menus: list.map((menu) => ({ id: menu.id, name: menu.name ?? "", slug: menu.slug ?? "" })),
     total: list.length,
     page,
     per_page: perPage,
@@ -155,7 +157,7 @@ export async function menuCreate(
     expect: "present",
     sent: body,
   });
-  return attachVerification(compactMenu(menu), verification);
+  return attachVerification({ ...compactMenu(menu), menu_id: menu.id }, verification);
 }
 
 export async function menuUpdate(

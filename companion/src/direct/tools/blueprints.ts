@@ -50,16 +50,29 @@ function loadAll(): Array<Record<string, unknown>> {
     );
 }
 
-export function listBlueprints(): BlueprintSummary[] {
-  return loadAll().map((bp) => ({
-    id: String(bp.id ?? ""),
-    name: String(bp.name ?? ""),
-    description: String(bp.description ?? ""),
-    industry: String(bp.industry ?? ""),
-    section_ids: Array.isArray(bp.section_ids)
-      ? bp.section_ids.map(String)
-      : [],
-  }));
+export function listBlueprints(
+  filter: { industry?: string; search?: string } = {},
+): BlueprintSummary[] {
+  const industry = (filter.industry ?? "").trim().toLowerCase();
+  const search = (filter.search ?? "").trim().toLowerCase();
+  return loadAll()
+    .map((bp) => ({
+      id: String(bp.id ?? ""),
+      name: String(bp.name ?? ""),
+      description: String(bp.description ?? ""),
+      industry: String(bp.industry ?? ""),
+      section_ids: Array.isArray(bp.section_ids)
+        ? bp.section_ids.map(String)
+        : [],
+    }))
+    .filter((bp) => industry === "" || bp.industry.toLowerCase() === industry)
+    .filter(
+      (bp) =>
+        search === "" ||
+        [bp.id, bp.name, bp.description].some((text) =>
+          text.toLowerCase().includes(search),
+        ),
+    );
 }
 
 export function getBlueprint(id: string): Record<string, unknown> | null {
@@ -84,12 +97,21 @@ export async function applyBlueprint(
   /** The resolved site context; without it the page is not probed and nothing can be rolled back. */
   runtime?: DirectToolContext,
 ): Promise<Record<string, unknown>> {
-  if (args.engine && args.engine !== "gutenberg" && args.engine !== "auto") {
+  const engine = (args.engine ?? "").trim().toLowerCase();
+  if (engine === "elementor" || engine === "fse") {
     return {
       ok: false,
-      error: "elementor_requires_plugin",
-      message:
-        "Elementor engine requires the Stonewright plugin. Direct mode applies blueprints as Gutenberg drafts only.",
+      error: "engine_requires_plugin_mode",
+      requested_engine: engine,
+      message: `The "${engine}" engine needs Plugin mode (the Stonewright plugin active on the site, and this session running in Plugin mode). Direct mode renders a blueprint as Gutenberg blocks only: use engine "gutenberg" or "auto", or switch to Plugin mode. Nothing was changed.`,
+    };
+  }
+  if (engine !== "" && engine !== "gutenberg" && engine !== "auto") {
+    return {
+      ok: false,
+      error: "invalid_engine",
+      requested_engine: engine,
+      message: `Unknown engine "${engine}". Direct mode accepts "auto" and "gutenberg"; "elementor" and "fse" need Plugin mode. Nothing was changed.`,
     };
   }
 

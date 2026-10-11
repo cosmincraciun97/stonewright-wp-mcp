@@ -269,7 +269,9 @@ rolled back.
    `0` = done, `1` = failed, `2` = a confirmation token is required.
 6. One local audit row (`stonewright-rescue-status` or
    `stonewright-rescue-rollback`) records the site, the incident id, the outcome
-   and the duration, never arguments, a token or output.
+   and the duration, never arguments, a token or output. The row carries
+   `backend: local` and `mode: local`: it is not a Direct backend write, so it never
+   opens a Direct incident and is not counted in task-start's recurring errors.
 
 ## Connection status v3
 

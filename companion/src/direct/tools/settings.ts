@@ -42,6 +42,50 @@ const ALLOWED_SETTINGS = new Set([
  */
 const SAFE_DEFAULT_ROLES = new Set(["subscriber", "contributor", "author", "editor"]);
 
+/**
+ * The plugin names three settings after their option (blogname, blogdescription, timezone_string); core REST
+ * names them title, description and timezone. Direct keeps the REST names and accepts both.
+ */
+const OPTION_TO_REST: Readonly<Record<string, string>> = {
+  blogname: "title",
+  blogdescription: "description",
+  timezone_string: "timezone",
+};
+const REST_TO_OPTION: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(OPTION_TO_REST).map(([option, rest]) => [rest, option]),
+);
+
+/** Moves the option names to the REST names. The same setting under both names with two values is refused. */
+function normalizeSettingNames(
+  settings: Record<string, unknown>,
+  site: string,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...settings };
+  for (const [option, rest] of Object.entries(OPTION_TO_REST)) {
+    if (!(option in out)) continue;
+    const value = out[option];
+    delete out[option];
+    if (rest in out && JSON.stringify(out[rest]) !== JSON.stringify(value)) {
+      throw refuse(
+        "argument_alias_conflict",
+        `"${option}" (the Plugin name) and "${rest}" were both given with different values. Send one of them. Nothing was changed.`,
+        site,
+      );
+    }
+    out[rest] = value;
+  }
+  return out;
+}
+
+/** The settings as core returns them, plus the plugin's option names beside the REST names. */
+function withOptionNames(settings: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...settings };
+  for (const [rest, option] of Object.entries(REST_TO_OPTION)) {
+    if (rest in settings && !(option in out)) out[option] = settings[rest];
+  }
+  return out;
+}
+
 function refuse(code: string, message: string, site: string): DirectSafetyBlockedError {
   return new DirectSafetyBlockedError(code, message, TOOL, site);
 }
@@ -76,11 +120,23 @@ function assertSettingsAllowed(settings: Record<string, unknown>, site: string):
   }
 }
 
-export async function settingsGet(ctx: DirectToolContext) {
+export async function settingsGet(
+  ctx: DirectToolContext,
+  input: { keys?: string[] | undefined } = {},
+) {
   assertToolEnabled(ctx.site, "stonewright-settings-get");
-  const settings =
-    await ctx.client.get<Record<string, unknown>>("/wp/v2/settings");
-  return { settings: settings ?? {} };
+  const settings = withOptionNames(
+    (await ctx.client.get<Record<string, unknown>>("/wp/v2/settings")) ?? {},
+  );
+  const keys = (input.keys ?? []).map((key) => key.trim()).filter(Boolean);
+  if (keys.length === 0) return { settings };
+  const narrowed: Record<string, unknown> = {};
+  const unknown: string[] = [];
+  for (const key of keys) {
+    if (key in settings) narrowed[key] = settings[key];
+    else unknown.push(key);
+  }
+  return { settings: narrowed, ...(unknown.length > 0 ? { unknown_keys: unknown } : {}) };
 }
 
 export async function settingsUpdate(
@@ -102,12 +158,13 @@ export async function settingsUpdate(
   ) {
     throw new Error("settings must be an object of option keys to update");
   }
-  assertSettingsAllowed(input.settings, ctx.site.alias);
+  const requested = normalizeSettingNames(input.settings, ctx.site.alias);
+  assertSettingsAllowed(requested, ctx.site.alias);
   const refusal = refuseCustomCode(
     ctx.site,
     TOOL,
     "settings",
-    scanTextFields(input.settings),
+    scanTextFields(requested),
     ctx.env ?? process.env,
   );
   if (refusal) return refusal;
@@ -116,7 +173,7 @@ export async function settingsUpdate(
     settings = await ctx.client.post<Record<string, unknown>>(
       "/wp/v2/settings",
       {
-        body: input.settings,
+        body: requested,
       },
     );
   } catch (err) {
@@ -129,6 +186,11 @@ export async function settingsUpdate(
     });
     throw err;
   }
+  // Core REST exposes only some settings; a key it did not return was not stored. Those are reported as
+  // ignored_keys, and the readback compares only the keys core can return (under the REST names sent).
+  const returned = settings ?? {};
+  const ignored = Object.keys(requested).filter((key) => !(key in returned));
+  const stored = Object.fromEntries(Object.entries(requested).filter(([key]) => key in returned));
   const verification = await verifyWrite({
     client: ctx.client,
     site: ctx.site,
@@ -138,7 +200,13 @@ export async function settingsUpdate(
     resourceType: "settings",
     readPath: "/wp/v2/settings",
     readQuery: {},
-    sent: input.settings,
+    sent: stored,
   });
-  return attachVerification({ settings: settings ?? {} }, verification);
+  return attachVerification(
+    {
+      settings: withOptionNames(returned),
+      ...(ignored.length > 0 ? { ignored_keys: ignored } : {}),
+    },
+    verification,
+  );
 }

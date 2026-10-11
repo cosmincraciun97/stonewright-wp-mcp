@@ -100,21 +100,23 @@ describe('direct blueprint engine gate', () => {
 		expect(getBlueprint('nope-missing')).toBeNull();
 	});
 
-	it('rejects engine: elementor with elementor_requires_plugin', async () => {
+	it('rejects engine: elementor and fse and says they need Plugin mode', async () => {
 		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(localSite, { fetchImpl });
-		const result = await applyBlueprint(
-			client,
-			{ id: 'agency', engine: 'elementor' },
-			process.env,
-		);
-		expect(result.ok).toBe(false);
-		expect(result.error).toBe('elementor_requires_plugin');
-		expect(String(result.message)).toMatch(/Elementor engine requires the Stonewright plugin/i);
+		for (const engine of ['elementor', 'fse']) {
+			const result = await applyBlueprint(
+				client,
+				{ id: 'agency', engine },
+				process.env,
+			);
+			expect(result.ok).toBe(false);
+			expect(result.error).toBe('engine_requires_plugin_mode');
+			expect(String(result.message)).toContain(`"${engine}" engine needs Plugin mode`);
+		}
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
-	it('rejects other non-gutenberg engines with elementor_requires_plugin', async () => {
+	it('rejects an unknown engine as invalid_engine', async () => {
 		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(localSite, { fetchImpl });
 		const result = await applyBlueprint(
@@ -122,7 +124,7 @@ describe('direct blueprint engine gate', () => {
 			{ id: 'agency', engine: 'bricks' },
 			process.env,
 		);
-		expect(result).toMatchObject({ ok: false, error: 'elementor_requires_plugin' });
+		expect(result).toMatchObject({ ok: false, error: 'invalid_engine' });
 		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
