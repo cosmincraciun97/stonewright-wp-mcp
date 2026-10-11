@@ -63,14 +63,15 @@ override default behavior.
    template-part updates, and a blueprint applied over a page); a refusal of
    custom code (CSS, script, style, iframe, object, embed, link, meta
    http-equiv, inline event handlers, `javascript:` URLs, HTML widgets) in
-   global styles, Elementor data, content, template, blueprint, and widget
+   global styles, Elementor data, content (block edits and the markup of
+   `stonewright-gutenberg-compose` included), template, blueprint, and widget
    writes, and in the text of ACF, media, menu, comment, taxonomy-term,
    settings, and user writes; a refusal to deactivate or delete Stonewright or
    the MCP adapter, to delete the signed-in account or the last administrator,
    and to write settings outside an allowlist; the Application Password sent
    only over https or to a local host, and no automatic retry of a write; a
    pre-image saved under `~/.stonewright/backups` before template,
-   template-part, global-styles, content, and blueprint-over-page writes, with
+   template-part, global-styles, content, block-edit, and blueprint-over-page writes, with
    the write refused when it cannot be saved (Elementor data keeps its own file
    backup); the Elementor integrity gate and a check that a local WP-CLI install
    is the target site; the same latch, `confirm`, target check, and audit row for
@@ -82,7 +83,8 @@ override default behavior.
    `-restore`); and, after a page, post, or template write, a public-page check
    that rolls back only when the call asks for it. Direct mode has no change
    sets or confirmation tokens; `docs/direct-mode-e2e.md` lists what it does not
-   do yet.
+   do yet. Direct cannot activate a skill: a skill it saves is a disabled
+   candidate, and activation needs Plugin mode.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,
    WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
    typed dry-run first. Return `approval_url`, exact target path, byte counts,

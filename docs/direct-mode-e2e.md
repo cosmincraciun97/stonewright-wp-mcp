@@ -33,7 +33,8 @@ refused before a request is made unless `STONEWRIGHT_DIRECT_ALLOW_HTTP=on`.
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
 | Global styles / FSE | Yes when endpoints exist; updates save a pre-image first and are read back, template and template-part updates need `confirm:true` in `confirm` mode, and theme.json custom CSS is refused | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`, `full` profile only) |
-| Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
+| Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed. Lessons carry a confidence and a last-verified time and are ranked by them; a lesson can be deleted (`stonewright-memory-delete`); a skill saved through Direct is a disabled candidate that Direct cannot activate | Yes (site-hosted Admin UI; skills are activated by an administrator's approval) |
+| Gutenberg block edits | **Yes** — `stonewright-gutenberg-validate` parses the blocks, `stonewright-blocks-batch-mutate` inserts, updates and removes blocks by path (content hash, saved copy, readback, custom-code guard). No move, no `insert_section`, no browser finalizer | Yes (block batch-mutate with a finalizer for static blocks) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
@@ -73,7 +74,10 @@ site, so its protections are the companion's own:
   taxonomy writes need no confirmation. `confirm: true` is a flag the caller
   sets; it is not bound to the call's arguments.
 - **Custom-code refusal.** `global-styles-update`, `elementor-data-update`,
-  content create, update and autosave, template and template-part create and
+  content create, update and autosave, `stonewright-blocks-batch-mutate` (what the
+  operations add; code the page already holds is left alone),
+  `stonewright-gutenberg-compose` (its `html` and `raw` markup), template and
+  template-part create and
   update, `blueprint-apply`, `widget-manage`, `acf-fields-update`, `media-upload`,
   `media-update`, menu and menu-item writes, comment writes, taxonomy-term writes,
   user and Application Password writes and `settings-update` refuse custom code
@@ -96,8 +100,8 @@ site, so its protections are the companion's own:
   private network). A GET is retried once after a network error; a write is
   never retried.
 - **Pre-image.** `template-update`, `template-part-update`,
-  `global-styles-update`, `content-update` and `blueprint-apply` with `post_id`
-  save the current resource first and refuse the write if that fails (20 files
+  `global-styles-update`, `content-update`, `blueprint-apply` with `post_id` and
+  `stonewright-blocks-batch-mutate` save the current resource first and refuse the write if that fails (20 files
   kept per resource). `elementor-data-update` saves its own full-tree file
   backup. Each file carries a hash of its content; the result returns
   `backup_id`, `backup_path` and `backup_sha256`.
@@ -109,6 +113,29 @@ site, so its protections are the companion's own:
   same REST route (Elementor backups through the Elementor update path), reads
   the resource back and audits it. The names are kept apart from the Plugin
   abilities (`backup-restore`, `site-backup-page`, `rescue-*`).
+- **Block edits.** `stonewright-blocks-batch-mutate` plans in memory and sends
+  nothing until every operation has applied. A dry run returns `before_hash` and
+  `after_hash`; a write needs `expected_content_hash` equal to the hash of the
+  current raw content and is refused as `content_conflict` if the content changed,
+  checked once at the start and again just before the write. The markup must
+  already read as valid blocks, a block comment cannot appear inside new markup,
+  a block name the site does not have is refused when its block list can be read,
+  and the edited markup is read back as blocks before it is sent. Blocks that
+  were not touched are written back byte for byte.
+- **Learning loop.** `task-start` returns `required_followups` (read the matched
+  skills and memory, call `learning-record` when the user corrects the agent or a
+  repeatable mistake is detected, drafted skills stay disabled, delete a wrong
+  lesson with `memory-delete`). When a write to a resource fails, or its readback
+  differs, and a later write to the same resource on the same site succeeds, the
+  successful answer carries a `learning_offer` that asks the agent to ask the user
+  before recording anything. Nothing is stored for this: the failures live in the
+  running companion only. Each lesson has a `confidence` and a `last_verified`
+  time; `task-start` shows the five best by score and marks an old or doubtful
+  one `verify_before_use`.
+- **No self-activation.** A skill saved through `stonewright-skill-save` or the
+  `draft_skill` of `learning-record` is stored disabled and is not offered at task
+  start. `enabled:true` is refused, and so is saving over an active skill. Direct
+  has no human approval step, so activation needs Plugin mode.
 - **Readback.** After every typed write the resource is read again and the fields
   that were sent are compared with what WordPress returns. The result carries
   `verification` (`verified`, `mismatch` or `not_checked`); a mismatch returns
@@ -140,6 +167,12 @@ site, so its protections are the companion's own:
 
 ## What Direct mode does not do yet
 
+- **Block edits are narrower than the plugin's.** There is no `move`, no
+  `insert_section` and no browser finalizer, so Direct cannot regenerate the saved
+  markup of a static block: `attrs` alone are accepted only on a block with no
+  markup of its own, and the attributes of a container are changed with
+  `stonewright-content-update`. Attribute values are not checked against the
+  block's schema, and a container with no inner blocks cannot take its first one.
 - **The probe is narrow.** It covers page, post, template and template-part
   writes. Global styles, Elementor data and the other writes are read back but
   not probed. Elementor HTML and CSS caches are still not checked remotely.
@@ -170,7 +203,7 @@ site, so its protections are the companion's own:
 
 ## Tools that exist in both modes
 
-Thirty-five tool names exist in Direct mode and in Plugin mode. A session runs
+Thirty-seven tool names exist in Direct mode and in Plugin mode. A session runs
 one catalogue at a time, so the cost of a shared name is a client that learned
 one schema and meets the other. Direct keeps its own argument names (renaming
 one would break clients) and also accepts the plugin's:
@@ -212,7 +245,8 @@ a row here.
 
 | Tool | Direct arguments; plugin names also accepted | Differences that remain |
 |---|---|---|
-| `stonewright-blueprint-apply` | `id` (`blueprint_id`), `title` (`page_title`), `status` (`mode`), `post_id`, `engine`, `confirm` | Direct always renders Gutenberg blocks; `engine` `auto` and `gutenberg` work, `elementor` and `fse` return `engine_requires_plugin_mode` (they need Plugin mode), any other value `invalid_engine`. `palette_override` and `brand_kit` are refused. The output key `mode` is `direct`, not the plugin's draft or publish; there is no `snapshot_id`, `spec_sha8` or `diagnostics`. Updating a page with `post_id` and no `status` sets it to draft; the plugin keeps the page's status. With `post_id` Direct saves a pre-image and needs `confirm` in `confirm` mode |
+| `stonewright-blocks-batch-mutate` | `post_id`, `operations` (`action` `insert`, `update` or `remove`, with `path`, `position`, `before_path`, `after_path`, `block`, `attrs`, `innerHTML`), `expected_content_hash`, `dry_run`; also `type`, `site`, `probe`, `rollback_on_probe_failure` | Direct has no `move`, no `insert_section` and no finalizer queue. It cannot generate the saved markup of a static block, so `attrs` alone are accepted only on a block that has no markup of its own (send `innerHTML` with them, or use `stonewright-content-update`), and `innerHTML` only on a block without inner blocks. An `attrs` value of `null` removes the attribute; the plugin stores the null. The hash is the SHA-256 of the raw content, as in the plugin. Direct saves a pre-image (`backup_id`, restore with `stonewright-direct-backup-restore`) instead of a `snapshot_id`, reads the post back (`verification`) and probes the page; there is no `change_set`. Custom code that the operations add is refused with the `approval_required` envelope (there is no `allow_raw_html` or `custom_code_grant`); code the page already holds is left alone. A block name the site does not have is refused when its block list (`/wp/v2/block-types`) can be read. `stonewright-gutenberg-validate` returns the `content_hash` to use |
+| `stonewright-blueprint-apply` | `id` (`blueprint_id`), `title` (`page_title`), `status` (`mode`), `post_id`, `engine`, `confirm` | Direct always renders Gutenberg blocks; `engine` `auto` and `gutenberg` work, `elementor` and `fse` return `engine_requires_plugin_mode` (they need Plugin mode), any other value `invalid_engine`. `palette_override` and `brand_kit` are refused. The output key `mode` is `direct`, not the plugin's draft or publish; there is no `snapshot_id`, `spec_sha8` or `diagnostics`. Updating a page with `post_id` and no `status` keeps the page's status, as the plugin does; a new page without `status` is a draft. With `post_id` Direct saves a pre-image and needs `confirm` in `confirm` mode |
 | `stonewright-blueprint-get` | `id` (`blueprint_id`) | Direct answers `{ok, blueprint}`; the plugin's object is flat, with the spec under `spec` |
 | `stonewright-blueprint-list` | `industry`, `search` | `{ok, blueprints[], count}`; the plugin's rows carry more fields (version, palette, fonts, spec hash, sections) |
 | `stonewright-comment-create` | `post` (`post_id`), `content`, `parent`, `author_name`, `author_email`, `confirm` | The plugin uses the signed-in user and has no author fields. Direct returns the compact comment, no `change_set` |
@@ -223,11 +257,12 @@ a row here.
 | `stonewright-content-create-page` | `title`, `content`, `excerpt`, `slug`, `date`, `status`, `parent`, `template`, `meta`, `confirm` | `status` is any string in Direct (the plugin has an enum). Direct returns `{id, title, slug, status, modified, link, type}`; the plugin `{id, edit, preview, status, meta_skipped, change_set}`. Custom code is refused in title, content, excerpt and meta |
 | `stonewright-content-create-post` | as the page, plus `categories` (ids) | `tags` and a `post_type` other than `post` are refused; use `stonewright-content-create` with `type` for other post types. Output as for the page |
 | `stonewright-incident-repair-record` | `incident_id`, `resolution_event_id`, `repair_recipe`, `repair_scope` | `repair_recipe` needs 20 characters in Direct (the plugin 24), `repair_scope` is at most 120 (the plugin 190). Direct answers `{verified, guidance_only, ...}` without `ok` |
-| `stonewright-learning-record` | `topic`, `correction` or `text`, `scope`, `source`, `evidence`, `kind`, `tags`, `draft_skill`, `site` | `lesson`, `confidence`, `severity`, `trigger`, `update_skill` and `skill_*` are refused (see [the common core](#task-start-and-learning-record-answers)). Needs task-start first |
+| `stonewright-learning-record` | `topic`, `correction` or `text`, `scope`, `source`, `evidence`, `confidence`, `kind`, `tags`, `draft_skill`, `site` | `confidence` (0 to 1) is stored with the lesson and, with the time it was last recorded, ranks it at recall; without one the lesson gets a default for its `source`, and a `source` that is not given is stored as `agent-recorded`. `lesson`, `severity`, `trigger`, `update_skill` and `skill_*` are refused (see [the common core](#task-start-and-learning-record-answers)). `draft_skill` is stored as a disabled candidate and never replaces an active skill. Needs task-start first |
 | `stonewright-media-get` | `id` | `url`, `mime`, `alt`, `parent`, `width` and `height` are added beside `source_url`, `mime_type`, `alt_text`. No `sizes` or `filesize`; Direct also returns `title`, `slug` and `media_details` |
 | `stonewright-media-list` | `search`, `mime_type`, `per_page`, `page` | `mime_type` takes a family (`image`) or one type (`application/pdf`). Direct lists every type unless asked; the plugin lists images unless `mime_type` is empty. Direct returns `{items, total, page, per_page, next_page}`; the plugin `{ok, count, query, items}`. Items carry `url`, `mime`, `alt` |
 | `stonewright-media-upload` | `path` or `url`, `filename`, `title`, `alt_text` (`alt`), `caption`, `parent_post_id`, `confirm` | `base64` is refused. Direct checks extension, content, size (25 MiB) and, for a `url`, the public address. Output adds `url`, `mime`, `alt` |
-| `stonewright-memory-list` | `limit` (up to 500), `offset`, `site` | Direct reads the companion's local files only and says so (`backend`, `memory_backend`, and `plugin_detected` with a note when the plugin is active on the site); the plugin lists the site's memory as `{entries, count}`. The plugin's `type` is refused |
+| `stonewright-memory-delete` | `id`, `confirm`, `site`, `global` | Direct ids are strings (the plugin's are integers) and the tool deletes from the companion's local memory only. It always needs `confirm: true` (the plugin uses `confirmation_token` in production-safe mode). A lesson in the plugin's site memory is removed in Plugin mode |
+| `stonewright-memory-list` | `limit` (up to 500), `offset`, `order` (`recent` or `score`), `site` | Items carry `confidence`, `last_verified` and `score`. Direct reads the companion's local files only and says so (`backend`, `memory_backend`, and `plugin_detected` with a note when the plugin is active on the site); the plugin lists the site's memory as `{entries, count}`. The plugin's `type` is refused |
 | `stonewright-menu-create` | `name`, `description`, `locations`, `confirm` | `items` is refused; add items with `stonewright-menu-items`. Output adds `menu_id` |
 | `stonewright-menu-delete` | `id` (`menu_id`), `force` (default true), `confirm` | Direct returns `{deleted, result}`; the plugin `{deleted, change_set}` |
 | `stonewright-menu-list` | `search`, `per_page`, `page` | Direct returns `items[]` with `count` and `locations`; `menus[{id, name, slug}]` is added for the plugin's key |
@@ -237,7 +272,7 @@ a row here.
 | `stonewright-rules-get` | `severity`, `scope`, `knownDigest` | Same arguments and shape; Direct throws on a bad filter where the plugin returns an error code |
 | `stonewright-settings-get` | `keys` (REST or option names) | Direct returns every REST-exposed setting under REST names (`title`, `description`, `timezone`) and also under `blogname`, `blogdescription`, `timezone_string`; the plugin returns its 15-key allowlist under option names. Unknown keys are listed in `unknown_keys` |
 | `stonewright-settings-update` | `settings` with REST names or the option names `blogname`, `blogdescription`, `timezone_string`, `confirm` | Option names are mapped to the REST names; a setting under both spellings with different values is refused. Keys outside the allowlist are refused. `ignored_keys` lists an allowed key that core REST did not store (for example `users_can_register`, `default_role`). The readback (`verification`) compares the REST names that were sent and only the keys core returns, so an option name is never reported as a mismatch and an ignored key is reported once, as ignored. Direct returns the settings; the plugin `{updated}` |
-| `stonewright-task-start` | `task`, `surface`, `intent`, `site` | [Common core](#task-start-and-learning-record-answers) plus backend-specific extras |
+| `stonewright-task-start` | `task`, `surface`, `intent`, `site` | [Common core](#task-start-and-learning-record-answers) plus backend-specific extras. Direct adds `required_followups` (including the correction trigger) and ranks `memory_highlights` by score |
 | `stonewright-theme-activate` | `stylesheet`, `confirm` | `confirm: true` is always needed; output adds `active` |
 | `stonewright-theme-list` | `status` | Items add `active` |
 | `stonewright-user-create` | `username` (`user_login`), `email` (`user_email`), `password` (`user_pass`), `roles` (`role`, one role), `name` (`display_name`), `confirm` | Output is the compact user with `login` and `display_name` added; the plugin returns `{id}` |
@@ -282,7 +317,7 @@ and a `backend` field (`direct` or `plugin`) that says which store answered.
 
 | Tool | Common core | Direct-local extras | Plugin extras |
 |---|---|---|---|
-| `stonewright-task-start` | `ok`, `backend`, `mode`, `site`, `write_mode`, `context_token`, `expires_at`, `hard_rules`, `target_context`, `required_actions`, `guidance` | `matched_skills`, `memory_highlights`, `recurring_errors`, `incident_actions`, `setup`, `capabilities`, `configured_mcp_surface`, `session_tool_profile` | `fast_path`, `saved_wordpress_mode`, `effective_wordpress_mode`, `plugin_mode`, `plugin_detected`, `next_action` |
+| `stonewright-task-start` | `ok`, `backend`, `mode`, `site`, `write_mode`, `context_token`, `expires_at`, `hard_rules`, `target_context`, `required_actions`, `guidance` | `matched_skills`, `memory_highlights`, `recurring_errors`, `incident_actions`, `required_followups`, `setup`, `capabilities`, `configured_mcp_surface`, `session_tool_profile` | `fast_path`, `saved_wordpress_mode`, `effective_wordpress_mode`, `plugin_mode`, `plugin_detected`, `next_action` |
 | `stonewright-learning-record` | `ok`, `stored`, `backend`, `scope`, `memory_id`, `storage_ref`, `memory_key`, `verified`, `memory_backend` | `storage_scope`, `site_alias`, `visibility`, `memory_type`, `memory`, `skill`, `note` | `skill_id`, `skill_slug`, `skill_status`, `site_fingerprint` |
 
 `backend` says which store answered; `mode` is the session's mode (`direct` in
@@ -347,11 +382,11 @@ oEmbed/editor utilities, FSE create/delete, WC read, **read-only**
 `stonewright-rest-request` (GET), ACF fields get/update when REST-exposed, SEO head
 read, pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
 `task-start`), **Elementor local data tools** (`elementor-status|data-get|data-update`),
-**gutenberg-validate**, **agents-md-sync**, error auditing + the site's recurring errors (last 30 days) at
+**gutenberg-validate**, **blocks-batch-mutate**, **memory-delete**, **agents-md-sync**, error auditing + the site's recurring errors (last 30 days) at
 task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`).
 
 Protocol e2e for self-improvement runs with zero WordPress credentials
-(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **103** tools.
+(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **105** tools.
 
 Lifecycle tests also prove that a new state directory has no user memory,
 user-created skills, or audit file; packaged generic built-ins are still

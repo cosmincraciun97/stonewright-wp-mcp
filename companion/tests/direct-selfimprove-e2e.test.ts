@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMcpServer } from '../src/mcp-server.js';
 import { DIRECT_TOOL_NAMES } from '../src/direct/registry.js';
+import { saveSkill } from '../src/direct/skills-store.js';
 
 function registeredToolNames(server: unknown): string[] {
 	return Object.keys(
@@ -53,14 +54,31 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 
 		const tools = (server as { _registeredTools?: ToolMap })._registeredTools ?? {};
 
-		await callTool(tools, 'stonewright-skill-save', {
+		const saved = await callTool(tools, 'stonewright-skill-save', {
 			slug: 'wc-image-fix',
 			name: 'WC image fix',
 			description: 'Fix product images',
 			triggers: ['woocommerce', 'product image'],
 			body: '# Steps\n1. Check featured image\n',
 		});
+		// A skill saved through Direct is a disabled candidate: it is not offered as a playbook.
+		expect(saved.enabled).toBe(false);
+		const candidateStart = await callTool(tools, 'stonewright-task-start', {
+			task: 'fix woocommerce product images on the catalog',
+		});
+		expect((candidateStart.matched_skills as Array<{ slug: string }>).some((s) => s.slug === 'wc-image-fix')).toBe(false);
 
+		// A person activates it (here by writing the skill as an enabled one, as editing its file would).
+		saveSkill({
+			baseDir: stateDir,
+			scope: '_global',
+			slug: 'wc-image-fix',
+			name: 'WC image fix',
+			description: 'Fix product images',
+			triggers: ['woocommerce', 'product image'],
+			body: '# Steps\n1. Check featured image\n',
+			enabled: true,
+		});
 		const start = await callTool(tools, 'stonewright-task-start', {
 			task: 'fix woocommerce product images on the catalog',
 		});

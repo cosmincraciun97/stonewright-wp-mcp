@@ -148,7 +148,7 @@ where the Stonewright plugin is active (a recovery-only override needs
 `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus `confirm: true` and is
 audited), require a recent `stonewright-task-start`, honor
 `STONEWRIGHT_DIRECT_WRITES`, refuse custom code in the writes that carry
-markup, text or CSS, save a pre-image before whole-document writes and restore it only on `confirm:true` after a hash check, read every typed write back, limit
+markup, text or CSS (including block edits and the markup of the compose helper), save a pre-image before whole-document writes and block edits and restore it only on `confirm:true` after a hash check, read every typed write back, never activate a skill (a saved skill is a disabled candidate), limit
 `stonewright-media-upload` (and connect to the address they checked), refuse to
 remove Stonewright, the connection plugin, the signed-in account or the last
 administrator, send the Application Password only over https or to a local
@@ -167,7 +167,9 @@ Enforced by:
 - Direct mode: `companion/src/direct/writes.ts`,
   `companion/src/direct/plugin-guard.ts`, `companion/src/direct/plugin-presence.ts`,
   `companion/src/direct/sites-config.ts`,
-  `companion/src/direct/custom-code-guard.ts`, `companion/src/direct/preimage.ts`,
+  `companion/src/direct/custom-code-guard.ts`, `companion/src/direct/block-markup.ts`,
+  `companion/src/direct/block-guard.ts`, `companion/src/direct/tools/blocks.ts`,
+  `companion/src/direct/preimage.ts`,
   `companion/src/direct/backups.ts`, `companion/src/direct/verify.ts`,
   `companion/src/direct/probe.ts`,
   `companion/src/direct/elementor-target.ts`, `companion/src/direct/media-source.ts`,

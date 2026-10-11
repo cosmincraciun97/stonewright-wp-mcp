@@ -125,6 +125,19 @@ use core REST and return `wp_cli_refused`, which says the local WordPress is not
 the target site and names neither host. The check runs once per alias and local
 install for the life of the process.
 
+Direct `stonewright-task-start` returns `required_followups`, the first of which
+asks for `stonewright-learning-record` when the user corrects the agent or a
+repeatable mistake is detected, and ranks `memory_highlights` by score (each
+lesson has a `confidence` and a `last_verified` time; a stale or doubtful lesson
+sorts lower and is marked `verify_before_use`). When a write to a resource fails
+or its readback differs and a later write to the same resource succeeds, that
+answer carries a `learning_offer` that asks the agent to put the question to the
+user before recording anything; the failures are remembered in the running
+companion only. `stonewright-memory-delete` removes a local lesson by id and needs
+`confirm:true`. A skill saved through Direct, or drafted with `learning-record`,
+is a disabled candidate; Direct refuses `enabled:true` and any change to an active
+skill, because activation needs an administrator's approval in Plugin mode.
+
 Direct `stonewright-task-start` lists open incidents in `incident_actions`. It
 asks for `repair_open_incidents_first` in `required_actions` only for an open
 incident whose failure row carries a resource and a change set, because only
@@ -134,14 +147,29 @@ days is closed and leaves the list, unless its latest failure row carries a
 resource and a change set (those wait for a verified repair, as in Plugin mode);
 a later matching failure reopens a closed incident.
 Before `template-update`, `template-part-update`, `global-styles-update`,
-`content-update`, and `blueprint-apply` with a `post_id`, Direct saves the
-current resource (`context=edit`) to
+`content-update`, `blueprint-apply` with a `post_id`, and
+`stonewright-blocks-batch-mutate`, Direct saves the current resource
+(`context=edit`) to
 `~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
 (mode 0600 where supported, 20 kept per resource, oldest deleted) and returns
 `backup_path` and `backup_sha256`. When the resource cannot be read or the file
 cannot be stored, the write is refused and nothing is sent. The file holds the
-REST resource only, never request headers or credentials. No tool restores a
-backup yet.
+REST resource only, never request headers or credentials.
+`stonewright-direct-backup-list` lists the saved copies and
+`stonewright-direct-backup-restore` puts one back (it needs `confirm:true`,
+checks the stored hash and saves the current state first, so a restore can be
+undone).
+
+`stonewright-gutenberg-validate` parses the post's blocks: balanced comments,
+valid JSON attributes, block names against the site's block list when it can be
+read, and the custom-code guard over every block. `stonewright-gutenberg-compose`
+reads its own result the same way and refuses custom code in `html` and `raw`
+markup. `stonewright-blocks-batch-mutate` inserts, updates and removes blocks by
+path with the Plugin ability's arguments (`post_id`, `operations`,
+`expected_content_hash`, `dry_run`): a dry run first, a write only against the
+content hash it returned, one saved copy, a readback, and a refusal of custom
+code that the operations add. See the
+[companion README](../companion/README.md#gutenberg-blocks-direct).
 
 Direct never writes custom code. `global-styles-update` refuses theme.json
 `styles.css` and per-block `css`; `elementor-data-update` refuses Elementor
@@ -206,7 +234,7 @@ sent once more, a tool call included. Degraded
 
 ### Tools shared with Plugin mode
 
-Thirty-five tool names exist in both modes (the full table of differences is in
+Thirty-seven tool names exist in both modes (the full table of differences is in
 [Direct mode E2E](direct-mode-e2e.md#tools-that-exist-in-both-modes)). Direct
 keeps its own argument names and also accepts the plugin's, so a client that
 learned the Plugin schema still works in a Direct session:

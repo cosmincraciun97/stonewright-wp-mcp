@@ -10,6 +10,7 @@ const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), 'utf
 
 /** The tool names that exist in both modes. A new one is a decision: add its row to the docs, then to this list. */
 const SHARED_TOOL_NAMES = [
+	'blocks-batch-mutate',
 	'blueprint-apply',
 	'blueprint-get',
 	'blueprint-list',
@@ -25,6 +26,7 @@ const SHARED_TOOL_NAMES = [
 	'media-get',
 	'media-list',
 	'media-upload',
+	'memory-delete',
 	'memory-list',
 	'menu-create',
 	'menu-delete',

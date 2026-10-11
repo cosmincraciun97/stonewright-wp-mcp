@@ -76,7 +76,8 @@ function compactPost(post: WpPost) {
   };
 }
 
-async function collectionFor(
+/** The REST collection of a post type: pages, posts, or a custom post type's rest_base. */
+export async function collectionFor(
   ctx: ContentToolContext,
   type: string,
 ): Promise<string> {

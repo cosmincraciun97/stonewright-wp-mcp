@@ -34,7 +34,7 @@
 <p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
 <!-- supported-release:end -->
 
-Stonewright MCP presents a compact, task-aware surface backed by **397 Plugin abilities** and **103 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
+Stonewright MCP presents a compact, task-aware surface backed by **397 Plugin abilities** and **105 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
@@ -121,11 +121,11 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | System discover-execute | 3 | Compact catalog, bounded schema, gated execute without the full tool list |
 | Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
-### Direct mode — **103** tools (pluginless)
+### Direct mode — **105** tools (pluginless)
 
 | Area | Tools (group) | Notes |
 |---|---|---|
-| Content & Gutenberg | list/get/create/update + compose + **validate** | Round-trip heuristics after writes |
+| Content & Gutenberg | list/get/create/update + compose + **validate** + **blocks-batch-mutate** | Block-level validation (balanced comments, JSON attributes, block names, custom code); path-based block edits with a content hash, a saved copy and a readback |
 | Elementor (local WP-CLI) | **status / data-get / data-update** | File backup before every write, restorable with `stonewright-direct-backup-restore`; the document is read back after the write; refuses custom CSS and HTML widgets; preserves CSS metadata, runs no CSS flush, and requires Plugin-mode guarded CSS closure |
 | Media, menus, taxonomy, templates, global styles | REST | Core endpoints; template, template-part and global-styles updates save a pre-image first; every typed write is read back |
 | Backups | **direct-backup-list / direct-backup-restore** | List and restore the saved copies (hash-checked, `confirm:true`, undoable) |
@@ -133,10 +133,10 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Plugins, themes, settings, health | REST | Destructive confirms |
 | WooCommerce | products/orders/sales | Read-only; catalog writes require Plugin mode |
 | ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
-| Self-improvement | skill-*, memory, verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage |
+| Self-improvement | skill-*, memory (scored, with **memory-delete**), verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage; a saved skill is a disabled candidate |
 | Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
 | WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
-| Safety | write gating, confirm, audit JSONL, pre-images and Elementor file backups | Task-start required before writes (default); no restore tool or after-write verification |
+| Safety | write gating, confirm, audit JSONL, pre-images and Elementor file backups | Task-start required before writes (default); no change sets or confirmation tokens (saved copies are restorable and typed writes are read back) |
 
 ## What you can do with Stonewright
 
@@ -185,7 +185,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **103** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/` that `stonewright-direct-backup-restore` restores). This path has no Elementor schema validation and refuses custom CSS and HTML widgets — use Plugin mode `elementor-v3-batch-mutate` for production engines. What Direct mode protects, and what it does not do yet (no restore tool, no after-write verification, partial custom-code screening), is listed in [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md#what-direct-mode-protects). DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **105** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/` that `stonewright-direct-backup-restore` restores). This path has no Elementor schema validation and refuses custom CSS and HTML widgets — use Plugin mode `elementor-v3-batch-mutate` for production engines. What Direct mode protects, and what it does not do yet, is listed in [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md#what-direct-mode-protects). DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Advanced connection options
 
@@ -509,7 +509,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **103 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator, change sets, confirmation tokens, and Rescue; it saves a copy before whole-document writes and restores it on request (`stonewright-direct-backup-list` / `-restore`), reads every typed write back and compares it, and can check the public page after a page, post or template write; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **105 tools**. Plugin mode exposes **397** abilities. Direct mode skips the plugin’s typed schema validator, change sets, confirmation tokens, and Rescue; it saves a copy before whole-document writes and restores it on request (`stonewright-direct-backup-list` / `-restore`), reads every typed write back and compares it, and can check the public page after a page, post or template write; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post HTML cache without deleting CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

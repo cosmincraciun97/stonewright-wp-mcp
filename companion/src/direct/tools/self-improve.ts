@@ -5,11 +5,19 @@ import {
   recentRecurringErrors,
 } from "../audit.js";
 import {
+  defaultConfidenceForSource,
+  deleteMemory,
+  effectiveConfidence,
+  effectiveLastVerified,
   getMemory,
   listMemory,
+  memoryScore,
   memoryStorageRef,
+  needsVerification,
+  rankMemory,
   recordMemory,
   setMemoryStatus,
+  type MemoryEntry,
   type MemoryKind,
 } from "../memory-store.js";
 import {
@@ -228,6 +236,32 @@ export function skillGet(
   throw new Error(`Skill not found: ${input.slug}`);
 }
 
+export const SKILL_ACTIVATION_NOTE =
+  "Direct mode has no human approval step, so a skill saved here is a disabled candidate: it is kept as a note and is not offered at task start. A skill becomes active in Plugin mode, where an administrator approves it.";
+
+/** A skill that is active in a scope is changed only through Plugin mode, never by a call that cannot be approved. */
+function assertNoActiveSkill(baseDir: string, scope: string, slug: string, tool: string, site: string): void {
+  let existing: SkillMeta | null = null;
+  try {
+    existing = getSkill({ baseDir, scope, slug });
+  } catch {
+    existing = null;
+  }
+  if (existing?.enabled === true) {
+    throw new DirectSafetyBlockedError(
+      "skill_active_requires_plugin_mode",
+      `The skill "${slug}" is active. Direct mode cannot change an active skill because it has no human approval step; nothing was changed. Save the new version under another slug as a candidate, or change the skill in Plugin mode.`,
+      tool,
+      site,
+    );
+  }
+}
+
+/**
+ * Saves a skill as a candidate. It is always stored disabled: Direct has no human approval step, and an
+ * agent must not activate its own playbook. `enabled: true` is refused and points to Plugin mode, and a
+ * skill that is already active is never overwritten.
+ */
 export function skillSave(
   ctx: SelfImproveContext,
   input: {
@@ -245,6 +279,16 @@ export function skillSave(
   const scope = input.global ? "_global" : resolved.scope;
   const site = resolved.siteAlias ? configuredSite(ctx, resolved.siteAlias) : null;
   const targetIdentity = site?.url ?? `direct-global:${scope}`;
+  const auditSite = resolved.siteAlias ?? "_global";
+  if (input.enabled === true) {
+    throw new DirectSafetyBlockedError(
+      "skill_activation_requires_plugin_mode",
+      `Direct mode cannot activate a skill. ${SKILL_ACTIVATION_NOTE} Nothing was saved; call again without enabled to save it as a candidate.`,
+      "stonewright-skill-save",
+      auditSite,
+    );
+  }
+  assertNoActiveSkill(resolved.baseDir, scope, input.slug, "stonewright-skill-save", auditSite);
   const meta = saveSkill({
     baseDir: resolved.baseDir,
     scope,
@@ -253,7 +297,7 @@ export function skillSave(
     description: input.description,
     triggers: input.triggers,
     body: input.body,
-    ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+    enabled: false,
   });
   appendDirectAudit({
     tool: "stonewright-skill-save",
@@ -262,7 +306,7 @@ export function skillSave(
     resource: `${scope}/${input.slug}`,
     status: "ok",
   });
-  return meta;
+  return { ...meta, status: "candidate" as const, note: SKILL_ACTIVATION_NOTE };
 }
 
 export function skillDelete(
@@ -308,35 +352,65 @@ export function skillDelete(
 export const LOCAL_MEMORY_VISIBILITY =
   "local-only (not visible in WordPress Stonewright Memory UI; companion ~/.stonewright/memory only)";
 
+/** The memory files that belong to a scope: the site's own, an older alias-keyed one, then the global one. */
+function memoryStoresFor(scope: SelfImproveScope): string[] {
+  return scope.memoryScope === "_global"
+    ? ["_global"]
+    : [
+        scope.memoryScope,
+        ...(scope.legacyMemoryScope ? [scope.legacyMemoryScope] : []),
+        "_global",
+      ];
+}
+
+/** A lesson as the agent sees it: the stored fields plus the confidence and verification time it is ranked by. */
+function scoredMemory(entry: MemoryEntry, now: number) {
+  return {
+    ...entry,
+    confidence: Math.round(effectiveConfidence(entry) * 1000) / 1000,
+    last_verified: effectiveLastVerified(entry),
+    score: Math.round(memoryScore(entry, now) * 1000) / 1000,
+  };
+}
+
 /**
  * Lists the companion's local memory. It never reads the plugin's site memory, and says so: `backend`
  * and `memory_backend` name the store, and when the plugin is known to be active on the site the answer
  * carries a note, because task-start and learning-record use the plugin's memory in that case.
+ * Newest first by default; `order: "score"` ranks by confidence and time since last confirmed, so a stale
+ * or doubtful lesson comes last.
  */
 export function memoryList(
   ctx: SelfImproveContext,
-  input: { limit?: number; offset?: number; site?: string; activeOnly?: boolean } = {},
+  input: {
+    limit?: number;
+    offset?: number;
+    site?: string;
+    activeOnly?: boolean;
+    order?: "recent" | "score";
+  } = {},
 ) {
-  const { scope, baseDir, siteAlias, memoryScope, legacyMemoryScope } =
-    resolveSelfImproveScope(ctx, input.site);
+  const resolved = resolveSelfImproveScope(ctx, input.site);
+  const { scope, baseDir, siteAlias, memoryScope } = resolved;
   const limit = input.limit ?? 20;
   const offset = input.offset ?? 0;
-  const stores =
-    memoryScope === "_global"
-      ? ["_global"]
-      : [memoryScope, ...(legacyMemoryScope ? [legacyMemoryScope] : []), "_global"];
+  const byScore = input.order === "score";
   const seen = new Set<string>();
-  const items = stores
+  const found = memoryStoresFor(resolved)
     .flatMap(
       (store) => listMemory({
         baseDir,
         scope: store,
-        limit: limit + offset,
+        // Ranking needs every entry; newest-first only needs the newest ones.
+        limit: byScore ? 10_000 : limit + offset,
         activeOnly: input.activeOnly === true,
       }).items,
     )
     .filter((entry) => !seen.has(entry.id) && seen.add(entry.id));
-  items.sort((a, b) => b.ts.localeCompare(a.ts));
+  const now = Date.now();
+  const items = byScore
+    ? rankMemory(found, now)
+    : [...found].sort((a, b) => b.ts.localeCompare(a.ts));
 
   let pluginActive = false;
   if (siteAlias) {
@@ -354,13 +428,70 @@ export function memoryList(
     backend: "direct" as const,
     memory_backend: scope === "_global" ? "direct-global" : "direct-site-local",
     memory_visibility: LOCAL_MEMORY_VISIBILITY,
-    items: items.slice(offset, offset + limit),
+    items: items.slice(offset, offset + limit).map((entry) => scoredMemory(entry, now)),
     ...(pluginActive
       ? {
           plugin_detected: true,
           note: "The Stonewright plugin is active on this site. This list is the companion's local memory only; task-start and learning-record use the plugin's site memory here. Switch to Plugin mode to list the site memory.",
         }
       : {}),
+  };
+}
+
+/**
+ * Deletes one lesson from the companion's local memory by id. It always needs `confirm:true`, in every
+ * write mode: a deleted lesson cannot be brought back. Only local memory is touched; a lesson kept in the
+ * plugin's site memory is removed in Plugin mode (the `stonewright-memory-delete` ability).
+ */
+export function memoryDelete(
+  ctx: SelfImproveContext,
+  input: { id: string; confirm?: boolean; global?: boolean; site?: string },
+) {
+  const resolved = input.global === true
+    ? resolveSelfImproveScope(ctx, "_global", { global: true })
+    : resolveSelfImproveScope(ctx, input.site);
+  const site = configuredSite(ctx, resolved.siteAlias ?? input.site);
+  assertWriteAllowed({
+    site: site ?? resolved.siteAlias ?? "_global",
+    mode: resolveDirectWriteMode(ctx.env, site?.url),
+    destructive: true,
+    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+    tool: "stonewright-memory-delete",
+    env: ctx.env,
+    // A lesson is a local file; the site's plugin does not matter.
+    localOnly: true,
+  });
+  if (input.confirm !== true) {
+    throw new DirectSafetyBlockedError(
+      "confirmation_required",
+      "stonewright-memory-delete requires confirm:true",
+      "stonewright-memory-delete",
+      input.site ?? "_global",
+    );
+  }
+  const store = memoryStoresFor(resolved).find(
+    (candidate) => getMemory({ baseDir: resolved.baseDir, scope: candidate, id: input.id }) !== null,
+  );
+  if (store === undefined) {
+    throw new Error(`No memory entry has that id in the local memory. code=memory_not_found`);
+  }
+  deleteMemory({ baseDir: resolved.baseDir, scope: store, id: input.id });
+  if (getMemory({ baseDir: resolved.baseDir, scope: store, id: input.id }) !== null) {
+    throw new Error("The memory entry is still stored after the delete. code=memory_delete_failed");
+  }
+  appendDirectAudit({
+    tool: "stonewright-memory-delete",
+    site: resolved.siteAlias ?? "_global",
+    targetIdentity: site?.url ?? `direct-global:${resolved.scope}`,
+    resource: memoryStorageRef(store, input.id),
+    status: "ok",
+  }, defaultAuditPath({ ...ctx.env, STONEWRIGHT_STATE_DIR: resolved.baseDir }));
+  return {
+    deleted: true as const,
+    id: input.id,
+    backend: "direct" as const,
+    memory_scope: store,
+    memory_visibility: LOCAL_MEMORY_VISIBILITY,
   };
 }
 
@@ -583,6 +714,8 @@ export type LearningRecordInput = {
   scope?: string;
   source?: string;
   evidence?: string;
+  /** 0 to 1; without one the lesson gets the default for its source. */
+  confidence?: number;
   /** Explicit global memory intent — required to write _global.jsonl. */
   global?: boolean;
   /** Legacy Direct free-text. */
@@ -604,6 +737,7 @@ function normalizeLearningInput(input: LearningRecordInput): {
   correction: string;
   kind: MemoryKind;
   source: string;
+  confidence: number;
   tags: string[];
 } {
   const correction = (input.correction ?? input.text ?? "").trim();
@@ -623,14 +757,14 @@ function normalizeLearningInput(input: LearningRecordInput): {
     )
       ? input.kind
       : "correction";
-  const source =
-    input.source?.trim() ||
-    (input.kind ? "explicit-user-request" : "explicit-user-request");
+  // A source the caller did not give is recorded as such; it is never presented as the user's own request.
+  const source = input.source?.trim() || "agent-recorded";
   return {
     topic,
     correction,
     kind,
     source,
+    confidence: input.confidence ?? defaultConfidenceForSource(source),
     tags: input.tags ?? ["user-authored"],
   };
 }
@@ -674,6 +808,10 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   }
 
   const normalized = normalizeLearningInput(input);
+  if (input.draft_skill) {
+    // Refused before anything is stored: a draft never replaces an active skill.
+    assertNoActiveSkill(baseDir, scope, input.draft_skill.slug, "stonewright-learning-record", siteAlias ?? scope);
+  }
   const entry = recordMemory({
     baseDir,
     scope: memoryScope,
@@ -682,6 +820,7 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     tags: normalized.tags,
     topic: normalized.topic,
     source: normalized.source,
+    confidence: normalized.confidence,
     dedupe: true,
   });
 
@@ -743,6 +882,14 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
       "Direct-local memory is machine-local. wp-admin cannot read this file; use export/import for cross-host sync.",
   };
 }
+
+/** The steps task-start asks of every Direct session; the correction trigger is the second. */
+export const REQUIRED_FOLLOWUPS: readonly string[] = [
+  "Read the matched skill playbooks and the memory_highlights before acting; re-check a highlight marked verify_before_use against the site first.",
+  "If the user corrects you, or a repeatable mistake is detected, call stonewright-learning-record. When a write that failed is later fixed on the same resource, the call that fixed it returns a learning_offer: ask the user before recording it.",
+  "A skill you draft stays a disabled candidate. Only a person activates a skill, in Plugin mode; never try to enable one yourself.",
+  "Remove a wrong or outdated lesson with stonewright-memory-delete, after the user agrees.",
+];
 
 export function taskStart(
   ctx: SelfImproveContext,
@@ -817,9 +964,11 @@ export function taskStart(
   );
   // Only an incident that incident-repair-record can close blocks task start.
   const repairRequired = incidentStore.requiresRepair();
+  // The lessons most worth reading first: confident and recently confirmed, not just the newest.
   const memory = memoryList(ctx, {
     limit: 5,
     activeOnly: true,
+    order: "score",
     ...(input.site !== undefined ? { site: input.site } : {}),
   }).items;
   const pointerOk = pointerInstalled(ctx.env);
@@ -830,7 +979,7 @@ export function taskStart(
     "Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.",
     ...permanentRulesGuidance(),
     'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
-    "If the user explicitly asks to remember a correction, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope.",
+    "If the user corrects you or a repeatable mistake is detected, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope. Any skill you draft stays a disabled candidate.",
     "Load a matched skill body with stonewright-skill-get before acting on its topic.",
     "Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.",
   ];
@@ -889,13 +1038,19 @@ export function taskStart(
       next: "call stonewright-skill-get with this slug and follow the playbook",
     })),
     memory_highlights: memory.slice(0, 5).map((m) => ({
+      // The id lets a wrong or outdated lesson be removed with stonewright-memory-delete.
+      id: m.id,
       ts: m.ts,
       kind: m.kind,
       text: m.text,
+      confidence: m.confidence,
+      last_verified: m.last_verified,
+      ...(needsVerification(m) ? { verify_before_use: true } : {}),
     })),
     recurring_errors: recurring,
     incident_actions: incidentActions,
     required_actions: repairRequired ? ["repair_open_incidents_first"] : [],
+    required_followups: REQUIRED_FOLLOWUPS,
     setup: {
       agents_md: agentsPath,
       pointer_installed: pointerOk,

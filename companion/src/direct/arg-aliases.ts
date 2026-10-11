@@ -99,7 +99,6 @@ export const DIRECT_PLUGIN_ONLY_ARGS: Readonly<Record<string, readonly PluginOnl
 	],
 	'stonewright-learning-record': [
 		{ arg: 'lesson', instead: LOCAL_MEMORY_NOTE },
-		{ arg: 'confidence', instead: LOCAL_MEMORY_NOTE },
 		{ arg: 'severity', instead: LOCAL_MEMORY_NOTE },
 		{ arg: 'trigger', instead: LOCAL_MEMORY_NOTE },
 		{ arg: 'update_skill', instead: 'pass draft_skill with slug, name, description, triggers and body.' },

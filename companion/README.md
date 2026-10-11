@@ -26,7 +26,7 @@ tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 Direct mode may inspect Customizer CSS when core exposes it, and
 `stonewright-custom-css` refuses updates because pluginless mode has no
 authenticated wp-admin one-time-grant boundary. The other Direct write tools
-(content, templates, blueprints, widgets, global styles, Elementor data) refuse custom
+(content, block edits, templates, blueprints, widgets, global styles, Elementor data) refuse custom
 code the same way and write nothing: theme.json `styles.css` and per-block
 `css`, Elementor custom CSS setting keys and HTML-type widgets, and script,
 style, iframe, object, embed, link, and `meta http-equiv` elements, inline event
@@ -145,13 +145,15 @@ site-hosted state.
 | Search + block patterns | yes | yes |
 | WooCommerce products/orders/sales read | yes | yes |
 | WooCommerce catalog create/update/delete/audit | no | yes — native typed abilities |
-| Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
+| Gutenberg compose helper (local markup) | yes; the markup it returns must be valid blocks and holds no custom code | n/a (use plugin Gutenberg tools) |
+| Gutenberg validate | yes; parses the blocks (balanced comments, valid JSON attributes, block names against the site's block list when readable) and runs the custom-code guard over every block | yes (plugin Gutenberg tools) |
+| Gutenberg block edits by path | yes: `stonewright-blocks-batch-mutate` inserts, updates and removes blocks with a content hash, a saved copy and a readback; no move, no `insert_section`, no browser finalizer | yes (`stonewright-blocks-batch-mutate`, with a finalizer for static blocks) |
 | WP-CLI tokenized tools | yes (local host only; a command that changes the site needs task-start, `confirm: true` in `confirm` mode and a matching local install, and is audited) | yes (local host only; no latch, confirmation or audit row from the companion) |
 | `stonewright/php-execute` | no | yes (`full` profile only) |
 | Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI when the local install is the alias site, else REST meta when registered; file backup restorable with `stonewright-direct-backup-restore`, read back after the write; custom CSS and HTML widgets refused) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
-| Memory / skills store | yes — private local state | yes — site-hosted |
+| Memory / skills store | yes — private local state; lessons are ranked by confidence and time since last confirmed; a skill saved through Direct is a disabled candidate | yes — site-hosted; skills are activated by an administrator's approval |
 | Production-safe confirmation tokens | no (`confirm: true` is a caller-set flag) | yes |
 | Change sets, Rescue | no | yes |
 | List and restore saved copies | yes: `stonewright-direct-backup-list` / `-restore` (pre-images and Elementor file backups) | yes: Plugin snapshots and the change history |
@@ -165,7 +167,7 @@ alias is refused with `site_not_in_session`. This covers REST calls, WP-CLI,
 memory scope, incidents and the task-start latch. Without an alias, nothing
 changes: the registry default, or the alias the call names.
 
-**Tools with the same name in both modes.** Thirty-five tool names exist in Direct
+**Tools with the same name in both modes.** Thirty-seven tool names exist in Direct
 and in Plugin mode. Direct keeps its own argument names and also accepts the
 plugin's (`post_id`, `menu_id`, `user_login`, `alt`, `blueprint_id`, `date_from`,
 `blogname` and the rest listed in [Direct mode E2E](../docs/direct-mode-e2e.md#tools-that-exist-in-both-modes)).
@@ -202,7 +204,8 @@ and user changes, `template-update`, `template-part-update`, and
 and taxonomy writes do not.
 
 Before `template-update`, `template-part-update`, `global-styles-update`,
-`content-update`, and `blueprint-apply` with a `post_id`, Direct reads the
+`content-update`, `blueprint-apply` with a `post_id`, and
+`stonewright-blocks-batch-mutate`, Direct reads the
 current resource with `context=edit` and stores it under
 `~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json`
 (mode 0600 where the platform supports it; at most 20 per resource, the oldest
@@ -254,6 +257,42 @@ is restored (audited, undoable) and the page is checked again
 (`site_status:"rolled_back"`). A page that cannot be reached is reported as
 `unavailable`, not as a failure. A page created by the write has no saved copy, so
 it can only be reported.
+
+### Gutenberg blocks (Direct)
+
+`stonewright-gutenberg-validate` reads a post's block markup the way WordPress
+does. The comment delimiters must balance and match, each block's attributes must
+be a valid JSON object, and, when the site's block list (`/wp/v2/block-types`) can
+be read, each block name must be one the site has (an unknown name is a warning:
+its plugin or theme may be inactive). The answer lists `diagnostics` with line
+numbers, `unknown_blocks`, `custom_code` (the custom-code guard run over every
+block, `html` and classic blocks included) and the `content_hash` that
+`stonewright-blocks-batch-mutate` takes as `expected_content_hash`. It changes
+nothing. `stonewright-gutenberg-compose` reads its own result the same way before
+returning it: unbalanced comments or attributes that are not valid JSON are an
+error, an `html` block cannot contain block comments, and custom code in `html` or
+`raw` markup is refused with the usual `approval_required` envelope and no markup.
+
+`stonewright-blocks-batch-mutate` edits the blocks of a page or post by path
+instead of sending the whole content back. Its arguments are the Plugin ability's:
+`post_id`, `operations`, `expected_content_hash`, `dry_run`; each operation is an
+`insert`, `update` or `remove` with `path`, `position`, `before_path`,
+`after_path`, `block`, `attrs` and `innerHTML`. A path addresses a block the way
+the editor does (`[1]` is the second top-level block, `[1, 0]` its first inner
+block) and operations apply in order. A dry run writes nothing and returns
+`before_hash` and `after_hash`; a write needs `expected_content_hash` set to the
+`before_hash` and is refused as `content_conflict` if the content changed, checked
+again just before the write. All operations apply or none does. Direct saves a
+copy of the post first (`backup_id`, restorable), reads the post back
+(`verification`) and probes the page like `content-update`. Blocks that were not
+touched are written back byte for byte. `update` sets `innerHTML` on a block that
+has no inner blocks and merges `attrs` (a value of `null` removes one); because
+Direct cannot generate the saved markup of a static block, `attrs` alone are
+accepted only on a block with no markup of its own, and a change to a container's
+attributes goes through `stonewright-content-update` or Plugin mode. Custom code
+that the operations add is refused with the `approval_required` envelope (code the
+page already holds is left alone), as is a block name the site does not have, a
+block comment inside markup, and a post whose block markup is already broken.
 
 `stonewright-media-upload` reads a local `path` only from the working directory,
 the companion media folder (`<state dir>/media`) or a root listed in
@@ -316,9 +355,16 @@ commands only. In Plugin mode these tools behave as before.
   styles, Elementor data and other writes are read back but not probed.
 - Custom-code screening covers every Direct write that sends text or markup;
   a write to a field that holds custom code needs Plugin mode.
-- Pre-images cover five tools; plugin, theme, settings, menu, media, ACF and
+- Pre-images cover six tools (the five whole-document writes and
+  `stonewright-blocks-batch-mutate`); plugin, theme, settings, menu, media, ACF and
   taxonomy writes are read back but save no before-state, so they cannot be
   restored.
+- Block edits have no `move`, no `insert_section` and no browser finalizer, so a
+  change to a static block's attributes needs the matching `innerHTML`, and the
+  attributes of a container are changed with `stonewright-content-update`.
+- Direct cannot activate a skill. A skill saved through Direct (or drafted with
+  `learning-record`) is a disabled candidate that is not offered at task start; an
+  active skill is changed and approved in Plugin mode.
 - Elementor raw writes have no schema validation, unique-id check or per-post
   lease or base hash; the readback compares the stored tree with the written one.
 - The verifier rows tie a readback to its write, but `stonewright-incident-repair-record`
@@ -827,13 +873,14 @@ npm run build
 
 ## Direct mode tool surface
 
-**103** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+**105** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
 
 - Waves 1–3: content (including `stonewright-content-create` for any registered post type, plus `stonewright-content-create-page` / `stonewright-content-create-post`), menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`. WooCommerce catalog writes and audits are plugin-only.
 - Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
 - Wave 4 ACF/SEO: `stonewright-acf-fields-get|update`, `stonewright-seo-head-get`
 - Wave 5: `stonewright-elementor-status|data-get|data-update` (local WP-CLI + mandatory backup), `stonewright-gutenberg-validate`, `stonewright-agents-md-sync`, `stonewright-rules-get` (the same native rule registry the plugin ships; also on the bootstrap surface, because task start hands out a rule digest and the tool that resolves it has to be reachable first)
 - Wave 6 backups: `stonewright-direct-backup-list`, `stonewright-direct-backup-restore` (task profiles and `full`; not on the bootstrap or essential surface)
+- Wave 7: `stonewright-memory-delete` (`site-admin` and `full`) and `stonewright-blocks-batch-mutate` (`gutenberg` and `full`); neither is on the bootstrap or essential surface
 
 ### Self-improvement (pluginless)
 
@@ -844,6 +891,28 @@ npm run build
 | `~/.stonewright/audit-direct.jsonl` | Local Direct audit events with credential redaction |
 
 Set `STONEWRIGHT_STATE_DIR` in tests to override the base directory. Skills load on demand via `skill-get`; `task-start` only returns matched refs.
+
+**Learning loop.** `task-start` asks for `stonewright-learning-record` whenever the
+user corrects the agent or a repeatable mistake is detected (`required_followups`).
+When a Direct write to a resource fails, or its readback reports a mismatch, and a
+later write to the same resource on the same site succeeds, the successful answer
+carries a `learning_offer`: the agent is to tell the user what failed and what
+fixed it and ask whether to record it, and only then call `learning-record` (with
+`source: "write-recovery"`, citing the audit event). The failures are held in the
+running companion only; nothing new is stored. Each lesson carries a `confidence`
+(0 to 1; the default follows its `source`) and a `last_verified` time that moves
+when the same lesson is recorded again. `task-start` shows the five best lessons
+by score (confidence, reduced by the time since last confirmed; a stale lesson
+sorts last), with their `id`, and marks one `verify_before_use` when it is old or
+doubtful. `stonewright-memory-list` takes `order: "score"`. Files written by
+earlier companions have neither field and keep working: their entries get a default
+confidence and count from the time they were recorded.
+`stonewright-memory-delete` removes one local lesson by id and always needs
+`confirm:true`; a lesson in the plugin's site memory is removed in Plugin mode.
+An agent cannot activate its own skill in Direct mode: `stonewright-skill-save`
+and the `draft_skill` of `learning-record` store a disabled candidate, `enabled:true`
+and any change to an active skill are refused, and activation is an
+administrator's approval in Plugin mode.
 
 A new state directory contains no user memory, user-created skills, or audit
 events. Packaged generic built-ins remain available. Companion replacement and

@@ -20,6 +20,7 @@ import { appendDirectAudit as appendDirectAuditRaw, type DirectAuditEntry } from
 import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
 import type { SitesConfig } from '../src/direct/sites-config.js';
+import { saveSkill } from '../src/direct/skills-store.js';
 
 function appendDirectAudit(entry: DirectAuditEntry, path?: string) {
 	return appendDirectAuditRaw({
@@ -136,12 +137,16 @@ describe('direct self-improve tools', () => {
 
 	it('task-start matches skills and returns direct mode without site', () => {
 		const c = ctx();
-		skillSave(c, {
+		// An activated skill (a person enables it; Direct itself only saves disabled candidates).
+		saveSkill({
+			baseDir: c.baseDir as string,
+			scope: '_global',
 			slug: 'wc-image-fix',
 			name: 'WC',
 			description: 'd',
 			triggers: ['woocommerce'],
 			body: 'b',
+			enabled: true,
 		});
 		learningRecord(c, { text: 'remember media sizes', kind: 'lesson' });
 		const start = taskStart(c, { task: 'update woocommerce products' });

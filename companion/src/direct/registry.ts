@@ -33,8 +33,10 @@ import * as selfImprove from './tools/self-improve.js';
 import * as acf from './tools/acf.js';
 import * as elementorDirect from './tools/elementor-direct.js';
 import * as gutenbergValidate from './tools/gutenberg-validate.js';
+import * as blocks from './tools/blocks.js';
 import * as agentsMd from './agents-md.js';
 import * as backups from './backups.js';
+import { observeCorrection } from './correction-trigger.js';
 import {
 	appendDirectAudit,
 	directTerminalAuditReceipt,
@@ -44,6 +46,12 @@ import {
 	setDirectAuditTargetIdentity,
 	withDirectAuditReceiptContext,
 } from './audit.js';
+
+/** The audit event id of the call's last terminal row, cited when a failure later turns into a lesson. */
+function failureEventId(receipt: { [key: string]: unknown } | null): string | undefined {
+	const id = receipt?.['event_id'];
+	return typeof id === 'string' ? id : undefined;
+}
 
 const directDispatchContext = new AsyncLocalStorage<{ tool: string; site: string; auditPath: string }>();
 
@@ -195,6 +203,15 @@ export const DIRECT_WAVE6_TOOL_NAMES = [
 	'stonewright-direct-backup-restore',
 ] as const;
 
+/**
+ * Learning and block tools. `stonewright-memory-delete` and `stonewright-blocks-batch-mutate` carry the
+ * names of the Plugin abilities that do the same job, with the same argument names where Direct can honor them.
+ */
+export const DIRECT_WAVE7_TOOL_NAMES = [
+	'stonewright-memory-delete',
+	'stonewright-blocks-batch-mutate',
+] as const;
+
 export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE1_TOOL_NAMES,
 	...DIRECT_WAVE2_TOOL_NAMES,
@@ -202,6 +219,7 @@ export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE4_TOOL_NAMES,
 	...DIRECT_WAVE5_TOOL_NAMES,
 	...DIRECT_WAVE6_TOOL_NAMES,
+	...DIRECT_WAVE7_TOOL_NAMES,
 ] as const;
 
 /**
@@ -287,8 +305,8 @@ function directProfileToolNames(profile: DirectToolProfile): readonly string[] {
 	const profileNeedles: Record<Exclude<DirectToolProfile, 'bootstrap' | 'essential' | 'essential-static' | 'full'>, readonly string[]> = {
 		'elementor-design': ['elementor', 'media-', 'blueprint-', 'content-get', 'content-update', 'gutenberg-validate', 'settings-get', 'direct-backup-'],
 		'content-model': ['content-', 'media-', 'taxonomy-', 'menu-', 'search', 'blueprint-', 'plugin-list', 'theme-list', 'rest-request', 'direct-backup-'],
-		gutenberg: ['gutenberg', 'content-', 'media-', 'template-', 'global-styles', 'block-', 'pattern-', 'settings-get', 'direct-backup-'],
-		'site-admin': ['comment-', 'user-', 'app-password-', 'plugin-', 'theme-', 'settings-', 'menu-', 'sidebar-', 'widget-', 'health-', 'custom-css', 'direct-backup-'],
+		gutenberg: ['gutenberg', 'content-', 'media-', 'template-', 'global-styles', 'block-', 'blocks-', 'pattern-', 'settings-get', 'direct-backup-'],
+		'site-admin': ['comment-', 'user-', 'app-password-', 'plugin-', 'theme-', 'settings-', 'menu-', 'sidebar-', 'widget-', 'health-', 'custom-css', 'direct-backup-', 'memory-delete'],
 	};
 	const needles = profileNeedles[profile];
 	return Array.from(new Set([
@@ -595,7 +613,20 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 							tool: name,
 						});
 					}
-					return (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args);
+					const result = await (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args);
+					// A failed write that a later call fixes on the same resource gets a learning offer.
+					if (input && typeof input === 'object' && result && typeof result === 'object') {
+						return observeCorrection({
+							tool: name,
+							site: target?.url ?? site,
+							input: input as Record<string, unknown>,
+							result: result as Parameters<typeof observeCorrection>[0]['result'],
+							...(failureEventId(directTerminalAuditReceipt()) !== undefined
+								? { failureEventId: failureEventId(directTerminalAuditReceipt()) as string }
+								: {}),
+						});
+					}
+					return result;
 				}),
 			));
 		}) as RegisteredTool['handler'];
@@ -804,6 +835,43 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		async (input) => {
 			try {
 				return toolResponse(await content.contentUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	const blockPathArg = z.array(z.number().int().min(0));
+	tool(
+		'stonewright-blocks-batch-mutate',
+		'Edit the blocks of a page or post by path (Direct mode): insert, update or remove blocks in the parsed block markup instead of resending the whole content. Arguments are the Plugin ability\'s (post_id, operations, expected_content_hash, dry_run); there is no move or insert_section. A path addresses a block as the editor does: [1] is the second top-level block, [1, 0] its first inner block; operations apply in order. Run dry_run:true first: it writes nothing and returns before_hash and after_hash. A write needs expected_content_hash set to that before_hash and is refused if the content changed (checked again just before the write). All operations apply or none does. insert takes block {blockName, attrs, innerHTML, innerBlocks, innerContent} at path (the parent), position or before_path/after_path; update sets innerHTML on a block without inner blocks and merges attrs (null removes one); attrs alone are accepted only on a block with no saved markup, because Direct cannot regenerate markup. The post is saved first (backup_id, restore with stonewright-direct-backup-restore), read back (verification) and probed like stonewright-content-update. Refuses custom code that the operations add (approval_required envelope), a block name the site does not have (when its block list is readable), block comments inside markup, and a post whose block markup is already broken (see stonewright-gutenberg-validate).',
+		{
+			site: siteArg,
+			post_id: z.number().int().positive(),
+			type: z.string().optional(),
+			operations: z
+				.array(
+					z.object({
+						action: z.enum(['insert', 'update', 'remove']),
+						path: blockPathArg.optional(),
+						position: z.number().int().min(0).optional(),
+						before_path: blockPathArg.optional(),
+						after_path: blockPathArg.optional(),
+						block: z.record(z.string(), z.unknown()).optional(),
+						attrs: z.record(z.string(), z.unknown()).optional(),
+						innerHTML: z.string().optional(),
+					}),
+				)
+				.min(1)
+				.max(100),
+			expected_content_hash: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+			dry_run: z.boolean().optional(),
+			probe: probeArg,
+			rollback_on_probe_failure: rollbackArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await blocks.blocksBatchMutate(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -1471,7 +1539,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-gutenberg-compose',
-		'Compose Gutenberg block markup from a simple JSON block spec (local, no network). Pass result.markup to content-create/update.',
+		'Compose Gutenberg block markup from a simple JSON block spec (local, no network). Pass result.markup to content-create/update. The result is read back as blocks first: block comments must balance and carry valid JSON, an html block cannot contain block comments, and custom code in html or raw markup (script, style, iframe, event handlers, javascript: URLs) is refused with an approval_required envelope and no markup.',
 		{
 			site: siteArg,
 			blocks: z.array(z.record(z.unknown())).min(1),
@@ -1527,7 +1595,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-blueprint-apply',
-		'Apply a bundled blueprint as a Gutenberg draft via core REST. The elementor and fse engines need Plugin mode. With post_id it overwrites that page, so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256, backup_id for stonewright-direct-backup-restore) and the write is refused if that backup fails. The page is read back (verification) and a published page is fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true; rollback_on_probe_failure:true restores the saved copy if that check fails). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
+		'Apply a bundled blueprint as Gutenberg blocks via core REST: a new page is a draft. The elementor and fse engines need Plugin mode. With post_id it overwrites that page (which keeps its status unless status is given), so it requires confirm:true when STONEWRIGHT_DIRECT_WRITES=confirm or the site is remote; the current page is saved first (backup_path, backup_sha256, backup_id for stonewright-direct-backup-restore) and the write is refused if that backup fails. The page is read back (verification) and a published page is fetched and checked (probe, on by default for a local site, off for a remote one unless probe:true; rollback_on_probe_failure:true restores the saved copy if that check fails). Refuses custom code (script, style, iframe, object, embed, link or meta http-equiv elements, inline event handlers, javascript: URLs) with an approval_required envelope; that needs Plugin mode and its custom-code approval.',
 		{
 			site: siteArg,
 			id: z.string().min(1),
@@ -1781,7 +1849,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-skill-save',
-		'Create or update a local companion skill under ~/.stonewright/skills/.',
+		'Save a local companion skill under ~/.stonewright/skills/ as a disabled candidate. Direct has no human approval step, so it never activates a skill: enabled:true and changing a skill that is already active are refused (activation needs Plugin mode).',
 		{
 			site: siteArg,
 			slug: z.string().min(1),
@@ -1812,12 +1880,24 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			site: siteArg,
 			limit: z.number().int().min(1).max(500).optional(),
 			offset: z.number().int().min(0).optional(),
+			order: z.enum(['recent', 'score']).optional().describe('recent (default) or score: confidence and time since last confirmed, so stale and doubtful lessons come last'),
 		},
 		(input) => selfImprove.memoryList(selfCtx(), input as never),
 	);
 	w4(
+		'stonewright-memory-delete',
+		'Delete one lesson from the companion\'s local memory by id (ids come from stonewright-memory-list and the memory_highlights of task-start). Requires confirm:true in every write mode; a deleted lesson cannot be recovered. Local memory only: a lesson in the plugin\'s site memory is removed in Plugin mode.',
+		{
+			site: siteArg,
+			id: z.string().min(1).max(64),
+			confirm: z.boolean().optional().describe('Must be true; the lesson is removed for good'),
+			global: z.boolean().optional().describe('Delete from the global memory instead of the site\'s'),
+		},
+		(input) => selfImprove.memoryDelete(selfCtx(), input as never),
+	);
+	w4(
 		'stonewright-learning-record',
-		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory. The backend field of the answer says which store kept it.',
+		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory. Call it when the user corrects you or a repeatable mistake is detected (a write that failed and was later fixed on the same resource returns a learning_offer: ask the user first). confidence (0 to 1) and the time of recording rank the lesson at recall. A draft_skill is stored disabled. The backend field of the answer says which store kept it.',
 		{
 			site: siteArg,
 			topic: z.string().min(1).optional(),
@@ -1826,6 +1906,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			scope: z.enum(['user', 'project']).optional(),
 			source: z.string().optional(),
 			evidence: z.string().optional(),
+			confidence: z.number().min(0).max(1).optional().describe('0 to 1; how sure the lesson is. Defaults by source.'),
 			kind: z.enum(['correction', 'lesson', 'preference', 'fact']).optional(),
 			tags: z.array(z.string()).optional(),
 			draft_skill: z
@@ -1960,7 +2041,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-gutenberg-validate',
-		'Validate Gutenberg block markup round-trip for a post (raw vs rendered heuristics).',
+		'Validate the block markup of a post (read-only): comment delimiters must balance and match, every block\'s attributes must be a valid JSON object, block names are checked against the site\'s block list when it can be read, and the custom-code guard runs over every block, html and classic blocks included. Returns diagnostics with line numbers, unknown_blocks, custom_code, content_hash (the expected_content_hash for stonewright-blocks-batch-mutate) and the raw-versus-rendered heuristics.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),

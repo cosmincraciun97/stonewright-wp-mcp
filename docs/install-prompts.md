@@ -258,7 +258,7 @@ After reload:
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
 - Destructive tools, template and template-part updates, and a blueprint applied over an existing page require confirm:true. Do not work around write gating.
-- Direct mode has no restore tool and no after-write verification. Keep the backup_path a write returns, read the written resource back, and verify the page in a browser.
+- Direct mode saves a copy before whole-document writes (backup_id, backup_path) and puts it back with stonewright-direct-backup-restore (confirm:true). It reads each typed write back: treat verification mismatch or a failed probe as a failed write and do not report it as done. Verify the page in a browser for visual work.
 - Do not write custom PHP/CSS/JS/HTML in Direct mode. It has no authenticated
   wp-admin one-time-grant boundary and refuses theme.json CSS, Elementor custom
   CSS and HTML widgets, and script, style, iframe, object, embed, link, meta http-equiv, inline event handler, and

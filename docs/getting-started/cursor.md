@@ -57,7 +57,9 @@ connection smoke test.
 Expect mode Direct and local skills/memory hints. Then call
 `stonewright-site-discover` before REST work. Destructive tools require
 `confirm:true` when writes are gated. Direct mode refuses custom
-PHP/CSS/JS/HTML, and it has no restore tool or after-write verification.
+PHP/CSS/JS/HTML. It saves a copy before whole-document writes
+(`stonewright-direct-backup-restore` puts one back), reads each typed write back
+and reports a difference as `ok:false`.
 
 Copy-paste Option B: [install-prompts.md](../install-prompts.md).
 

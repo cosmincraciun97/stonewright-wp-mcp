@@ -307,8 +307,11 @@ write protections are the companion's own and narrower than Plugin mode's:
 - It refuses custom code (theme.json and Elementor CSS, HTML widgets, script,
   style, iframe, object, embed, link and meta http-equiv markup, inline event
   handlers, `javascript:` URLs) in global styles, Elementor data, content,
-  template, blueprint and widget writes, and in the text of ACF, media, menu,
-  comment, taxonomy-term, settings, user and Application Password writes.
+  template, blueprint and widget writes, in what a block edit
+  (`stonewright-blocks-batch-mutate`) adds, in the markup
+  `stonewright-gutenberg-compose` returns (`html` and `raw` blocks included), and
+  in the text of ACF, media, menu, comment, taxonomy-term, settings, user and
+  Application Password writes.
 - It never deactivates or deletes Stonewright or the MCP adapter, never deletes
   the account it signs in as or the last administrator, and writes only
   allowlisted settings (never the site address or administrator email;
@@ -316,12 +319,18 @@ write protections are the companion's own and narrower than Plugin mode's:
 - It sends the Application Password only over https, or over http to a local
   host (`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` for a trusted private network), and
   never retries a write after a network error.
-- It saves a pre-image before template, template-part, global-styles, content
-  and blueprint-over-page writes and refuses the write when that fails.
+- It saves a pre-image before template, template-part, global-styles, content,
+  block-edit and blueprint-over-page writes and refuses the write when that fails.
+  A block edit also needs the hash of the content it was planned against and is
+  refused if the content changed.
   `stonewright-direct-backup-restore` puts a saved copy (or an Elementor file
   backup) back only with `confirm:true`, after checking the hash stored in the
   file and that the resource still exists, and after saving the current state so
   the restore can be undone.
+- It cannot activate a skill. A skill saved through Direct is a disabled
+  candidate, `enabled:true` and any change to an active skill are refused, and a
+  lesson can be deleted only with `confirm:true`. Activation is an
+  administrator's approval in Plugin mode.
 - It asks for `confirm: true` on destructive tools in `confirm` write mode. That
   flag is supplied by the caller and is not bound to the call's arguments; Direct
   has no confirmation tokens.

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-11T15:05:41.674Z",
+  "generated_at": "2026-10-11T15:31:55.969Z",
   "allowlist": {
     "removed": [],
     "renamed": {},
@@ -30,6 +30,9 @@
     },
     {
       "name": "stonewright-block-patterns"
+    },
+    {
+      "name": "stonewright-blocks-batch-mutate"
     },
     {
       "name": "stonewright-blueprint-apply"
@@ -153,6 +156,9 @@
     },
     {
       "name": "stonewright-media-upload"
+    },
+    {
+      "name": "stonewright-memory-delete"
     },
     {
       "name": "stonewright-memory-list"

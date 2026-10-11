@@ -194,6 +194,12 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    names differ from the Plugin abilities. A page, post or template write may be
    followed by a public-page probe and, only on `rollback_on_probe_failure:true`,
    an automatic restore.
+9. `stonewright-blocks-batch-mutate` (Direct) takes the Plugin ability's arguments
+   `post_id`, `operations`, `expected_content_hash` and `dry_run`. A write is
+   refused as `content_conflict` unless `expected_content_hash` equals the hash
+   of the current raw content, checked again just before the write, and applies
+   all operations or none. `stonewright-memory-delete` takes `id` and needs
+   `confirm:true`. A Direct skill is saved disabled; `enabled:true` is refused.
 
 ## Command Recipes v1
 

@@ -22,8 +22,8 @@
   `expected_sha256`. The tools are named apart from the Plugin abilities
   (`backup-restore`, `site-backup-page`, `rescue-*`) and sit on the `gutenberg`,
   `content-model`, `elementor-design`, `site-admin` and `full` profiles, not on the
-  bootstrap or essential surface. The Direct tool count is 103; the `full` budget
-  in `tokens:measure` is 103.
+  bootstrap or essential surface. The Direct tool count is 105; the `full` budget
+  in `tokens:measure` is 105.
 - Read every typed Direct write back. After the write the resource is read again
   (`context=edit`) and the fields that were sent are compared with what WordPress
   returns, the way WordPress returns them. The result carries `verification`
@@ -48,7 +48,7 @@
   (`site_status:"rolled_back"`). A page that cannot be reached is reported as
   `unavailable`, not as a failure.
 
-- Accept the plugin's argument names in the 35 Direct tools whose names also exist
+- Accept the plugin's argument names in the 37 Direct tools whose names also exist
   in Plugin mode, so a client that learned one schema works in both. `post_id`,
   `menu_id`, `alt`, `user_login`, `user_email`, `user_pass`, `role`,
   `display_name`, `number`, `blueprint_id`, `page_title`, `mode`, `date_from` and
@@ -172,6 +172,49 @@
   call and answers through Plugin mode when the MCP route responds. The connection
   status shows `mode_conflict` when Direct is the session mode and the plugin is
   active.
+- Edit the blocks of a page or post by path in Direct mode.
+  `stonewright-blocks-batch-mutate` takes the Plugin ability's arguments
+  (`post_id`, `operations`, `expected_content_hash`, `dry_run`) and inserts,
+  updates and removes blocks in the parsed block markup. A dry run writes nothing
+  and returns `before_hash` and `after_hash`; a write needs `expected_content_hash`
+  set to that `before_hash` and is refused as `content_conflict` if the content
+  changed, checked again just before the write. All operations apply or none does.
+  Blocks that were not touched are written back byte for byte. Direct saves a copy
+  of the post first (`backup_id`), reads the post back (`verification`) and probes
+  the page like `content-update`. It refuses custom code that the operations add,
+  a block name the site does not have (when `/wp/v2/block-types` can be read),
+  block comments inside markup and a post whose block markup is already broken.
+  There is no `move`, no `insert_section` and no browser finalizer; `attrs` alone
+  are accepted only on a block that has no markup of its own. The tool is on the
+  `gutenberg` and `full` profiles.
+- Delete a lesson from Direct memory. `stonewright-memory-delete` takes the `id`
+  that `memory-list` and `task-start` show and always needs `confirm:true`. It
+  removes a local lesson only; a lesson in the plugin's site memory is removed in
+  Plugin mode. It is on the `site-admin` and `full` profiles.
+- Offer to record a lesson after a write that failed is fixed. When a Direct write
+  to a resource fails, or its readback reports a mismatch, and a later write to the
+  same resource on the same site succeeds, the successful answer carries a
+  `learning_offer` that asks the agent to tell the user what failed and what fixed
+  it, and to call `stonewright-learning-record` only if the user agrees. The
+  failures are remembered in the running companion only; no new store was added.
+  `task-start` also returns `required_followups`, which includes the correction
+  trigger.
+- Rank Direct memory by score. A lesson carries a `confidence` (0 to 1, a default
+  by `source` when none is given; `learning-record` takes `confidence`) and a
+  `last_verified` time that moves when the same lesson is recorded again. The five
+  `memory_highlights` of `task-start` are the best by score (confidence, reduced by
+  the time since last confirmed; a stale lesson sorts last) and carry the lesson
+  `id`; an old or doubtful lesson is marked `verify_before_use`.
+  `stonewright-memory-list` takes `order: "score"` and shows `confidence`,
+  `last_verified` and `score`. Memory files written by earlier versions have
+  neither field and keep working.
+- Parse the blocks in `stonewright-gutenberg-validate`. The comment delimiters
+  must balance and match, each block's attributes must be a valid JSON object, and,
+  where the site's block list can be read, each block name must be one the site has
+  (a warning, because a plugin or theme may be inactive). The answer lists
+  `diagnostics` with line numbers, `unknown_blocks`, `custom_code` (the custom-code
+  guard run over every block, `html` and classic blocks included) and the
+  `content_hash` that `stonewright-blocks-batch-mutate` takes.
 
 ### Changed
 
@@ -255,11 +298,8 @@
   an existing page (`post_id`) keeps that rule, and its schema and description now
   say so.
 - Documentation: Direct mode docs state what it protects and what it does not do
-  yet (no restore tool for pre-images, no after-write verification, partial
-  custom-code screening, no DNS pinning for media URLs, unscreened
-  `stonewright-wp-cli-run`). The rule that the companion never calls WordPress
-  REST write endpoints now applies to Plugin mode, with Direct mode as the
-  documented exception.
+  yet. The rule that the companion never calls WordPress REST write endpoints now
+  applies to Plugin mode, with Direct mode as the documented exception.
 - Never fall back to Direct on a live plugin, and honor `fallback_policy`. In
   `auto` mode, a missing `/wp-json/mcp/stonewright` route used to register Direct
   even when the REST index listed the plugin (for example with the MCP Adapter
@@ -272,6 +312,31 @@
   `direct-only` sites now read the REST index at startup: with the plugin active
   they still register Direct, with reads working and writes refused. The REST
   index check reads the namespace list even from a response cut at the size cap.
+- Check what `stonewright-gutenberg-compose` returns. The markup is read back as
+  blocks: unbalanced comments or attributes that are not valid JSON are an error,
+  an `html` block cannot contain block comments, and custom code in `html` or `raw`
+  markup is refused with the `approval_required` envelope and no markup. Block
+  attributes are written the way WordPress writes them, so a value cannot end its
+  comment.
+- Save a Direct skill as a disabled candidate. `stonewright-skill-save` and the
+  `draft_skill` of `stonewright-learning-record` never activate a skill: a skill
+  is stored disabled and is not offered at task start, `enabled:true` is refused,
+  and saving over an active skill is refused, because Direct has no human approval
+  step. Activation is an administrator's approval in Plugin mode.
+- Keep an existing page's status in Direct `stonewright-blueprint-apply`. With
+  `post_id` and no `status` the page keeps the status it has, as in Plugin mode;
+  a new page without `status` is still a draft.
+- Record a `learning-record` call that names no `source` as `agent-recorded`
+  instead of `explicit-user-request`.
+- Raise the Direct `full` budget in `tokens:measure` to 105 for
+  `stonewright-memory-delete` and `stonewright-blocks-batch-mutate`; the bootstrap
+  (8) and essential (22) budgets are unchanged.
+- Correct the documents that said Direct has no restore tool or after-write
+  verification (`docs/companion.md`, `docs/architecture.md`,
+  `docs/install-prompts.md`, `docs/onboarding.md`, `docs/why-stonewright.md`,
+  `docs/installation.md`, `docs/rescue.md`, the Claude Code and Cursor guides and
+  the README table). Direct lists and restores its saved copies, reads every typed
+  write back and can check the public page after a page, post or template write.
 
 ### Fixed
 

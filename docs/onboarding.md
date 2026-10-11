@@ -67,8 +67,9 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
 5. Call `stonewright-site-discover` before choosing WordPress REST operations.
 6. Do not write custom PHP/CSS/JS/HTML in Direct mode — there is no
    authenticated wp-admin one-time-grant boundary, and the Direct write tools
-   that carry markup or CSS refuse it. Direct mode has no restore tool and no
-   after-write verification, so read the result back after a write
+   that carry markup or CSS refuse it. Direct mode saves a copy before
+   whole-document writes (restore it with `stonewright-direct-backup-restore`)
+   and reads each typed write back, reporting a difference as `ok:false`
    ([what Direct does not do yet](direct-mode-e2e.md#what-direct-mode-does-not-do-yet)).
 
 On a fresh installation there is no user memory, no user-created skill, and no

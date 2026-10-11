@@ -18,8 +18,8 @@ development builds were never stable releases.
   hash-checked, `confirm:true`, undoable), reads every typed write back and
   reports a difference as `ok:false`, and can check the public page after a page,
   post or template write, restoring the saved copy only when the call asks for it.
-  The Direct tool count is 103. See the companion changelog.
-- Accept the plugin's argument names in the 35 Direct tools whose names also exist
+  The Direct tool count is 105. See the companion changelog.
+- Accept the plugin's argument names in the 37 Direct tools whose names also exist
   in Plugin mode, so a client that learned one schema works in both. `post_id`,
   `menu_id`, `alt`, `user_login`, `user_email`, `user_pass`, `role`,
   `display_name`, `number`, `blueprint_id`, `page_title`, `mode`, `date_from` and
@@ -225,6 +225,12 @@ development builds were never stable releases.
   call and answers through Plugin mode when the MCP route responds. The connection
   status shows `mode_conflict` when Direct is the session mode and the plugin is
   active.
+- Edit the blocks of a page or post by path in Direct mode
+  (`stonewright-blocks-batch-mutate`, with a content hash, a saved copy, a
+  readback and the custom-code guard), delete a lesson from Direct memory
+  (`stonewright-memory-delete`), offer to record a lesson after a failed write is
+  fixed, rank Direct memory by confidence and time since last confirmed, and parse
+  the blocks in `stonewright-gutenberg-validate`. See the companion changelog.
 
 ### Changed
 
@@ -463,6 +469,10 @@ development builds were never stable releases.
   `direct-only` sites now read the REST index at startup: with the plugin active
   they still register Direct, with reads working and writes refused. The REST
   index check reads the namespace list even from a response cut at the size cap.
+- Check what `stonewright-gutenberg-compose` returns, save a Direct skill as a
+  disabled candidate (Direct cannot activate a skill), and keep an existing page's
+  status in Direct `stonewright-blueprint-apply`. The Direct `full` budget is 105
+  tools. See the companion changelog.
 
 ### Fixed
 
@@ -908,6 +918,9 @@ development builds were never stable releases.
 - Update `docs/architecture.md`, the Elementor V4 engine page and the V4
   experimental page for the native route: its availability rule, the
   production-safe rule, the observer, and the certified range.
+- Correct the documents that said Direct has no restore tool or after-write
+  verification: Direct lists and restores its saved copies, reads every typed
+  write back and can check the public page after a page, post or template write.
 
 ## [1.0.0-beta.14] - 2026-10-10
 

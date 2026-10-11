@@ -131,9 +131,11 @@ it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
 explicit rather than silently emulated. Direct mode writes through core REST
 (and local WP-CLI for Elementor data) with companion-side protections only; it
-has no change sets, confirmation tokens, restore tool, or after-write
-verification. [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet)
-lists what it does not do yet.
+has no change sets or confirmation tokens, and no Rescue journal. It saves a
+copy before whole-document writes and restores it on request, reads every typed
+write back, and can check the public page after a page, post or template write.
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) lists what
+it does not do yet.
 
 Direct aliases are routing labels, not security identities. Task-start latches,
 terminal idempotency, and incident partitions bind to the resolved canonical

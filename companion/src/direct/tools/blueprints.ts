@@ -161,7 +161,12 @@ export async function applyBlueprint(
       restPath: `/wp/v2/pages/${args.post_id}`,
       resourceId: `pages-${args.post_id}`,
     });
-    const pageBody = { title, content, status: args.status ?? "draft" };
+    // An existing page keeps its status unless the call names one.
+    const pageBody: Record<string, unknown> = {
+      title,
+      content,
+      ...(args.status !== undefined ? { status: args.status } : {}),
+    };
     const updated = await client.post<{ status?: string; link?: string }>(
       `/wp/v2/pages/${args.post_id}`,
       { body: pageBody },

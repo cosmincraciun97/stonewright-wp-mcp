@@ -15,8 +15,8 @@ Pluginless installs store skills and memory on the companion host under
 | `stonewright-task-start` | Returns matched skill refs + memory highlights (no bodies) |
 | `stonewright-skill-list` | Compact index |
 | `stonewright-skill-get` | Load one body on demand |
-| `stonewright-skill-save` / `delete` | Create/update/delete local playbooks |
-| `stonewright-memory-list` / `learning-record` | List and record corrections |
+| `stonewright-skill-save` / `delete` | Save a local playbook as a disabled candidate (Direct cannot activate a skill; activation is Plugin mode) / delete one |
+| `stonewright-memory-list` / `learning-record` / `memory-delete` | List (newest first, or by score), record and delete corrections; a lesson has a confidence and a last-verified time |
 
 These are per-machine, not shared across operators like the plugin Admin UI skills.
 
@@ -28,7 +28,7 @@ The companion package ships `companion/skills-builtin/` and seeds them into
 | Skill | Purpose |
 |---|---|
 | `elementor-direct-editing` | Local WP-CLI Elementor data edit protocol |
-| `gutenberg-authoring` | Compose + validate block content |
+| `gutenberg-authoring` | Compose, validate and edit block content |
 | `no-hallucination-protocol` | Read before write; fix errors; never invent schemas |
 | `content-model-additive` | Add or edit one content type at a time; never full-import CPT UI options on a live site |
 | `http-first-admin` | Automate wp-admin through REST and form POST with nonces; browser clicks are the last resort |
