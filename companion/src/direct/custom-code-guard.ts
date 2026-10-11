@@ -375,6 +375,23 @@ export function scanMarkupFields(fields: Record<string, string | undefined>): Cu
 	return out;
 }
 
+/**
+ * Custom code in the free-text fields of a write (titles, names, captions, descriptions, URLs, setting values).
+ * Markup is read as in content, and a value that is itself a javascript: URL counts too.
+ */
+export function scanTextFields(fields: Record<string, unknown>): CustomCodeFinding[] {
+	const out: CustomCodeFinding[] = [];
+	scanStructured(fields, '', { isCssKey: () => false }, out);
+	return out;
+}
+
+/** Custom code in ACF field values, at any depth (repeaters, flexible content); a custom CSS field counts as code. */
+export function scanAcfValues(acf: unknown): CustomCodeFinding[] {
+	const out: CustomCodeFinding[] = [];
+	scanStructured(acf, 'acf', { isCssKey: isCustomCssKey }, out);
+	return out;
+}
+
 export const CUSTOM_CODE_REFUSAL_CODE = 'custom_code_approval_required';
 
 const CUSTOM_CODE_HINT =

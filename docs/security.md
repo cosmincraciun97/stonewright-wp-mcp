@@ -293,8 +293,15 @@ write protections are the companion's own and narrower than Plugin mode's:
 - It refuses custom code (theme.json and Elementor CSS, HTML widgets, script,
   style, iframe, object, embed, link and meta http-equiv markup, inline event
   handlers, `javascript:` URLs) in global styles, Elementor data, content,
-  template, blueprint and widget writes. Other write tools (ACF, media, menu,
-  comment, taxonomy-term, settings, user) are not screened.
+  template, blueprint and widget writes, and in the text of ACF, media, menu,
+  comment, taxonomy-term, settings, user and Application Password writes.
+- It never deactivates or deletes Stonewright or the MCP adapter, never deletes
+  the account it signs in as or the last administrator, and writes only
+  allowlisted settings (never the site address or administrator email;
+  `default_role` only for a non-administrative core role).
+- It sends the Application Password only over https, or over http to a local
+  host (`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` for a trusted private network), and
+  never retries a write after a network error.
 - It saves a pre-image before template, template-part, global-styles, content
   and blueprint-over-page writes and refuses the write when that fails. No tool
   restores a pre-image or an Elementor backup yet.
@@ -302,10 +309,12 @@ write protections are the companion's own and narrower than Plugin mode's:
   flag is supplied by the caller and is not bound to the call's arguments; Direct
   has no confirmation tokens.
 - `stonewright-media-upload` limits local paths, URL addresses, file types and
-  size. It does not pin the DNS answer, so rebinding between the check and the
-  download is not caught.
-- It does not read back or probe a site after a write, and `stonewright-wp-cli-run`
-  has no task-start latch, confirmation or audit row.
+  size, and connects to the address it checked for each hop.
+- In a Direct session `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
+  treat a command that changes the site as a Direct write: task-start,
+  `confirm` in `confirm` mode, a local install that is the Direct site, and an
+  audit row.
+- It does not read back or probe a site after a write.
 
 [Direct mode E2E](direct-mode-e2e.md) lists each protection and what is not done
 yet.

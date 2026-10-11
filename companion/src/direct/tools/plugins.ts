@@ -38,6 +38,60 @@ function encodePlugin(plugin: string): string {
   return plugin.split("/").map(encodeURIComponent).join("/");
 }
 
+/**
+ * Plugin folders Direct never deactivates or deletes: Stonewright itself, and the MCP adapter that
+ * carries the companion's connection. A plugin that only has "stonewright" in its name is another plugin.
+ */
+const PROTECTED_PLUGIN_FOLDERS = new Set(["stonewright", "mcp-adapter"]);
+
+function protectedPluginFolder(plugin: string): string | null {
+  const normalized = plugin
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .toLowerCase()
+    .replace(/\.php$/, "");
+  const folder = normalized.split("/")[0] ?? "";
+  return PROTECTED_PLUGIN_FOLDERS.has(folder) ? folder : null;
+}
+
+function selfProtectionError(tool: string, plugin: string, site: string, why: string) {
+  return new DirectSafetyBlockedError(
+    "self_protection",
+    `Refusing ${tool} for "${plugin}": ${why} Nothing was changed. Do this in wp-admin if it is really intended.`,
+    tool,
+    site,
+  );
+}
+
+/**
+ * Refuses a plugin that is Stonewright or the connection plugin. The path decides first, with no request;
+ * then the installed plugin's own header is read, so a renamed Stonewright folder is still recognised.
+ */
+async function assertPluginNotProtected(
+  ctx: DirectToolContext,
+  plugin: string,
+  tool: string,
+): Promise<void> {
+  const folder = protectedPluginFolder(plugin);
+  if (folder !== null) {
+    throw selfProtectionError(
+      tool,
+      plugin,
+      ctx.site.alias,
+      folder === "stonewright"
+        ? "this is Stonewright itself."
+        : "this is the plugin that carries the Stonewright connection (MCP adapter).",
+    );
+  }
+  const installed = await ctx.client.get<WpPlugin>(`/wp/v2/plugins/${encodePlugin(plugin.trim())}`);
+  const textdomain = (installed?.textdomain ?? "").trim().toLowerCase();
+  const name = (installed?.name ?? "").trim().toLowerCase();
+  if (textdomain === "stonewright" || name === "stonewright") {
+    throw selfProtectionError(tool, plugin, ctx.site.alias, "this is Stonewright itself.");
+  }
+}
+
 export async function pluginList(
   ctx: DirectToolContext,
   input: { status?: string | undefined; search?: string | undefined } = {},
@@ -111,6 +165,7 @@ export async function pluginDeactivate(
   });
   const plugin = input.plugin.trim();
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-deactivate");
   try {
     const result = await ctx.client.put<WpPlugin>(
       `/wp/v2/plugins/${encodePlugin(plugin)}`,
@@ -219,6 +274,7 @@ export async function pluginDelete(
   }
   const plugin = input.plugin.trim();
   if (!plugin) throw new Error("plugin is required (e.g. akismet/akismet)");
+  await assertPluginNotProtected(ctx, plugin, "stonewright-plugin-delete");
   const result = await ctx.client.del(`/wp/v2/plugins/${encodePlugin(plugin)}`);
   appendDirectAudit({
     tool: "stonewright-plugin-delete",

@@ -101,7 +101,8 @@ directory, `<state dir>/media` or a folder in `STONEWRIGHT_DIRECT_MEDIA_ROOTS`;
 any other file needs `confirm: true`. A `url` must be http or https and resolve
 only to public addresses (private, loopback, link-local, multicast and reserved
 ranges are refused, for IPv4 and IPv6). Redirects are followed by hand, at most
-five, and each hop is checked again. The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies.
+five. Each hop resolves the name once, checks every address, and connects to the
+addresses it checked, keeping the original Host header and TLS server name. The file must be an image, audio, video, PDF, Office, OpenDocument, txt or csv file (never SVG, HTML, XML, PHP, scripts, executables or archives, even with `confirm: true`), at most 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES` changes the limit, up to 512 MiB). The first bytes must match the extension and must not be markup or PHP. The upload name is reduced to one safe file name, and a name with no extension takes the source extension or the one the response content type implies.
 
 Direct Elementor tools (`stonewright-elementor-status`, `-data-get`,
 `-data-update`) use local WP-CLI for a configured alias only when the local
@@ -137,13 +138,34 @@ included). A refusal is a normal result with `approval_required` and
 `agent_must_stop`, and nothing is written. `template-update`,
 `template-part-update`, and `blueprint-apply` over an existing page need
 `confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote.
-Only those writes are screened: `acf-fields-update`, `media-upload`,
-`media-update`, menu, comment, taxonomy-term, settings, and user writes are not.
+`acf-fields-update`, `media-upload`, `media-update`, menu and menu-item,
+comment, taxonomy-term, settings, user and Application Password writes refuse the
+same markup, `javascript:` URLs and custom CSS keys in the text they send (ACF
+values, titles, names, captions, alt text, descriptions, URLs, setting values).
+
+Direct sends the Application Password only over https, or over http to
+`localhost`, a loopback address, `.localhost`, `.test` or `.local`; any other
+plain-http site is refused before a request is made, and
+`STONEWRIGHT_DIRECT_ALLOW_HTTP=on` allows it for a trusted private network. A
+GET is retried once after a network error; a write (POST, PUT, PATCH, DELETE) is
+never retried.
+
+`plugin-deactivate` and `plugin-delete` refuse Stonewright and the MCP adapter.
+`user-delete` refuses the account the session signs in as and the last
+administrator, and `user-update` refuses a role change that removes administrator
+from either. `settings-update` accepts an allowlist of keys only (never the site
+address or administrator email) and `default_role` only for `subscriber`,
+`contributor`, `author` or `editor`.
+
+In a Direct session `stonewright-wp-cli-run` and `stonewright-wp-cli-job-start`
+treat a command that is not read-oriented as a Direct write: task-start for the
+site, `confirm: true` in `confirm` mode, a local WordPress that is the Direct
+site, and an audit row. Commands the shared command policy refuses stay refused,
+and `stonewright-wp-cli-batch-run` is read-oriented only.
 
 Direct mode has no restore tool for pre-images or Elementor backups, no
-after-write readback, probe, or rollback, no change sets or confirmation tokens,
-and no DNS pinning for `stonewright-media-upload` URLs. `stonewright-wp-cli-run`
-and `-batch-run` have no task-start latch, confirmation, or audit row. In Plugin
+after-write readback, probe, or rollback, and no change sets or confirmation
+tokens. In Plugin
 mode the companion does not call WordPress REST write endpoints; Direct mode is
 the exception, through its typed tools only. See
 [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) for the

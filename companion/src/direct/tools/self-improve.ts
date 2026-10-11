@@ -790,6 +790,7 @@ export async function taskStartAuthoritative(
   const client = new WpRestClient(site, {
     fetchImpl: ctx.fetchImpl,
     timeoutMs: ctx.timeoutMs,
+    env: ctx.env,
   });
   try {
     const plugin = await client.post<Record<string, unknown>>(
@@ -877,6 +878,7 @@ export async function learningRecordAuthoritative(
   const client = new WpRestClient(site, {
     fetchImpl: ctx.fetchImpl,
     timeoutMs: ctx.timeoutMs,
+    env: ctx.env,
   });
   return client.post<Record<string, unknown>>(
     "/stonewright/v1/direct/learning-record",

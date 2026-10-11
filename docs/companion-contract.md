@@ -178,6 +178,12 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    exception: it writes through core WordPress REST, and through local WP-CLI
    where the target check passes, only through its typed Direct tools. See
    [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
+7. In a Direct MCP session, `stonewright-wp-cli-run` and
+   `stonewright-wp-cli-job-start` hold a command that is not read-oriented to the
+   Direct write gate (task-start for the site, `confirm: true` in `confirm`
+   mode, a local install that is the Direct site) and write an audit row;
+   `stonewright-wp-cli-batch-run` accepts read-oriented commands only. The HTTP
+   routes above are unchanged.
 
 ## Command Recipes v1
 

@@ -179,7 +179,7 @@ silently enables Direct writes on a transport failure.
 
 In Plugin mode the companion sends each WordPress MCP request once and does not
 repeat it after a timeout or network error. (Direct mode's REST client retries a
-request once after some network errors.) On OAuth connections an HTTP 401 refreshes the
+read once after a network error and never retries a write.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more with the new token, a tool call
 included.
 
@@ -218,9 +218,9 @@ grant plus their normal permission, concurrency, backup, readback, audit, and
 production confirmation gates. Direct mode refuses custom code: without the
 plugin there is no authenticated wp-admin one-time-grant boundary. It has no
 provider tools, and its global-styles, Elementor data, content, template,
-blueprint, and widget writes refuse CSS, script, and HTML-type markup. Its other
-write tools (ACF, media, menu, comment, taxonomy-term, settings, user) are not
-screened.
+blueprint, and widget writes refuse CSS, script, and HTML-type markup, and its
+ACF, media, menu, comment, taxonomy-term, settings, user, and Application Password
+writes refuse the same markup and `javascript:` URLs in the text they send.
 
 Generic content create, update, duplicate, bulk create, and bulk upsert reject
 provider-owned executable-code post types before sanitization with

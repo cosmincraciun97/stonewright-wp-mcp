@@ -461,6 +461,7 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const client = new WpRestClient(site, {
 		fetchImpl: ctx.fetchImpl,
 		timeoutMs: ctx.timeoutMs,
+		env: ctx.env,
 	});
 	const writeMode = resolveDirectWriteMode(ctx.env, site.url);
 	return {
