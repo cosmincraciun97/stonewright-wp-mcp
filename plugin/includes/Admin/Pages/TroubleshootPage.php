@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
+use Stonewright\WpMcp\Core\McpRuntimeStatus;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -126,6 +127,7 @@ final class TroubleshootPage {
 	private static function compatibility_html(): string {
 		$report     = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
 		$compatible = true === ( $report['compatible'] ?? false );
+		$status     = McpRuntimeStatus::from_report( $report );
 		$symbols    = [
 			$report['adapter'] ?? [],
 			$report['abilities']['registry'] ?? [],
@@ -134,8 +136,11 @@ final class TroubleshootPage {
 
 		if ( $compatible ) {
 			$body = Notice::callout( 'ok', __( 'Runtime contract compatible', 'stonewright' ), __( 'Every loaded MCP and Abilities symbol satisfies its exact ABI.', 'stonewright' ) );
+			if ( McpRuntimeStatus::FOREIGN === $status['state'] ) {
+				$body .= Notice::callout( 'info', __( 'MCP adapter in use', 'stonewright' ), $status['summary'] );
+			}
 		} else {
-			$body = '';
+			$body = Notice::callout( 'danger', __( 'MCP route unavailable', 'stonewright' ), '', [ 'text_html' => self::lines( [ $status['summary'], $status['remedy'] ] ) ] );
 			foreach ( $symbols as $symbol ) {
 				$status     = sanitize_key( (string) ( $symbol['status'] ?? '' ) );
 				$abi_status = sanitize_key( (string) ( $symbol['abi']['status'] ?? '' ) );

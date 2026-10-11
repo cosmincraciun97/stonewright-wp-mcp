@@ -508,6 +508,14 @@ types including nullability and unions, constants, and versions are checked
 before invocation. Stonewright registers `mcp_adapter_init` early and boots
 `McpAdapter::instance()` on `plugins_loaded` 99 so another plugin can load a
 supported adapter first; it does not call `init()` a second time.
+When another plugin's copy of the adapter is the one loaded, the preflight judges it by the
+server API Stonewright calls: version 0.5.0 or newer, the `instance()` and 13-argument
+`create_server()` signatures, and the server, transport and handler classes the adapter builds a
+server from (the `McpServer` constructor included). Such a copy is used without a Jetpack manifest
+and is reported as `foreign_adapter`, and a mixed family (the adapter class from one copy, the rest
+from another) is reported as a warning. A copy that fails the check leaves the route unregistered:
+the owner and version are shown in an admin notice, on Troubleshoot, in `site-capabilities` and
+`task-start`, and both MCP routes answer HTTP 503 with the same explanation.
 The same preflight runs again inside the actual `mcp_adapter_init` server
 registration callback. Its target is the exact runtime adapter object's class;
 the Ability and Registry targets remain the canonical runtime classes. Filters

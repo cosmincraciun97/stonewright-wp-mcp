@@ -164,6 +164,8 @@ final class PluginRegistration {
 		WidgetLoader::register();
 		GitHubUpdater::register();
 		VendorGuard::register();
+		// No usable MCP adapter loaded: the owner and version in an admin notice, and an explicit answer on the MCP routes.
+		McpRuntimeNotice::register();
 		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
 		McpOriginGuard::register();
 		EditorSaveGuard::register();

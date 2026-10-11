@@ -119,6 +119,49 @@ does not claim a contract mismatch when both share major `1`.
 Live passwords, authorization headers, and Application Passwords never appear
 in the cards or the copied report.
 
+## MCP adapter conflicts with other plugins
+
+Several plugins bundle their own copy of the WordPress MCP Adapter (`wordpress/mcp-adapter`), for
+example SEO and e-commerce plugins that offer an MCP server of their own. PHP can hold only one
+copy of the adapter in a request, so when another plugin loads its copy before Stonewright does,
+that copy is the one in use.
+
+**What Stonewright does.** It checks the loaded copy by what it offers, not by who shipped it.
+A copy of MCP Adapter 0.5.0 or newer that has the server API Stonewright calls (`instance()` and
+the 13-argument `create_server()`) and the classes it builds a server from is used as it is, with
+or without a Jetpack Autoloader manifest. Stonewright registers its `stonewright` and
+`stonewright-oauth` servers through it, and the other plugin's own MCP server keeps working.
+Rank Math SEO 1.0.280, which bundles MCP Adapter 0.5.0, is such a case. Stonewright never changes
+or disables the other plugin.
+
+**What you see.**
+
+- *A working copy from another plugin.* Nothing is wrong. **MCP runtime** passes and its summary
+  says which plugin owns the adapter and the version, for example "The MCP adapter in use is the
+  copy bundled with Rank Math SEO (version 0.5.0)". **MCP runtime compatibility** on Troubleshoot
+  shows the same as information. When only the adapter class itself came from the other plugin and
+  the rest of the adapter came from Stonewright's copy, the card says the family is mixed; that
+  works while both copies agree on the server API, which is checked.
+- *A copy Stonewright cannot use* (older than 0.5.0, a different server API, or parts missing).
+  The route `/wp-json/mcp/stonewright` cannot be served, so no MCP client can connect, although
+  abilities still run inside WordPress. An error notice on every Stonewright screen, a **MCP
+  route unavailable** card on Troubleshoot, a failed **MCP runtime** check in the connection checks,
+  `mcp_runtime` in `stonewright-site-capabilities` and in `stonewright-task-start`, and an HTTP 503
+  answer on both MCP routes (instead of a missing route) all name the plugin that owns the loaded
+  copy, its version, the reason and what to do.
+
+**What to do when the route is blocked.**
+
+1. Read the plugin name and version in the notice or the **MCP runtime compatibility** card.
+2. Update that plugin to a release that bundles MCP Adapter 0.5.0 or newer. If it ships none yet,
+   deactivate it until it does; ask its author to load the adapter through the Jetpack Autoloader,
+   which lets the newest copy win.
+3. Reload WordPress and run diagnostics again. The notice and the 503 answer go away on their own
+   once a usable copy is loaded.
+
+Do not disable plugins you need only to silence the notice: a copy that works is accepted, and
+the notice appears only while no usable copy is loaded.
+
 ## Compact tool surface
 
 Choosing the **full** MCP surface on purpose reports `info` ("Full surface

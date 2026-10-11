@@ -5,6 +5,9 @@ namespace Stonewright\WpMcp\Core;
 
 /** Verifies MCP and Abilities package ownership and ABI before adapter instantiation. */
 final class McpAbilitiesCompatibilityPreflight {
+	/** The oldest adapter release Stonewright is run on when another plugin ships it. */
+	private const FOREIGN_ADAPTER_MIN_VERSION = '0.5.0';
+
 	/** @var array<string,mixed>|null */
 	private static ?array $current = null;
 
@@ -40,7 +43,7 @@ final class McpAbilitiesCompatibilityPreflight {
 			'adapter'          => $adapter,
 			'abilities'        => [ 'registry' => $registry, 'ability' => $ability ],
 			'blocking_reasons' => array_values( array_unique( $blocking ) ),
-			'warnings'         => [],
+			'warnings'         => [] === $blocking ? self::adapter_warnings( $adapter ) : [],
 			'remediation'      => [] === $blocking ? 'No action required.' : 'Review each blocked symbol below, deactivate or update only the incompatible active owner, reload WordPress, and rerun Troubleshoot.',
 		];
 		return self::$current;
@@ -125,6 +128,16 @@ final class McpAbilitiesCompatibilityPreflight {
 
 		$selection = self::resolve_selection( $role, $class, $runtime_paths, $packages, $loaded, $loaded_path, $core_owned );
 		$abi_packages = self::abi_packages( $selection, $packages );
+		$foreign = 'adapter' === $role && self::is_foreign_runtime( $class, $loaded, $loaded_path );
+		if ( $foreign ) {
+			// The copy another plugin loaded is judged by what it exposes, not by the inventory of some other package.
+			$abi_packages = array_values(
+				array_filter(
+					$abi_packages,
+					static fn( array $package ): bool => self::normalize_path( (string) $package['_path'] ) === $loaded_path
+				)
+			);
+		}
 		$selection_state = (string) $selection['state'];
 		$abi = [ 'status' => 'not_checked', 'issues' => [], 'version' => '' ];
 		$reason = null;
@@ -138,9 +151,9 @@ final class McpAbilitiesCompatibilityPreflight {
 			$remediation = 'The runtime could not choose a single owner for this symbol. Review the listed owners and install a tested compatible build.';
 		} else {
 			$status = $loaded ? 'loaded' : ( $core_owned || null !== ( $selection['path'] ?? null ) || [] !== $abi_packages ? 'available' : 'unavailable' );
-			$abi = self::inspect_abi( $role, $class, $ability_class, $abi_packages, $core_owned );
+			$abi = self::inspect_abi( $role, $class, $ability_class, $abi_packages, $core_owned, $foreign );
 			if ( 'adapter' === $role ) {
-				self::inspect_selected_family( $class, $abi );
+				self::inspect_selected_family( $class, $abi, $foreign );
 			}
 			if ( 'unavailable' === $status || 'unavailable' === ( $abi['status'] ?? '' ) ) {
 				$reason = 'required_symbol_unavailable';
@@ -192,6 +205,7 @@ final class McpAbilitiesCompatibilityPreflight {
 				? (string) $selected_package['version']
 				: (string) ( $abi['version'] ?? '' );
 			$result['selection_state'] = $selection_state;
+			$result['foreign_runtime'] = $foreign;
 			$result['shadowed_candidates'] = self::shadowed_candidates( $packages, $selected_package, is_string( $selection['path'] ?? null ) ? (string) $selection['path'] : null );
 			$result['runtime_contract_verified'] = 'compatible' === ( $abi['status'] ?? '' ) && 'selected' === $selection_state;
 		}
@@ -200,7 +214,7 @@ final class McpAbilitiesCompatibilityPreflight {
 	}
 
 	/** @param list<array<string,mixed>> $packages @return array{status:string,issues:list<string>,version:string} */
-	private static function inspect_abi( string $role, string $class, string $ability_class, array $packages, bool $core_owned ): array {
+	private static function inspect_abi( string $role, string $class, string $ability_class, array $packages, bool $core_owned, bool $foreign = false ): array {
 		if ( ! class_exists( $class ) ) {
 			return [
 				'status'  => [] === $packages && ! $core_owned ? 'unavailable' : 'incompatible',
@@ -216,7 +230,8 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		if ( 'adapter' === $role ) {
 			foreach ( $packages as $package ) {
-				if ( true !== ( $package['jetpack_manifest'] ?? false ) ) {
+				// A copy that another plugin already loaded is the runtime whoever elected it, so it needs no Jetpack mapping.
+				if ( ! $foreign && true !== ( $package['jetpack_manifest'] ?? false ) ) {
 					$issues[] = 'jetpack_manifest_missing';
 				}
 			}
@@ -267,7 +282,7 @@ final class McpAbilitiesCompatibilityPreflight {
 			$issues[] = 'invalid_package_version';
 		}
 		$minimum_version = [
-			'adapter'            => '0.6.1',
+			'adapter'            => $foreign ? self::FOREIGN_ADAPTER_MIN_VERSION : '0.6.1',
 			'abilities_registry' => $core_owned ? '6.9.0' : '0.1.1',
 			'ability'            => $core_owned ? '6.9.0' : '0.1.1',
 		][ $role ] ?? '';
@@ -497,9 +512,112 @@ final class McpAbilitiesCompatibilityPreflight {
 		return $shadowed;
 	}
 
-	/** @param array{status:string,issues:list<string>,version:string} $abi */
-	private static function inspect_selected_family( string $class, array &$abi ): void {
+	/**
+	 * Whether the canonical adapter class that is loaded comes from a copy other than Stonewright's own.
+	 * Another plugin that bundles the adapter loads it first or wins the autoloader election, and the
+	 * class it loaded is the runtime this request has.
+	 */
+	private static function is_foreign_runtime( string $class, bool $loaded, ?string $loaded_path ): bool {
+		if ( ! $loaded || 'WP\\MCP\\Core\\McpAdapter' !== ltrim( $class, '\\' ) || ! is_string( $loaded_path ) || '' === $loaded_path ) {
+			return false;
+		}
+
+		return $loaded_path !== self::normalize_path( dirname( __DIR__, 2 ) . '/vendor/wordpress/mcp-adapter/includes/Core/McpAdapter.php' );
+	}
+
+	/**
+	 * What the administrator should know about an adapter that works, as machine-readable codes.
+	 *
+	 * @param array<string,mixed> $adapter
+	 * @return list<array{code:string,owner:string,version:string}>
+	 */
+	private static function adapter_warnings( array $adapter ): array {
+		if ( true !== ( $adapter['foreign_runtime'] ?? false ) ) {
+			return [];
+		}
+		$owner   = (string) ( $adapter['selected_owner'] ?? '' );
+		$version = (string) ( $adapter['selected_version'] ?? '' );
+		$codes   = [ 'foreign_mcp_adapter' ];
+		foreach ( (array) ( $adapter['abi']['warnings'] ?? [] ) as $code ) {
+			if ( is_string( $code ) ) {
+				$codes[] = $code;
+			}
+		}
+		$warnings = [];
+		foreach ( $codes as $code ) {
+			$warnings[] = [ 'code' => $code, 'owner' => $owner, 'version' => $version ];
+		}
+
+		return $warnings;
+	}
+
+	/**
+	 * The classes the adapter builds a server from must exist and be built for the call Stonewright
+	 * makes. A copy that only loaded the adapter class itself first is served the rest by the autoloader
+	 * from another copy; that mix is reported, because it works only while the two agree.
+	 *
+	 * @param array{status:string,issues:list<string>,version:string,warnings?:list<string>} $abi
+	 */
+	private static function inspect_foreign_family( array &$abi ): void {
+		$version = (string) ( $abi['version'] ?? '' );
+		if ( '' === $version || ! self::is_semver( $version ) || version_compare( $version, self::FOREIGN_ADAPTER_MIN_VERSION, '<' ) ) {
+			return;
+		}
+		$adapter_file = self::loaded_class_path( 'WP\\MCP\\Core\\McpAdapter', class_exists( 'WP\\MCP\\Core\\McpAdapter', false ) );
+		if ( ! is_string( $adapter_file ) || '' === $adapter_file ) {
+			return;
+		}
+		$mcp_root    = self::normalize_path( dirname( $adapter_file, 3 ) );
+		$schema_root = self::normalize_path( dirname( $mcp_root ) . '/php-mcp-schema' );
+		$required    = [
+			'WP\\MCP\\Core\\McpServer'                                                            => $mcp_root,
+			'WP\\MCP\\Transport\\HttpTransport'                                                    => $mcp_root,
+			'WP\\MCP\\Infrastructure\\ErrorHandling\\Contracts\\McpErrorHandlerInterface'           => $mcp_root,
+			'WP\\MCP\\Infrastructure\\Observability\\Contracts\\McpObservabilityHandlerInterface'   => $mcp_root,
+			'WP\\McpSchema\\Common\\McpConstants'                                                  => $schema_root,
+		];
+		$mixed = false;
+		foreach ( $required as $symbol => $root ) {
+			if ( ! class_exists( $symbol ) && ! interface_exists( $symbol ) ) {
+				$abi['issues'][] = 'incoherent_adapter_family';
+				$abi['status']   = 'incompatible';
+				$abi['issues']   = array_values( array_unique( $abi['issues'] ) );
+				return;
+			}
+			$file = self::loaded_class_path( $symbol, true );
+			if ( ! is_string( $file ) || ! str_starts_with( $file, rtrim( $root, '/' ) . '/' ) ) {
+				$mixed = true;
+			}
+		}
+		$server_issues = [];
+		self::require_exact_method(
+			new \ReflectionClass( 'WP\\MCP\\Core\\McpServer' ),
+			'__construct',
+			false,
+			9,
+			13,
+			[ 'string', 'string', 'string', 'string', 'string', 'string', 'array', '?string', '?string', 'array', 'array', 'array', '?callable' ],
+			[ '' ],
+			$server_issues,
+			'incompatible_server_constructor'
+		);
+		if ( [] !== $server_issues ) {
+			$abi['issues'] = array_values( array_unique( array_merge( $abi['issues'], $server_issues ) ) );
+			$abi['status'] = 'incompatible';
+			return;
+		}
+		if ( $mixed ) {
+			$abi['warnings'] = [ 'mixed_adapter_family' ];
+		}
+	}
+
+	/** @param array{status:string,issues:list<string>,version:string,warnings?:list<string>} $abi */
+	private static function inspect_selected_family( string $class, array &$abi, bool $foreign = false ): void {
 		if ( 'WP\\MCP\\Core\\McpAdapter' !== ltrim( $class, '\\' ) ) {
+			return;
+		}
+		if ( $foreign ) {
+			self::inspect_foreign_family( $abi );
 			return;
 		}
 		$version = (string) ( $abi['version'] ?? '' );
@@ -1112,6 +1230,12 @@ final class McpAbilitiesCompatibilityPreflight {
 		}
 		if ( preg_match( '#/wp-content/plugins/([^/]+)/#i', $path, $matches ) ) {
 			return 'plugin:' . sanitize_key( (string) $matches[1] );
+		}
+		if ( preg_match( '#/wp-content/mu-plugins/([^/]+)/#i', $path, $matches ) ) {
+			return 'mu-plugin:' . sanitize_key( (string) $matches[1] );
+		}
+		if ( preg_match( '#/wp-content/themes/([^/]+)/#i', $path, $matches ) ) {
+			return 'theme:' . sanitize_key( (string) $matches[1] );
 		}
 		if ( preg_match( '#/vendor/([^/]+/[^/]+)/#i', $path, $matches ) ) {
 			return 'package:' . strtolower( (string) $matches[1] );

@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Core\McpRuntimeStatus;
 use Stonewright\WpMcp\Context\AgentHints;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
@@ -187,6 +188,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				're_list_instruction' => [ 'type' => 'string' ],
 				'write_target_url' => [ 'type' => 'string' ],
 				'target_context'   => [ 'type' => 'object' ],
+				'mcp_runtime'      => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'schema_version', 'ok', 'context_token', 'mode', 'saved_wordpress_mode', 'effective_wordpress_mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -392,6 +394,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
 		];
+
+		// Present only while no adapter serves the MCP route: the owner, the version and what the site owner can do.
+		$mcp_runtime = McpRuntimeStatus::agent_notice( McpRuntimeStatus::current() );
+		if ( [] !== $mcp_runtime ) {
+			$response['mcp_runtime'] = $mcp_runtime;
+		}
 
 		if ( is_array( $context['design_direction_ref'] ?? null ) ) {
 			$response['context']['design_direction_ref'] = $context['design_direction_ref'];
@@ -647,6 +655,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
 			],
 		];
+		if ( is_array( $response['mcp_runtime'] ?? null ) ) {
+			$compact_response['mcp_runtime'] = $response['mcp_runtime'];
+		}
 		if ( false === $compact_response['elementor']['included'] ) {
 			unset( $compact_response['elementor'] );
 		}
