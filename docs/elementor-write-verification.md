@@ -197,7 +197,7 @@ frontend class and computed display at each requested device.
 ## Direct mode boundary
 
 Local Direct mode can update Elementor data through tokenized WP-CLI. After a
-verified write it removes only the target post's element/HTML cache. It
+successful write it removes only the target post's element/HTML cache. It
 preserves CSS metadata and never calls Elementor's global CSS flush command.
 The result reports `css_safety_status=preserved_pending_plugin_verification`
 and remains `browser_required`; use Plugin mode for guarded target-post CSS
@@ -205,6 +205,13 @@ closure via `stonewright-elementor-css-regenerate` then
 observation-only `stonewright-elementor-post-write-verify`. Direct mode has no
 typed live-schema validator and must not pass `regenerate_css` to verify;
 that input does not exist.
+
+Direct `elementor-data-update` refuses custom CSS setting keys and HTML-type
+widgets, runs an integrity gate, and saves a full-tree file backup that no tool
+restores. It has no unique-id check, per-post lease or base hash (a concurrent
+edit is overwritten), and no readback of `_elementor_data`. It uses WP-CLI only
+when the local install's `home` or `siteurl` matches the alias URL, and
+otherwise reports `wp_cli_refused` and uses REST.
 
 Remote Direct REST cannot load Elementor's PHP renderer or post-cache manager.
 It reports cache and frontend verification as `not_checked` instead of

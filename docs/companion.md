@@ -136,6 +136,17 @@ included). A refusal is a normal result with `approval_required` and
 `agent_must_stop`, and nothing is written. `template-update`,
 `template-part-update`, and `blueprint-apply` over an existing page need
 `confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the site is remote.
+Only those writes are screened: `acf-fields-update`, `media-upload`,
+`media-update`, menu, comment, taxonomy-term, settings, and user writes are not.
+
+Direct mode has no restore tool for pre-images or Elementor backups, no
+after-write readback, probe, or rollback, no change sets or confirmation tokens,
+and no DNS pinning for `stonewright-media-upload` URLs. `stonewright-wp-cli-run`
+and `-batch-run` have no task-start latch, confirmation, or audit row. In Plugin
+mode the companion does not call WordPress REST write endpoints; Direct mode is
+the exception, through its typed tools only. See
+[Direct mode E2E](direct-mode-e2e.md#what-direct-mode-does-not-do-yet) for the
+full list.
 
 Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
 token pairs atomically with mode `0600`. Status reports use schema version 3.

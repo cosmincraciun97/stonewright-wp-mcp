@@ -63,6 +63,12 @@
   site is remote, as destructive Direct tools do. `stonewright-blueprint-apply` over
   an existing page (`post_id`) keeps that rule, and its schema and description now
   say so.
+- Documentation: Direct mode docs state what it protects and what it does not do
+  yet (no restore tool for pre-images, no after-write verification, partial
+  custom-code screening, no DNS pinning for media URLs, unscreened
+  `stonewright-wp-cli-run`). The rule that the companion never calls WordPress
+  REST write endpoints now applies to Plugin mode, with Direct mode as the
+  documented exception.
 
 ### Fixed
 

@@ -41,7 +41,7 @@ PHP/CSS/JS/HTML surfaces, the agent must run the approval-gated typed tool with
 `dry_run` first, return `approval_url`, the exact path, byte counts, and a short
 summary, then stop. The agent must not open the approval page, issue or retrieve
 the grant, or apply `custom_code_grant` unless the user explicitly asks it to
-perform that approval step. Direct mode does not write custom code because it
+perform that approval step. Direct mode refuses custom code because it
 has no authenticated wp-admin grant boundary. Generic content create, update,
 duplicate, and bulk tools reject executable-code post types
 (`stonewright_custom_code_provider_required`) and never skip KSES to preserve
@@ -149,7 +149,7 @@ After a client-specific restart / MCP reload (not only a chat refresh):
   Schema version 3 includes authentication state. Terminal OAuth failures set
   `reauthentication_required` with a model-visible `user_action`; relay it and
   stop. `stonewright-task-start` reconnects a degraded session once. The
-  companion sends each request once; only an OAuth connection repeats a request,
+  companion sends each WordPress MCP request once; only an OAuth connection repeats a request,
   once, after an HTTP 401 and a token refresh.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
@@ -258,6 +258,7 @@ After reload:
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
 - Destructive tools, template and template-part updates, and a blueprint applied over an existing page require confirm:true. Do not work around write gating.
+- Direct mode has no restore tool and no after-write verification. Keep the backup_path a write returns, read the written resource back, and verify the page in a browser.
 - Do not write custom PHP/CSS/JS/HTML in Direct mode. It has no authenticated
   wp-admin one-time-grant boundary and refuses theme.json CSS, Elementor custom
   CSS and HTML widgets, and script, style, iframe, object, embed, link, meta http-equiv, inline event handler, and

@@ -39,11 +39,32 @@ override default behavior.
 6. **Mode support.** The plugin must always honor the three modes
    `development`, `staging`, and `production-safe`. The admin UI exposes the
    toggle. Permissions and ability gates read the option.
-7. **Companion WP-CLI stays tokenized.** The Node companion handles WP-CLI,
-   health checks, and an optional MCP HTTP proxy. It must not call WordPress
-   REST write endpoints, must run WP-CLI with `execFile` argv tokens only, and
-   PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
-   eval, shell, package, `--exec`, or `--require` entry points.
+7. **Companion WP-CLI stays tokenized; REST writes are a Direct mode
+   exception.** The Node companion handles WP-CLI, health checks, and an
+   optional MCP HTTP proxy. It must run WP-CLI with `execFile` argv tokens only,
+   and PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
+   eval, shell, package, `--exec`, or `--require` entry points. In Plugin mode
+   the companion stays a thin proxy to the plugin's MCP endpoint and must not
+   call WordPress REST write endpoints. In Direct mode only, where no plugin is
+   installed, the companion writes through core WordPress REST (and through local
+   WP-CLI where the target check passes), and only through the typed Direct
+   tools, never through a generic REST writer (`stonewright-rest-request` is
+   GET only). Those tools carry these protections: a recent
+   `stonewright-task-start` for the same site and canonical URL; the
+   `STONEWRIGHT_DIRECT_WRITES` mode (`confirm` is the default for non-local
+   hosts and asks for `confirm: true` on destructive tools, template and
+   template-part updates, and a blueprint applied over a page); a refusal of
+   custom code (CSS, script, style, iframe, object, embed, link, meta
+   http-equiv, inline event handlers, `javascript:` URLs, HTML widgets) in
+   global styles, Elementor data, content, template, blueprint, and widget
+   writes; a pre-image saved under `~/.stonewright/backups` before template,
+   template-part, global-styles, content, and blueprint-over-page writes, with
+   the write refused when it cannot be saved (Elementor data keeps its own file
+   backup); the Elementor integrity gate and a check that a local WP-CLI install
+   is the target site; limits on `stonewright-media-upload` sources, types, and
+   size; and a redacted local audit log. Direct mode has no change sets,
+   confirmation tokens, restore tool, or after-write verification;
+   `docs/direct-mode-e2e.md` lists what it does not do yet.
 8. **Custom code stops at human approval.** For theme files, Customizer CSS,
    WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
    typed dry-run first. Return `approval_url`, exact target path, byte counts,
