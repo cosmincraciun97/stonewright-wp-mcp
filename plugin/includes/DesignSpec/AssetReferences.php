@@ -28,6 +28,25 @@ final class AssetReferences {
 	}
 
 	/**
+	 * Whether the spec lists an asset that lives at a remote http(s) URL, which resolve() would copy to the media library.
+	 *
+	 * @param array<string, mixed> $spec
+	 */
+	public static function has_remote( array $spec ): bool {
+		foreach ( is_array( $spec['assets'] ?? null ) ? $spec['assets'] : [] as $asset ) {
+			if ( ! is_array( $asset ) ) {
+				continue;
+			}
+			$asset_id   = isset( $asset['id'] ) ? (string) $asset['id'] : '';
+			$source_url = isset( $asset['url'] ) ? (string) $asset['url'] : (string) ( $asset['src'] ?? '' );
+			if ( '' !== $asset_id && 1 === preg_match( '#^https?://#i', $source_url ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @param array<string, mixed> $spec
 	 * @return array{
 	 *   spec: array<string, mixed>,

@@ -113,81 +113,86 @@ final class MotionApplyElementorV3 extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public function execute( array $args ) {
-		$post_id = (int) ( $args['post_id'] ?? 0 );
-		$plan    = is_array( $args['plan'] ?? null ) ? $args['plan'] : [];
-		if ( '' === (string) ( $plan['plan_hash'] ?? '' ) ) {
-			return $this->error( 'motion_plan_missing_hash', 'A compiled plan with plan_hash is required.', [ 'status' => 400 ] );
-		}
-		$verified = MotionPlanVerifier::verify(
-			$plan,
-			is_array( $args['capability_digest'] ?? null ) ? $args['capability_digest'] : null,
-			is_array( $args['direction'] ?? null ) ? $args['direction'] : null
+		return $this->audit_write_with_own_token_gate(
+			$args,
+			function ( array $args ) {
+				$post_id = (int) ( $args['post_id'] ?? 0 );
+				$plan    = is_array( $args['plan'] ?? null ) ? $args['plan'] : [];
+				if ( '' === (string) ( $plan['plan_hash'] ?? '' ) ) {
+					return $this->error( 'motion_plan_missing_hash', 'A compiled plan with plan_hash is required.', [ 'status' => 400 ] );
+				}
+				$verified = MotionPlanVerifier::verify(
+					$plan,
+					is_array( $args['capability_digest'] ?? null ) ? $args['capability_digest'] : null,
+					is_array( $args['direction'] ?? null ) ? $args['direction'] : null
+				);
+				if ( is_wp_error( $verified ) ) {
+					return $verified;
+				}
+				if ( ! get_post( $post_id ) ) {
+					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
+				}
+
+				$built = ElementorV3MotionApplier::build_operations(
+					array_values( (array) ( $args['targets'] ?? [] ) ),
+					(array) ( $args['evidence'] ?? [] ),
+					$plan,
+					is_array( $args['capability_digest'] ?? null ) ? $args['capability_digest'] : null
+				);
+				if ( is_wp_error( $built ) ) {
+					return $built;
+				}
+
+				$dry_run = ! empty( $args['dry_run'] );
+				if ( $dry_run ) {
+					// Local preview: patches are compiled and schema-validated, the
+					// kernel dry-run happens with expected_tree_hash at write time.
+					return [
+						'ok'                 => true,
+						'post_id'            => $post_id,
+						'dry_run'            => true,
+						'plan_hash'          => (string) $plan['plan_hash'],
+						'resolved_targets'   => $built['resolved'],
+						'touched_element_ids'=> $built['touched_element_ids'],
+						'mutation_result'    => [
+							'planned_operations' => $built['operations'],
+							'next_step'          => 'Re-run with dry_run=false and expected_tree_hash from stonewright/elementor-v3-get-page-structure.',
+						],
+					];
+				}
+				if ( ! preg_match( '/^[a-f0-9]{64}$/', (string) ( $args['expected_tree_hash'] ?? '' ) ) ) {
+					return $this->error( 'motion_expected_tree_hash_required', 'A current expected_tree_hash is required before an Elementor motion write.', [ 'status' => 409 ] );
+				}
+
+				// Production-safe mode demands a confirmation token signed over this
+				// request before the consolidated kernel write.
+				$token_error = $this->confirmation_token_error( $args, $args );
+				if ( null !== $token_error ) {
+					return $token_error;
+				}
+
+				$mutation = ( new BatchMutate() )->execute_with_verified_token(
+					[
+						'post_id'            => $post_id,
+						'operations'         => $built['operations'],
+						'dry_run'            => false,
+						'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
+					]
+				);
+				if ( is_wp_error( $mutation ) ) {
+					return $mutation;
+				}
+
+				return [
+					'ok'                 => true,
+					'post_id'            => $post_id,
+					'dry_run'            => false,
+					'plan_hash'          => (string) $plan['plan_hash'],
+					'resolved_targets'   => $built['resolved'],
+					'touched_element_ids'=> $built['touched_element_ids'],
+					'mutation_result'    => $mutation,
+				];
+			}
 		);
-		if ( is_wp_error( $verified ) ) {
-			return $verified;
-		}
-		if ( ! get_post( $post_id ) ) {
-			return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );
-		}
-
-		$built = ElementorV3MotionApplier::build_operations(
-			array_values( (array) ( $args['targets'] ?? [] ) ),
-			(array) ( $args['evidence'] ?? [] ),
-			$plan,
-			is_array( $args['capability_digest'] ?? null ) ? $args['capability_digest'] : null
-		);
-		if ( is_wp_error( $built ) ) {
-			return $built;
-		}
-
-		$dry_run = ! empty( $args['dry_run'] );
-		if ( $dry_run ) {
-			// Local preview: patches are compiled and schema-validated, the
-			// kernel dry-run happens with expected_tree_hash at write time.
-			return [
-				'ok'                 => true,
-				'post_id'            => $post_id,
-				'dry_run'            => true,
-				'plan_hash'          => (string) $plan['plan_hash'],
-				'resolved_targets'   => $built['resolved'],
-				'touched_element_ids'=> $built['touched_element_ids'],
-				'mutation_result'    => [
-					'planned_operations' => $built['operations'],
-					'next_step'          => 'Re-run with dry_run=false and expected_tree_hash from stonewright/elementor-v3-get-page-structure.',
-				],
-			];
-		}
-		if ( ! preg_match( '/^[a-f0-9]{64}$/', (string) ( $args['expected_tree_hash'] ?? '' ) ) ) {
-			return $this->error( 'motion_expected_tree_hash_required', 'A current expected_tree_hash is required before an Elementor motion write.', [ 'status' => 409 ] );
-		}
-
-		// Production-safe mode demands a confirmation token signed over this
-		// request before the consolidated kernel write.
-		$token_error = $this->confirmation_token_error( $args, $args );
-		if ( null !== $token_error ) {
-			return $token_error;
-		}
-
-		$mutation = ( new BatchMutate() )->execute_with_verified_token(
-			[
-				'post_id'            => $post_id,
-				'operations'         => $built['operations'],
-				'dry_run'            => false,
-				'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
-			]
-		);
-		if ( is_wp_error( $mutation ) ) {
-			return $mutation;
-		}
-
-		return [
-			'ok'                 => true,
-			'post_id'            => $post_id,
-			'dry_run'            => false,
-			'plan_hash'          => (string) $plan['plan_hash'],
-			'resolved_targets'   => $built['resolved'],
-			'touched_element_ids'=> $built['touched_element_ids'],
-			'mutation_result'    => $mutation,
-		];
 	}
 }

@@ -46,9 +46,9 @@ final class UpdateGlobalStylesEnvelopeTest extends TestCase {
 			]
 		);
 
-		self::assertInstanceOf( \WP_Error::class, $write );
+		self::assertInstanceOf( \WP_Error::class,$write );
 		self::assertSame( 'stonewright_theme_json_invalid', $write->get_error_code() );
-		self::assertInstanceOf( \WP_Error::class, $update );
+		self::assertInstanceOf( \WP_Error::class,$update );
 		self::assertSame( 'stonewright_theme_json_invalid', $update->get_error_code() );
 	}
 
@@ -91,7 +91,7 @@ final class UpdateGlobalStylesEnvelopeTest extends TestCase {
 				],
 			]
 		);
-		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertInstanceOf( \WP_Error::class,$blocked );
 		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
 
 		$args = [
@@ -107,6 +107,52 @@ final class UpdateGlobalStylesEnvelopeTest extends TestCase {
 		$result = ( new UpdateGlobalStyles() )->execute( array_merge( $args, [ 'confirmation_token' => $token ] ) );
 		self::assertIsArray( $result );
 		self::assertSame( 2, $result['id'] );
+	}
+
+	public function test_an_empty_update_is_refused_and_writes_nothing(): void {
+		$before  = \WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
+		$content = $GLOBALS['stonewright_test_posts'][ $before ]->post_content;
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+
+		foreach ( [ [], [ 'mode' => 'replace' ], [ 'mode' => 'merge', 'settings' => [], 'styles' => [] ] ] as $args ) {
+			$result = ( new UpdateGlobalStyles() )->execute( $args );
+
+			self::assertInstanceOf( \WP_Error::class, $result, (string) wp_json_encode( $args ) );
+			self::assertSame( 'stonewright_global_styles_empty', $result->get_error_code() );
+		}
+		self::assertSame( $content, $GLOBALS['stonewright_test_posts'][ $before ]->post_content );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'No snapshot was taken.' );
+	}
+
+	public function test_a_list_in_an_update_replaces_the_stored_list_and_does_not_merge_by_index(): void {
+		$id = \WP_Theme_JSON_Resolver::get_user_global_styles_post_id();
+		$GLOBALS['stonewright_test_posts'][ $id ]->post_content = (string) wp_json_encode(
+			[
+				'version'  => 3,
+				'settings' => [
+					'color'      => [
+						'palette' => [
+							[ 'slug' => 'primary', 'color' => '#111111', 'name' => 'Primary' ],
+							[ 'slug' => 'accent', 'color' => '#222222', 'name' => 'Accent' ],
+							[ 'slug' => 'muted', 'color' => '#333333', 'name' => 'Muted' ],
+						],
+					],
+					'layout'     => [ 'contentSize' => '720px' ],
+				],
+			]
+		);
+
+		$result = ( new UpdateGlobalStyles() )->execute(
+			[
+				'mode'     => 'merge',
+				'settings' => [ 'color' => [ 'palette' => [ [ 'slug' => 'brand', 'color' => '#abcdef', 'name' => 'Brand' ] ] ] ],
+			]
+		);
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() . ' ' . $result->get_error_message() : '' );
+		$stored = json_decode( (string) $GLOBALS['stonewright_test_posts'][ $id ]->post_content, true );
+		self::assertSame( [ [ 'slug' => 'brand', 'color' => '#abcdef', 'name' => 'Brand' ] ], $stored['settings']['color']['palette'], 'The palette is the list that was sent, not a mix of both.' );
+		self::assertSame( '720px', $stored['settings']['layout']['contentSize'], 'Keys that were not sent are kept.' );
 	}
 
 	public function test_update_permission_matches_write(): void {
@@ -131,7 +177,7 @@ final class UpdateGlobalStylesEnvelopeTest extends TestCase {
 				'area'    => 'header',
 			]
 		);
-		self::assertInstanceOf( \WP_Error::class, $created );
+		self::assertInstanceOf( \WP_Error::class,$created );
 		self::assertSame( 'stonewright_empty_content', $created->get_error_code() );
 
 		$updated = ( new UpdateTemplate() )->execute(
@@ -140,7 +186,7 @@ final class UpdateGlobalStylesEnvelopeTest extends TestCase {
 				'content' => '',
 			]
 		);
-		self::assertInstanceOf( \WP_Error::class, $updated );
+		self::assertInstanceOf( \WP_Error::class,$updated );
 		self::assertSame( 'stonewright_empty_content', $updated->get_error_code() );
 	}
 }

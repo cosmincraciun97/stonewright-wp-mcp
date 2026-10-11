@@ -112,6 +112,10 @@ final class IntegrationCatalog {
 			if ( str_starts_with( $source, 'plugin:' ) ) {
 				$plugin = substr( $source, 7 );
 				$active = (array) get_option( 'active_plugins', [] );
+				// A plugin that is active for the whole network is not in the site's own list.
+				if ( function_exists( 'get_site_option' ) ) {
+					$active = array_merge( $active, array_keys( (array) get_site_option( 'active_sitewide_plugins', [] ) ) );
+				}
 				if ( ! in_array( $plugin, $active, true ) || ! defined( 'WP_PLUGIN_DIR' ) ) {
 					continue;
 				}

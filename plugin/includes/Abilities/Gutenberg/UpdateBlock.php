@@ -103,6 +103,15 @@ final class UpdateBlock extends AbilityKernel {
 				$grant      = (string) ( $args['custom_code_grant'] ?? '' );
 				$name       = (string) ( $existing['blockName'] ?? '' );
 				$will_queue = isset( $args['attrs'] ) && is_array( $args['attrs'] ) && BlockQueue::requires_finalizer( $name );
+				if ( $will_queue && isset( $args['innerHTML'] ) ) {
+					// The browser finalizer builds the block from its name and attributes only, so an
+					// innerHTML sent with attrs would be dropped without a word. Say so instead.
+					return $this->error(
+						'finalizer_inner_html_unsupported',
+						__( 'This block can only be written by the browser finalizer, which builds it from its attributes. Send attrs without innerHTML.', 'stonewright' ),
+						[ 'path' => $path, 'block' => $name ]
+					);
+				}
 				$probe      = [
 					'name'       => $name,
 					'attributes' => isset( $args['attrs'] ) && is_array( $args['attrs'] )
@@ -165,7 +174,10 @@ final class UpdateBlock extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
-				$html        = BlockSerializer::serialize( $mutated );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+				$html   = BlockSerializer::serialize( $mutated );
 				$result = wp_update_post(
 					wp_slash(
 						[

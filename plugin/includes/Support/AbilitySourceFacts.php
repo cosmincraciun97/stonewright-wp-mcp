@@ -202,6 +202,8 @@ final class AbilitySourceFacts {
 	public static function has_backup_gate( string $source ): bool {
 		foreach ( [
 			'Backup::snapshot_post',
+			// The full-tree transaction snapshots the post before it writes.
+			'ElementorTransactionRunner::run_full_tree',
 			'SpecToGutenberg()',
 			'SpecToElementorV3()',
 			'ApplyToPost()',

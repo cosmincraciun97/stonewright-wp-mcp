@@ -33,7 +33,7 @@ final class QueryLoopBuildTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		unset( $GLOBALS['stonewright_test_registered_blocks'], $GLOBALS['stonewright_test_taxonomies'], $GLOBALS['stonewright_test_terms'], $GLOBALS['stonewright_test_taxonomy_objects'] );
 		$GLOBALS['stonewright_test_user_caps']      = [];
 		$GLOBALS['stonewright_test_options']        = [];
 		$GLOBALS['stonewright_test_posts']          = [];
@@ -44,6 +44,8 @@ final class QueryLoopBuildTest extends TestCase {
 	}
 
 	public function test_builds_core_query_and_post_template_spec(): void {
+		$GLOBALS['stonewright_test_taxonomies']['category']      = true;
+		$GLOBALS['stonewright_test_terms']['category']['news']   = (object) [ 'term_id' => 17, 'name' => 'News', 'slug' => 'news' ];
 		$result = ( new QueryLoopBuild() )->execute(
 			[
 				'post_type' => 'post',
@@ -64,6 +66,7 @@ final class QueryLoopBuildTest extends TestCase {
 		self::assertSame( 4, $result['block']['attributes']['query']['perPage'] );
 		self::assertSame( 'desc', $result['block']['attributes']['query']['order'] );
 		self::assertFalse( $result['block']['attributes']['query']['inherit'] );
+		self::assertSame( [ 'category' => [ 17 ] ], $result['block']['attributes']['query']['taxQuery'], 'taxQuery holds term ids, not slugs.' );
 		self::assertSame( 'core/post-template', $result['block']['innerBlocks'][0]['name'] );
 		self::assertContains( 'core/post-title', array_column( $result['block']['innerBlocks'][0]['innerBlocks'], 'name' ) );
 		foreach ( $result['block']['innerBlocks'][0]['innerBlocks'] as $child ) {
@@ -162,6 +165,38 @@ final class QueryLoopBuildTest extends TestCase {
 		self::assertDoesNotMatchRegularExpression( '/wp:(?:core\/)?query\s+\/>/', $content );
 	}
 
+	public function test_refuses_a_term_slug_that_does_not_exist(): void {
+		$GLOBALS['stonewright_test_taxonomies']['category']    = true;
+		$GLOBALS['stonewright_test_terms']['category']['news'] = (object) [ 'term_id' => 17, 'name' => 'News', 'slug' => 'news' ];
+
+		$result = ( new QueryLoopBuild() )->execute( [ 'post_type' => 'post', 'taxonomy' => [ 'taxonomy' => 'category', 'terms' => [ 'news', 'nope' ] ] ] );
+
+		self::assertInstanceOf( \WP_Error::class,$result );
+		self::assertSame( 'stonewright_term_not_found', $result->get_error_code() );
+		self::assertSame( [ 'nope' ], $result->get_error_data()['missing_terms'] );
+	}
+
+	public function test_refuses_a_taxonomy_that_is_unknown_or_not_for_the_post_type(): void {
+		$unknown = ( new QueryLoopBuild() )->execute( [ 'post_type' => 'post', 'taxonomy' => [ 'taxonomy' => 'nope', 'terms' => [ 'a' ] ] ] );
+		self::assertInstanceOf( \WP_Error::class,$unknown );
+		self::assertSame( 'stonewright_taxonomy_invalid', $unknown->get_error_code() );
+
+		$GLOBALS['stonewright_test_taxonomies']['genre']        = true;
+		$GLOBALS['stonewright_test_taxonomy_objects']['genre']  = [ 'book' ];
+		$GLOBALS['stonewright_test_terms']['genre']['noir']     = (object) [ 'term_id' => 5, 'name' => 'Noir', 'slug' => 'noir' ];
+		$wrong_type = ( new QueryLoopBuild() )->execute( [ 'post_type' => 'post', 'taxonomy' => [ 'taxonomy' => 'genre', 'terms' => [ 'noir' ] ] ] );
+		self::assertInstanceOf( \WP_Error::class,$wrong_type );
+		self::assertSame( 'stonewright_taxonomy_invalid', $wrong_type->get_error_code() );
+		unset( $GLOBALS['stonewright_test_taxonomy_objects'] );
+	}
+
+	public function test_refuses_terms_without_a_taxonomy(): void {
+		$result = ( new QueryLoopBuild() )->execute( [ 'post_type' => 'post', 'taxonomy' => [ 'terms' => [ 'news' ] ] ] );
+
+		self::assertInstanceOf( \WP_Error::class,$result );
+		self::assertSame( 'stonewright_taxonomy_invalid', $result->get_error_code() );
+	}
+
 	public function test_schema_is_closed(): void {
 		$schema = ( new QueryLoopBuild() )->input_schema();
 		self::assertFalse( $schema['additionalProperties'] );
@@ -170,5 +205,6 @@ final class QueryLoopBuildTest extends TestCase {
 		self::assertArrayHasKey( 'count', $schema['properties'] );
 		self::assertArrayHasKey( 'order', $schema['properties'] );
 		self::assertArrayHasKey( 'inherit', $schema['properties'] );
+		self::assertArrayNotHasKey( 'post_id', $schema['properties'], 'The builder only builds; blocks-insert writes.' );
 	}
 }

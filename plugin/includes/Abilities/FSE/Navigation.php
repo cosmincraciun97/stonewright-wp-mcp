@@ -128,6 +128,11 @@ final class Navigation extends AbilityKernel {
 		RescueGuard::note_post_created( (int) $id );
 
 		$snapshot_id = Backup::snapshot_post( (int) $id );
+		if ( '' === $snapshot_id ) {
+			// The new navigation has no way back, so it does not stay: the write is undone.
+			wp_delete_post( (int) $id, true );
+			return $this->backup_failed_error();
+		}
 		return $this->payload( (int) $id, $snapshot_id );
 	}
 
@@ -154,7 +159,10 @@ final class Navigation extends AbilityKernel {
 		}
 
 		$snapshot_id = Backup::snapshot_post( (int) $post->ID );
-		$result      = wp_update_post( wp_slash( $payload ), true );
+		if ( '' === $snapshot_id ) {
+			return $this->backup_failed_error();
+		}
+		$result = wp_update_post( wp_slash( $payload ), true );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}

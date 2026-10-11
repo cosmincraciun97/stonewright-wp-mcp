@@ -32,7 +32,7 @@ final class QueryLoopBuild extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Builds a typed core/query + core/post-template block spec from post type, taxonomy, count, order, and inherit. Refuses unregistered blocks.', 'stonewright' );
+		return __( 'Builds a typed core/query + core/post-template block spec from post type, taxonomy, count, order, and inherit. The taxonomy terms are slugs; they are resolved to term ids, and an unknown taxonomy or term is refused. It only builds the spec: insert it with blocks-insert. Refuses unregistered blocks.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -55,8 +55,9 @@ final class QueryLoopBuild extends AbilityKernel {
 					'properties'           => [
 						'taxonomy' => [ 'type' => 'string' ],
 						'terms'    => [
-							'type'  => 'array',
-							'items' => [ 'type' => 'string' ],
+							'type'        => 'array',
+							'items'       => [ 'type' => 'string' ],
+							'description' => 'Term slugs of the taxonomy. They are resolved to term ids.',
 						],
 					],
 				],
@@ -80,11 +81,6 @@ final class QueryLoopBuild extends AbilityKernel {
 					'type'    => 'boolean',
 					'default' => false,
 				],
-				'post_id'   => [
-					'type'        => 'integer',
-					'minimum'     => 1,
-					'description' => 'Optional. When set, insert the spec into this post via blocks-insert.',
-				],
 			],
 		];
 	}
@@ -101,10 +97,6 @@ final class QueryLoopBuild extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		$post_id = (int) ( $args['post_id'] ?? 0 );
-		if ( $post_id > 0 ) {
-			return Permissions::edit_post( $post_id );
-		}
 		return Permissions::edit_posts();
 	}
 
@@ -149,8 +141,36 @@ final class QueryLoopBuild extends AbilityKernel {
 				$terms    = isset( $taxonomy['terms'] ) && is_array( $taxonomy['terms'] )
 					? array_values( array_filter( array_map( 'sanitize_title', $taxonomy['terms'] ) ) )
 					: [];
-				if ( '' !== $tax_name && [] !== $terms ) {
-					$query['taxQuery'] = [ $tax_name => $terms ];
+				if ( '' !== $tax_name || [] !== $terms ) {
+					if ( '' === $tax_name || ! taxonomy_exists( $tax_name ) || ! is_object_in_taxonomy( $post_type, $tax_name ) ) {
+						return $this->error(
+							'taxonomy_invalid',
+							__( 'The taxonomy is not registered for this post type.', 'stonewright' ),
+							[ 'taxonomy' => $tax_name, 'post_type' => $post_type ]
+						);
+					}
+					// The block filters by term id, so the slugs are resolved here and an unknown slug is refused
+					// instead of producing a loop that matches nothing.
+					$term_ids = [];
+					$missing  = [];
+					foreach ( $terms as $slug ) {
+						$term = get_term_by( 'slug', $slug, $tax_name );
+						if ( is_object( $term ) && (int) $term->term_id > 0 ) {
+							$term_ids[] = (int) $term->term_id;
+						} else {
+							$missing[] = $slug;
+						}
+					}
+					if ( [] !== $missing ) {
+						return $this->error(
+							'term_not_found',
+							__( 'Some terms do not exist in this taxonomy.', 'stonewright' ),
+							[ 'taxonomy' => $tax_name, 'missing_terms' => $missing ]
+						);
+					}
+					if ( [] !== $term_ids ) {
+						$query['taxQuery'] = [ $tax_name => $term_ids ];
+					}
 				}
 
 				$inner = [];

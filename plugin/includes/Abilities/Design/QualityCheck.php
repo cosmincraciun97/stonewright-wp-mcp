@@ -143,9 +143,35 @@ final class QualityCheck extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return $this->persists( $args )
-			? Permissions::can_manage_design()
-			: Permissions::can_view_design();
+		if ( ! $this->persists( $args ) ) {
+			return Permissions::can_view_design();
+		}
+		if ( ! Permissions::can_manage_design() ) {
+			return false;
+		}
+		// A stored report belongs to a post: its author must be allowed to edit it. The post may also come from
+		// the evidence, which write_precondition_error() resolves.
+		$post_id = isset( $args['post_id'] ) ? (int) $args['post_id'] : 0;
+		return $post_id <= 0 || Permissions::can_edit_post( $post_id );
+	}
+
+	/**
+	 * A report is stored on the post it names, so the user has to be allowed to edit that post. This runs
+	 * before the production-safe token is looked at, so a refusal does not spend one.
+	 *
+	 * @param array<string, mixed> $args Ability arguments.
+	 */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		$evidence = is_array( $args['evidence'] ?? null ) ? $args['evidence'] : [];
+		$post_id  = $this->post_id( $args, $evidence );
+		if ( $post_id > 0 && ! Permissions::can_edit_post( $post_id ) ) {
+			return new \WP_Error(
+				'stonewright_forbidden',
+				__( 'You are not allowed to edit the post this report belongs to.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+		return null;
 	}
 
 	public function execute( array $args ): array|\WP_Error {

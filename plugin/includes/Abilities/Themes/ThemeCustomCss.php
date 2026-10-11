@@ -47,7 +47,7 @@ final class ThemeCustomCss extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'action'             => [ 'type' => 'string', 'enum' => [ 'get', 'update' ] ],
-				'css'                => [ 'type' => 'string' ],
+				'css'                => [ 'type' => 'string', 'description' => 'The complete stylesheet to store. Required for update: it replaces the stored CSS, so an update without it is refused.' ],
 				'dry_run'            => [
 					'type'        => 'boolean',
 					'default'     => false,
@@ -139,6 +139,16 @@ final class ThemeCustomCss extends AbilityKernel {
 						'css'        => (string) wp_get_custom_css(),
 						'stylesheet' => get_stylesheet(),
 					];
+				}
+
+				// An update stores the css it is given, so a call without it would store an empty stylesheet.
+				// It is refused before any token is looked at.
+				if ( ! isset( $args['css'] ) || ! is_string( $args['css'] ) ) {
+					return $this->error(
+						'css_required',
+						__( 'An update needs the complete css to store. To clear the custom CSS, send an empty string.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
 				}
 
 				if ( ! $this->token_already_verified ) {

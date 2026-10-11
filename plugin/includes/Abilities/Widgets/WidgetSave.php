@@ -24,7 +24,7 @@ final class WidgetSave extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces the widget id list for a sidebar. Empty widgets array clears the sidebar; confirmation token required in production-safe mode.', 'stonewright' );
+		return __( 'Replaces the widget id list for a sidebar. The sidebar has to exist and every widget id has to name a widget of the site (a registered one, one a sidebar holds, or a saved instance); otherwise nothing is saved. Empty widgets array clears the sidebar; confirmation token required in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -73,11 +73,27 @@ final class WidgetSave extends AbilityKernel {
 				if ( null !== $err ) {
 					return $err;
 				}
+				$sidebar_id = (string) $args['sidebar_id'];
+				if ( ! in_array( $sidebar_id, WidgetSupport::sidebar_ids(), true ) ) {
+					return WidgetSupport::sidebar_error( $sidebar_id );
+				}
+				$widget_ids = array_values( array_map( 'strval', (array) $args['widgets'] ) );
+				$unknown    = array_values( array_filter( $widget_ids, static fn( string $id ): bool => ! WidgetSupport::widget_exists( $id ) ) );
+				if ( [] !== $unknown ) {
+					return $this->error(
+						'widget_not_found',
+						__( 'Some widget ids do not name a widget of this site. Nothing was saved.', 'stonewright' ),
+						[
+							'status'          => 404,
+							'unknown_widgets' => $unknown,
+						]
+					);
+				}
 				$sidebars = wp_get_sidebars_widgets();
 				if ( ! is_array( $sidebars ) ) {
 					$sidebars = [];
 				}
-				$sidebars[ (string) $args['sidebar_id'] ] = array_values( array_map( 'strval', (array) $args['widgets'] ) );
+				$sidebars[ $sidebar_id ] = $widget_ids;
 				wp_set_sidebars_widgets( $sidebars );
 				return [
 					'ok'         => true,

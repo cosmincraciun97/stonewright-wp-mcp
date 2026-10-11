@@ -109,7 +109,9 @@ final class UpdateTemplate extends AbilityKernel {
 				}
 
 				if ( $post_id ) {
-					Backup::snapshot_post( (int) $post_id );
+					if ( '' === Backup::snapshot_post( (int) $post_id ) ) {
+						return $this->backup_failed_error();
+					}
 					$payload['ID'] = (int) $post_id;
 					$result        = wp_update_post( wp_slash( $payload ), true );
 				} else {

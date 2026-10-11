@@ -308,6 +308,31 @@ abstract class AbilityKernel implements Ability {
 	}
 
 	/**
+	 * Audit wrapper for a write ability that checks its production-safe token itself, at the point where it
+	 * knows a write will follow: after its own validation, and never for a dry run or a call that changes
+	 * nothing. The call is declared a write, so every outcome (a dry run and a refusal included) gets an
+	 * audit row and a rescue frame. Unlike audit_write() it asks for no token before the callback runs;
+	 * the callback has to call confirmation_token_error() before it writes.
+	 *
+	 * @param array<string, mixed> $args
+	 * @param callable             $callback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	protected function audit_write_with_own_token_gate( array $args, callable $callback ) {
+		return $this->audit_declared(
+			$args,
+			function ( array $args ) use ( $callback ) {
+				$precondition_error = $this->write_precondition_error( $args );
+				if ( $precondition_error instanceof \WP_Error ) {
+					return $precondition_error;
+				}
+				return $callback( $args );
+			},
+			'write'
+		);
+	}
+
+	/**
 	 * Checks that audit_write() runs before the production-safe token is consumed: the per-object permission
 	 * checks and the input rules whose failure must not spend a token. Returns null when the call may go on.
 	 * Abilities that need it override this.

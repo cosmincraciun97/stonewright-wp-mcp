@@ -38,6 +38,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 		unset( $GLOBALS['stonewright_test_update_post_meta_return'], $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_posts']   = [];
+		$GLOBALS['stonewright_test_user_caps'] = [];
 	}
 
 	public function test_gutenberg_full_replacement_requires_token_in_production_safe_mode(): void {
@@ -104,6 +105,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 
 	public function test_elementor_v3_sideloads_background_image_refs_before_write(): void {
 		$GLOBALS['stonewright_test_options']         = [];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'upload_files' => true ];
 		$GLOBALS['stonewright_test_asset_responses'] = [
 			'https://cdn.example.com/bg/hero-glow.png' => [
 				'response' => [ 'code' => 200 ],
@@ -153,6 +155,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 
 	public function test_elementor_v3_sideloads_gallery_image_refs_before_write(): void {
 		$GLOBALS['stonewright_test_options']         = [];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'upload_files' => true ];
 		$GLOBALS['stonewright_test_asset_responses'] = [
 			'https://cdn.example.com/gallery/one.png' => [
 				'response' => [ 'code' => 200 ],

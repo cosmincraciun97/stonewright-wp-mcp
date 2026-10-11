@@ -1016,16 +1016,21 @@ if ( ! function_exists( 'is_ssl' ) ) {
 }
 
 if ( ! function_exists( 'wp_get_theme' ) ) {
-	function wp_get_theme(): object {
+	/**
+	 * A theme named in $GLOBALS['stonewright_test_missing_themes'] does not exist (exists() is false).
+	 */
+	function wp_get_theme( ?string $requested = null ): object {
 		$stylesheet = (string) ( $GLOBALS['stonewright_test_stylesheet'] ?? 'stonewright-theme' );
 		$template   = (string) ( $GLOBALS['stonewright_test_template'] ?? $stylesheet );
 		$version    = (string) ( $GLOBALS['stonewright_test_theme_version'] ?? '1.0.0' );
+		$exists     = null === $requested || ! in_array( $requested, (array) ( $GLOBALS['stonewright_test_missing_themes'] ?? [] ), true );
 
-		return new class( $stylesheet, $template, $version ) {
+		return new class( $stylesheet, $template, $version, $exists ) {
 			public function __construct(
 				private string $stylesheet,
 				private string $template,
-				private string $version
+				private string $version,
+				private bool $exists = true
 			) {}
 
 			public function get( string $field ): string {
@@ -1045,7 +1050,7 @@ if ( ! function_exists( 'wp_get_theme' ) ) {
 			}
 
 			public function exists(): bool {
-				return true;
+				return $this->exists;
 			}
 		};
 	}
@@ -3986,6 +3991,9 @@ if ( ! function_exists( 'wp_set_sidebars_widgets' ) ) {
 
 if ( ! function_exists( 'switch_theme' ) ) {
 	function switch_theme( $stylesheet ) {
+		if ( ! empty( $GLOBALS['stonewright_test_switch_theme_noop'] ) ) {
+			return;
+		}
 		$GLOBALS['stonewright_test_stylesheet'] = (string) $stylesheet;
 	}
 }
@@ -4409,6 +4417,39 @@ if ( ! function_exists( 'get_page_by_path' ) ) {
 			}
 		}
 		return null;
+	}
+}
+
+if ( ! function_exists( 'get_term_by' ) ) {
+	/**
+	 * Looks a term up by slug or id among the terms a test stored in $GLOBALS['stonewright_test_terms'].
+	 *
+	 * @return object|false
+	 */
+	function get_term_by( string $field, string|int $value, string $taxonomy = '', string $output = 'OBJECT', string $filter = 'raw' ) {
+		foreach ( (array) ( $GLOBALS['stonewright_test_terms'][ $taxonomy ] ?? [] ) as $slug => $term ) {
+			if ( 'slug' === $field && (string) $slug === (string) $value ) {
+				return $term;
+			}
+			if ( 'id' === $field && is_object( $term ) && (int) ( $term->term_id ?? 0 ) === (int) $value ) {
+				return $term;
+			}
+		}
+		return false;
+	}
+}
+
+if ( ! function_exists( 'is_object_in_taxonomy' ) ) {
+	/**
+	 * A taxonomy that exists applies to every post type unless a test lists the post types it applies to
+	 * in $GLOBALS['stonewright_test_taxonomy_objects'][ $taxonomy ].
+	 */
+	function is_object_in_taxonomy( string $object_type, string $taxonomy ): bool {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return false;
+		}
+		$objects = $GLOBALS['stonewright_test_taxonomy_objects'][ $taxonomy ] ?? null;
+		return null === $objects || in_array( $object_type, (array) $objects, true );
 	}
 }
 

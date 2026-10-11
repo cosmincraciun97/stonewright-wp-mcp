@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
 use Stonewright\WpMcp\Abilities\SectionReuse\SectionReuseExtract;
 use Stonewright\WpMcp\SectionReuse\ReferenceCatalog;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\BlockTree;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
@@ -310,10 +311,20 @@ final class SectionInsertGutenbergTest extends TestCase {
 		}
 	}
 
-	public function test_production_safe_mode_needs_no_token_for_an_insert_that_removes_nothing(): void {
+	public function test_production_safe_mode_needs_a_token_for_an_insert_even_when_it_removes_nothing(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$operations = [ self::insert_op( self::section() ) ];
 
-		$result = self::apply( [ self::insert_op( self::section() ) ] );
+		$refused = self::apply( $operations );
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_confirmation_required', $refused->get_error_code() );
+		self::assertSame( self::INTRO, self::content() );
+
+		$plan = ( new BlocksBatchMutate() )->execute( [ 'post_id' => self::TARGET, 'dry_run' => true, 'operations' => $operations ] );
+		self::assertIsArray( $plan, 'A dry run needs no token.' );
+		$args = [ 'post_id' => self::TARGET, 'expected_content_hash' => $plan['before_hash'], 'operations' => $operations ];
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/blocks-batch-mutate', $args );
+		$result = ( new BlocksBatchMutate() )->execute( $args );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 'verified', $result['verification_status'] );

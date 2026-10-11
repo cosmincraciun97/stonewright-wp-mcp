@@ -1,7 +1,10 @@
 {
     "args": {
-        "settings": [],
-        "styles": []
+        "settings": {
+            "layout": {
+                "contentSize": "720px"
+            }
+        }
     },
     "expect": "ok"
 }

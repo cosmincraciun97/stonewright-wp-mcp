@@ -107,7 +107,7 @@ final class WidgetIntentResolve extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::read();
+		return Permissions::can_view_design();
 	}
 
 	public function execute( array $args ): array|\WP_Error {

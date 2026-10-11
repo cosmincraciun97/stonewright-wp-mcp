@@ -114,6 +114,9 @@ final class ApplyToPost extends AbilityKernel {
 
 				// ── Backup BEFORE write (AGENTS.md rule 3) ───────────────────────
 				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
 
 				// ── Render ───────────────────────────────────────────────────────
 				$diagnostics = [];

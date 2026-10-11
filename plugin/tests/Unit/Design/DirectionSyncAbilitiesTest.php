@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionRepository;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionContract;
+use Stonewright\WpMcp\Design\Direction\DirectionSyncTarget;
 use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
 use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -44,6 +45,7 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']       = [
 			'manage_options' => true,
 			'edit_pages'     => true,
+			'edit_post'      => true,
 		];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
@@ -164,6 +166,52 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( DesignDirectionService::NOT_FOUND_CODE, $result->get_error_code() );
+	}
+
+	public function test_plan_and_apply_refuse_a_kit_id_that_is_not_an_elementor_kit(): void {
+		$id   = $this->store_direction();
+		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertIsArray( $plan );
+		// An ordinary page, and an Elementor library post that is a template and not a kit.
+		$GLOBALS['stonewright_test_posts'][90] = (object) [ 'ID' => 90, 'post_type' => 'page', 'post_title' => 'About', 'post_status' => 'publish', 'post_content' => '', 'post_excerpt' => '', 'meta' => [ '_elementor_page_settings' => $this->kit_settings() ] ];
+		$GLOBALS['stonewright_test_posts'][91] = (object) [ 'ID' => 91, 'post_type' => 'elementor_library', 'post_title' => 'Header', 'post_status' => 'publish', 'post_content' => '', 'post_excerpt' => '', 'meta' => [ '_elementor_template_type' => 'header', '_elementor_page_settings' => $this->kit_settings() ] ];
+
+		foreach ( [ 90, 91, 9999 ] as $not_a_kit ) {
+			$planned = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id, 'kit_id' => $not_a_kit ] );
+			self::assertInstanceOf( \WP_Error::class, $planned, 'plan ' . $not_a_kit );
+			self::assertSame( DirectionSyncTarget::INVALID_KIT_CODE, $planned->get_error_code() );
+
+			$applied = ( new DirectionSyncApply( $this->service ) )->execute( [ 'id' => $id, 'kit_id' => $not_a_kit, 'base_hash' => (string) $plan['base_hash'] ] );
+			self::assertInstanceOf( \WP_Error::class, $applied, 'apply ' . $not_a_kit );
+			self::assertSame( DirectionSyncTarget::INVALID_KIT_CODE, $applied->get_error_code() );
+		}
+		self::assertSame( [], $this->meta_writes() );
+	}
+
+	public function test_a_kit_that_is_not_the_active_one_is_accepted_when_it_is_a_kit(): void {
+		$id = $this->store_direction();
+		$GLOBALS['stonewright_test_posts'][92] = (object) [ 'ID' => 92, 'post_type' => 'elementor_library', 'post_title' => 'Spare kit', 'post_status' => 'publish', 'post_content' => '', 'post_excerpt' => '', 'meta' => [ '_elementor_template_type' => 'kit', '_elementor_page_settings' => $this->kit_settings() ] ];
+
+		$planned = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id, 'kit_id' => 92 ] );
+
+		self::assertIsArray( $planned, $planned instanceof \WP_Error ? $planned->get_error_code() : '' );
+		self::assertSame( 92, $planned['kit_id'] );
+	}
+
+	public function test_plan_and_apply_need_edit_post_on_the_kit(): void {
+		$id   = $this->store_direction();
+		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertIsArray( $plan );
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_pages' => true ];
+
+		$planned = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
+		self::assertInstanceOf( \WP_Error::class, $planned );
+		self::assertSame( 'stonewright_forbidden', $planned->get_error_code() );
+
+		$applied = ( new DirectionSyncApply( $this->service ) )->execute( [ 'id' => $id, 'base_hash' => (string) $plan['base_hash'] ] );
+		self::assertInstanceOf( \WP_Error::class, $applied );
+		self::assertSame( 'stonewright_forbidden', $applied->get_error_code() );
+		self::assertSame( [], $this->meta_writes() );
 	}
 
 	public function test_plan_reports_a_site_without_an_active_kit(): void {

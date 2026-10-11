@@ -784,15 +784,15 @@ the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
-| `stonewright/design-direction-list` | Read | `Permissions::read()` |
-| `stonewright/design-direction-get` | Read | `Permissions::read()` |
-| `stonewright/design-direction-brief` | Read | `Permissions::read()`, context token (list and get need none) |
+| `stonewright/design-direction-list` | Read | `can_view_design()` |
+| `stonewright/design-direction-get` | Read | `can_view_design()` |
+| `stonewright/design-direction-brief` | Read | `can_view_design()`, context token (list and get need none) |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
 | `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
-| `stonewright/design-direction-sync-plan` | Read | `can_manage_design()`, context token |
-| `stonewright/design-direction-sync-apply` | Write | `can_manage_design()`, context token, confirmation token, `Backup::snapshot_post()` |
+| `stonewright/design-direction-sync-plan` | Read | `can_manage_design()` and `edit_post()` on the kit, context token |
+| `stonewright/design-direction-sync-apply` | Write | `can_manage_design()` and `edit_post()` on the kit, context token, confirmation token, `Backup::snapshot_post()` |
 | `stonewright/design-quality-check` | Read, or Write with `persist` | `can_view_design()`; `can_manage_design()` to persist, context token, `QualityEvidenceValidator` |
 | `stonewright/design-checkpoint-record` | Read | `can_manage_design()` and `edit_post()`, context token, live section and direction must both resolve |
 

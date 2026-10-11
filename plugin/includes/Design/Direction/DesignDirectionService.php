@@ -75,11 +75,6 @@ final class DesignDirectionService {
 			return $this->invalid( 'Unsupported direction source type.' );
 		}
 
-		$status = (string) ( $input['status'] ?? 'draft' );
-		if ( ! in_array( $status, self::WRITABLE_STATUSES, true ) ) {
-			return $this->invalid( 'Unsupported direction status.' );
-		}
-
 		$issues = is_array( $contract['readiness']['issues'] ?? null ) ? array_values( $contract['readiness']['issues'] ) : [];
 		$issues = array_values(
 			array_filter(
@@ -87,6 +82,15 @@ final class DesignDirectionService {
 				static fn( mixed $issue ): bool => '' !== trim( (string) $issue )
 			)
 		);
+
+		if ( isset( $input['status'] ) ) {
+			$status = (string) $input['status'];
+		} else {
+			$status = $this->default_status( $input, $contract, $issues );
+		}
+		if ( ! in_array( $status, self::WRITABLE_STATUSES, true ) ) {
+			return $this->invalid( 'Unsupported direction status.' );
+		}
 		if ( 'ready' === $status && [] !== $issues ) {
 			return new WP_Error(
 				self::NOT_READY_CODE,
@@ -187,11 +191,14 @@ final class DesignDirectionService {
 		}
 
 		$ready = $record['contract']['readiness']['ready'] ?? false;
-		if ( true !== $ready ) {
+		if ( true !== $ready || 'ready' !== (string) ( $record['status'] ?? '' ) ) {
 			return new WP_Error(
 				self::NOT_READY_CODE,
-				'Only a direction whose contract reports ready can be activated.',
-				[ 'direction_id' => $id ]
+				'Only a direction with the ready status, whose contract reports ready, can be activated. An archived, draft or stale direction cannot.',
+				[
+					'direction_id' => $id,
+					'status'       => (string) ( $record['status'] ?? '' ),
+				]
 			);
 		}
 
@@ -542,13 +549,41 @@ final class DesignDirectionService {
 	}
 
 	/**
+	 * The status a save gets when it names none: the status the stored direction already has, so that a
+	 * save which only changes the contract does not demote a ready direction to draft. A ready direction
+	 * stays ready only while the new contract still reports ready and holds no issue; a direction that
+	 * does not exist yet, or is archived, starts as a draft.
+	 *
+	 * @param array<string,mixed> $input    Untrusted save payload.
+	 * @param array<string,mixed> $contract Validated contract.
+	 * @param list<mixed>         $issues   Outstanding issues of the contract.
+	 */
+	private function default_status( array $input, array $contract, array $issues ): string {
+		$slug = $this->slug( $input, $contract );
+		if ( '' === $slug ) {
+			return 'draft';
+		}
+		$existing = $this->repository->find_by_slug( $slug );
+		$current  = null === $existing ? '' : (string) ( $existing['status'] ?? '' );
+
+		if ( 'stale' === $current ) {
+			return 'stale';
+		}
+		if ( 'ready' === $current && [] === $issues && true === ( $contract['readiness']['ready'] ?? false ) ) {
+			return 'ready';
+		}
+
+		return 'draft';
+	}
+
+	/**
 	 * Derives the storage slug from the payload, falling back to the contract
 	 * identity name.
 	 *
 	 * @param array<string,mixed> $input    Untrusted save payload.
 	 * @param array<string,mixed> $contract Validated contract.
 	 */
-	private function slug( array $input, array $contract ): string {
+	public function slug( array $input, array $contract ): string {
 		$slug = sanitize_title( (string) ( $input['slug'] ?? '' ) );
 
 		if ( '' !== $slug ) {

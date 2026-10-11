@@ -73,8 +73,21 @@ final class MenuCreate extends AbilityKernel {
 					'type'  => 'array',
 					'items' => [ 'type' => 'integer' ],
 				],
+				'items_failed' => [
+					'type'        => 'array',
+					'description' => 'The seeded items that could not be stored, with their position in items and the reason. The menu and the other items are kept.',
+					'items'       => [
+						'type'       => 'object',
+						'properties' => [
+							'index'         => [ 'type' => 'integer' ],
+							'title'         => [ 'type' => 'string' ],
+							'error_code'    => [ 'type' => 'string' ],
+							'error_message' => [ 'type' => 'string' ],
+						],
+					],
+				],
 			],
-			'required' => [ 'menu_id', 'items_added' ],
+			'required' => [ 'menu_id', 'items_added', 'items_failed' ],
 		];
 	}
 
@@ -91,9 +104,16 @@ final class MenuCreate extends AbilityKernel {
 					return $menu_id;
 				}
 
-				$items_added = [];
-				foreach ( (array) ( $args['items'] ?? [] ) as $raw ) {
+				$items_added  = [];
+				$items_failed = [];
+				foreach ( array_values( (array) ( $args['items'] ?? [] ) ) as $index => $raw ) {
 					if ( ! is_array( $raw ) ) {
+						$items_failed[] = [
+							'index'         => $index,
+							'title'         => '',
+							'error_code'    => 'stonewright_menu_item_invalid',
+							'error_message' => 'The item is not an object.',
+						];
 						continue;
 					}
 					$item = [
@@ -109,18 +129,23 @@ final class MenuCreate extends AbilityKernel {
 
 					$item_id = MenuStore::add_item( (int) $menu_id, $item );
 					if ( is_wp_error( $item_id ) ) {
-						// Skip the failing item but keep the menu — the
-						// alternative (roll back the menu term) is more
-						// destructive than helpful and the caller can read
-						// items_added to detect the gap.
+						// Keep the menu and the items that went in (rolling the menu back is
+						// more destructive than helpful), and say which items did not.
+						$items_failed[] = [
+							'index'         => $index,
+							'title'         => (string) ( $raw['title'] ?? '' ),
+							'error_code'    => (string) $item_id->get_error_code(),
+							'error_message' => (string) $item_id->get_error_message(),
+						];
 						continue;
 					}
 					$items_added[] = (int) $item_id;
 				}
 
 				return [
-					'menu_id'     => (int) $menu_id,
-					'items_added' => $items_added,
+					'menu_id'      => (int) $menu_id,
+					'items_added'  => $items_added,
+					'items_failed' => $items_failed,
 				];
 			}
 		);

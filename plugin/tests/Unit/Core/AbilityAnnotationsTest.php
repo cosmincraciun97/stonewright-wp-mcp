@@ -108,6 +108,15 @@ final class AbilityAnnotationsTest extends TestCase {
 		self::assertSame( [ 'readonly' => false, 'destructive' => false, 'idempotent' => false, 'openWorldHint' => true ], $hints );
 	}
 
+	public function test_blocks_remove_is_not_idempotent_because_it_removes_by_index_path(): void {
+		// The verb says remove (idempotent), but a second call with the same path removes the next block.
+		$hints = AbilityAnnotations::for_ability( new \Stonewright\WpMcp\Abilities\Gutenberg\RemoveBlock(), [ 'write' => true, 'external' => false ] );
+
+		self::assertFalse( $hints['idempotent'] );
+		self::assertTrue( $hints['destructive'] );
+		self::assertFalse( $hints['readonly'] );
+	}
+
 	public function test_a_partial_override_keeps_the_other_derived_hints(): void {
 		AbilityAnnotations::use_traits( [ 'stonewright/test-write' => self::WRITE ] );
 		$hints = AbilityAnnotations::for_ability( self::ability( 'stonewright/test-write', [ 'annotations' => [ 'openWorldHint' => true ] ] ) );

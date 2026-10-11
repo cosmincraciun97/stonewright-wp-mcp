@@ -161,7 +161,10 @@ final class InsertBlock extends AbilityKernel {
 				}
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
-				$new_block   = $this->normalize_input_block( $input );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+				$new_block = $this->normalize_input_block( $input );
 
 				$mutated = BlockTree::insert( $blocks, $path, $position, $new_block );
 				if ( $mutated instanceof \WP_Error ) {

@@ -30,7 +30,7 @@ final class UpdateGlobalStyles extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Compatibility wrapper around fse-write-global-styles. Merges or replaces user-level theme.json overrides using the same validator, backup, and confirmation envelope.', 'stonewright' );
+		return __( 'Compatibility wrapper around fse-write-global-styles. Merges or replaces user-level theme.json overrides using the same validator, backup, and confirmation envelope. In merge mode objects merge key by key and a list (such as a color palette) is replaced by the list that was sent. A call that passes neither settings nor styles is refused.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -73,6 +73,22 @@ final class UpdateGlobalStyles extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
+				// A call that names nothing to change would only rewrite the record, so it is refused before
+				// a token is looked at. In merge mode empty objects change nothing either.
+				$has_settings = isset( $args['settings'] ) && is_array( $args['settings'] );
+				$has_styles   = isset( $args['styles'] ) && is_array( $args['styles'] );
+				$replace      = 'replace' === ( $args['mode'] ?? 'merge' );
+				$has_change   = $replace
+					? ( $has_settings || $has_styles )
+					: ( ( $has_settings && [] !== $args['settings'] ) || ( $has_styles && [] !== $args['styles'] ) );
+				if ( ! $has_change ) {
+					return $this->error(
+						'global_styles_empty',
+						__( 'Pass settings and/or styles to change. A call with nothing to change is refused instead of rewriting the global styles.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
+				}
+
 				$verify_args = array_filter(
 					$args,
 					static fn( string $k ) => 'confirmation_token' !== $k && 'custom_code_grant' !== $k,

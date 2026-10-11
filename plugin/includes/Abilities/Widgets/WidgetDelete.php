@@ -14,7 +14,7 @@ final class WidgetDelete extends AbilityKernel {
 	public function label(): string {
  return __( 'Widget: Delete from sidebar', 'stonewright' ); }
 	public function description(): string {
- return __( 'Removes a widget id from a sidebar.', 'stonewright' ); }
+ return __( 'Removes a widget id from a sidebar. The sidebar has to exist and hold the widget; otherwise nothing is changed and the call is refused.', 'stonewright' ); }
 	public function category(): string {
  return 'widgets'; }
 	public function input_schema(): array {
@@ -44,6 +44,20 @@ return $err;
 			$sidebars=wp_get_sidebars_widgets();
 $sid= (string) $args['sidebar_id'];
 $wid= (string) $args['widget_id'];
+			if ( ! in_array( $sid, WidgetSupport::sidebar_ids(), true ) ) {
+				return WidgetSupport::sidebar_error( $sid );
+			}
+			if ( ! in_array( $wid, array_map( 'strval', (array) ( $sidebars[ $sid ] ?? [] ) ), true ) ) {
+				return $this->error(
+					'widget_not_found',
+					'That widget is not in that sidebar. Nothing was changed.',
+					[
+						'status'     => 404,
+						'sidebar_id' => $sid,
+						'widget_id'  => $wid,
+					]
+				);
+			}
 			$widgets=array_values(array_filter(array_map('strval', (array) ( $sidebars[ $sid ]??[] )), static fn( $w )=>$w!==$wid));
 			$sidebars[ $sid ]=$widgets;
 wp_set_sidebars_widgets($sidebars);

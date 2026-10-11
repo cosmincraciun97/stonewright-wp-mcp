@@ -70,7 +70,7 @@ final class DirectionSave extends AbilityKernel {
 				'status'      => [
 					'type'        => 'string',
 					'enum'        => DesignDirectionService::WRITABLE_STATUSES,
-					'description' => 'Lifecycle status. Only a ready contract may be marked ready.',
+					'description' => 'Lifecycle status. Only a ready contract may be marked ready. When it is left out, a stored direction keeps its status (a ready direction stays ready while its contract still reports ready) and a new one is a draft.',
 				],
 				'source_type' => [
 					'type'        => 'string',
