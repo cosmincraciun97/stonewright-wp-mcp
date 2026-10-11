@@ -8,6 +8,7 @@ import {
 } from "../elementor-integrity.js";
 import { assertWriteAllowed, resolveDirectWriteMode } from "../writes.js";
 import { runWpCli, type WpCliCommandResult } from "../../wp-cli.js";
+import { checkLocalWpTarget } from "../elementor-target.js";
 
 export type ElementorCli = typeof runWpCli;
 
@@ -229,6 +230,8 @@ export type ElementorFullReadResult = {
   data?: unknown;
   error?: string;
   hint?: string;
+  /** Set when WP-CLI was skipped because the local install is not the alias site. */
+  wp_cli_refused?: string;
 };
 
 function collectionCandidates(type?: string): string[] {
@@ -333,10 +336,27 @@ export async function elementorStatus(
     undefined,
     env,
   );
-  const wpCli = Boolean(status.available && status.ok);
+  let wpCli = Boolean(status.available && status.ok);
+  let refused: string | undefined;
+  if (wpCli && rest?.target?.url) {
+    const target = await checkLocalWpTarget(
+      env,
+      rest.target,
+      {
+        ...(input.cwd ? { cwd: input.cwd } : {}),
+        ...(input.path ? { path: input.path } : {}),
+      },
+      cli,
+    );
+    if (!target.ok) {
+      wpCli = false;
+      refused = target.message;
+    }
+  }
   if (!wpCli) {
     return {
       wp_cli: false,
+      ...(refused ? { wp_cli_refused: refused } : {}),
       rest_fallback: Boolean(rest),
       elementor_active: null,
       version: null,
@@ -345,7 +365,7 @@ export async function elementorStatus(
       transport_preference: rest ? ["rest"] : [],
       guidance: rest
         ? [
-            "WP-CLI is not available (typical for remote/live Direct).",
+            refused ?? "WP-CLI is not available (typical for remote/live Direct).",
             "Direct will try core REST meta for _elementor_data when it is REST-registered (context=edit).",
             "This is NOT plugin batch-mutate: no Elementor schema validation, no CSS rebuild engine.",
             "Prefer Stonewright plugin mode for production Elementor work on live sites.",
@@ -437,7 +457,17 @@ async function readFullTree(
     ),
   );
 
-  if (probe.available !== false && probe.ok) {
+  let refused: string | undefined;
+  let cliUsable = probe.available !== false && probe.ok;
+  if (cliUsable && rest?.target?.url) {
+    const target = await checkLocalWpTarget(env, rest.target, base, cli);
+    if (!target.ok) {
+      cliUsable = false;
+      refused = target.message;
+    }
+  }
+
+  if (cliUsable) {
     const meta = asFull(
       await cli(
         {
@@ -518,7 +548,8 @@ async function readFullTree(
   }
 
   if (rest) {
-    return restDataGet(rest, input.post_id, input.type);
+    const viaRest = await restDataGet(rest, input.post_id, input.type);
+    return refused ? { ...viaRest, wp_cli_refused: refused } : viaRest;
   }
 
   return {
@@ -551,6 +582,7 @@ export async function elementorDataGet(
       post_id: full.post_id,
       transport: full.transport,
       ...(full.collection !== undefined ? { collection: full.collection } : {}),
+      ...(full.wp_cli_refused ? { wp_cli_refused: full.wp_cli_refused } : {}),
       edit_mode: full.edit_mode ?? null,
       template_type: full.template_type ?? null,
       element_count: count,
@@ -568,6 +600,7 @@ export async function elementorDataGet(
     post_id: full.post_id,
     transport: full.transport,
     ...(full.collection !== undefined ? { collection: full.collection } : {}),
+    ...(full.wp_cli_refused ? { wp_cli_refused: full.wp_cli_refused } : {}),
     edit_mode: full.edit_mode ?? null,
     template_type: full.template_type ?? null,
     element_count: count,
@@ -635,8 +668,10 @@ export async function elementorDataUpdate(
   const current = await readFullTree(env, input, cli, rest);
   if (!current.ok) {
     throw new Error(
-      current.error ||
-        "Cannot backup current Elementor data before write (get failed).",
+      `${
+        current.error ||
+        "Cannot backup current Elementor data before write (get failed)."
+      }${current.wp_cli_refused ? ` ${current.wp_cli_refused}` : ""}`,
     );
   }
 
@@ -879,6 +914,7 @@ export async function elementorDataUpdate(
     post_id: input.post_id,
     transport: "rest" as const,
     collection,
+    ...(current.wp_cli_refused ? { wp_cli_refused: current.wp_cli_refused } : {}),
     backup_path: backupPath,
     element_cache_invalidated: false,
     css_meta_invalidated: false,

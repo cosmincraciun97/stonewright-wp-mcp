@@ -309,6 +309,8 @@ function appendDirectAuditUnlocked(
 				cause_key: entry.causeKey ?? `${entry.tool}|${code ?? 'unknown_error'}`,
 				severity: entry.severity ?? 'error',
 				timestamp: String(row['timestamp']),
+				// incident-repair-record needs a resource and a change set on the failure row.
+				repair_path: Boolean(entry.changeSetId) && Boolean(resource),
 			});
 		} catch {
 			row['secondary_errors'] = [{

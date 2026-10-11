@@ -23,12 +23,12 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 |---|---|---|
 | Site discover / REST types | Yes | Yes (richer via abilities) |
 | Pages/posts list create update delete | Yes (core REST) | Yes |
-| Media upload | Yes (core REST) | Yes |
+| Media upload | Yes (core REST). A local `path` must sit inside the working directory, `<state dir>/media` or `STONEWRIGHT_DIRECT_MEDIA_ROOTS`, else `confirm:true`; a `url` must be http or https and resolve to a public address on every redirect hop. Images, audio, video, PDF, Office, txt and csv only (never SVG, HTML or PHP), at most 25 MiB | Yes |
 | Menus | Limited (core REST menus when available) | Yes + WP-CLI |
 | Taxonomy terms | Yes | Yes |
 | Settings read | Yes | Yes |
 | Global styles / FSE | Yes when endpoints exist | Yes |
-| Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
+| Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI when the local install is the alias site, else REST meta when registered; a different local install is reported as `wp_cli_refused`). Local writes invalidate only post HTML cache, preserve CSS metadata, never run global `flush-css`, and require Plugin-mode CSS closure plus browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus guarded post-write frontend verification |
 | PHP execute | **No** | Yes (`stonewright/php-execute`) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
@@ -49,6 +49,19 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 ## Degradation expectations
 
 - Elementor / DesignSpec tools must not crash: they return a clear install-plugin message.
+- With a remote alias and a local WP-CLI path that points at another site, the
+  Elementor tools must not read or write through WP-CLI: they answer through REST
+  and return `wp_cli_refused`.
+- `media-upload` refuses a local file outside the allowed roots without
+  `confirm:true`, and refuses a URL that is not http(s) or that resolves (or
+  redirects) to a private, loopback, link-local or multicast address. It also
+  refuses SVG, HTML, XML, PHP, script, executable and archive files even with
+  `confirm:true`, a file over 25 MiB, and a file whose first bytes do not match
+  its extension.
+- One failed tool call must not make `task-start` return
+  `repair_open_incidents_first`; only an open incident with a resource and a
+  change set on its failure row does, and any other incident quiet for seven days
+  closes.
 - Local Elementor writes invalidate only the target post's element/HTML cache,
   preserve CSS metadata, never run a CSS flush, and report visual verification
   as required; Plugin mode is required for guarded CSS closure.

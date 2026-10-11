@@ -242,4 +242,103 @@ describe('DirectIncidentStore', () => {
 		)).toBe(false);
 		expect(store.get(validated.incident_id)).toMatchObject({ state: 'open', learning_status: 'none' });
 	});
+
+	describe('repair path and age-out', () => {
+		const DAY = 86_400_000;
+		const T0 = Date.parse('2026-08-12T08:00:00.000Z');
+
+		it('records whether the latest failure carries a verifier path', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			expect(store.observeFailure(failure()).repair_path).toBe(false);
+			expect(store.observeFailure(failure({ repair_path: true })).repair_path).toBe(true);
+			expect(store.observeFailure(failure({ repair_path: false })).repair_path).toBe(false);
+		});
+
+		it('reads an incident saved before the field existed as having no repair path', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			const incident = store.observeFailure(failure({ repair_path: true }));
+			const legacy = JSON.parse(readFileSync(store.path(), 'utf8')) as { incidents: Array<Record<string, unknown>> };
+			delete legacy.incidents[0]?.['repair_path'];
+			writeFileSync(store.path(), `${JSON.stringify(legacy)}
+`, { mode: 0o600 });
+			expect(store.get(incident.incident_id)?.repair_path).toBe(false);
+		});
+
+		it('requires repair only for an open incident that has a repair path', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			expect(store.requiresRepair()).toBe(false);
+			store.observeFailure(failure({ repair_path: true }));
+			expect(store.requiresRepair()).toBe(false); // observing: one failure
+			store.observeFailure(failure({ repair_path: true }));
+			expect(store.requiresRepair()).toBe(true);
+			store.observeFailure(failure({ repair_path: false }));
+			expect(store.requiresRepair()).toBe(false); // the latest failure has no path
+			expect(store.actions()).toHaveLength(1); // still listed
+		});
+
+		it('ranks an incident with a repair path ahead of one without', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			for (let i = 0; i < 4; i += 1) store.observeFailure(failure());
+			store.observeFailure(failure({ ability: 'stonewright-media-upload', error_code: 'upload_failed', cause_key: 'm', repair_path: true }));
+			store.observeFailure(failure({ ability: 'stonewright-media-upload', error_code: 'upload_failed', cause_key: 'm', repair_path: true }));
+			expect(store.actions()[0]?.ability).toBe('stonewright-media-upload');
+		});
+
+		it('resolves open and observing incidents after seven quiet days and leaves newer ones', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			const stale = store.observeFailure(failure({ timestamp: new Date(T0).toISOString() }));
+			store.observeFailure(failure({
+				ability: 'stonewright-media-upload', error_code: 'upload_failed', cause_key: 'm',
+				timestamp: new Date(T0 + 3 * DAY).toISOString(),
+			}));
+
+			expect(store.expireStale(T0 + 7 * DAY - 1)).toBe(0);
+			expect(store.expireStale(T0 + 7 * DAY)).toBe(1);
+			const row = store.get(stale.incident_id)!;
+			expect(row.state).toBe('resolved');
+			expect(row.resolved_at).toBe(new Date(T0 + 7 * DAY).toISOString());
+			expect(row.learning_status).toBe('none');
+			expect(row.repair_receipt_id).toBeNull();
+			expect(store.actions().map((a) => a.ability)).toEqual(['stonewright-media-upload']);
+			expect(store.expireStale(T0 + 7 * DAY)).toBe(0); // idempotent
+		});
+
+		it('does not age out an incident whose latest failure has a repair path', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			const timestamp = new Date(T0).toISOString();
+			const kept = store.observeFailure(failure({ timestamp, repair_path: true }));
+			store.observeFailure(failure({ timestamp, repair_path: true }));
+			const plain = store.observeFailure(failure({
+				ability: 'stonewright-media-upload', error_code: 'upload_failed', cause_key: 'm', timestamp,
+			}));
+			expect(store.expireStale(T0 + 30 * DAY)).toBe(1);
+			expect(store.get(kept.incident_id)?.state).toBe('open');
+			expect(store.get(plain.incident_id)?.state).toBe('resolved');
+			expect(store.requiresRepair()).toBe(true);
+		});
+
+		it('reopens an aged-out incident on a new matching failure and counts it', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			const first = store.observeFailure(failure({ timestamp: new Date(T0).toISOString() }));
+			store.expireStale(T0 + 9 * DAY);
+			const again = store.observeFailure(failure({ timestamp: new Date(T0 + 10 * DAY).toISOString() }));
+			expect(again.incident_id).toBe(first.incident_id);
+			expect(again.state).toBe('open');
+			expect(again.reopened_count).toBe(1);
+		});
+
+		it('does not create state when there are no incidents', () => {
+			const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+			const store = new DirectIncidentStore(baseDir, fingerprint('site-a'));
+			expect(store.expireStale(T0)).toBe(0);
+			expect(existsSync(join(baseDir, 'incidents'))).toBe(false);
+		});
+	});
 });

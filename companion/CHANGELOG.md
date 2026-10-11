@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Limit `stonewright-media-upload`. A local `path` is resolved first (symlinks
+  and `..` included) and must sit inside the working directory, the companion
+  media folder (`<state dir>/media`) or a root listed in the new
+  `STONEWRIGHT_DIRECT_MEDIA_ROOTS` (comma- or semicolon-separated); any other
+  file is refused unless the call passes `confirm: true`. A `url` must be http
+  or https and must resolve only to public addresses: private, loopback,
+  link-local, multicast and reserved IPv4 and IPv6 ranges are refused, whether
+  given as an address or reached through a name. Redirects are followed one hop
+  at a time (at most five) and each hop gets the same check. The tool takes a
+  new optional `confirm` argument.
+- Limit what `stonewright-media-upload` sends, for a path and for a URL. Only
+  image, audio, video, PDF, Office, OpenDocument, txt and csv extensions are
+  accepted; SVG, HTML, XML, PHP, scripts, executables and archives are refused
+  even with `confirm: true`. A file over 25 MiB (`STONEWRIGHT_DIRECT_MEDIA_MAX_BYTES`
+  changes it, up to 512 MiB) is refused: a local file is measured before it is
+  read, and a download stops as soon as it passes the limit. For images and PDF
+  the first bytes must match the extension, and no file may start with markup or
+  contain a PHP open tag near its start. The upload name is reduced to one safe
+  file name (no directories, control or direction-override characters, or
+  characters WordPress drops; an inner `.php` is marked, as WordPress does), and
+  a name with no extension takes the source extension or the one the response
+  content type implies. A download now has a 60 second limit.
+
+### Fixed
+
+- Stop Direct Elementor tools from using WP-CLI on the wrong site.
+  `stonewright-elementor-status`, `-data-get` and `-data-update` now compare
+  the `home` option (then `siteurl`) of the local WP-CLI install with the alias
+  URL before using WP-CLI for an alias. When they differ, or the local address
+  cannot be read, WP-CLI is not used: the tool answers through core REST and
+  returns `wp_cli_refused` ("the local WordPress is not the target site"),
+  without naming either host. The answer is cached per alias and local install
+  for the life of the process. Calls with no alias are unchanged.
+- Stop one tool error from blocking Direct task start for good.
+  `stonewright-task-start` returned `required_actions:
+  ["repair_open_incidents_first"]` for every incident, but Direct writes no
+  change set or verifier row, so `stonewright-incident-repair-record` could not
+  close it. Now only an open incident whose latest failure row carries a
+  resource and a change set requires repair first. Other incidents stay in
+  `incident_actions` as information, with a guidance line saying so. An open or
+  observing incident with no new matching failure for seven days is closed as
+  resolved at the end of that period and leaves `incident_actions`, unless its
+  latest failure carries a resource and a change set (those wait for a verified
+  repair, as write incidents do in Plugin mode); a later matching failure reopens
+  a closed incident and counts the reopening.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added
