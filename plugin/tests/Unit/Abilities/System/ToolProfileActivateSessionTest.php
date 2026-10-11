@@ -51,7 +51,7 @@ final class ToolProfileActivateSessionTest extends TestCase {
 		self::assertContains( 'stonewright/theme-file-patch', $session['ability_names'] );
 	}
 
-	public function test_activate_full_writes_full_session_profile_on_essential_surface(): void {
+	public function test_activate_full_is_refused_and_writes_no_session_profile_on_essential_surface(): void {
 		$result = ( new ToolProfile() )->execute(
 			[
 				'action'  => 'activate',
@@ -59,12 +59,9 @@ final class ToolProfileActivateSessionTest extends TestCase {
 			]
 		);
 
-		self::assertIsArray( $result );
-		self::assertTrue( $result['session_profile_applied'] );
-
-		$session = AbilityRegistry::session_tool_profile();
-		self::assertIsArray( $session );
-		self::assertSame( 'full', $session['profile'] );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_tool_profile_full_requires_admin', $result->get_error_code() );
+		self::assertNull( AbilityRegistry::session_tool_profile() );
 		self::assertSame( 'essential', AbilityRegistry::mcp_surface() );
 	}
 

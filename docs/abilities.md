@@ -128,7 +128,12 @@ compatibility tools. `stonewright-context-bootstrap` is also the tool-list
 sentinel: if it is missing, the Stonewright MCP server did not load.
 
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
-the task needs to switch or verify a low-token execution profile. It returns
+the task needs to switch or verify a low-token execution profile. It never
+switches to the `full` profile: an administrator chooses the Full tool surface
+in wp-admin (Stonewright > Setup > Settings), and a request for `full` is
+refused with `stonewright_tool_profile_full_requires_admin`,
+`approval_required`, `agent_must_stop` and the settings link, in every mode.
+`action=resolve` can still describe it. It returns
 compact profiles such as `low-tools`, `elementor-design`, `content-model`,
 `gutenberg`, `wp-cli`, and the opt-in `discover-execute` and read-only
 `inspect` with the hyphenated MCP
@@ -298,7 +303,8 @@ is needed, call `stonewright-tool-profile` with the profile that owns the write
 
 Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
 inside the loaded WordPress runtime. It is on the **full** tool profile only —
-no other profile, including bootstrap and essential, exposes it. It has access to WordPress functions,
+no other profile, including bootstrap and essential, exposes it — and an
+administrator chooses that profile in wp-admin; an agent cannot switch to it. It has access to WordPress functions,
 loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
 abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected

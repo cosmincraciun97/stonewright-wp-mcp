@@ -205,6 +205,7 @@ final class UserObjectPermissionsTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_user_last_administrator', $result->get_error_code() );
+		$this->assertSame( 'The last administrator cannot be demoted.', $result->get_error_message(), 'A role change says demoted, not deleted.' );
 		$this->assertSame( [ 'administrator' ], $GLOBALS['stonewright_test_users'][ self::ADMIN ]['roles'] );
 	}
 
@@ -348,6 +349,7 @@ final class UserObjectPermissionsTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_user_last_administrator', $result->get_error_code() );
+		$this->assertSame( 'The last administrator cannot be deleted.', $result->get_error_message() );
 		$this->assertArrayHasKey( self::ADMIN, $GLOBALS['stonewright_test_users'] );
 	}
 

@@ -224,7 +224,8 @@ describe('handleToolsChangedResponse', () => {
 					},
 				})),
 			},
-			structured: { tools_changed: true, session_tool_profile: 'full' },
+			// The site's surface is Full, which an administrator chose in wp-admin.
+			structured: { tools_changed: true, session_tool_profile: 'full', configured_mcp_surface: 'full' },
 			activeProfile: 'essential',
 			maxTools: null,
 			registered,

@@ -10,8 +10,10 @@ use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\CustomCode\Providers\CodeSnippetsProvider;
 use Stonewright\WpMcp\CustomCode\Providers\WpCodeProvider;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
+use Stonewright\WpMcp\Tests\Support\McpToolCall;
 use Stonewright\WpMcp\Tests\Unit\Security\ChangeSetAssertions;
 
+require_once dirname( __DIR__, 2 ) . '/Support/McpToolCall.php';
 require_once dirname( __DIR__ ) . '/Security/ChangeSetAssertions.php';
 
 /**
@@ -643,6 +645,37 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertSame( $path, $plan['path'] );
 		self::assertStringContainsString( 'proposal_id=', (string) $plan['approval_url'] );
 		self::assertSame( $current, $this->stored_code( $provider, $target ) );
+	}
+
+	/** @dataProvider snippet_providers */
+	public function test_the_approval_link_of_a_snippet_rollback_reaches_the_mcp_client( string $provider, string $target, string $path ): void {
+		$ops     = new ProviderOps();
+		$applied = $this->apply_through_ops( $ops, $provider, $target );
+
+		$reply = McpToolCall::call( $ops, [ 'action' => 'rollback', 'provider' => $provider, 'target_id' => $target, 'snapshot_id' => $applied['snapshot_id'] ] );
+
+		self::assertTrue( $reply['is_error'] );
+		self::assertSame( 1, preg_match( '/(\{.*\})\s*$/', $reply['text'], $match ), $reply['text'] );
+		$payload = json_decode( $match[1], true );
+		self::assertSame( 'stonewright_custom_code_grant_required', $payload['code'] );
+		self::assertTrue( $payload['approval_required'] );
+		self::assertTrue( $payload['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', $payload['approval_url'] );
+		self::assertStringContainsString( 'proposal_id=', $payload['approval_url'] );
+	}
+
+	public function test_the_approval_link_of_an_apply_without_a_grant_reaches_the_mcp_client(): void {
+		$ops = new ProviderOps();
+
+		$reply = McpToolCall::call( $ops, [ 'action' => 'apply', 'provider' => 'wpcode', 'target_id' => '12', 'code' => self::CANDIDATE, 'language' => 'php' ] );
+
+		self::assertTrue( $reply['is_error'] );
+		self::assertSame( 1, preg_match( '/(\{.*\})\s*$/', $reply['text'], $match ), $reply['text'] );
+		$payload = json_decode( $match[1], true );
+		self::assertSame( 'stonewright_custom_code_grant_required', $payload['code'] );
+		self::assertTrue( $payload['approval_required'] );
+		self::assertTrue( $payload['agent_must_stop'] );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', $payload['approval_url'] );
 	}
 
 	/** @dataProvider snippet_providers */

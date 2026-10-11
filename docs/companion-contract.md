@@ -188,7 +188,9 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
    routes above are unchanged.
 8. A Direct typed write returns `verification` (`verified`, `mismatch` or
    `not_checked`) from a read of the resource after the write; a mismatch is
-   `ok:false`, `error:"verification_mismatch"`. Direct lists and restores its saved
+   `ok:false`, `error:"verification_mismatch"`. A slug that WordPress stored with
+   a numeric suffix (`-2`, `-3`) because the one sent is taken is `verified` and
+   reported as `verification.slug_adjusted` (`requested`, `stored`). Direct lists and restores its saved
    copies with `stonewright-direct-backup-list` and
    `stonewright-direct-backup-restore` (confirmation, hash-checked, undoable); the
    names differ from the Plugin abilities. A page, post or template write may be

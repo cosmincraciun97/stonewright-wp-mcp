@@ -197,6 +197,13 @@ writes nothing. A rollback without the grant answers
 not issue or use a grant itself. The restore that runs after a failed apply, in
 the same call, does not ask again.
 
+Every refusal that waits for a person (a promotion to guidance, a custom-code
+grant, a snippet rollback, an undo of code, the full profile) carries its
+`code`, `approval_required`, `agent_must_stop` and `approval_url` in the error
+text an MCP client receives, not only in the error data a REST client reads, so
+the client can show the link and stop. A link that is not an http or https
+address is left out.
+
 ### Rescue after a failed change
 
 A change that leaves the site failing is recorded in the change journal and rolled back from the state Stonewright captured before the write. The parts that carry trust:
@@ -443,6 +450,18 @@ or a custom widget definer is refused with
 `stonewright_tool_profile_extras_restricted`, and a stored extra that names one is
 ignored. They come only from the profile that lists them (`full` for
 `php-execute`).
+
+The `full` profile is a person's choice. An administrator sets the MCP tool
+surface to Full in wp-admin (Stonewright > Setup > Settings); an agent cannot
+switch to it. `stonewright-tool-profile` with `action=activate` and
+`profile=full` returns `stonewright_tool_profile_full_requires_admin` (HTTP 403,
+`approval_required`, `agent_must_stop`, the settings link) in development,
+staging and production-safe mode, with or without a confirmation token, and
+writes no session profile. The other profiles still switch. A site whose
+administrator already chose Full has nothing to switch. In the companion,
+`STONEWRIGHT_MCP_TOOL_PROFILE=full` is the choice of the person who runs it; no
+tool changes it, and a profile hint in a tool result cannot move the companion
+onto `full` unless the site surface is already Full.
 
 These guards do not make php-execute a sandbox. Prefer typed abilities for
 Elementor, FSE, options, and post writes. A successful call whose snippet uses

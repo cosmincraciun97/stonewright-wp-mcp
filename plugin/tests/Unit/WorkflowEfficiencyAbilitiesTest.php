@@ -341,7 +341,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.', $result['token_rules'] );
 	}
 
-	public function test_tool_profile_full_still_recommends_php_execute(): void {
+	public function test_tool_profile_full_still_recommends_php_execute_on_a_site_an_administrator_set_to_full(): void {
+		// The full profile is an administrator's choice in wp-admin; the ability does not make it.
+		update_option( 'stonewright_mcp_surface', 'full', false );
+		update_option( 'stonewright_essential_tools_mode', false, false );
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
 
 		self::assertNotNull( $ability );

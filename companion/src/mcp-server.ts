@@ -861,7 +861,7 @@ function companionInstructions(
 	} else {
 		// php-execute is on the full profile only, so other profiles are not told to call it.
 		lines.push(
-			'- stonewright-php-execute is on the full profile only; switch to the full profile with stonewright-tool-profile when a runtime snippet is required.',
+			'- stonewright-php-execute is on the full profile only. An administrator chooses the Full surface in wp-admin and the person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full; stonewright-tool-profile does not switch to it. Ask the user when a runtime snippet is required.',
 			'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
 			'- If a needed tool is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
 			'- Do not run wp commands in a normal shell, and never run PHP through WP-CLI eval, shell, package, --exec, or --require entry points.',

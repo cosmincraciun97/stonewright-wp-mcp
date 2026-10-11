@@ -137,7 +137,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design.', 'stonewright' );
+		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. Auto routing sends ambiguous design tasks to gutenberg when surface=gutenberg, block/FSE terms, or a Gutenberg-first theme fingerprint appear; otherwise Elementor-active sites route to elementor-design. The full profile (php-execute and the other abilities that run or write code) is never switched on through this ability: an administrator chooses the Full surface in wp-admin under Stonewright > Setup > Settings, and a request for full is refused with approval_required and agent_must_stop.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -174,7 +174,7 @@ final class ToolProfile extends AbilityKernel {
 					'type'        => 'string',
 					'default'     => 'auto',
 					'enum'        => self::profile_names(),
-					'description' => 'Tool profile to return. Use auto for task-aware routing. inspect lists read-only discovery, read, and verify tools; auto never selects it.',
+					'description' => 'Tool profile to return. Use auto for task-aware routing. inspect lists read-only discovery, read, and verify tools; auto never selects it. full is chosen by an administrator in wp-admin (Stonewright > Setup > Settings > MCP tool surface), never through this ability: activate with full is refused unless the site already uses the Full surface; resolve can still describe it.',
 				],
 				'task'      => [
 					'type'        => 'string',
@@ -412,6 +412,13 @@ final class ToolProfile extends AbilityKernel {
 			];
 		}
 
+		// The full profile lists php-execute and the other abilities that run or write code. Only an administrator
+		// in wp-admin chooses it; no mode, token or caller changes that here. A site whose administrator already
+		// chose the Full surface has nothing to switch, so the call goes on.
+		if ( 'full' === $profile && 'full' !== AbilityRegistry::mcp_surface() ) {
+			return self::full_requires_admin_error();
+		}
+
 		$token_error = $this->require_production_safe_token( $args );
 		if ( $token_error instanceof \WP_Error ) {
 			return $token_error;
@@ -552,6 +559,24 @@ final class ToolProfile extends AbilityKernel {
 			'source'                => 'plugin',
 			'ordered'               => true,
 		];
+	}
+
+	/**
+	 * The refusal of an activation of the full profile: it carries the wp-admin address where an administrator chooses it.
+	 */
+	private static function full_requires_admin_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_tool_profile_full_requires_admin',
+			__( 'The full profile (php-execute and the other abilities that run or write code) can only be chosen by an administrator in wp-admin, under Stonewright > Setup > Settings > MCP tool surface. Show the user the settings link and stop. Do not retry, and do not look for another way to switch the profile.', 'stonewright' ),
+			[
+				'status'            => 403,
+				'retryable'         => false,
+				'execution_status'  => 'blocked',
+				'approval_required' => true,
+				'agent_must_stop'   => true,
+				'approval_url'      => admin_url( 'admin.php?page=stonewright&tab=settings' ) . '#stonewright_mcp_surface',
+			]
+		);
 	}
 
 	/**

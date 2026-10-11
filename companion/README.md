@@ -274,7 +274,8 @@ After every typed write the resource is read back (`context=edit`) and the field
 that were sent are compared with what WordPress returns, the way WordPress
 returns them (`{raw, rendered}` pairs reduce to `raw`, line endings are unified,
 numbers and numeric strings match). The result carries `verification`:
-`verified`, `mismatch` (the result is `ok:false` with `error:"verification_mismatch"`,
+`verified` (a slug that WordPress stored with a numeric suffix because the one sent was taken is
+`verified` with `slug_adjusted: { requested, stored }`), `mismatch` (the result is `ok:false` with `error:"verification_mismatch"`,
 the differing fields and, when a saved copy exists, `restore_with`) or
 `not_checked` (the readback could not be read). The write audit row carries
 `before_sha256` and `after_sha256` (a hash of the stored state without volatile
@@ -683,7 +684,14 @@ For Antigravity, Gemini API, or other strict tool-cap clients, set
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
 the canonical `stonewright-wp-cli-*` recovery tools remain local. Like the
 bootstrap profile, it registers no `stonewright-php-execute`, even when the
-site's saved surface is `full`; that tool is on the full profile only.
+site's saved surface is `full`; that tool is on the full profile only. The full
+profile is chosen by a person: the one who runs the companion sets
+`STONEWRIGHT_MCP_TOOL_PROFILE=full`, and an administrator sets the site's tool
+surface to Full in wp-admin. No tool switches to it: `stonewright-tool-profile`
+with `action=activate` and `profile=full` returns the plugin's refusal
+(`approval_required`, `agent_must_stop` and the settings link) or, with no
+plugin, its own, and a profile hint in a tool result does not move the companion
+onto `full` unless the site surface is Full.
 For a session that should only look, set `STONEWRIGHT_MCP_TOOL_PROFILE=inspect`.
 It registers discovery, read, and verify tools plus the permanent gateways and
 the local `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` tools. It

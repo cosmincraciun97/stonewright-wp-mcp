@@ -486,6 +486,13 @@ development builds were never stable releases.
   disabled candidate (Direct cannot activate a skill), and keep an existing page's
   status in Direct `stonewright-blueprint-apply`. The Direct `full` budget is 105
   tools. See the companion changelog.
+- `stonewright-tool-profile` in the companion does not switch to the `full` profile.
+  `action=activate` with `profile=full` returns the plugin's refusal (`approval_required`,
+  `agent_must_stop`, the settings link) as an error, or its own when no plugin answers,
+  and no longer falls back to a local catalog that reports success. A profile hint in
+  a tool result moves the companion onto `full` only when the site's tool surface is
+  Full. `STONEWRIGHT_MCP_TOOL_PROFILE=full`, set by the person who runs the companion,
+  is unchanged. The server instructions and `doctor` say who chooses `full`.
 
 ### Fixed
 
@@ -811,6 +818,30 @@ development builds were never stable releases.
   names another alias is refused with `site_not_in_session`
   (`stonewright-task-start` returns the same refusal). With no alias set nothing
   changes.
+- An error that waits for a person now carries its approval link to the MCP client.
+  The promotion of a skill to guidance, a custom-code grant, a snippet rollback, an
+  undo of code and a request for the full profile put their `code`,
+  `approval_required`, `agent_must_stop` and `approval_url` into the error text the
+  client receives; before, the link was only in error data that the MCP transport
+  does not forward. The REST error envelope keeps the same fields.
+- The error for changing the role of the last administrator says the administrator
+  cannot be demoted; deleting the last administrator still says deleted.
+- A user who may not approve gets HTTP 403, not 500, from the Skills page, its form
+  handlers and the custom-code approval page.
+- `wp-cli-batch-run` answers in the shape of its output schema (`count`,
+  `succeeded`, `failed`, `stopped`, `results`) when the companion cannot be reached,
+  instead of failing the schema check.
+- Direct write checks accept the slug WordPress adds a numeric suffix to when the
+  one sent is taken (`v4-test` stored as `v4-test-2`). The write is `verified` and
+  the answer carries `verification.slug_adjusted` with the requested and the stored
+  slug, instead of `ok:false` with `verification_mismatch`. Any other difference in
+  the slug is still a mismatch.
+- Direct `user-list` reads with `context=edit`, so each user carries its `roles`. An
+  account that may not list users gets the public view, where core returns no roles,
+  and the answer says `roles_available:false` instead of showing an empty `roles`.
+- Direct `settings-get` names `default_role` and `users_can_register` in
+  `not_available_in_direct`, with a note, because core REST does not expose them,
+  instead of leaving them out or listing them as unknown keys.
 
 ### Security
 
@@ -1003,6 +1034,16 @@ development builds were never stable releases.
 - Reject URLs with control characters, spaces or quote characters in
   `stonewright-elementor-knowledge-refresh`.
 - Run the static guard again when a disabled sandbox file is enabled.
+- Choosing the `full` tool profile, which lists `php-execute` and the other abilities
+  that run or write code, is now only possible for an administrator in wp-admin,
+  under Stonewright > Setup > Settings > MCP tool surface. `stonewright-tool-profile`
+  no longer activates it, in development, staging or production-safe mode and with
+  or without a confirmation token: a request for `full` returns
+  `stonewright_tool_profile_full_requires_admin` with `approval_required`,
+  `agent_must_stop` and the settings link, and writes no session profile. The other
+  profiles switch as before, `action=resolve` still describes `full`, and a site
+  whose administrator already chose the Full surface has nothing to switch. The
+  tool descriptions, AGENTS.md and the docs say the same.
 
 ### Documentation
 

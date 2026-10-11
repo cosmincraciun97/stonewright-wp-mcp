@@ -17,7 +17,7 @@ When an AI client cannot see or call Stonewright tools mid-session, walk this ta
 
 - Set `STONEWRIGHT_MCP_MAX_TOOLS=50` in the companion environment so the companion and client agree on the cap and the plugin’s write-critical-first ordering decides what survives.
 - Keep exactly one Stonewright server entry in client configuration. Parallel plugin-proxy and Direct entries double-register overlapping tools and consume the cap.
-- `STONEWRIGHT_MCP_TOOL_PROFILE` is only the startup profile. Mid-session expansion happens through `stonewright-task-start` and `stonewright-tool-profile`; set `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you explicitly want to freeze the environment-selected startup surface.
+- `STONEWRIGHT_MCP_TOOL_PROFILE` is only the startup profile. Mid-session expansion happens through `stonewright-task-start` and `stonewright-tool-profile` (never to `full`, which an administrator chooses in wp-admin); set `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you explicitly want to freeze the environment-selected startup surface.
 
 ## Verify the live surface
 

@@ -129,4 +129,78 @@ final class ErrorEnvelopeTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 'data', $envelope['error'] );
 	}
+
+	// -------------------------------------------------------------------------
+	// A refusal that waits for a person names the page where the person decides.
+	// -------------------------------------------------------------------------
+
+	public function test_the_message_of_an_approval_refusal_carries_its_code_flags_and_link(): void {
+		$error = new \WP_Error(
+			'stonewright_custom_code_grant_required',
+			'Show the user the approval URL and stop.',
+			[
+				'status'            => 400,
+				'retryable'         => false,
+				'execution_status'  => 'blocked',
+				'approval_required' => true,
+				'agent_must_stop'   => true,
+				'approval_url'      => 'https://example.test/wp-admin/admin.php?page=stonewright-custom-code-approval&proposal_id=abc',
+				'after_sha256'      => str_repeat( 'a', 64 ),
+			]
+		);
+
+		$message = ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message();
+
+		$this->assertSame( 1, preg_match( '/(\{.*\})\s*$/', $message, $match ), $message );
+		$payload = json_decode( $match[1], true );
+		$this->assertSame( 'stonewright_custom_code_grant_required', $payload['code'] );
+		$this->assertTrue( $payload['approval_required'] );
+		$this->assertTrue( $payload['agent_must_stop'] );
+		$this->assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright-custom-code-approval&proposal_id=abc', $payload['approval_url'] );
+		$this->assertArrayNotHasKey( 'after_sha256', $payload, 'Only the approval fields are copied.' );
+	}
+
+	public function test_a_link_that_is_not_an_http_address_is_left_out_of_the_message_and_the_envelope(): void {
+		$error = new \WP_Error(
+			'stonewright_promotion_approval_required',
+			'Show the user the approval link and stop.',
+			[
+				'approval_required' => true,
+				'agent_must_stop'   => true,
+				'approval_url'      => 'javascript:alert(1)',
+			]
+		);
+
+		$message = ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message();
+		$this->assertStringNotContainsString( 'javascript', $message );
+		$this->assertStringContainsString( '"approval_required":true', $message );
+		$this->assertArrayNotHasKey( 'approval_url', ErrorEnvelope::from_wp_error( $error )['error']['data'] );
+	}
+
+	public function test_the_envelope_keeps_the_approval_flags_and_link(): void {
+		$error = new \WP_Error(
+			'stonewright_promotion_approval_required',
+			'Show the user the approval link and stop.',
+			[
+				'status'            => 403,
+				'approval_required' => true,
+				'agent_must_stop'   => true,
+				'approval_url'      => 'https://example.test/wp-admin/admin.php?page=stonewright-skills&view=catalog&promotion=req1',
+				'request_id'        => 'req1',
+			]
+		);
+
+		$data = ErrorEnvelope::from_wp_error( $error )['error']['data'];
+
+		$this->assertTrue( $data['approval_required'] );
+		$this->assertTrue( $data['agent_must_stop'] );
+		$this->assertSame( 'https://example.test/wp-admin/admin.php?page=stonewright-skills&view=catalog&promotion=req1', $data['approval_url'] );
+		$this->assertArrayNotHasKey( 'request_id', $data );
+	}
+
+	public function test_an_error_without_approval_flags_gets_no_approval_fields(): void {
+		$error = new \WP_Error( 'stonewright_something', 'Oops.', [ 'status' => 400, 'approval_url' => 'https://example.test/' ] );
+
+		$this->assertSame( 'Oops.', ErrorEnvelope::with_agent_visible_payload( $error )->get_error_message() );
+	}
 }

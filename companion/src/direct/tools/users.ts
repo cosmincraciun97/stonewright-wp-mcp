@@ -1,4 +1,5 @@
 import { assertToolEnabled, assertWriteAllowed, DirectSafetyBlockedError } from "../writes.js";
+import { WpRestError } from "../wp-rest-client.js";
 import { attachVerification, verifyWrite } from "../verify.js";
 import { refuseCustomCode, scanTextFields } from "../custom-code-guard.js";
 import type { DirectToolContext } from "./types.js";
@@ -52,23 +53,44 @@ export async function userList(
   assertToolEnabled(ctx.site, "stonewright-user-list");
   const perPage = Math.min(Math.max(input.per_page ?? 20, 1), 50);
   const page = Math.max(input.page ?? 1, 1);
-  const items = await ctx.client.get<WpUser[]>("/wp/v2/users", {
-    query: {
-      search: input.search,
-      roles: input.roles,
-      per_page: perPage,
-      page,
-      offset: input.offset,
-      _fields: "id,name,slug,url,description,link,roles",
-    },
-  });
+  const query = {
+    search: input.search,
+    roles: input.roles,
+    per_page: perPage,
+    page,
+    offset: input.offset,
+    _fields: "id,name,slug,url,description,link,roles",
+  };
+  // Core REST returns `roles` only in the edit context, which needs the list_users capability. Without it the
+  // list is read in the public view, where no user carries roles, and the answer says so instead of showing [].
+  let items: WpUser[];
+  let rolesAvailable = true;
+  try {
+    items = await ctx.client.get<WpUser[]>("/wp/v2/users", {
+      query: { ...query, context: "edit" },
+    });
+  } catch (err) {
+    if (!(err instanceof WpRestError) || err.status !== 403) throw err;
+    rolesAvailable = false;
+    items = await ctx.client.get<WpUser[]>("/wp/v2/users", { query });
+  }
   const list = Array.isArray(items) ? items : [];
   return {
-    items: list.map((row) => compactUser(row)),
+    items: list.map((row) => {
+      const { roles, ...rest } = compactUser(row);
+      return rolesAvailable ? { ...rest, roles } : rest;
+    }),
     total: list.length,
     page,
     per_page: perPage,
     next_page: list.length === perPage ? page + 1 : undefined,
+    ...(rolesAvailable
+      ? {}
+      : {
+          roles_available: false,
+          roles_note:
+            "Roles are not shown: core REST returns them only to an account that may list users (the list_users capability, as an administrator has). Use an administrator's Application Password, or read one user with stonewright-user-get.",
+        }),
   };
 }
 

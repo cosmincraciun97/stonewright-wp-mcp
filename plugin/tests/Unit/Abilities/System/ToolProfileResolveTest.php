@@ -175,7 +175,7 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertSame( 'essential', AbilityRegistry::mcp_surface() );
 	}
 
-	public function test_activate_full_profile_expands_to_full_surface(): void {
+	public function test_activate_full_profile_is_refused_and_does_not_expand_the_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
 		$ability = new ToolProfile();
 		$result  = $ability->execute(
@@ -184,9 +184,9 @@ final class ToolProfileResolveTest extends TestCase {
 				'profile' => 'full',
 			]
 		);
-		self::assertIsArray( $result );
-		self::assertTrue( $result['ok'] );
-		self::assertSame( 'full', AbilityRegistry::mcp_surface() );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_tool_profile_full_requires_admin', $result->get_error_code() );
+		self::assertSame( 'bootstrap', AbilityRegistry::mcp_surface() );
 	}
 
 	public function test_suggest_profile_routes_admin_ops_terms(): void {

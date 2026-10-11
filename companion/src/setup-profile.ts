@@ -72,7 +72,7 @@ export const AGENT_DO_NOT_USE = [
 	'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
 	'Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 	'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
-	'If status is connected and the site surface and the companion profile are full but php-execute is missing from the client tool list, call stonewright-client-surface-check, then task-start / tool-profile activate and re-list tools — or restart the MCP client. Do not invent REST workarounds.',
+	'If status is connected and the site surface and the companion profile are full but php-execute is missing from the client tool list, call stonewright-client-surface-check, then task-start and re-list tools — or restart the MCP client. Do not invent REST workarounds.',
 ];
 
 export const MCP_MISSING_BOOTSTRAP_STOP =
@@ -273,7 +273,7 @@ export function buildSetupProfile(
 			mode === 'direct'
 				? 'Direct mode has no php-execute. Use typed Direct tools and tokenized companion WP-CLI; never substitute shell PHP or an ad hoc REST runner.'
 				: withoutPhpExecute
-				? 'stonewright-php-execute is on the full profile only; keep WP-CLI for tokenized command workflows, and switch to the full profile with stonewright-tool-profile when a runtime snippet is required.'
+				? 'stonewright-php-execute is on the full profile only; keep WP-CLI for tokenized command workflows, and ask the user when a runtime snippet is required: an administrator chooses the Full surface in wp-admin and the person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full, and stonewright-tool-profile does not switch to it.'
 				: 'Use stonewright-php-execute for direct full WordPress runtime snippets; keep WP-CLI for tokenized command workflows.',
 			'For local .local/.test sites, Application Passwords can be generated through Stonewright WP-CLI.',
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',

@@ -1022,6 +1022,10 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			if (runtime.callRemoteTool && runtime.status.connected) {
 				try {
 					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input);
+					// A refusal from the plugin (the full profile is an administrator's choice) is the answer, not a
+					// reason to fall back to the local catalog or to report success.
+					const refused = remoteErrorResult(remote);
+					if (refused) return refused;
 					const structured = extractStructured(remote);
 					const effectiveSurface = wordpressSurfaceFromEnv(
 						typeof structured?.['mcp_surface'] === 'string' ? structured['mcp_surface'] : undefined,
@@ -1052,6 +1056,18 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			const requested = typeof input['profile'] === 'string' && input['profile'].trim()
 				? input['profile']
 				: runtime.profile;
+			// The full profile is chosen by a person: the one who runs the companion, or an administrator in wp-admin.
+			if (action.trim().toLowerCase() === 'activate' && coerceProxyToolProfile(requested) === 'full' && runtime.profile !== 'full') {
+				return {
+					ok: false,
+					source: 'local',
+					isError: true,
+					error_code: 'stonewright_tool_profile_full_requires_admin',
+					approval_required: true,
+					agent_must_stop: true,
+					message: FULL_PROFILE_IS_A_PERSONS_CHOICE,
+				};
+			}
 			const tools = proxyToolNamesForProfile(
 				// coerce via names lookup; unknown falls to current
 				(requested as ProxyToolProfile) in { full: 1, bootstrap: 1, 'essential-static': 1, essential: 1, 'low-tools': 1, 'elementor-design': 1, 'content-model': 1, gutenberg: 1, 'wp-cli': 1, 'site-admin': 1, inspect: 1, 'discover-execute': 1 }
@@ -1541,6 +1557,46 @@ function pluginReachableFromEvidence(evidence: EndpointEvidence): boolean | null
 		return false;
 	}
 	return null;
+}
+
+const FULL_PROFILE_IS_A_PERSONS_CHOICE =
+	"The full profile (php-execute and the other tools that run or write code) is chosen by a person, never by an agent: an administrator sets the site's MCP tool surface to Full in wp-admin (Stonewright > Setup > Settings), and the person who runs the companion sets STONEWRIGHT_MCP_TOOL_PROFILE=full. Tell the user and stop. Do not look for another way to switch.";
+
+/**
+ * The answer of a plugin tool that failed, in the shape a gateway returns: the message, and the fields the plugin
+ * copies into it so that a refusal that waits for a person keeps its code, flags and approval link.
+ */
+function remoteErrorResult(remote: unknown): Record<string, unknown> | null {
+	if (!remote || typeof remote !== 'object' || (remote as { isError?: unknown }).isError !== true) return null;
+	const content = (remote as { content?: unknown }).content;
+	let text = '';
+	if (Array.isArray(content)) {
+		for (const part of content) {
+			if (part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string') {
+				text += (part as { text: string }).text;
+			}
+		}
+	}
+	const out: Record<string, unknown> = { ok: false, source: 'plugin', isError: true, message: text.trim() };
+	const trailing = /(\{[^{}]*\})\s*$/.exec(text);
+	if (trailing) {
+		try {
+			const fields = JSON.parse(trailing[1] ?? '') as Record<string, unknown>;
+			out['message'] = text.slice(0, trailing.index).trim() || out['message'];
+			if (typeof fields['code'] === 'string') out['error_code'] = fields['code'];
+			for (const key of ['approval_required', 'agent_must_stop', 'retryable']) {
+				if (typeof fields[key] === 'boolean') out[key] = fields[key];
+			}
+			for (const key of ['execution_status']) {
+				if (typeof fields[key] === 'string') out[key] = fields[key];
+			}
+			const url = fields['approval_url'];
+			if (typeof url === 'string' && /^https?:\/\/\S+$/i.test(url)) out['approval_url'] = url;
+		} catch {
+			// The text had no JSON tail; the message stands as it is.
+		}
+	}
+	return out;
 }
 
 function extractStructured(raw: unknown): Record<string, unknown> | null {
