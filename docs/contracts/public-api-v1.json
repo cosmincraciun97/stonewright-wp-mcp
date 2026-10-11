@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-10T18:05:51+00:00",
+    "generated_at": "2026-10-10T22:10:22+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -3663,7 +3663,7 @@
             "mcp_name": "stonewright-elementor-css-regenerate",
             "kind": "Write",
             "input_schema_hash": "eb7718421af5102b2b5ed009e4f750b8bfee85935aefcde10d188f481f774e09",
-            "output_schema_hash": "22398ba0a6935a83e2f465cfb294f2e1bf14b7bc4a62c50c44b96b3e4be87a37",
+            "output_schema_hash": "dfbdaa8525db5be5947b0158b4e848b6b495070ab751089bf4e98ce10cba5243",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,

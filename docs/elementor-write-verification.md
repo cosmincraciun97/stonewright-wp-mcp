@@ -101,6 +101,13 @@ or generation.
   stylesheet link before and after, and `css_version_changed`. A written file
   always moves the version forward, whatever the anonymous probe answers, so
   browsers and page caches fetch the new file;
+- `cache_purge`: the page cache purge that follows a regeneration which wrote
+  the file, did not roll back and moved the version (see "Page cache purge"
+  below). `ran` lists the purger ids that were called, `failed` the ones that
+  threw (`purger` and `error_class`, never the message), `skipped` a purger that
+  was present but not called, and `skipped_reason` says why no page cache purger
+  ran: `no_page_cache_plugin`, `disabled_by_filter`, `css_not_regenerated` or
+  `css_version_not_changed`;
 - HTTP probes for the target CSS and any existing
   `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets.
   Probes are anonymous and same-origin. A redirect chain of at most two
@@ -118,6 +125,45 @@ or generation.
 - collateral-change and rollback status;
 - backup snapshot id and `effect_verified` only when the requested effect
   actually closed.
+
+### Page cache purge
+
+After a regeneration that wrote the CSS file without a rollback and moved the
+stylesheet version, `stonewright-elementor-css-regenerate` purges the cached
+HTML of that one post. A purger is used only when its plugin exposes the call
+(a hook with a listener, a public function or the plugin's own hooks object);
+nothing else is called, and the whole-site purge of any plugin is never used.
+
+| Id | Plugin | Call |
+|---|---|---|
+| `litespeed_cache` | LiteSpeed Cache | `do_action( 'litespeed_purge_post', $post_id )`, when the action has a listener |
+| `wp_rocket` | WP Rocket | `rocket_clean_post( $post_id )` |
+| `w3_total_cache` | W3 Total Cache | `w3tc_flush_post( $post_id )` |
+| `wp_super_cache` | WP Super Cache | `wp_cache_post_change( $post_id )` |
+| `wp_fastest_cache` | WP Fastest Cache | `wpfc_clear_post_cache_by_id( $post_id )` |
+| `siteground_optimizer` | SiteGround Optimizer | `sg_cachepress_purge_cache( $post_url )`, only for a post URL with a path and no query string; skipped (`skipped.siteground_optimizer`) for the site root, a plain-permalink URL or a URL on another host, because that function purges the whole site for those |
+| `cloudflare` | Cloudflare | `purgeCacheByRelevantURLs( $post_id )` on the plugin's `$cloudflareHooks` object, which the plugin only acts on when its own cache or Automatic Platform Optimization is enabled |
+| `wordpress_post_cache` | WordPress core | `clean_post_cache( $post_id )`, last, which also reaches plugins that listen to that action |
+
+`ran` means the call was made, not that the cache held an entry for the page.
+Each plugin decides what a post purge covers; several also purge related pages
+such as the home page and the archives of the post, and SiteGround also purges
+the paths below the post URL. A page that only uses a loop or
+theme template is not purged individually, and a host, CDN or proxy cache that
+exposes none of these calls is not reached.
+
+The `stonewright_css_regenerate_purge` filter receives the array of purgers that
+are present (`id => callable( int $post_id, string $post_url )`), the post id and
+the post URL, and returns the array to use. Returning `false` or an empty array
+turns the purge off (`skipped_reason: disabled_by_filter`); an entry added to
+the array runs as a site purger and is reported under its key; an entry that is
+not callable is dropped. A purger or filter that throws is reported in
+`cache_purge.failed` and as a `stonewright_css_cache_purge_failed` warning with
+the plugin name and the exception class, and the write still counts.
+
+When a regeneration answers with a `repair` text, it first says which page
+caches Stonewright already purged and only then asks for a manual purge of any
+other host, CDN or page cache.
 
 `stonewright-elementor-post-write-verify` reports:
 

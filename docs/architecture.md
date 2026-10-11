@@ -527,7 +527,15 @@ is refused before any write. A page whose anonymous request is redirected to a
 login page or to another page that is not the CSS can still have verified
 generation with `delivery_status: blocked`; the ability then answers `ok: true`
 with a warning, because the file is written and the version changed. That is
-not CSS health from a login or home page HTML body.
+not CSS health from a login or home page HTML body. After a regeneration that
+wrote the file, did not roll back and moved the version, `PageCachePurger` calls
+the post-scoped purge of the page cache plugins that are present (LiteSpeed
+Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest Cache, SiteGround
+Optimizer, the Cloudflare plugin, then core's `clean_post_cache`) and the answer
+reports them in `cache_purge`. The `stonewright_css_regenerate_purge` filter
+turns it off or adds a site purger, and a purger that fails becomes a warning,
+never a failed write. See
+[Elementor write verification](elementor-write-verification.md#page-cache-purge).
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-observation
 ability. It calls `get_builder_content_for_display( $post_id, false )` so the
