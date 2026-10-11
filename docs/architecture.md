@@ -247,9 +247,10 @@ WordPress keeps its data as well, so a reinstall or a rollback finds OAuth
 grants and keys, memory, skills, audit history, and settings as they were. Only
 defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
 every plugin table, every `stonewright_` option (the OAuth keys included),
-every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up
-and audit retention events, on every site of a network, and the change journal
-files in `uploads/stonewright-state/`. See
+every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up,
+audit retention and change history retention events, on every site of a network,
+and the change journal files and change history blobs in
+`uploads/stonewright-state/`. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 The rescue helper in `wp-content/mu-plugins/` is code, not data, and deleting the
 plugin always removes it.
@@ -308,8 +309,9 @@ Risky writes run inside a frame. `AbilityKernel` opens a `RescueGuard` frame aro
 4. A failed check turns the result into a `WP_Error` (`stonewright_rescue_write_rolled_back` or `stonewright_rescue_rollback_failed`) whose message and data carry the compact evidence, because a client that only reads the message must still see it.
 5. `ChangeJournal` keeps two copies in step under one critical section: a compact file in `uploads/stonewright-state/` that the rescue MU-plugin and WP-CLI read without the plugin, and a database option with the detail the file never holds. `AgentNotices` carries the open incident to agents as `pending_incident` on every ability response, and `AbilityRegistry` adds the two Rescue abilities to the tool list while one is open.
 6. A verified change can be undone later, from the Rescue page or with `stonewright/rescue-rollback`, for any of the last 50 changes the journal keeps. The undo saves the current state first and probes the site before and after. When the undo makes a site that worked fail to load, the saved state is put back, the change stays verified with the note `undo_reverted`, and the call answers `stonewright_rescue_undo_reverted`. When the current state cannot be saved, the undo is refused with `stonewright_rescue_undo_capture_failed` before anything changes. A verified change to a theme file, custom code, a sandbox file, or the Customizer CSS is undone only from the Rescue page, by an administrator: the ability answers `stonewright_rescue_approval_required` with the approval URL and stops.
+7. The change history is a second, longer record. Ability writes record the content before and after each change in the `stonewright_changes` table, with the content kept as hashed blobs in `uploads/stonewright-state/`, and the journal states are mirrored into it. **Stonewright > Activity > Changes** lists the history and shows a diff, and Undo and Redo restore a recorded change through the path of the original write, probe the site, and write a rollback or redo row. `ChangeRollback` is the one engine behind the page, `stonewright/change-rollback` and `wp stonewright changes rollback`; it writes one audit row per call, and an open Rescue entry is rolled back through the Rescue path. Code is undone only by an administrator at the page.
 
-See [Rescue](rescue.md) for the journal format, the probe, and the limits.
+See [Rescue](rescue.md) for the journal format, the probe, the change history, and the limits.
 
 ### Audit error codes
 
@@ -527,7 +529,15 @@ is refused before any write. A page whose anonymous request is redirected to a
 login page or to another page that is not the CSS can still have verified
 generation with `delivery_status: blocked`; the ability then answers `ok: true`
 with a warning, because the file is written and the version changed. That is
-not CSS health from a login or home page HTML body.
+not CSS health from a login or home page HTML body. After a regeneration that
+wrote the file, did not roll back and moved the version, `PageCachePurger` calls
+the post-scoped purge of the page cache plugins that are present (LiteSpeed
+Cache, WP Rocket, W3 Total Cache, WP Super Cache, WP Fastest Cache, SiteGround
+Optimizer, the Cloudflare plugin, then core's `clean_post_cache`) and the answer
+reports them in `cache_purge`. The `stonewright_css_regenerate_purge` filter
+turns it off or adds a site purger, and a purger that fails becomes a warning,
+never a failed write. See
+[Elementor write verification](elementor-write-verification.md#page-cache-purge).
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-observation
 ability. It calls `get_builder_content_for_display( $post_id, false )` so the

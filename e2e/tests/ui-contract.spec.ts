@@ -807,8 +807,9 @@ test.describe('The shell on Stonewright pages', () => {
 
 		const marked = await page.locator('.sw-ui-band__link--exp').evaluateAll((links) => links.map((link) => (link.childNodes[0]?.textContent ?? '').trim()));
 		expect(marked).toEqual([...STONEWRIGHT_EXP_LINKS]);
-		await expect(page.locator('.sw-ui-band__exp')).toHaveText(['EXP', 'EXP', 'EXP', 'EXP', 'EXP']);
-		await expect(page.locator('#toplevel_page_stonewright .sw-menu-exp')).toHaveCount(4);
+		await expect(page.locator('.sw-ui-band__exp')).toHaveText(STONEWRIGHT_EXP_LINKS.map(() => 'EXP'));
+		// The Block queue is reached from the band only; every other EXP page is also a sidebar entry.
+		await expect(page.locator('#toplevel_page_stonewright .sw-menu-exp')).toHaveCount(STONEWRIGHT_EXP_LINKS.filter((name) => name !== 'Block queue').length);
 		await expect(page.locator('#toplevel_page_stonewright .sw-menu-beta')).toHaveCount(0);
 
 		await expect(page.locator('.sw-shell__chrome .sw-ui-badge')).toHaveCount(0);

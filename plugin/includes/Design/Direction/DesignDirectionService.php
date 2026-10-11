@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Design\Direction;
 
+use Stonewright\WpMcp\Security\Adapters\RevisionLinkAdapter;
 use WP_Error;
 
 /**
@@ -167,6 +168,8 @@ final class DesignDirectionService {
 		$result['active_cleared']          = $active_cleared;
 		$result['audit']['active_cleared'] = $active_cleared;
 
+		RevisionLinkAdapter::direction_changed( 'save', $result );
+
 		return $result;
 	}
 
@@ -212,6 +215,8 @@ final class DesignDirectionService {
 		$result['previous_active_id']  = $previous;
 		$result['audit']['previous_active_id'] = $previous;
 
+		RevisionLinkAdapter::pointer_changed( 'activate', $previous, $id );
+
 		return $result;
 	}
 
@@ -247,6 +252,8 @@ final class DesignDirectionService {
 
 		$hash_before = hash( 'sha256', (string) $previous );
 		$hash_after  = hash( 'sha256', '0' );
+
+		RevisionLinkAdapter::pointer_changed( 'deactivate', $previous, 0 );
 
 		return [
 			'id'                 => 0,
@@ -395,6 +402,8 @@ final class DesignDirectionService {
 		$result['active_cleared']             = $active_cleared;
 		$result['audit']['restored_revision'] = $revision;
 		$result['audit']['active_cleared']    = $active_cleared;
+
+		RevisionLinkAdapter::direction_changed( 'restore', $result );
 
 		return $result;
 	}

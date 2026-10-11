@@ -182,8 +182,8 @@ final class ChangeJournal {
 		if ( ! in_array( $state, [ 'verified', 'rolled_back', 'rollback_failed' ], true ) ) {
 			return null;
 		}
-		$now = self::now();
-		return self::update(
+		$now     = self::now();
+		$settled = self::update(
 			$id,
 			static function ( array $entry ) use ( $state, $extra, $now ): array {
 				$entry['state']      = $state;
@@ -198,6 +198,11 @@ final class ChangeJournal {
 				return $entry;
 			}
 		);
+		if ( null !== $settled ) {
+			// The history row of the same change follows the outcome.
+			ChangeLedger::sync_status( $id, $state );
+		}
+		return $settled;
 	}
 
 	/**

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Support\BlockMarkup;
 
 /**
@@ -124,6 +125,7 @@ final class Navigation extends AbilityKernel {
 		if ( is_wp_error( $id ) ) {
 			return $id;
 		}
+		RescueGuard::note_post_created( (int) $id );
 
 		$snapshot_id = Backup::snapshot_post( (int) $id );
 		return $this->payload( (int) $id, $snapshot_id );

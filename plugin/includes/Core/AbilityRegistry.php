@@ -292,6 +292,9 @@ use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
+use Stonewright\WpMcp\Abilities\Security\ChangeDiffGet;
+use Stonewright\WpMcp\Abilities\Security\ChangeHistoryList;
+use Stonewright\WpMcp\Abilities\Security\ChangeRollback;
 use Stonewright\WpMcp\Abilities\Security\RescueRollback;
 use Stonewright\WpMcp\Abilities\Security\RescueStatus;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
@@ -339,6 +342,9 @@ final class AbilityRegistry {
 			IncidentRepairRecord::class,
 			RescueStatus::class,
 			RescueRollback::class,
+			ChangeHistoryList::class,
+			ChangeDiffGet::class,
+			ChangeRollback::class,
 			CreateOneTimeLink::class,
 
 			// Section reuse: hidden from the tool lists while the setting is off.

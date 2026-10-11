@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
 /**
@@ -183,6 +184,9 @@ final class SetupState {
 			$mode = is_string( $fields['wordpress_mode'] ) ? strtolower( trim( $fields['wordpress_mode'] ) ) : '';
 			if ( in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
 				update_option( 'stonewright_mode', $mode );
+				if ( $mode !== $runtime_before['wordpress_mode'] ) {
+					SiteAdapter::note_admin_write( 'admin', 'stonewright_mode', 'Mode changed from ' . $runtime_before['wordpress_mode'] . ' to ' . $mode );
+				}
 			}
 		}
 

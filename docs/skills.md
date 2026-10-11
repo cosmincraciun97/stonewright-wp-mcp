@@ -68,7 +68,7 @@ Each skill has a master active toggle and two exposure flags:
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
 | `visual-direction` | `skills/visual-direction/` | Decide and prove visual direction: capture, reviewed kit sync, first-section checkpoint, rendered evidence |
 | `how-to-write-skills` | `skills/how-to-write-skills/` | Write, review, import, and test site skills: trigger descriptions, version constraints, exposure flags, and the import review |
-| `stonewright-rescue` | `skills/stonewright-rescue/` | Recover from a change that left the site failing: read the rescue status, plan and run the rollback, and re-check after a fix by hand |
+| `stonewright-rescue` | `skills/stonewright-rescue/` | Recover from a change that left the site failing: read the rescue status, plan and run the rollback, and re-check after a fix by hand; find a change in the history, read its diff and undo or redo it (code needs the administrator) |
 | `stonewright-section-reuse` | `skills/stonewright-section-reuse/` | Find sections the site already has for a new page, offer them in one short question, then copy and adapt the picked ones in the same batch |
 
 `visual-direction` is loaded for new or changed visual direction — a rebrand, a

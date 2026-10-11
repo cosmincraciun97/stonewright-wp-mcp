@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\ActivationRedirect;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\ChangesPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
@@ -36,6 +37,8 @@ use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\BasicAuthCredentials;
+use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -119,6 +122,9 @@ final class PluginRegistration {
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'sync_retention_schedule' ], 25, 0 );
 		add_action( AuditLog::RETENTION_HOOK, [ AuditLog::class, 'run_scheduled_retention' ] );
+		add_action( 'init', [ ChangeLedger::class, 'maybe_install_table' ] );
+		add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ], 25, 0 );
+		add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
 		// Idempotent: supersede legacy unresolved audit lessons into incident history.
 		// Void wrapper — WP action callbacks must not return values (PHPStan).
@@ -133,6 +139,8 @@ final class PluginRegistration {
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
+		// A site created after a network activation gets its defaults when it is created.
+		add_action( 'wp_initialize_site', [ $this, 'seed_new_site' ], 20, 1 );
 		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
 		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
 		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
@@ -170,6 +178,7 @@ final class PluginRegistration {
 		SkillsPage::register();
 		MemoryInstructionsPage::register();
 		AuditLogPage::register();
+		ChangesPage::register();
 		AdminBarIndicator::register();
 		McpbBundle::register();
 		AdminBootstrap::register();
@@ -198,6 +207,7 @@ final class PluginRegistration {
 	public function on_activate(): void {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
+		ChangeLedger::maybe_install_table();
 		IncidentStore::maybe_install_table();
 		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
 		AuthorizationLifecycle::activate();
@@ -214,26 +224,20 @@ final class PluginRegistration {
 		}
 		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
-		if ( ! get_option( 'stonewright_mode' ) ) {
-			$environment = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'development';
-			$initial_mode = match ( $environment ) {
-				'production' => 'production-safe',
-				'staging'    => 'staging',
-				default      => 'development',
-			};
-			update_option( 'stonewright_mode', $initial_mode );
-		}
-		// New installs start on the useful bounded surface. Bootstrap remains an
-		// explicit transport/profile diagnostic, never a permanent install default.
+		// Mode from the environment type; a first activation also gets the essential surface.
 		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping
 		// from the existing stonewright_essential_tools_mode choice.
-		if ( $is_first_activate ) {
-			update_option( 'stonewright_mcp_surface', 'essential', false );
-			update_option( 'stonewright_essential_tools_mode', true, false );
-		}
+		SiteDefaults::seed( $is_first_activate );
 		// A first activation lands on the Overview; a site that already chose on or off is left where it is.
 		ActivationRedirect::arm();
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
+	}
+
+	/**
+	 * On wp_initialize_site, after WordPress has installed the new site: give it its defaults.
+	 */
+	public function seed_new_site( object $site ): void {
+		SiteDefaults::seed_new_site( $site, plugin_basename( $this->plugin_file ) );
 	}
 
 	/**
@@ -245,6 +249,9 @@ final class PluginRegistration {
 		if ( $stored === STONEWRIGHT_VERSION ) {
 			return;
 		}
+		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
+		// on its first request without a mode; an update can find one missing too.
+		SiteDefaults::seed( '' === $stored );
 		IncidentStore::maybe_install_table();
 		SkillTables::ensure();
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
@@ -313,6 +320,7 @@ final class PluginRegistration {
 	public function on_deactivate(): void {
 		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
+		ChangeLedgerRetention::unschedule();
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

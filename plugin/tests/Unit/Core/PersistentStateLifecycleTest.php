@@ -8,6 +8,8 @@ use ReflectionMethod;
 use Stonewright\WpMcp\Core\PluginRegistration;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\SkillLibrary\Site\BundledPack;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillTables;
@@ -47,11 +49,24 @@ final class PersistentStateLifecycleTest extends TestCase {
 		self::assertStringContainsString( "add_action( AuditLog::RETENTION_HOOK, [ AuditLog::class, 'run_scheduled_retention' ] )", $hooks );
 	}
 
+	public function test_the_change_history_table_is_created_on_activation_and_boot_and_its_prune_is_scheduled(): void {
+		$activate   = self::method_source( PluginRegistration::class, 'on_activate' );
+		$hooks      = self::method_source( PluginRegistration::class, 'register_hooks' );
+		$deactivate = self::method_source( PluginRegistration::class, 'on_deactivate' );
+
+		self::assertStringContainsString( 'ChangeLedger::maybe_install_table()', $activate );
+		self::assertStringContainsString( "add_action( 'init', [ ChangeLedger::class, 'maybe_install_table' ] )", $hooks );
+		self::assertStringContainsString( "add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ]", $hooks );
+		self::assertStringContainsString( "add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] )", $hooks );
+		self::assertStringContainsString( 'ChangeLedgerRetention::unschedule()', $deactivate );
+	}
+
 	public function test_schema_upgrades_do_not_reset_memory_skills_or_audit(): void {
 		$methods = [
 			self::method_source( Memory::class, 'maybe_install_table' ),
 				self::method_source( AuditLog::class, 'maybe_install_table' ),
 				self::method_source( IncidentStore::class, 'maybe_install_table' ),
+			self::method_source( ChangeLedger::class, 'maybe_install_table' ),
 			self::method_source( SkillTables::class, 'install' ),
 			self::method_source( BundledPack::class, 'refresh' ),
 		];
