@@ -158,6 +158,31 @@ development builds were never stable releases.
   each request to promote researched knowledge or an expertise pack there, with
   the evidence and a note field, and approves or rejects it with a nonce-checked
   form that needs `manage_options`.
+- Refuse Direct writes on a site where the Stonewright plugin is active. Before a
+  write, Direct reads the site's REST index (`/wp-json/`) for the plugin's
+  `stonewright/v1` namespace. When it is listed, the write is refused with
+  `stonewright_direct_write_blocked_plugin_present` and a message that points to
+  Plugin mode, because a Direct write skips the plugin's context token,
+  confirmation, snapshot, Rescue ledger and audit. The check covers every REST
+  write, the media upload (before the file is read or downloaded) and the
+  Elementor WP-CLI write. The answer is cached per site for five minutes, shared
+  by concurrent calls, and cleared on reconnect, so a write adds no request once
+  it is known. When the index cannot be read twice, the write is refused with
+  `stonewright_direct_plugin_check_failed`. Reads and the typed plugin bridge used
+  by `stonewright-task-start` and `stonewright-learning-record` are not checked.
+  For recovery only, `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` together with
+  `confirm: true` on the call lets a write through; each use writes an audit row
+  (`direct_write_plugin_override`) and adds a `warnings` entry to the result.
+  `stonewright-content-create-page`, `-content-create-post`, `-content-create`,
+  `-content-update`, `-media-update`, `-menu-create` and `-menu-update` gain an
+  optional `confirm` argument for that override.
+- Report a plugin that appears during a Direct session. When the Direct
+  `stonewright-task-start` reaches the plugin, the result carries
+  `plugin_detected: true`, `required_actions: ["switch_to_plugin_mode"]` and a
+  `next_action` that says how to switch. An `auto` session reconnects in the same
+  call and answers through Plugin mode when the MCP route responds. The connection
+  status shows `mode_conflict` when Direct is the session mode and the plugin is
+  active.
 
 ### Changed
 
@@ -361,6 +386,18 @@ development builds were never stable releases.
   writes through core REST in Direct mode only, list the protections it carries,
   and list what it does not do yet (restore tool, after-write verification,
   partial custom-code screening, DNS pinning for media URLs).
+- Never fall back to Direct on a live plugin, and honor `fallback_policy`. In
+  `auto` mode, a missing `/wp-json/mcp/stonewright` route used to register Direct
+  even when the REST index listed the plugin (for example with the MCP Adapter
+  inactive). The session now stays degraded with `plugin_route_missing` and tells
+  you to enable the MCP Adapter and call `stonewright-reconnect`. The same applies
+  when the route is confirmed missing during plugin registration. A site whose
+  registry `fallback_policy` is `never` (selected by `STONEWRIGHT_SITE_ALIAS`) also
+  stays degraded instead of using Direct; `always-direct` and
+  `direct-when-plugin-unavailable` still allow it. `STONEWRIGHT_MODE=direct` and
+  `direct-only` sites now read the REST index at startup: with the plugin active
+  they still register Direct, with reads working and writes refused. The REST
+  index check reads the namespace list even from a response cut at the size cap.
 
 ### Fixed
 
@@ -616,6 +653,13 @@ development builds were never stable releases.
   an open incident that `stonewright-incident-repair-record` can close. Other
   incidents stay listed as information and close after seven days without a new
   failure. See the companion changelog.
+- Make Direct tools act on the session's site. With `STONEWRIGHT_SITE_ALIAS` set,
+  Direct tools took their site from the registry default instead of the session's
+  alias, and its memory, incident record and task-start latch followed the default
+  too. Every Direct tool now uses the session's site, and a `site` argument that
+  names another alias is refused with `site_not_in_session`
+  (`stonewright-task-start` returns the same refusal). With no alias set nothing
+  changes.
 
 ### Security
 

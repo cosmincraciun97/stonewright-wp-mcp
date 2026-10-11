@@ -1,8 +1,11 @@
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { loadSitesConfig, resolveSite, type SitesConfig } from './sites-config.js';
+import { loadSitesConfig, resolveSessionSite, sessionSiteAlias, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
+import { directCallWarnings, runWithDirectCallContext } from './plugin-presence.js';
+import { warmPluginPresence } from './plugin-guard.js';
+import type { ResolvedSite } from './sites-config.js';
 import { DirectSafetyBlockedError, hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
 import * as media from './tools/media.js';
@@ -377,8 +380,22 @@ function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 			...(meta?.site !== undefined ? { site: meta.site } : {}),
 		});
 	}
+	payload = withCallWarnings(payload);
 	return {
 		content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+	};
+}
+
+/** Warnings raised during the call (a used recovery override) travel with the result. */
+function withCallWarnings(payload: unknown): unknown {
+	const warnings = directCallWarnings();
+	if (warnings.length === 0 || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return payload;
+	}
+	const existing = (payload as { warnings?: unknown }).warnings;
+	return {
+		...(payload as Record<string, unknown>),
+		warnings: [...(Array.isArray(existing) ? (existing as unknown[]) : []), ...warnings],
 	};
 }
 
@@ -454,7 +471,8 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 
 function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 	const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-	const site = resolveSite(config, siteAlias);
+	// A session bound to one alias acts on that site only; see resolveSessionSite.
+	const site = resolveSessionSite(config, ctx.env, siteAlias);
 	setDirectAuditTargetIdentity(site.url);
 	const dispatch = directDispatchContext.getStore();
 	if (dispatch) dispatch.site = site.alias;
@@ -481,11 +499,14 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
+	const recoveryConfirmArg = z.boolean().optional().describe('Recovery override on a plugin site only; normally omit');
 	let activeProfile: DirectToolProfile = ctx.toolProfile ?? 'essential-static';
 	let directSurfaceRevision = 0;
 	const registered: string[] = [];
 	const toolHandles = new Map<string, RegisteredTool>();
 	const skipToolNames = ctx.skipToolNames ?? new Set<string>();
+	// Tools that never touch WordPress (local memory, skills, rules). They skip the plugin presence check.
+	const localToolNames = new Set<string>();
 	// MCP SDK overloads tool(); keep a typed wrapper without `any`.
 	type ToolRegistrar = {
 		tool: (name: string, ...args: never[]) => unknown;
@@ -512,18 +533,33 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		const wrappedCallback = ((input: unknown, ...args: unknown[]) => {
 			const site = input && typeof input === 'object' && typeof (input as { site?: unknown }).site === 'string'
 				? String((input as { site: string }).site)
-				: '_global';
+				: sessionSiteAlias(ctx.env) ?? '_global';
+			const confirm = Boolean(input && typeof input === 'object' && (input as { confirm?: unknown }).confirm === true);
 			return withDirectAuditReceiptContext(() => directDispatchContext.run(
 				{ tool: name, site, auditPath: defaultAuditPath(ctx.env) },
-				() => {
+				() => runWithDirectCallContext({ tool: name, confirm }, async () => {
+					let target: ResolvedSite | null = null;
 					try {
 						const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
-						setDirectAuditTargetIdentity(resolveSite(config, site === '_global' ? undefined : site).url);
+						// A bound session audits against its own site even when the call names another one.
+						const named = site === '_global' || sessionSiteAlias(ctx.env) !== null ? undefined : site;
+						target = resolveSessionSite(config, ctx.env, named);
+						setDirectAuditTargetIdentity(target.url);
 					} catch {
 						if (site === '_global') setDirectAuditTargetIdentity('direct-global:_global');
 					}
+					// Learn whether the Stonewright plugin is active before the tool runs, so a
+					// write is refused up front. One cached request per site; never blocks a read.
+					if (target && !localToolNames.has(name)) {
+						await warmPluginPresence(target, {
+							fetchImpl: ctx.fetchImpl,
+							timeoutMs: ctx.timeoutMs,
+							env: ctx.env,
+							tool: name,
+						});
+					}
 					return (callback as (...handlerArgs: unknown[]) => unknown)(input, ...args);
-				},
+				}),
 			));
 		}) as RegisteredTool['handler'];
 		const existing = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })
@@ -644,6 +680,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
 			meta: z.record(z.unknown()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -667,6 +704,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
 			meta: z.record(z.unknown()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -691,6 +729,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
 			meta: z.record(z.unknown()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -714,6 +753,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
 			meta: z.record(z.unknown()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -827,6 +867,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			title: z.string().optional(),
 			alt_text: z.string().optional(),
 			caption: z.string().optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -948,6 +989,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			name: z.string().min(1),
 			description: z.string().optional(),
 			locations: z.array(z.string()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -967,6 +1009,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			name: z.string().optional(),
 			description: z.string().optional(),
 			locations: z.array(z.string()).optional(),
+			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
 			try {
@@ -1639,6 +1682,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		shape: Record<string, z.ZodTypeAny>,
 		handler: (input: Record<string, unknown>) => unknown,
 	) => {
+		localToolNames.add(name);
 		tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
@@ -1813,7 +1857,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		'Detect WP-CLI and/or REST Elementor data-edit paths for Direct mode (no full plugin engines).',
 		{ site: siteArg, cwd: z.string().optional(), path: z.string().optional() },
 		(input, runtime) =>
-			elementorDirect.elementorStatus(ctx.env, input as never, undefined, runtime.client),
+			elementorDirect.elementorStatus(ctx.env, { ...input, site: runtime.site.alias } as never, undefined, runtime.client),
 	);
 	w3(
 		'stonewright-elementor-data-get',
@@ -1828,7 +1872,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			path: z.string().optional(),
 		},
 		(input, runtime) =>
-			elementorDirect.elementorDataGet(ctx.env, input as never, undefined, runtime.client),
+			elementorDirect.elementorDataGet(ctx.env, { ...input, site: runtime.site.alias } as never, undefined, runtime.client),
 	);
 	w3(
 		'stonewright-elementor-data-update',
@@ -1845,7 +1889,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			path: z.string().optional(),
 		},
 		(input, runtime) =>
-			elementorDirect.elementorDataUpdate(ctx.env, input as never, undefined, runtime.client),
+			elementorDirect.elementorDataUpdate(ctx.env, { ...input, site: runtime.site.alias } as never, undefined, runtime.client),
 	);
 	w3(
 		'stonewright-gutenberg-validate',

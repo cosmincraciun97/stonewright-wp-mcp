@@ -53,7 +53,10 @@ import {
 import { findSiteByAlias, loadRegistry } from './cli/connect/registry.js';
 import type { SiteRecordV2 } from './cli/connect/types.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
-import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, type ProbeResult } from './direct/mode.js';
+import { resolveRuntimeMode, restIndexUrl, siteBaseFromEnv, probePublicRestIndex, probeStonewrightPlugin, type ProbeResult } from './direct/mode.js';
+import { forgetPluginPresence, rememberPluginPresence } from './direct/plugin-guard.js';
+import { mayFallbackToDirect } from './cli/connect/mode-policy.js';
+import type { FallbackPolicy } from './cli/connect/types.js';
 import { type EndpointEvidence } from './connection/status-contract.js';
 import { applySiteAliasToEnv } from './direct/apply-site-env.js';
 import { gateDirectWpCli, type DirectWpCliTool } from './direct/wp-cli-gate.js';
@@ -176,11 +179,22 @@ async function bootstrapConnection(
 	runtime.stateMachine.transition('probing');
 	wpMcpStatus.connection_stage = runtime.stateMachine.getStage();
 
+	// A reconnect starts from a fresh answer to "is the plugin active on this site?".
+	forgetPluginPresence();
+	wpMcpStatus.mode_conflict = null;
+
+	const fallbackPolicy = sessionFallbackPolicy(env);
 	const modeProbe = await resolveRuntimeMode({
 		env,
 		fetchImpl,
 		forceProbe,
+		fallbackPolicy,
 	});
+	const probedSiteBase = siteBaseFromEnv(env);
+	if (probedSiteBase && modeProbe.stonewrightPluginDetected === true) {
+		// Direct writes on this site are refused until a later check says otherwise.
+		rememberPluginPresence(probedSiteBase, true);
+	}
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
@@ -191,13 +205,18 @@ async function bootstrapConnection(
 			: null
 		: null;
 
-	if (modeProbe.configured === 'plugin-only' && modeProbe.pluginRouteState === 'missing') {
+	// Plugin-only never uses Direct. Auto does not either when the plugin is live
+	// (or this site's fallback_policy is never): resolveRuntimeMode returns the
+	// plugin mode with a missing route, and the session stays degraded.
+	if (modeProbe.mode === 'plugin' && modeProbe.pluginRouteState === 'missing') {
 		wpMcpStatus.ok = false;
 		wpMcpStatus.connected = false;
 		wpMcpStatus.startup_ready = false;
 		wpMcpStatus.error = { message: modeProbe.reason };
 		wpMcpStatus.error_code = modeProbe.errorCode ?? 'plugin_route_missing';
-		wpMcpStatus.next_action = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.';
+		wpMcpStatus.next_action = modeProbe.configured === 'plugin-only'
+			? 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true. Direct tools are not available in plugin-only mode.'
+			: 'Restore the Stonewright MCP route (activate the MCP Adapter), then call stonewright-reconnect with force_probe=true. Direct writes stay refused while the plugin is active.';
 		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
 		runtime.syncLegacyStatus();
 		return;
@@ -380,6 +399,28 @@ async function bootstrapConnection(
 			return;
 		}
 		if (modeProbe.configured === 'auto' && isConfirmedPluginRouteAbsence(err)) {
+			// The route is gone, but the plugin may still be live (adapter inactive), or
+			// this site's fallback_policy may forbid Direct. Neither falls to Direct.
+			const siteBase = siteBaseFromEnv(env);
+			const surface = siteBase
+				? await probeStonewrightPlugin(siteBase, fetchImpl)
+				: { mcpSurface: null, stonewrightPlugin: null };
+			if (surface.stonewrightPlugin === true || !mayFallbackToDirect('auto', fallbackPolicy ?? 'direct-when-plugin-unavailable')) {
+				if (siteBase && surface.stonewrightPlugin === true) rememberPluginPresence(siteBase, true);
+				wpMcpStatus.ok = false;
+				wpMcpStatus.connected = false;
+				wpMcpStatus.startup_ready = false;
+				wpMcpStatus.error = { message };
+				wpMcpStatus.error_code = 'plugin_route_missing';
+				wpMcpStatus.mode = 'plugin';
+				wpMcpStatus.mode_reason = surface.stonewrightPlugin === true
+					? 'The Stonewright plugin is active on this site, but its MCP route is missing, so Direct is not used.'
+					: 'The plugin MCP route is missing and the site fallback_policy is never, so Direct is not used.';
+				wpMcpStatus.next_action = 'Restore the Stonewright MCP route (activate the MCP Adapter), then call stonewright-reconnect with force_probe=true. Direct writes stay refused while the plugin is active.';
+				runtime.stateMachine.transition('degraded', { error: 'plugin_route_missing' });
+				runtime.syncLegacyStatus();
+				return;
+			}
 			await registerDirectMode(server, env, options, runtime, {
 				...modeProbe,
 				mode: 'direct',
@@ -407,6 +448,20 @@ async function bootstrapConnection(
 		wpMcpStatus.next_action = 'Call stonewright-connect-doctor, fix credentials/URL, then stonewright-reconnect.';
 		runtime.stateMachine.transition('degraded', { error: message });
 		runtime.syncLegacyStatus();
+	}
+}
+
+/**
+ * The registry's fallback_policy for this session's site (selected by
+ * STONEWRIGHT_SITE_ALIAS). Undefined when there is no alias or no registry.
+ */
+function sessionFallbackPolicy(env: NodeJS.ProcessEnv): FallbackPolicy | undefined {
+	const alias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
+	if (!alias) return undefined;
+	try {
+		return findSiteByAlias(loadRegistry({ env }).registry, alias)?.fallback_policy;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -595,6 +650,14 @@ async function registerDirectMode(
 	wpMcpStatus.mode = 'direct';
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
+	wpMcpStatus.mode_conflict = modeProbe.modeConflict
+		? {
+			plugin_detected: true,
+			direct_writes: 'refused',
+			reads: 'allowed',
+			next_action: 'Set STONEWRIGHT_MODE=auto or plugin for this site, then call stonewright-reconnect (or restart the client) to use Plugin mode.',
+		}
+		: null;
 	wpMcpStatus.unavailable_plugin_capabilities = PLUGIN_ONLY_CAPABILITIES.map((cap) => ({
 		id: cap.id,
 		label: cap.label,
@@ -632,7 +695,7 @@ async function registerDirectMode(
 				prompt.disable?.();
 			}
 		}
-		setServerInstructions(server, companionInstructions(profile, 'direct'));
+		setServerInstructions(server, companionInstructions(profile, 'direct', modeProbe.modeConflict));
 		const localToolNames = localToolNamesForProfile(profile);
 		runtime.registry.commitDirect(
 			registered.map((name) => ({ name, source: 'direct' as const })),
@@ -709,7 +772,9 @@ async function registerDirectMode(
 		];
 		wpMcpStatus.error = null;
 		wpMcpStatus.error_code = null;
-		wpMcpStatus.next_action = 'Call stonewright-task-start (works with zero WordPress credentials).';
+		wpMcpStatus.next_action = modeProbe.modeConflict
+			? 'The Stonewright plugin is active on this site, so Direct writes are refused. Reads work. Switch this site to Plugin mode (STONEWRIGHT_MODE=auto or plugin, then stonewright-reconnect) to write.'
+			: 'Call stonewright-task-start (works with zero WordPress credentials).';
 		wpMcpStatus.agent_use_instead = [
 			'stonewright-task-start',
 			'stonewright-site-discover',
@@ -749,6 +814,7 @@ function directToolProfileFromEnv(env: NodeJS.ProcessEnv, profile: ProxyToolProf
 function companionInstructions(
 	profile: ProxyToolProfile,
 	mode: 'plugin' | 'direct' = 'plugin',
+	pluginConflict = false,
 ): string {
 	const lines = [
 		'Stonewright companion fast start:',
@@ -780,6 +846,11 @@ function companionInstructions(
 			'- Use stonewright-wordpress-mcp-status to confirm mode, version, startup readiness, and the live Direct tool surface.',
 			'- Do not run wp commands in a normal shell. Use only typed Direct tools or the tokenized companion WP-CLI tools.',
 		);
+		if (pluginConflict) {
+			lines.push(
+				'- The Stonewright plugin is active on this site but this session is Direct-only: Direct reads work and Direct writes are refused. Tell the user to switch this site to Plugin mode (STONEWRIGHT_MODE=auto or plugin, then stonewright-reconnect).',
+			);
+		}
 	} else if (profileOffersPhpExecute(profile)) {
 		lines.push(
 			'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',

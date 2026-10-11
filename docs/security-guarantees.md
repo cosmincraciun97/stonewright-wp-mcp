@@ -143,7 +143,10 @@ stays a thin proxy to the plugin's MCP endpoint.
 Direct mode is the exception. With no plugin installed, the companion writes
 through core WordPress REST (and through local WP-CLI where the target check
 passes), and only through the typed Direct tools; `stonewright-rest-request` is
-GET only. Those tools require a recent `stonewright-task-start`, honor
+GET only. Those tools act on the session's site only, refuse to write on a site
+where the Stonewright plugin is active (a recovery-only override needs
+`STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus `confirm: true` and is
+audited), require a recent `stonewright-task-start`, honor
 `STONEWRIGHT_DIRECT_WRITES`, refuse custom code in the writes that carry
 markup, text or CSS, save a pre-image before whole-document writes, limit
 `stonewright-media-upload` (and connect to the address they checked), refuse to
@@ -162,6 +165,8 @@ Enforced by:
 - `plugin/tests/Unit/WpCli/WpCliAbilitiesTest.php`
 - `companion/tests/wp-cli.test.ts`
 - Direct mode: `companion/src/direct/writes.ts`,
+  `companion/src/direct/plugin-guard.ts`, `companion/src/direct/plugin-presence.ts`,
+  `companion/src/direct/sites-config.ts`,
   `companion/src/direct/custom-code-guard.ts`, `companion/src/direct/preimage.ts`,
   `companion/src/direct/elementor-target.ts`, `companion/src/direct/media-source.ts`,
   `companion/src/direct/media-transport.ts`, `companion/src/direct/media-limits.ts`,

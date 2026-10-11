@@ -1,3 +1,4 @@
+import { assertDirectWriteAllowedOnSite } from './plugin-guard.js';
 import type { ResolvedSite } from './sites-config.js';
 import { DirectSafetyBlockedError } from './writes.js';
 
@@ -14,7 +15,7 @@ export interface RequestOpts {
 export interface WpRestClientOptions {
 	fetchImpl?: typeof fetch | undefined;
 	timeoutMs?: number | undefined;
-	/** Environment for the transport override; defaults to the process environment. */
+	/** Environment for the transport override and the plugin guard (override switch, audit location); defaults to the process environment. */
 	env?: NodeJS.ProcessEnv | undefined;
 }
 
@@ -178,6 +179,21 @@ export class WpRestClient {
 		return this.site;
 	}
 
+	/**
+	 * Refuse when this site has the Stonewright plugin active. Every non-GET
+	 * request runs this first; tools that write without a REST call (or that want
+	 * to refuse before doing other work) call it directly. Cached per site.
+	 */
+	async assertWritable(method: HttpMethod = 'POST', path = ''): Promise<void> {
+		await assertDirectWriteAllowedOnSite(this.site, {
+			fetchImpl: this.fetchImpl,
+			timeoutMs: this.timeoutMs,
+			env: this.env,
+			method,
+			path,
+		});
+	}
+
 	async get<T>(path: string, opts: RequestOpts = {}): Promise<T> {
 		return this.request<T>('GET', path, opts);
 	}
@@ -197,6 +213,9 @@ export class WpRestClient {
 	async request<T>(method: HttpMethod, path: string, opts: RequestOpts = {}): Promise<T> {
 		assertSecureTransport(this.site, this.env);
 		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+		if (method !== 'GET') {
+			await this.assertWritable(method, normalizedPath);
+		}
 		const url = new URL(`${this.site.restBase}${normalizedPath}`);
 		for (const [key, value] of Object.entries(opts.query ?? {})) {
 			if (value === undefined || value === null) {

@@ -290,6 +290,15 @@ removing it, so PID reuse and replacement-lock races fail closed.
 Direct mode has no plugin and no authenticated wp-admin grant boundary, so its
 write protections are the companion's own and narrower than Plugin mode's:
 
+- A session started for one site (`STONEWRIGHT_SITE_ALIAS`) acts on that site
+  only; a `site` argument naming another alias is refused.
+- It refuses to write on a site where the Stonewright plugin is active, so a
+  Direct write cannot skip the plugin's tokens, snapshots, Rescue ledger and
+  audit. The plugin is detected through the REST index and the answer is cached
+  for five minutes per site. Reads are not affected. For recovery only,
+  `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` together with `confirm: true` on the
+  call lets a write through; each use is audited and reported in the result.
+
 - It refuses custom code (theme.json and Elementor CSS, HTML widgets, script,
   style, iframe, object, embed, link and meta http-equiv markup, inline event
   handlers, `javascript:` URLs) in global styles, Elementor data, content,

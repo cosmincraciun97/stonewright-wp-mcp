@@ -36,7 +36,7 @@ describe('direct media-upload: local path roots', () => {
 
 	function ctx(over: Partial<MediaToolContext> = {}): MediaToolContext {
 		return {
-			client: { post } as never,
+			client: { post, assertWritable: () => Promise.resolve() } as never,
 			site,
 			writeMode: 'on',
 			env: { STONEWRIGHT_STATE_DIR: stateDir },
@@ -189,7 +189,7 @@ describe('direct media-upload: url', () => {
 
 	function ctx(fetchImpl: unknown, lookupImpl?: Lookup): MediaToolContext {
 		return {
-			client: { post } as never,
+			client: { post, assertWritable: () => Promise.resolve() } as never,
 			site,
 			writeMode: 'on',
 			env: { STONEWRIGHT_STATE_DIR: stateDir },
@@ -369,7 +369,7 @@ describe('direct media-upload: limits', () => {
 
 	function ctx(env: NodeJS.ProcessEnv = {}, over: Partial<MediaToolContext> = {}): MediaToolContext {
 		return {
-			client: { post } as never,
+			client: { post, assertWritable: () => Promise.resolve() } as never,
 			site,
 			writeMode: 'on',
 			env: { STONEWRIGHT_STATE_DIR: stateDir, ...env },

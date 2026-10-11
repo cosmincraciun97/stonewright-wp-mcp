@@ -1,5 +1,6 @@
 import type { ResolvedSite } from "./sites-config.js";
 import { createHash } from "node:crypto";
+import { cachedPluginDecision, noteOverrideUse } from "./plugin-presence.js";
 
 export type DirectWriteMode = "on" | "off" | "confirm";
 
@@ -124,6 +125,8 @@ export function assertWriteAllowed(args: {
   site?: DirectWriteTarget;
   /** Injectable clock for TTL tests. */
   now?: number;
+  /** The write touches only local state (for example a local skill file), so the site's plugin is irrelevant. */
+  localOnly?: boolean;
 }): void {
   const env = args.env ?? process.env;
   const requireTaskStart =
@@ -146,6 +149,34 @@ export function assertWriteAllowed(args: {
       args.tool,
       siteAlias(args.site),
     );
+  }
+  // A fresh "plugin is active" answer refuses the write before any tool work
+  // starts. The REST client repeats the check and also fails closed when the
+  // answer is unknown (see plugin-guard.ts).
+  if (
+    args.localOnly !== true &&
+    typeof args.site === "object" &&
+    args.site !== null &&
+    args.site.url
+  ) {
+    const decision = cachedPluginDecision(args.site.url, env, now);
+    if (decision.action === "block") {
+      throw new DirectSafetyBlockedError(
+        decision.code,
+        decision.message,
+        args.tool,
+        siteAlias(args.site),
+      );
+    }
+    if (decision.action === "override") {
+      noteOverrideUse({
+        tool: args.tool,
+        alias: siteAlias(args.site),
+        url: args.site.url,
+        presence: decision.presence,
+        env,
+      });
+    }
   }
   if (args.mode === "confirm" && args.destructive && args.confirm !== true) {
     throw new DirectSafetyBlockedError(

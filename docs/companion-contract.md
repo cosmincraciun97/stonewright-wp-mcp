@@ -176,7 +176,9 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
 6. In Plugin mode the companion never calls WordPress REST write endpoints; it
    proxies to the plugin's MCP endpoint. Direct mode (no plugin) is the
    exception: it writes through core WordPress REST, and through local WP-CLI
-   where the target check passes, only through its typed Direct tools. See
+   where the target check passes, only through its typed Direct tools. It acts
+   on the session's site only, and it refuses to write on a site where the
+   Stonewright plugin is active. See
    [Direct mode E2E](direct-mode-e2e.md#what-direct-mode-protects).
 7. In a Direct MCP session, `stonewright-wp-cli-run` and
    `stonewright-wp-cli-job-start` hold a command that is not read-oriented to the
