@@ -102,7 +102,7 @@ final class AddWidget extends AbilityKernel {
 				if ( 'inner-section' === $widget_type ) {
 					return $this->error(
 						'inner_section_is_layout',
-						__( 'An inner section is a layout element, not a widget. Use stonewright/elementor-add-inner-section, or add a container with a container parent.', 'stonewright' ),
+						__( 'An inner section is a layout element, not a widget. Use stonewright/elementor-v3-batch-mutate with action add_inner_section, or add a container with a container parent.', 'stonewright' ),
 						[ 'status' => 400, 'widget_type' => $widget_type ]
 					);
 				}

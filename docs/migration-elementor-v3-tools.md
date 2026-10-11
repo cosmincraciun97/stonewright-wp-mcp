@@ -51,7 +51,7 @@ discovery remain after public aliases are removed.
 | `stonewright/elementor-add-image-box` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-image-carousel` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-image-gallery` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
-| `stonewright/elementor-add-inner-section` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
+| `stonewright/elementor-add-inner-section` | `stonewright/elementor-v3-batch-mutate` with `action: add_inner_section` | Inner container in a container, inner section with one column in a column, grouped write, mandatory readback |
 | `stonewright/elementor-add-login` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-lottie` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |
 | `stonewright/elementor-add-menu-anchor` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorWidget;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxGuards;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\RegisteredWidgets;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
 use Stonewright\WpMcp\Security\Permissions;
@@ -24,11 +25,11 @@ use Stonewright\WpMcp\Security\Permissions;
  *      spec-array.
  *   3. `Compiler::compile()` → PHP source.
  *   4. `StaticGuard::scan()` — reject on findings.
- *   5. Write to sandbox draft dir as widget-<slug>.pending.php OR
- *      widget-<slug>.php depending on `activate`.
- *   6. (Optional, if activate=true) append slug to the registered-
- *      widgets option so the WidgetLoader auto-picks it up on the
- *      next request.
+ *   5. Write through SandboxFiles::write() (backup of the file it replaces,
+ *      change-ledger row, size cap) to the sandbox draft dir as
+ *      widget-<slug>.pending.php OR widget-<slug>.php depending on `activate`.
+ *   6. (Optional, if activate=true) add the slug to the registered-
+ *      widgets list so the WidgetLoader picks it up on the next request.
  *
  * The official Elementor recipe at
  * `docs/knowledge/elementor/custom-widget/recipe.md` was harvested in
@@ -41,8 +42,7 @@ final class CreateCustomWidget extends AbilityKernel {
 
 	use SandboxGuards;
 
-	private const ABILITY    = 'stonewright/elementor-create-custom-widget';
-	private const OPTION_KEY = 'stonewright_registered_widgets';
+	private const ABILITY = 'stonewright/elementor-create-custom-widget';
 
 	public function name(): string {
 		return self::ABILITY;
@@ -54,7 +54,7 @@ final class CreateCustomWidget extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'Creates a new sandboxed Elementor widget from a high-level spec. USE THIS WHEN the design needs a widget that does not exist in the core Elementor / Pro / WooCommerce catalog (e.g. a custom pricing card, feature tile, branded testimonial layout). The widget is compiled through the Stonewright DSL → PHP pipeline (Compiler + StaticGuard) and dropped into the sandbox draft dir. If `activate=true` the widget is promoted immediately and the WidgetLoader hooks it into Elementor on the next request. Follows the official Elementor recipe (extends \\Elementor\\Widget_Base, implements get_name / get_title / get_icon / get_categories / register_controls / render).',
+			'Creates a new sandboxed Elementor widget from a high-level spec. USE THIS WHEN the design needs a widget that does not exist in the core Elementor / Pro / WooCommerce catalog (e.g. a custom pricing card, feature tile, branded testimonial layout). The widget is compiled through the Stonewright DSL → PHP pipeline (Compiler + StaticGuard) and stored in the sandbox draft dir as widget-<slug>.pending.draft (the sandbox writer keeps a backup of any file it replaces and records the write in the change history). If `activate=true` the widget is stored as the active widget-<slug>.draft and added to the registered-widgets list, and the WidgetLoader hooks it into Elementor on the next request; only registered widgets are loaded. Follows the official Elementor recipe (extends \\Elementor\\Widget_Base, implements get_name / get_title / get_icon / get_categories / register_controls / render).',
 			'stonewright'
 		);
 	}
@@ -95,7 +95,8 @@ final class CreateCustomWidget extends AbilityKernel {
 				],
 				'icon'        => [
 					'type'        => 'string',
-					'description' => 'Elementor icon CSS class, e.g. "eicon-price-list", "eicon-star".',
+					'pattern'     => '^[A-Za-z][A-Za-z0-9 _\-]{0,63}$',
+					'description' => 'Elementor icon CSS class, e.g. "eicon-price-list", "eicon-star". Letters, digits, spaces, hyphens and underscores only.',
 					'default'     => 'eicon-code',
 				],
 				'category'    => [
@@ -106,7 +107,8 @@ final class CreateCustomWidget extends AbilityKernel {
 				],
 				'keywords'    => [
 					'type'  => 'array',
-					'items' => [ 'type' => 'string' ],
+					'maxItems' => 20,
+					'items' => [ 'type' => 'string', 'maxLength' => 40 ],
 					'description' => 'Search keywords shown in the Elementor finder.',
 				],
 				'props'       => [
@@ -143,7 +145,7 @@ final class CreateCustomWidget extends AbilityKernel {
 				],
 				'activate'    => [
 					'type'        => 'boolean',
-					'description' => 'When true, immediately promote .pending.php → .php and append the slug to the registered-widgets option so Elementor picks it up. When false (default), stage as .pending.php for review.',
+					'description' => 'When true, store the widget directly as the active widget-<slug>.draft file and add the slug to the registered-widgets list so Elementor picks it up. When false (default), stage it as widget-<slug>.pending.draft for review.',
 					'default'     => false,
 				],
 				'confirmation_token' => [
@@ -251,6 +253,8 @@ final class CreateCustomWidget extends AbilityKernel {
 				$source = Compiler::compile( [
 					'slug'            => $slug,
 					'title'           => $title,
+					'icon'            => $icon,
+					'keywords'        => $keywords,
 					'category'        => $category,
 					'controls'        => $controls,
 					'template'        => $template,
@@ -271,38 +275,29 @@ final class CreateCustomWidget extends AbilityKernel {
 					);
 				}
 
-				// 6. Write the file. If activating, store it under the active
-				// widget name so the WidgetLoader picks it up; otherwise stage
+				// 6. Write the file through the sandbox writer: backup of the file it
+				// replaces, change-ledger row and size cap. If activating, store it under
+				// the active widget name so the WidgetLoader can pick it up; otherwise stage
 				// the pending name for review. Both are stored as .draft files.
-				$ext       = $activate ? '.php' : '.pending.php';
-				$filename  = 'widget-' . $slug . $ext;
-				$abs_path  = SandboxFiles::stored_path( $filename );
-				$bytes     = file_put_contents( $abs_path, $source ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-				if ( false === $bytes ) {
-					return new \WP_Error(
-						'stonewright_widget_write_error',
-						sprintf( __( 'Could not write widget file: %s', 'stonewright' ), $filename ),
-						[ 'status' => 500 ]
-					);
+				$ext      = $activate ? '.php' : '.pending.php';
+				$filename = 'widget-' . $slug . $ext;
+				$written  = SandboxFiles::write( $filename, $source );
+				if ( $written instanceof \WP_Error ) {
+					return $written;
 				}
+				$abs_path = SandboxFiles::stored_path( $filename );
 
-				// 7. If activating, register the slug in the option list so
-				// the loader sees it. The loader auto-scans the draft dir for
-				// widget-*.php files anyway, but the option also fuels the
-				// admin "active widgets" view.
+				// 7. If activating, list the slug in the registered-widgets option (not
+				// autoloaded): the loader loads only the widgets on that list.
 				$registered = false;
 				if ( $activate ) {
-					$option = (array) get_option( self::OPTION_KEY, [] );
-					if ( ! in_array( $slug, $option, true ) ) {
-						$option[] = $slug;
-						update_option( self::OPTION_KEY, $option );
-					}
+					RegisteredWidgets::add( $slug );
 					$registered = true;
 				}
 
 				return $this->ok( [
 					'slug'              => $slug,
-					'class_name'        => 'Stonewright_Custom_Widget_' . self::pascal( $slug ),
+					'class_name'        => Compiler::qualified_class_name( $slug ),
 					'sandbox_file'      => $abs_path,
 					'widget_type'       => $slug,
 					'registered'        => $registered,
@@ -314,17 +309,5 @@ final class CreateCustomWidget extends AbilityKernel {
 				] );
 			}
 		);
-	}
-
-	private static function pascal( string $slug ): string {
-		$parts = preg_split( '/[^A-Za-z0-9]+/', $slug ) ?: [];
-		$out   = '';
-		foreach ( $parts as $p ) {
-			if ( $p === '' ) {
-				continue;
-			}
-			$out .= ucfirst( strtolower( $p ) );
-		}
-		return $out !== '' ? $out : 'Widget';
 	}
 }

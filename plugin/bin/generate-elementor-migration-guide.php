@@ -35,6 +35,11 @@ foreach ( $classes as $class ) {
 	$ability = new $class();
 	$meta    = $ability->meta();
 	$sunsets[ is_string( $meta['sunset'] ?? null ) ? $meta['sunset'] : '' ] = true;
+	if ( 'stonewright/elementor-add-inner-section' === $ability->name() ) {
+		// An inner section is a layout element, not a widget: it has no schema to read and its own batch action.
+		$rows[] = '| `' . $ability->name() . '` | `stonewright/elementor-v3-batch-mutate` with `action: add_inner_section` | Inner container in a container, inner section with one column in a column, grouped write, mandatory readback |';
+		continue;
+	}
 	$rows[]  = '| `' . $ability->name() . '` | `stonewright/elementor-schema` → `stonewright/elementor-v3-batch-mutate` | Live widget schema, grouped write, mandatory readback |';
 }
 

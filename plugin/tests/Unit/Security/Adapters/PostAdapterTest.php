@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Tests\Unit\Security\Adapters;
 
+use Elementor\Modules\GlobalClasses\Global_Classes_Repository;
+use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Security\ChangeImage;
 use Stonewright\WpMcp\Security\ChangeLedger;
@@ -149,6 +151,62 @@ final class PostAdapterTest extends PostLedgerTestCase {
 		self::assertContains( 'section_order', $image['meta_absent'] );
 		self::assertArrayNotHasKey( '_edit_lock', $image['meta'], 'A lock is not content.' );
 		self::assertNotContains( '_edit_lock', $image['meta_absent'] );
+	}
+
+	public function test_a_kit_image_holds_the_v4_class_and_variable_meta_and_a_restore_brings_it_back(): void {
+		$classes = [ 'items' => [ 'cls_a' => [ 'id' => 'cls_a', 'label' => 'A' ] ], 'order' => [ 'cls_a' ] ];
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+		$this->set_meta( self::POST, '_elementor_global_classes', $classes );
+
+		$image = PostAdapter::image( self::POST );
+
+		self::assertSame( $classes, $image['meta']['_elementor_global_classes'] );
+		self::assertContains( '_elementor_global_variables', $image['meta_absent'] );
+
+		$this->set_meta( self::POST, '_elementor_global_classes', [ 'items' => [], 'order' => [] ] );
+		$this->set_meta( self::POST, '_elementor_global_variables', [ 'data' => [ 'var_1' => [ 'label' => 'x' ] ], 'version' => 1 ] );
+
+		$result = PostAdapter::restore( self::POST, $image );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'], 'Differences: ' . implode( ',', $result['differences'] ) );
+		self::assertSame( $classes, $this->meta( self::POST, '_elementor_global_classes' ) );
+		self::assertNull( $this->meta( self::POST, '_elementor_global_variables' ), 'A variable store the change added is removed.' );
+	}
+
+	public function test_a_kit_image_holds_the_global_classes_of_the_repository_and_a_restore_brings_them_back(): void {
+		Global_Classes_Repository::reset();
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = self::POST;
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+		$image = PostAdapter::image( self::POST );
+
+		self::assertSame( [ 'cls_contract' ], array_keys( $image['global_classes']['contexts']['frontend']['items'] ) );
+
+		Global_Classes_Repository::make()->put( [], [] );
+		self::assertNotSame( ChangeImage::hash_of( $image, 'post', '41' ), ChangeImage::hash_of( PostAdapter::image( self::POST ), 'post', '41' ), 'a class change is a change of the kit image' );
+
+		$result = PostAdapter::restore( self::POST, $image );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'], 'Differences: ' . implode( ',', $result['differences'] ) );
+		self::assertNotNull( Global_Classes_Repository::make()->get( 'cls_contract' ) );
+		Global_Classes_Repository::reset();
+	}
+
+	public function test_a_template_that_is_not_the_active_kit_has_no_global_classes_in_its_image(): void {
+		$GLOBALS['stonewright_test_options']['elementor_active_kit'] = 999;
+		$this->make_post( self::POST, [ 'post_type' => 'elementor_library' ] );
+
+		self::assertArrayNotHasKey( 'global_classes', PostAdapter::image( self::POST ) );
+	}
+
+	public function test_a_page_image_does_not_list_the_kit_class_and_variable_meta(): void {
+		$this->make_post( self::POST );
+
+		$image = PostAdapter::image( self::POST );
+
+		self::assertNotContains( '_elementor_global_classes', $image['meta_absent'] );
+		self::assertNotContains( '_elementor_global_variables', $image['meta_absent'] );
 	}
 
 	public function test_restore_writes_every_part_of_the_image_back(): void {

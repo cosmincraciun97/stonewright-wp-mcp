@@ -361,11 +361,7 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_backup( string $source ): bool {
-		return str_contains( $source, 'Backup::snapshot_post' )
-			|| str_contains( $source, 'SpecToGutenberg()' )
-			|| str_contains( $source, 'SpecToElementorV3()' )
-			|| str_contains( $source, 'ApplyToPost()' )
-			|| str_contains( $source, 'new BuildPageFromSpec()' );
+		return AbilitySourceFacts::has_backup_gate( $source );
 	}
 
 	private static function detect_validator( string $source ): bool {

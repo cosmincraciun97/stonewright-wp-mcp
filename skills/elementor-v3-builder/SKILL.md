@@ -318,8 +318,10 @@ headings inside loop templates; do not rely on many manual meta updates.
   shorthands (`gap`, `background`, `justify_content`) apply to containers.
 - A widget goes inside a container, a section or a column, never inside another
   widget. An inner section goes inside a column (it is stored with one column)
-  or inside a container (stored as an inner container). Elementor Pro and
-  WooCommerce widgets are refused on a site where that plugin is not active.
+  or inside a container (stored as an inner container); add it with the
+  `add_inner_section` batch action and address its column as `<op_id>.column`.
+  Elementor Pro and WooCommerce widgets are refused on a site where that
+  plugin is not active.
 - Configure all relevant tabs. Content holds source data, items, media, links,
   and semantic choices. Style holds typography, colors, spacing, states,
   borders, shadows, and widget-specific presentation. Advanced can use

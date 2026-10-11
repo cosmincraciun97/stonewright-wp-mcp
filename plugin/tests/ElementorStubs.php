@@ -371,23 +371,85 @@ final class Post {
 
 namespace Elementor\Modules\GlobalClasses;
 
+/**
+ * The global classes repository as Elementor 4.3 exposes it. The unit stub keeps the classes of each context
+ * (frontend and preview) in memory; Elementor keeps them in e_global_class posts.
+ */
 final class Global_Classes_Repository {
-	/** @var array<string, array<string, mixed>> */
-	private static array $items = [
-		'cls_contract' => [ 'id' => 'cls_contract', 'label' => 'Contract', 'type' => 'class', 'variants' => [ [ 'meta' => [ 'breakpoint' => 'desktop', 'state' => null ], 'props' => [] ] ] ],
-	];
-	public static function make(): self { return new self(); }
-	/** @return array<string, string> */
-	public function all_labels(): array { return array_map( static fn( array $item ): string => (string) $item['label'], self::$items ); }
-	/** @return array<string, array<string, mixed>> */
-	public function get_by_ids( array $ids ): array { return array_intersect_key( self::$items, array_flip( $ids ) ); }
-	/** @return list<string> */
-	public function get_order(): array { return array_keys( self::$items ); }
-	/** @return array<string, mixed>|null */
-	public function get( string $id ): ?array { return self::$items[ $id ] ?? null; }
-	public function apply_changes( array $items, array $changes, array $order ): void { self::$items = array_replace( self::$items, $items ); }
-}
+	public const CONTEXT_FRONTEND = 'frontend';
+	public const CONTEXT_PREVIEW  = 'preview';
 
+	/** @var array<string, array{items: array<string, array<string, mixed>>, order: list<string>}> */
+	private static array $store = [];
+
+	private string $context = self::CONTEXT_FRONTEND;
+
+	/** @var array{items: array<string, array<string, mixed>>, order: list<string>}|null */
+	private ?array $cache = null;
+
+	private static function defaults(): array {
+		return [ 'items' => [ 'cls_contract' => [ 'id' => 'cls_contract', 'label' => 'Contract', 'type' => 'class', 'variants' => [ [ 'meta' => [ 'breakpoint' => 'desktop', 'state' => null ], 'props' => [] ] ] ] ], 'order' => [ 'cls_contract' ] ];
+	}
+
+	/** @internal Tests only: back to the single contract class in both contexts. */
+	public static function reset(): void {
+		self::$store = [ self::CONTEXT_FRONTEND => self::defaults(), self::CONTEXT_PREVIEW => self::defaults() ];
+	}
+
+	public static function make(): self { return new self(); }
+
+	public function set_preview( bool $is_preview = true ): self {
+		$this->context = $is_preview ? self::CONTEXT_PREVIEW : self::CONTEXT_FRONTEND;
+		$this->cache   = null;
+		return $this;
+	}
+
+	/** @return array{items: array<string, array<string, mixed>>, order: list<string>} */
+	private function state(): array {
+		if ( [] === self::$store ) {
+			self::reset();
+		}
+		return self::$store[ $this->context ];
+	}
+
+	/** The answer is cached on the instance like Elementor's; $force reads the storage again. */
+	public function all( bool $force = false ): object {
+		if ( $force || null === $this->cache ) {
+			$this->cache = $this->state();
+		}
+		return new class( $this->cache['items'], $this->cache['order'] ) {
+			public function __construct( private array $items, private array $order ) {}
+			public function get_items(): array { return $this->items; }
+			public function get_order(): array { return $this->order; }
+			public function get_ordered_items(): array { return array_values( array_intersect_key( $this->items, array_flip( $this->order ) ) ); }
+		};
+	}
+
+	/** @return array<string, string> */
+	public function all_labels(): array { return array_map( static fn( array $item ): string => (string) $item['label'], $this->state()['items'] ); }
+	/** @return array<string, array<string, mixed>> */
+	public function get_by_ids( array $ids ): array { return array_intersect_key( $this->state()['items'], array_flip( $ids ) ); }
+	/** @return list<string> */
+	public function get_order(): array { return $this->state()['order']; }
+	/** @return array<string, mixed>|null */
+	public function get( string $id ): ?array { return $this->state()['items'][ $id ] ?? null; }
+
+	/** @param array<string, array<string, mixed>> $items @param list<string> $order */
+	public function put( array $items, array $order ): void {
+		$this->state();
+		self::$store[ $this->context ] = [ 'items' => $items, 'order' => array_values( $order ) ];
+		// The cache of this instance is deliberately kept, as Elementor's is.
+	}
+
+	public function apply_changes( array $items, array $changes, array $order ): void {
+		$state = $this->state();
+		$all   = array_replace( $state['items'], $items );
+		foreach ( (array) ( $changes['deleted'] ?? [] ) as $id ) {
+			unset( $all[ $id ] );
+		}
+		self::$store[ $this->context ] = [ 'items' => $all, 'order' => array_values( $order ) ];
+	}
+}
 namespace Elementor\Modules\Variables\Storage;
 
 final class Variables_Repository {
@@ -405,13 +467,21 @@ final class Variables_Service {
 	private static array $items = [
 		'var_contract' => [ 'label' => 'Contract', 'type' => 'global-color-variable', 'value' => '#111111' ],
 	];
+	/** @var list<string> Fields the stored variable loses, to simulate a runtime that does not keep what was written. */
+	public static array $drop_fields = [];
 	public function __construct( object $repository, object $batch ) {}
 	/** @return array<string, array<string, mixed>> */
 	public function get_variables_list(): array { return self::$items; }
 	/** @param array<string, mixed> $data @return array<string, mixed> */
-	public function create( array $data ): array { $id = 'var_' . count( self::$items ); self::$items[ $id ] = $data; return [ 'variable' => array_merge( [ 'id' => $id ], $data ) ]; }
+	public function create( array $data ): array { $id = 'var_' . count( self::$items ); self::$items[ $id ] = array_diff_key( $data, array_flip( self::$drop_fields ) ); self::persist(); return [ 'variable' => array_merge( [ 'id' => $id ], $data ) ]; }
 	/** @param array<string, mixed> $data @return array<string, mixed> */
-	public function update( string $id, array $data ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } self::$items[ $id ] = array_replace( self::$items[ $id ], $data ); return [ 'variable' => array_merge( [ 'id' => $id ], self::$items[ $id ] ) ]; }
+	public function update( string $id, array $data ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } self::$items[ $id ] = array_replace( self::$items[ $id ], array_diff_key( $data, array_flip( self::$drop_fields ) ) ); self::persist(); return [ 'variable' => array_merge( [ 'id' => $id ], self::$items[ $id ] ) ]; }
+	/** @return array<string, mixed> */
+	public function delete( string $id ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } $gone = self::$items[ $id ]; unset( self::$items[ $id ] ); self::persist(); return [ 'variable' => array_merge( [ 'id' => $id ], $gone ) ]; }
+	/** @internal Tests only: back to the single contract variable, optionally stored in the kit meta. */
+	public static function reset( bool $persist = false ): void { self::$drop_fields = []; self::$items = [ 'var_contract' => [ 'label' => 'Contract', 'type' => 'global-color-variable', 'value' => '#111111' ] ]; if ( $persist ) { self::persist(); } }
+	/** Elementor keeps the variables in the kit meta; the unit bootstrap keeps that meta in its fake posts. */
+	private static function persist(): void { if ( function_exists( 'update_post_meta' ) ) { update_post_meta( 4, '_elementor_global_variables', [ 'data' => self::$items, 'version' => 1 ] ); } }
 }
 
 namespace Elementor\Modules\Promotions\Widgets;

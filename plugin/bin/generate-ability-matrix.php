@@ -24,7 +24,7 @@
  *                 confirmation_token_error(), or production_safe_token_error()
  *   - Backup    : calls Backup::snapshot_post
  *   - Validator : calls Validator::validate (DesignSpec or ThemeJson)
- *   - Status    : @stonewright-status docblock tag; default "stable"
+ *   - Status    : @stonewright-status docblock tag; default "stable"; "deprecated" when meta() says so
  *   - External  : calls that reach hosts outside the site (HTTP requests, downloads, oEmbed,
  *                 sideloads and the helper classes that do them)
  *   - Hints     : the MCP tool annotations the ability registers (Core\AbilityAnnotations)
@@ -275,18 +275,9 @@ function detect_token( string $source ): string {
 	return 'No';
 }
 
+// The public API contract reads the same detector, so the two documents never disagree.
 function detect_backup( string $source ): string {
-	return (
-		strpos( $source, 'Backup::snapshot_post' ) !== false
-		|| strpos( $source, 'SpecToGutenberg()' ) !== false
-		|| strpos( $source, 'SpecToElementorV3()' ) !== false
-		|| strpos( $source, 'ApplyToPost()' ) !== false
-		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
-		// The native Elementor bridge snapshots the page or kit before it runs an Elementor ability.
-		|| strpos( $source, 'NativeElementorProvider' ) !== false
-		// Typed writers that snapshot on their caller's behalf.
-		|| strpos( $source, 'ElementorKitWriter::apply' ) !== false
-	) ? 'Yes' : 'No';
+	return AbilitySourceFacts::has_backup_gate( $source ) ? 'Yes' : 'No';
 }
 
 function detect_validator( string $source ): string {
@@ -324,7 +315,11 @@ function detect_validator( string $source ): string {
  *
  * Valid values: stable | experimental | sandboxed | blocked
  */
-function detect_status( string $source ): string {
+function detect_status( string $source, bool $deprecated = false ): string {
+	// An ability that reports itself deprecated in its meta() is shown as deprecated, whatever its tag says.
+	if ( $deprecated ) {
+		return 'deprecated';
+	}
 	if ( preg_match( '/@stonewright-status\s+(stable|experimental|sandboxed|blocked)/', $source, $m ) ) {
 		return $m[1];
 	}
@@ -532,8 +527,10 @@ foreach ( get_registered_classes() as $class ) {
 	$desc  = '';
 	$hints = 'unknown';
 	$facts = AbilitySourceFacts::detect( $class );
+	$deprecated = false;
 	try {
 		$ability  = new $class();
+		$deprecated = true === ( $ability->meta()['deprecated'] ?? false );
 		$slug     = $ability->name();
 		$raw_desc = $ability->description();
 		// Take first sentence.
@@ -562,7 +559,7 @@ foreach ( get_registered_classes() as $class ) {
 		'token'     => detect_token( $source ),
 		'backup'    => detect_backup( $source ),
 		'validator' => detect_validator( $source ),
-		'status'    => detect_status( $source ),
+		'status'    => detect_status( $source, $deprecated ),
 		'tests'     => find_test_file( $class ),
 		'external'  => $facts['external'] ? 'Yes' : 'No',
 		'hints'     => $hints,
@@ -587,7 +584,7 @@ $lines[] = '- **Permission**: the `Permissions::` method called from `permission
 $lines[] = '- **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.';
 $lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation.';
 $lines[] = '- **Validator**: calls an Elementor, DesignSpec, ThemeJson, or Design Direction validator.';
-$lines[] = '- **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag).';
+$lines[] = '- **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag), or `deprecated` for an ability whose `meta()` reports `deprecated` (it names its replacement and sunset version there).';
 $lines[] = '- **Tests**: primary test file for this ability.';
 $lines[] = '- **External**: `Yes` = the code of the ability makes HTTP requests, downloads, oEmbed lookups or sideloads (what the source shows). Abilities that run arbitrary code or commands (`php-execute`, the WP-CLI runners, `execute-ability`) are marked `open-world` in Hints by an override although this column says `No`.';
 $lines[] = '- **Hints**: the MCP tool annotations the ability registers. `read-only` abilities are also idempotent and never destructive; the others are `additive` (they only add) or `destructive`, optionally `idempotent`; `open-world` marks a tool that reaches hosts outside the site. They come from the R/W and External facts and the verb in the ability name, and an ability can override them in its `meta()`.';

@@ -12,6 +12,8 @@ namespace Stonewright\WpMcp\Security\Adapters;
 
 use Stonewright\WpMcp\Abilities\Seo\SeoAdapter;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
+use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeImage;
 use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\Permissions;
@@ -107,7 +109,9 @@ final class PostAdapter {
 			$fields[ $field ] = $numeric ? (int) $value : (string) $value;
 		}
 
-		$wanted = array_merge( self::allowlisted_keys(), self::acf_keys( $post_id ), self::clean_extra_keys( $extra_meta_keys ) );
+		// The kit keeps the Elementor V4 global classes and variables in its own meta.
+		$kit_keys = 'elementor_library' === $post_type ? Backup::KIT_V4_META_KEYS : [];
+		$wanted   = array_merge( self::allowlisted_keys(), $kit_keys, self::acf_keys( $post_id ), self::clean_extra_keys( $extra_meta_keys ) );
 		$meta   = [];
 		$absent = [];
 		foreach ( array_values( array_unique( $wanted ) ) as $key ) {
@@ -122,7 +126,7 @@ final class PostAdapter {
 
 		$thumbnail = self::meta_exists( $post_id, '_thumbnail_id' ) ? (int) get_post_meta( $post_id, '_thumbnail_id', true ) : 0;
 
-		return [
+		$image = [
 			'v'              => self::IMAGE_VERSION,
 			'post_type'      => $post_type,
 			'post'           => $fields,
@@ -131,6 +135,16 @@ final class PostAdapter {
 			'meta'           => $meta,
 			'meta_absent'    => $absent,
 		];
+		// From Elementor 4.3 the global classes are posts of their own, so the active kit's image holds them
+		// as the repository returns them.
+		if ( self::is_active_kit( $post_id, $post_type ) ) {
+			$classes = GlobalClassesState::capture();
+			if ( null !== $classes ) {
+				$image['global_classes'] = $classes;
+			}
+		}
+
+		return $image;
 	}
 
 	/**
@@ -416,6 +430,10 @@ final class PostAdapter {
 			}
 		}
 
+		if ( is_array( $image['global_classes'] ?? null ) && ! GlobalClassesState::restore( $image['global_classes'] ) ) {
+			$skipped[] = 'global_classes';
+		}
+
 		if ( array_key_exists( '_elementor_data', $meta ) || in_array( '_elementor_data', $absent, true ) ) {
 			PostCacheInvalidator::invalidate( $post_id );
 		}
@@ -534,6 +552,10 @@ final class PostAdapter {
 		return function_exists( 'mb_substr' ) ? mb_substr( $text, 0, self::SUMMARY_MAX ) : substr( $text, 0, self::SUMMARY_MAX );
 	}
 
+	private static function is_active_kit( int $post_id, string $post_type ): bool {
+		return 'elementor_library' === $post_type && $post_id > 0 && (int) get_option( 'elementor_active_kit', 0 ) === $post_id;
+	}
+
 	/** @return list<string> */
 	private static function allowlisted_keys(): array {
 		$keys = self::TRACKED_META;
@@ -599,7 +621,7 @@ final class PostAdapter {
 		if ( '' === $key ) {
 			return false;
 		}
-		if ( in_array( $key, self::allowlisted_keys(), true ) ) {
+		if ( in_array( $key, self::allowlisted_keys(), true ) || in_array( $key, Backup::KIT_V4_META_KEYS, true ) ) {
 			return true;
 		}
 		if ( '_' !== $key[0] ) {
@@ -694,6 +716,9 @@ final class PostAdapter {
 			if ( $want !== $have ) {
 				$out[] = 'terms.' . $taxonomy;
 			}
+		}
+		if ( is_array( $wanted['global_classes'] ?? null ) && ( ! is_array( $live['global_classes'] ?? null ) || ! GlobalClassesState::same( $wanted['global_classes'], $live['global_classes'] ) ) ) {
+			$out[] = 'global_classes';
 		}
 		$keys = array_unique( array_merge( array_keys( (array) ( $wanted['meta'] ?? [] ) ), array_keys( (array) ( $live['meta'] ?? [] ) ) ) );
 		foreach ( $keys as $key ) {

@@ -57,6 +57,8 @@ final class AbilityRegistrationMetaTest extends TestCase {
 		'stonewright/design-checkpoint-record'          => [ false, false, false, false ],
 		// It writes the widget file under its slug without looking for an earlier one, so a repeat replaces the earlier widget.
 		'stonewright/elementor-create-custom-widget'    => [ false, true, false, false ],
+		// Its name ends in the verb toggle, which derives as destructive, but it only adds an accordion-style widget to a page.
+		'stonewright/elementor-add-toggle'              => [ false, false, false, false ],
 		// It only adds media files and attachments, and fetches them from the web.
 		'stonewright/design-normalize-assets'           => [ false, false, false, true ],
 		// It writes, but the kernel wrapper it records through declares no nature, so its source shows no write.

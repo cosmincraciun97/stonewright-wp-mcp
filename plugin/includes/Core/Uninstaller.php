@@ -88,6 +88,9 @@ final class Uninstaller {
 	 */
 	public const SCHEDULED_HOOKS = [ 'stonewright_oauth_gc', 'stonewright_audit_retention', 'stonewright_change_ledger_prune' ];
 
+	/** The list of widgets the widget builder registered with Elementor. */
+	public const REGISTERED_WIDGETS_OPTION = 'stonewright_registered_widgets';
+
 	/** Sites read from a network per get_sites() call. */
 	private const SITE_PAGE = 100;
 
@@ -107,6 +110,34 @@ final class Uninstaller {
 	 */
 	public static function remove_code(): bool {
 		return RescueInstaller::remove();
+	}
+
+	/**
+	 * Forget the custom widgets the widget builder registered. The list says which generated widget files
+	 * Elementor loads; once the plugin is gone nothing loads them, and a reinstall must not bring them back
+	 * without a new registration. Like the rescue helper it is code state and not data: it goes on every
+	 * uninstall, on every site of a network, and the other options stay.
+	 */
+	public static function forget_registered_widgets(): void {
+		if ( ! is_multisite() ) {
+			delete_option( self::REGISTERED_WIDGETS_OPTION );
+			return;
+		}
+		$offset = 0;
+		do {
+			$sites = get_sites( [ 'fields' => 'ids', 'number' => self::SITE_PAGE, 'offset' => $offset, 'orderby' => 'id', 'order' => 'ASC' ] );
+			$sites = is_array( $sites ) ? $sites : [];
+			$read  = count( $sites );
+			foreach ( $sites as $site ) {
+				switch_to_blog( (int) $site );
+				try {
+					delete_option( self::REGISTERED_WIDGETS_OPTION );
+				} finally {
+					restore_current_blog();
+				}
+			}
+			$offset += self::SITE_PAGE;
+		} while ( self::SITE_PAGE === $read );
 	}
 
 	/** The entry point of uninstall.php: remove everything when it was asked for, nothing otherwise. */

@@ -206,7 +206,16 @@ compare the stored document with the tree they wrote, nested content included,
 and restore the snapshot on a mismatch. The class adapters compare the stored
 class, variants and props included, with what was written and put the previous
 class back (or delete the new one) on a mismatch; the variable adapter checks the
-label, type, and value. Each result carries `readback` or fails with
+label, type, and value and, on a mismatch, deletes the new variable or puts the
+previous label, type and value back, and says in `rollback_status` whether that was
+confirmed. The snapshot the four class and variable writers return covers the
+variables (the kit meta `_elementor_global_variables`) and the global classes. From
+Elementor 4.3 a class is an `e_global_class` post, so the snapshot of a class write
+holds the items, order and labels that Elementor's `Global_Classes_Repository`
+returns for the frontend and preview contexts, and a restore writes them back with
+`put()` and reads them back; the legacy kit meta key `_elementor_global_classes` is
+only the fallback where that repository does not exist. `change-restore` and the
+Changes page bring a class or variable change back. Each result carries `readback` or fails with
 `stonewright_atomic_readback_mismatch` and its `problems`.
 
 ## Surgical node update
@@ -222,9 +231,12 @@ node by id (merge or replace). It:
    against its reverse map. Unknown keys already on a certified node are
    preserved with a warning; new keys still require a `$$type`/`value`
    envelope.
-4. Snapshots with `Backup::snapshot_post`, then writes through
-   `ElementorData::write` **without** `skip_integrity`.
+4. Takes the page write lock, reads the page again and refuses with
+   `elementor_revision_conflict` when it changed since the plan, then snapshots with
+   `Backup::snapshot_post` and writes through `ElementorData::write` **without**
+   `skip_integrity`.
 5. Supports `dry_run:true` to return the planned settings without writing.
+   `dry_run` defaults to **false**: a call without it writes.
 
 Prefer `dry_run` first. Use class/variable abilities for kit-level styles; do
 not use this ability for tree restructure, elType/widgetType remaps, or full
@@ -261,6 +273,10 @@ editor model and preview DOM after mutation. It never calls the V3 adapter as a
 fallback.
 
 `stonewright/elementor-v4-migrate` is the only explicit V3-to-V4 path. Dry-run
-returns a per-element compatibility/loss report. Apply is refused unless every
-element has a verified zero-loss mapping; successful apply snapshots the page,
-writes once, compares the readback hash, and restores automatically on mismatch.
+returns a per-element compatibility/loss report. Apply needs `confirm_migration=true`
+(and, once a V4 write is allowed in `production-safe` mode, a `confirmation_token`
+bound to the post and the other arguments) and is refused unless every element has a
+verified zero-loss mapping. It takes the page write lock, refuses a page that changed
+since the plan (`elementor_revision_conflict`), snapshots the page, writes once,
+compares the readback hash, and restores the snapshot on a failure or mismatch; the
+error carries `rollback_status` (`succeeded` or `failed`) from that restore.

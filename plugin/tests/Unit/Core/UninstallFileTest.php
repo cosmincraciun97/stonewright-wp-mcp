@@ -38,6 +38,29 @@ final class UninstallFileTest extends TestCase {
 		self::assertSame( [], UninstallSite::$log, 'the caches were left alone as well' );
 	}
 
+	/**
+	 * The list of registered custom widgets says which generated widget files Elementor loads. With the plugin
+	 * gone nothing loads them, and a reinstall must not bring them back without a new registration, so the list
+	 * goes on every uninstall; the rest of the data stays unless the setting asks for its removal.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_deleting_the_plugin_forgets_the_registered_custom_widgets_and_keeps_the_other_data(): void {
+		define( 'WP_UNINSTALL_PLUGIN', 'stonewright/stonewright.php' );
+		$wpdb = UninstallSite::reset();
+		$GLOBALS['wpdb'] = $wpdb;
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [ 'my-card' ];
+		$others = $GLOBALS['stonewright_test_options'];
+		unset( $others['stonewright_registered_widgets'] );
+
+		include self::file();
+
+		self::assertArrayNotHasKey( 'stonewright_registered_widgets', $GLOBALS['stonewright_test_options'] );
+		self::assertSame( $others, $GLOBALS['stonewright_test_options'], 'every other option was kept' );
+		self::assertSame( [], $wpdb->statements, 'no table was touched' );
+	}
+
 	private static function helper_file(): string {
 		return WP_CONTENT_DIR . '/mu-plugins/stonewright-rescue.php';
 	}
