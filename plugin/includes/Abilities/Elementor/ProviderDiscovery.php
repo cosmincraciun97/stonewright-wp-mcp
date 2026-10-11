@@ -71,12 +71,15 @@ final class ProviderDiscovery extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		unset( $args );
-		return Permissions::read();
+		$post_id = max( 0, (int) ( $args['post_id'] ?? 0 ) );
+		return Permissions::read() && ( $post_id < 1 || Permissions::edit_post( $post_id ) );
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		$post_id      = max( 0, (int) ( $args['post_id'] ?? 0 ) );
+		if ( $post_id > 0 && ! Permissions::edit_post( $post_id ) ) {
+			return $this->error( 'cannot_edit_post', __( 'You cannot inspect providers for this post.', 'stonewright' ), [ 'status' => 403 ] );
+		}
 		$architecture = sanitize_key( (string) ( $args['architecture'] ?? 'auto' ) );
 		if ( ! in_array( $architecture, [ 'auto', 'v3', 'v4' ], true ) ) {
 			$architecture = 'auto';

@@ -4,7 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\ThemeBuilder\TemplateGuard;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
 /**
@@ -15,6 +17,9 @@ use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
  * category archives). The full rule array replaces whatever was on the
  * template before — callers that want to add/remove a single rule should
  * fetch the template first via GetTemplate.
+ *
+ * Needs `edit_theme_options` and `edit_post` on the template. Takes a snapshot first and refuses when it
+ * cannot be stored, reports the rules it overwrote, and reads the stored rules back.
  *
  * @stonewright-status stable
  */
@@ -66,33 +71,61 @@ final class SetConditions extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'template_id' => [ 'type' => 'integer' ],
-				'updated'     => [ 'type' => 'boolean' ],
+				'template_id'         => [ 'type' => 'integer' ],
+				'updated'             => [ 'type' => 'boolean' ],
+				'snapshot_id'         => [ 'type' => 'string' ],
+				'previous_conditions' => [ 'type' => 'array', 'description' => 'The rules this call replaced, in the stored form (e.g. include/general).' ],
+				'conditions'          => [ 'type' => 'array', 'description' => 'The rules stored now, read back.' ],
 			],
 			'required'   => [ 'template_id', 'updated' ],
 		];
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::edit_theme_options() ? ( TemplateGuard::object_error( 'edit_post', (int) ( $args['template_id'] ?? 0 ) ) ?? true ) : false;
+	}
+
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		$id     = (int) ( $args['template_id'] ?? 0 );
+		$denied = TemplateGuard::execute_error( 'edit_post', $id );
+		if ( null !== $denied ) {
+			return $denied;
+		}
+		$post = get_post( $id );
+		if ( ! $post || 'elementor_library' !== $post->post_type ) {
+			return $this->error(
+				'not_a_template',
+				__( 'Post is not an elementor_library template.', 'stonewright' )
+			);
+		}
+		return null;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$id   = (int) $args['template_id'];
-				$post = get_post( $id );
-				if ( ! $post || 'elementor_library' !== $post->post_type ) {
+				$id          = (int) $args['template_id'];
+				// The snapshot keeps the template as it was. Rescue is not armed: it restores the post, and the rules live in
+				// an option and a meta key that a restore does not bring back, so previous_conditions is the way back.
+				$snapshot_id = Backup::snapshot_post( $id, [], false );
+				if ( '' === $snapshot_id ) {
+					return $this->backup_failed_error();
+				}
+				$previous = TemplateStore::get_conditions( $id );
+				if ( ! TemplateStore::set_conditions( $id, (array) $args['conditions'] ) ) {
 					return $this->error(
-						'not_a_template',
-						__( 'Post is not an elementor_library template.', 'stonewright' )
+						'write_failed',
+						__( 'The display conditions were not stored as requested.', 'stonewright' ),
+						[ 'status' => 500, 'previous_conditions' => $previous ]
 					);
 				}
-				$ok = TemplateStore::set_conditions( $id, (array) $args['conditions'] );
 				return [
-					'template_id' => $id,
-					'updated'     => $ok,
+					'template_id'         => $id,
+					'updated'             => true,
+					'snapshot_id'         => $snapshot_id,
+					'previous_conditions' => $previous,
+					'conditions'          => TemplateStore::get_conditions( $id ),
 				];
 			}
 		);

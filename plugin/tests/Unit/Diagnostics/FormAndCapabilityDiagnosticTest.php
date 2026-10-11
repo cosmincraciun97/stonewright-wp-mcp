@@ -85,7 +85,7 @@ final class FormAndCapabilityDiagnosticTest extends TestCase {
 			'post_status' => 'publish',
 			'post_author' => 23,
 		];
-		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'edit_posts' => true, 'edit_post' => false ];
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'read_post' => true, 'edit_posts' => true, 'edit_post' => false ];
 		$GLOBALS['stonewright_test_options'] = [ 'active_plugins' => [ 'publishpress-permissions/publishpress.php' ] ];
 		$GLOBALS['stonewright_test_filters']['stonewright_permission_deny_source'] = static fn( mixed $value, int $post_id ): string => 56 === $post_id ? 'object_rule' : (string) $value;
 

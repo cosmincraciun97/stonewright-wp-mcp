@@ -20,7 +20,7 @@ final class ThemeBuilderAbilitiesTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_deleted_posts']   = [];
-		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true ];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true, 'edit_theme_options' => true, 'edit_post' => true, 'delete_post' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_posts'][ 7700 ]   = (object) [
 			'ID'           => 7700,
@@ -173,15 +173,12 @@ final class ThemeBuilderAbilitiesTest extends TestCase {
 		$this->assertFalse( $only['force'], 'Default behaviour is trash (force=false).' );
 	}
 
-	public function test_delete_template_force_true_permadeletes(): void {
-		( new DeleteTemplate() )->execute( [ 'template_id' => 7700, 'force' => true ] );
-		$matching = array_filter(
-			$GLOBALS['stonewright_test_deleted_posts'] ?? [],
-			static fn ( array $c ): bool => $c['post_id'] === 7700
-		);
-		$only = array_values( $matching )[0];
-		$this->assertTrue( $only['force'] );
-		$this->assertArrayNotHasKey( 7700, $GLOBALS['stonewright_test_posts'] );
+	public function test_delete_template_force_true_is_refused_and_keeps_the_template(): void {
+		$result = ( new DeleteTemplate() )->execute( [ 'template_id' => 7700, 'force' => true ] );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_force_delete_refused', $result->get_error_code() );
+		$this->assertSame( [], $GLOBALS['stonewright_test_deleted_posts'] ?? [] );
+		$this->assertArrayHasKey( 7700, $GLOBALS['stonewright_test_posts'] );
 	}
 
 	public function test_delete_template_rejects_non_template_post(): void {

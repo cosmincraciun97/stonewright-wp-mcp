@@ -45,7 +45,14 @@ final class FamilyLedgerHookTest extends FamilyLedgerTestCase {
 
 		$result = ( new SettingsUpdate() )->execute( [ 'settings' => [ 'blogname' => 'After', 'posts_per_page' => 5, 'not_on_the_list' => 'x' ] ] );
 
-		self::assertSame( [ 'updated' => [ 'blogname', 'posts_per_page' ] ], $result );
+		self::assertSame(
+			[
+				'updated'   => [ 'blogname', 'posts_per_page' ],
+				'unchanged' => [],
+				'skipped'   => [ [ 'key' => 'not_on_the_list', 'reason' => 'not_allowlisted' ] ],
+			],
+			$result
+		);
 		$row = $this->only_row();
 		self::assertSame( 'option', $row['family'] );
 		self::assertSame( 'option', $row['resource_type'] );
@@ -76,17 +83,15 @@ final class FamilyLedgerHookTest extends FamilyLedgerTestCase {
 		self::assertStringNotContainsString( 'overwritten', $stored );
 	}
 
-	public function test_a_blocked_settings_update_changes_nothing_and_records_nothing(): void {
+	public function test_a_blocked_settings_update_writes_no_key_and_records_nothing(): void {
 		update_option( 'blogname', 'Before' );
 
 		$result = ( new SettingsUpdate() )->execute( [ 'settings' => [ 'blogname' => 'After', 'siteurl' => 'https://other.test' ] ] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_settings_blocked_key', $result->get_error_code() );
-		self::assertSame( 'After', get_option( 'blogname' ), 'The keys before the blocked one were written, as before.' );
-		$row = $this->only_row();
-		self::assertSame( 'failed', $row['status'], 'The write that did happen is recorded, as a failed call.' );
-		self::assertSame( 'Before', ChangeLedger::read_image( $row['change_id'], 'before' )['options']['blogname']['value'] );
+		self::assertSame( 'Before', get_option( 'blogname' ), 'No key is written when any key is refused.' );
+		self::assertSame( 0, $this->ledger_count(), 'A call that wrote nothing records no change.' );
 	}
 
 	public function test_a_settings_update_that_writes_nothing_records_nothing(): void {
@@ -429,7 +434,7 @@ final class FamilyLedgerHookTest extends FamilyLedgerTestCase {
 		}
 
 		self::assertStringContainsString( 'stonewright.' . $event, (string) file_get_contents( $log ), 'The failure is logged.' );
-		self::assertSame( [ 'updated' => [ 'blogname' ] ], $settings );
+		self::assertSame( [ 'updated' => [ 'blogname' ], 'unchanged' => [], 'skipped' => [] ], $settings );
 		self::assertSame( 'After', get_option( 'blogname' ) );
 		self::assertIsArray( $added );
 		self::assertSame( [ 'One', 'Two' ], array_column( $this->menu_shape( $menu['menu'] ), 0 ) );
@@ -452,7 +457,7 @@ final class FamilyLedgerHookTest extends FamilyLedgerTestCase {
 		$menu   = ( new \Stonewright\WpMcp\Abilities\Menu\MenuCreate() )->execute( [ 'name' => 'Main' ] );
 		$widget = ( new \Stonewright\WpMcp\Abilities\Widgets\WidgetSave() )->execute( [ 'sidebar_id' => 'sidebar-1', 'widgets' => [] ] );
 
-		self::assertSame( [ 'updated' => [ 'blogname' ] ], $result );
+		self::assertSame( [ 'updated' => [ 'blogname' ], 'unchanged' => [], 'skipped' => [] ], $result );
 		self::assertIsArray( $menu );
 		self::assertSame( [ 'ok' => true, 'sidebar_id' => 'sidebar-1' ], $widget );
 		self::assertSame( 'After', get_option( 'blogname' ) );

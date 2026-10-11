@@ -14,8 +14,6 @@ use Stonewright\WpMcp\Security\RescueGuard;
  * @stonewright-status stable
  */
 final class PluginDeactivate extends AbilityKernel {
-	use ConfirmationGuard;
-
 	public function name(): string {
 		return 'stonewright/plugin-deactivate';
 	}
@@ -60,21 +58,25 @@ final class PluginDeactivate extends AbilityKernel {
 		return Permissions::activate_plugins();
 	}
 
+	/**
+	 * Checked before the confirmation token is looked at, so a refusal never spends one.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		$plugin = (string) ( $args['plugin'] ?? '' );
+		if ( PluginTarget::is_self( $plugin ) ) {
+			return new \WP_Error( 'stonewright_self_protection', 'Cannot deactivate Stonewright from itself.' );
+		}
+		return PluginTarget::exists( PluginTarget::normalise( $plugin ) ) ? null : PluginTarget::not_found_error();
+	}
+
 	public function execute( array $args ): array|\WP_Error {
-		return $this->audit(
+		return $this->audit_write(
 			$args,
 			function ( array $args ) {
-				$verify = $args;
-				unset( $verify['confirmation_token'] );
-				$err = $this->confirmation_token_error( $args, $verify );
-				if ( null !== $err ) {
-					return $err;
-				}
 				require_once ABSPATH . 'wp-admin/includes/plugin.php';
-				$plugin = (string) $args['plugin'];
-				if ( str_contains( $plugin, 'stonewright' ) ) {
-					return new \WP_Error( 'stonewright_self_protection', 'Cannot deactivate Stonewright from itself.' );
-				}
+				$plugin = PluginTarget::normalise( (string) $args['plugin'] );
 				RescueGuard::arm_plugin_write( $plugin, is_plugin_active( $plugin ) );
 				deactivate_plugins( $plugin );
 				return [

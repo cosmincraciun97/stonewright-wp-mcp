@@ -39,11 +39,15 @@ final class CapabilityPreflight extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::read();
+		$post_id = (int) ( $args['post_id'] ?? 0 );
+		return Permissions::read() && ( $post_id < 1 || current_user_can( 'read_post', $post_id ) );
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		$post_id = (int) ( $args['post_id'] ?? 0 );
+		if ( $post_id > 0 && ! current_user_can( 'read_post', $post_id ) ) {
+			return $this->error( 'cannot_read_post', __( 'You cannot read this post.', 'stonewright' ), [ 'status' => 403 ] );
+		}
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ), [ 'status' => 404 ] );

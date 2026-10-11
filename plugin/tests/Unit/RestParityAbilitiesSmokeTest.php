@@ -173,7 +173,7 @@ final class RestParityAbilitiesSmokeTest extends TestCase {
 			if ( 'edit_user' === $cap && 2 === (int) ( $args[0] ?? 0 ) ) {
 				return true;
 			}
-			return 'manage_options' === $cap;
+			return in_array( $cap, [ 'manage_options', 'list_app_passwords' ], true );
 		};
 		$this->assertTrue(
 			$ability->permission_callback( [ 'action' => 'list', 'user_id' => 2 ] )

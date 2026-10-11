@@ -63,9 +63,17 @@ final class ContractTest extends TestCase {
 				'edit_theme_options',
 				'publish_posts',
 				'publish_pages',
+				'read_post',
+				'delete_post',
+				'edit_user',
+				'delete_user',
+				'list_app_passwords',
+				'create_app_password',
+				'delete_app_password',
 			],
 			true
 		);
+		$GLOBALS['stonewright_test_extra_plugins']   = [ 'akismet/akismet.php' => [ 'Name' => 'Akismet', 'Version' => '5.0' ] ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 42;
 		$GLOBALS['stonewright_test_options']         = [
@@ -196,7 +204,7 @@ final class ContractTest extends TestCase {
 		Post::$factory = null;
 		$this->remove_elementor_css_fixtures();
 		unset( $GLOBALS['stonewright_test_home_url'] );
-		unset( $GLOBALS['stonewright_test_registered_blocks'] );
+		unset( $GLOBALS['stonewright_test_registered_blocks'], $GLOBALS['stonewright_test_extra_plugins'] );
 	}
 
 	private function remove_elementor_css_fixtures(): void {

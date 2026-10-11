@@ -292,6 +292,11 @@ abstract class AbilityKernel implements Ability {
 		return $this->audit_declared(
 			$args,
 			function ( array $args ) use ( $callback ) {
+				// Refuse a call the current user may not make before the token is looked at, so a refusal never spends a token.
+				$precondition_error = $this->write_precondition_error( $args );
+				if ( $precondition_error instanceof \WP_Error ) {
+					return $precondition_error;
+				}
 				$token_error = $this->require_production_safe_token( $args );
 				if ( $token_error instanceof \WP_Error ) {
 					return $token_error;
@@ -300,6 +305,18 @@ abstract class AbilityKernel implements Ability {
 			},
 			'write'
 		);
+	}
+
+	/**
+	 * Checks that audit_write() runs before the production-safe token is consumed: the per-object permission
+	 * checks and the input rules whose failure must not spend a token. Returns null when the call may go on.
+	 * Abilities that need it override this.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	protected function write_precondition_error( array $args ): ?\WP_Error {
+		unset( $args );
+		return null;
 	}
 
 	private static function is_blocked_error_code( string $code ): bool {

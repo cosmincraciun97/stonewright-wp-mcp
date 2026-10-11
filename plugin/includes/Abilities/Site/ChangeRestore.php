@@ -68,7 +68,28 @@ final class ChangeRestore extends AbilityKernel {
 		if ( ! Permissions::edit_post( $post_id ) ) {
 			return $this->error( 'cannot_edit_post', __( 'You cannot restore this post.', 'stonewright' ) );
 		}
-		return true;
+		return $this->publish_error( $post_id, (string) ( $args['snapshot_id'] ?? '' ) ) ?? true;
+	}
+
+	/**
+	 * A snapshot that holds a published, scheduled or private status brings that status back, so restoring it
+	 * needs the publish capability of the post type, as publishing the post by hand would.
+	 */
+	private function publish_error( int $post_id, string $snapshot_id ): ?\WP_Error {
+		$snapshot = '' === $snapshot_id ? null : Backup::get_snapshot( $post_id, $snapshot_id );
+		$post     = get_post( $post_id );
+		if ( null === $snapshot || ! $post ) {
+			return null;
+		}
+		$capability = Permissions::publish_cap_for_status( (string) $post->post_type, (string) ( $snapshot['post_status'] ?? '' ) );
+		if ( null !== $capability && ! current_user_can( $capability ) ) {
+			return $this->error(
+				'cannot_publish',
+				__( 'The snapshot holds a published, scheduled or private status, and you cannot publish this kind of post.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+		return null;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -77,6 +98,13 @@ final class ChangeRestore extends AbilityKernel {
 			function ( array $args ) {
 				$post_id     = (int) ( $args['post_id'] ?? 0 );
 				$snapshot_id = (string) ( $args['snapshot_id'] ?? '' );
+
+				$denied = Permissions::edit_post( $post_id )
+					? $this->publish_error( $post_id, $snapshot_id )
+					: $this->error( 'cannot_edit_post', __( 'You cannot restore this post.', 'stonewright' ), [ 'status' => 403 ] );
+				if ( null !== $denied ) {
+					return $denied;
+				}
 
 				$verify_args = [
 					'post_id'     => $post_id,

@@ -1133,13 +1133,16 @@ if ( ! function_exists( 'wp_is_block_theme' ) ) {
 
 if ( ! function_exists( 'get_plugins' ) ) {
 	function get_plugins( string $plugin_folder = '' ): array {
-		return [
-			'stonewright/stonewright.php' => [
-				'Name'    => 'Stonewright',
-				'Version' => '0.0.0-test',
-				'Author'  => 'Stonewright',
+		return array_merge(
+			[
+				'stonewright/stonewright.php' => [
+					'Name'    => 'Stonewright',
+					'Version' => '0.0.0-test',
+					'Author'  => 'Stonewright',
+				],
 			],
-		];
+			(array) ( $GLOBALS['stonewright_test_extra_plugins'] ?? [] )
+		);
 	}
 }
 
@@ -2293,7 +2296,7 @@ if ( ! function_exists( 'get_posts' ) ) {
 			);
 		}
 
-		if ( isset( $args['post_status'] ) ) {
+		if ( isset( $args['post_status'] ) && ! in_array( 'any', (array) $args['post_status'], true ) ) {
 			$statuses = (array) $args['post_status'];
 			$posts    = array_values(
 				array_filter(
@@ -2343,6 +2346,10 @@ if ( ! function_exists( 'get_posts' ) ) {
 			$posts = array_slice( $posts, $offset, $limit );
 		} elseif ( $offset > 0 ) {
 			$posts = array_slice( $posts, $offset );
+		}
+
+		if ( 'ids' === ( $args['fields'] ?? '' ) ) {
+			return array_map( static fn( object $post ): int => (int) ( $post->ID ?? 0 ), $posts );
 		}
 
 		return $posts;
@@ -3706,21 +3713,117 @@ if ( ! function_exists( 'wp_delete_comment' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WP_User_Query', false ) ) {
+	/**
+	 * Minimal in-memory WP_User_Query over $GLOBALS['stonewright_test_users']: search, role, exclude, number,
+	 * offset, fields and the unpaged total.
+	 */
+	class WP_User_Query {
+		/** @var array<int, mixed> */
+		private array $results = [];
+		private int $total     = 0;
+
+		/** @param array<string, mixed> $args */
+		public function __construct( array $args = [] ) {
+			$rows = [];
+			foreach ( (array) ( $GLOBALS['stonewright_test_users'] ?? [] ) as $u ) {
+				$row = is_array( $u ) ? $u : (array) $u;
+				if ( isset( $args['role'] ) && '' !== (string) $args['role'] && ! in_array( (string) $args['role'], (array) ( $row['roles'] ?? [] ), true ) ) {
+					continue;
+				}
+				if ( isset( $args['exclude'] ) && in_array( (int) ( $row['ID'] ?? 0 ), array_map( 'intval', (array) $args['exclude'] ), true ) ) {
+					continue;
+				}
+				if ( isset( $args['search'] ) && '' !== (string) $args['search'] ) {
+					$needle = trim( (string) $args['search'], '*' );
+					if ( ! str_contains( strtolower( (string) ( $row['user_login'] ?? '' ) . ' ' . (string) ( $row['user_email'] ?? '' ) . ' ' . (string) ( $row['display_name'] ?? '' ) ), strtolower( $needle ) ) ) {
+						continue;
+					}
+				}
+				$rows[] = $row;
+			}
+			$this->total = count( $rows );
+			$offset      = max( 0, (int) ( $args['offset'] ?? 0 ) );
+			$number      = isset( $args['number'] ) ? (int) $args['number'] : -1;
+			$rows        = $number > 0 ? array_slice( $rows, $offset, $number ) : array_slice( $rows, $offset );
+			foreach ( $rows as $row ) {
+				if ( 'ID' === ( $args['fields'] ?? '' ) ) {
+					$this->results[] = (int) ( $row['ID'] ?? 0 );
+					continue;
+				}
+				$this->results[] = (object) [
+					'ID'           => (int) ( $row['ID'] ?? 0 ),
+					'user_login'   => (string) ( $row['user_login'] ?? '' ),
+					'user_email'   => (string) ( $row['user_email'] ?? '' ),
+					'display_name' => (string) ( $row['display_name'] ?? '' ),
+					'roles'        => (array) ( $row['roles'] ?? [] ),
+				];
+			}
+		}
+
+		/** @return array<int, mixed> */
+		public function get_results(): array {
+			return $this->results;
+		}
+
+		public function get_total(): int {
+			return $this->total;
+		}
+	}
+}
+
 if ( ! function_exists( 'get_users' ) ) {
 	function get_users( $args = [] ) {
-		$users = $GLOBALS['stonewright_test_users'] ?? [];
-		$out   = [];
-		foreach ( $users as $u ) {
-			$row = is_array( $u ) ? $u : (array) $u;
-			$out[] = (object) [
-				'ID'           => (int) ( $row['ID'] ?? 0 ),
-				'user_login'   => (string) ( $row['user_login'] ?? '' ),
-				'user_email'   => (string) ( $row['user_email'] ?? '' ),
-				'display_name' => (string) ( $row['display_name'] ?? '' ),
-				'roles'        => (array) ( $row['roles'] ?? [] ),
-			];
+		return ( new WP_User_Query( (array) $args ) )->get_results();
+	}
+}
+
+if ( ! function_exists( 'is_super_admin' ) ) {
+	/** Super admins are the ids in $GLOBALS['stonewright_test_super_admins']. */
+	function is_super_admin( $user_id = false ): bool {
+		$id = false === $user_id ? (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ) : (int) $user_id;
+		return in_array( $id, array_map( 'intval', (array) ( $GLOBALS['stonewright_test_super_admins'] ?? [] ) ), true );
+	}
+}
+
+if ( ! function_exists( 'stonewright_test_default_roles' ) ) {
+	/**
+	 * The five core roles with their relevant capabilities, as wp_roles()->roles lists them.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	function stonewright_test_default_roles(): array {
+		return [
+			'administrator' => [ 'name' => 'Administrator', 'capabilities' => [ 'manage_options' => true, 'promote_users' => true, 'edit_users' => true, 'create_users' => true, 'delete_users' => true, 'edit_plugins' => true, 'install_plugins' => true, 'edit_posts' => true, 'read' => true ] ],
+			'editor'        => [ 'name' => 'Editor', 'capabilities' => [ 'edit_posts' => true, 'publish_posts' => true, 'read' => true ] ],
+			'author'        => [ 'name' => 'Author', 'capabilities' => [ 'edit_posts' => true, 'publish_posts' => true, 'read' => true ] ],
+			'contributor'   => [ 'name' => 'Contributor', 'capabilities' => [ 'edit_posts' => true, 'read' => true ] ],
+			'subscriber'    => [ 'name' => 'Subscriber', 'capabilities' => [ 'read' => true ] ],
+		];
+	}
+}
+
+if ( ! function_exists( 'get_editable_roles' ) ) {
+	/**
+	 * The roles the current user may assign. Tests narrow it with $GLOBALS['stonewright_test_editable_roles']
+	 * (a role => details map); the default is the five core roles.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	function get_editable_roles(): array {
+		if ( isset( $GLOBALS['stonewright_test_editable_roles'] ) ) {
+			return (array) $GLOBALS['stonewright_test_editable_roles'];
 		}
-		return $out;
+		return stonewright_test_default_roles();
+	}
+}
+
+if ( ! function_exists( 'wp_roles' ) ) {
+	/**
+	 * Every role of the site. Tests replace the list with $GLOBALS['stonewright_test_roles'].
+	 */
+	function wp_roles(): object {
+		return (object) [ 'roles' => $GLOBALS['stonewright_test_roles'] ?? stonewright_test_default_roles() ];
 	}
 }
 
@@ -3771,6 +3874,7 @@ if ( ! function_exists( 'wp_delete_user' ) ) {
 			return false;
 		}
 		unset( $GLOBALS['stonewright_test_users'][ $id ] );
+		$GLOBALS['stonewright_test_missing_user_ids'][] = $id;
 		return true;
 	}
 }
@@ -3866,7 +3970,8 @@ if ( ! function_exists( 'deactivate_plugins' ) ) {
 
 if ( ! function_exists( 'delete_plugins' ) ) {
 	function delete_plugins( $plugins ) {
-		return true;
+		$GLOBALS['stonewright_test_deleted_plugins'][] = $plugins;
+		return array_key_exists( 'stonewright_test_delete_plugins_result', $GLOBALS ) ? $GLOBALS['stonewright_test_delete_plugins_result'] : true;
 	}
 }
 

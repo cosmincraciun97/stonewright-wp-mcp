@@ -16,7 +16,7 @@ final class CreateTemplateTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_next_post_id']    = 5001;
-		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true ];
+		$GLOBALS['stonewright_test_user_caps']       = [ 'edit_posts' => true, 'edit_theme_options' => true ];
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 	}
 
@@ -125,8 +125,13 @@ final class CreateTemplateTest extends TestCase {
 		$rules = [
 			[ 'type' => 'include', 'name' => 'general', 'sub_name' => 'site' ],
 		];
+		$GLOBALS['stonewright_test_posts'][5050] = (object) [
+			'ID'        => 5050,
+			'post_type' => 'elementor_library',
+			'meta'      => [ '_elementor_template_type' => 'header' ],
+		];
 		$ok = TemplateStore::set_conditions( 5050, $rules );
-		$this->assertTrue( $ok );
+		$this->assertTrue( $ok, 'The rules read back as written.' );
 		$matching = array_filter(
 			$GLOBALS['stonewright_test_post_meta_calls'],
 			static fn ( array $c ): bool => (int) $c['post_id'] === 5050 && '_elementor_conditions' === $c['meta_key']

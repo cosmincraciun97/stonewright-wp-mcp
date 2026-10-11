@@ -4,8 +4,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ThemeBuilder;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
-use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\ThemeBuilder\TemplateGuard;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
 /**
@@ -15,6 +16,9 @@ use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
  * Use this before SetConditions if you only want to edit one rule rather
  * than replace the whole array, or before the V3/V4 element-edit abilities
  * to position writes against the existing structure.
+ *
+ * Needs `edit_theme_options` and `edit_post` on the template, so a draft or private template is shown only to
+ * a user who may edit it.
  *
  * @stonewright-status stable
  */
@@ -62,14 +66,18 @@ final class GetTemplate extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::edit_posts();
+		return Permissions::edit_theme_options() ? ( TemplateGuard::object_error( 'edit_post', (int) ( $args['template_id'] ?? 0 ) ) ?? true ) : false;
 	}
 
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_read(
 			$args,
 			function ( array $args ) {
-				$id   = (int) $args['template_id'];
+				$id     = (int) $args['template_id'];
+				$denied = TemplateGuard::execute_error( 'edit_post', $id );
+				if ( null !== $denied ) {
+					return $denied;
+				}
 				$post = get_post( $id );
 				if ( ! $post || 'elementor_library' !== $post->post_type ) {
 					return $this->error(

@@ -90,6 +90,9 @@ final class ApplyTemplate extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
+		if ( ! Permissions::edit_theme_options() ) {
+			return false;
+		}
 		$id = (int) ( $args['template_id'] ?? 0 );
 		if ( $id > 0 ) {
 			return Permissions::edit_post( $id );
@@ -101,6 +104,10 @@ final class ApplyTemplate extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
+				$allowed = $this->permission_callback( $args );
+				if ( true !== $allowed ) {
+					return $this->error( 'template_forbidden', __( 'You are not allowed to apply this Theme Builder template.', 'stonewright' ), [ 'status' => 403 ] );
+				}
 				$template_type = sanitize_key( (string) ( $args['template_type'] ?? '' ) );
 				if ( ! TemplateStore::is_allowed_type( $template_type ) ) {
 					return $this->error(
@@ -177,7 +184,13 @@ final class ApplyTemplate extends AbilityKernel {
 				if ( ! ElementorData::write( $template_id, $tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor template data.', 'stonewright' ) );
 				}
-				TemplateStore::set_conditions( $template_id, $conditions );
+				if ( ! TemplateStore::set_conditions( $template_id, $conditions ) ) {
+					return $this->error(
+						'write_failed',
+						__( 'The template was saved, but its display conditions were not stored as requested.', 'stonewright' ),
+						[ 'status' => 500, 'template_id' => $template_id, 'snapshot_id' => $snapshot_id ]
+					);
+				}
 
 				return self::response(
 					true,
