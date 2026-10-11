@@ -118,4 +118,59 @@ final class CommentCapabilityTest extends TestCase {
 		self::assertSame( 3, $result['total'] );
 		self::assertCount( 2, $result['items'] );
 	}
+
+	public function test_list_says_when_it_stopped_scanning_a_large_site(): void {
+		$this->add_comments( 2050 );
+		$this->editable = [ 1, 2000, 2001 ];
+
+		$result = ( new CommentList() )->execute( [ 'per_page' => 50 ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['truncated'] );
+		self::assertStringContainsString( '2000', (string) $result['hint'] );
+		self::assertStringContainsString( 'post_id', (string) $result['hint'] );
+		// Comment 2001 was never looked at, so it is not in the total.
+		self::assertSame( 2, $result['total'] );
+		self::assertSame( [ 1, 2000 ], array_column( $result['items'], 'id' ) );
+	}
+
+	public function test_list_is_not_truncated_when_the_scan_reaches_the_last_comment(): void {
+		$this->add_comments( 2000 );
+		$this->editable = [ 1, 2000 ];
+
+		$result = ( new CommentList() )->execute( [ 'per_page' => 50 ] );
+
+		self::assertFalse( $result['truncated'] );
+		self::assertArrayNotHasKey( 'hint', $result );
+		self::assertSame( 2, $result['total'] );
+	}
+
+	public function test_list_is_not_truncated_for_a_small_site_or_a_user_who_can_edit_every_post(): void {
+		$small = ( new CommentList() )->execute( [] );
+		self::assertFalse( $small['truncated'] );
+
+		$GLOBALS['stonewright_test_user_can_callback'] = static fn ( string $cap ): bool => in_array(
+			$cap,
+			[ 'edit_posts', 'moderate_comments', 'edit_comment', 'edit_others_posts', 'edit_published_posts', 'edit_private_posts' ],
+			true
+		);
+		$this->add_comments( 2050 );
+		$all = ( new CommentList() )->execute( [ 'per_page' => 50 ] );
+		self::assertFalse( $all['truncated'] );
+		self::assertSame( 2050, $all['total'] );
+	}
+
+	private function add_comments( int $count ): void {
+		$GLOBALS['stonewright_test_comments'] = [];
+		for ( $id = 1; $id <= $count; ++$id ) {
+			$GLOBALS['stonewright_test_comments'][ $id ] = [
+				'comment_ID'       => $id,
+				'comment_approved' => '1',
+				'comment_content'  => 'text ' . $id,
+				'comment_post_ID'  => 10,
+				'comment_author'   => 'A',
+				'comment_date'     => '2026-01-01',
+			];
+		}
+	}
 }

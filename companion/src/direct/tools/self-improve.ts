@@ -25,6 +25,7 @@ import {
   directIncidentFingerprint,
 } from "../incidents.js";
 import { assertNoSensitiveMaterial } from "../sensitive-content.js";
+import { memoryBlockingRules } from "../instruction-screen.js";
 import { resolveSiteMemoryScope } from "../memory-scope.js";
 import { loadSitesConfig, resolveSessionSite } from "../sites-config.js";
 import {
@@ -834,8 +835,15 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     );
   }
 
+  // The same screen as the plugin's memory: a lesson that tells an agent to override the rules is kept for review.
+  const needsReview = entry.status === "needs_review";
+  const reviewRules = memoryBlockingRules(normalized.correction, normalized.topic);
   let skill: SkillMeta | null = null;
-  if (input.draft_skill) {
+  let skillError: string | null = null;
+  if (input.draft_skill && needsReview) {
+    // A lesson waiting for review does not become a skill draft.
+    skillError = "stonewright_memory_needs_review";
+  } else if (input.draft_skill) {
     skill = saveSkill({
       baseDir,
       scope,
@@ -875,6 +883,16 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     memory_key: entry.id,
     memory: entry,
     skill,
+    ...(skillError !== null ? { skill_error: skillError } : {}),
+    ...(needsReview
+      ? {
+          needs_review: true as const,
+          status: "needs_review" as const,
+          review_rules: reviewRules,
+          message:
+            "Stored for review. The text tells an agent to override the plugin rules or move credentials, so it is not offered at task start until a person clears it: delete it with stonewright-memory-delete, or set its status to active in the local memory file.",
+        }
+      : {}),
     note:
       "Direct-local memory is machine-local. wp-admin cannot read this file; use export/import for cross-host sync.",
   };

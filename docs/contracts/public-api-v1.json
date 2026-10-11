@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T13:38:20+00:00",
+    "generated_at": "2026-10-11T16:38:32+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -84,7 +84,8 @@
             "stonewright/search-query",
             "stonewright/site-capabilities",
             "stonewright/theme-builder-apply-template",
-            "stonewright/theme-builder-create-template"
+            "stonewright/theme-builder-create-template",
+            "stonewright/theme-json-handoff"
         ]
     },
     "abilities": [
@@ -574,7 +575,7 @@
             "kind": "Write",
             "input_schema_hash": "15af75aa92f3aeb07422e1eb0e8431c4906299931b89e094d757cdf0ab2f4b55",
             "output_schema_hash": "6b04cca8a8207178eb294ddb2f5db65f728619cc5b8e0e06cb2595cc9301a5e0",
-            "permission_class": "Permissions::edit_post( (int)",
+            "permission_class": "Permissions::edit_post( $post_id ) (compound)",
             "gates": {
                 "backup": true,
                 "token": true,
@@ -853,7 +854,7 @@
             "mcp_name": "stonewright-comment-list",
             "kind": "Read",
             "input_schema_hash": "ab6a8d0dd2f0e04061bcd6f741ae11da2a438147b31d6e59125cc87fe66a45d0",
-            "output_schema_hash": "c27b50e9b5f8aab3c36df80f50cf62983676b5311001b346765b217b9290e82c",
+            "output_schema_hash": "5e0a2e5ddd592e5d5ba8bc9bd89b6f7eed91de0783177e8f1d4753334e3cb181",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
@@ -1152,7 +1153,7 @@
             "ability_name": "stonewright/custom-code-provider",
             "mcp_name": "stonewright-custom-code-provider",
             "kind": "Write",
-            "input_schema_hash": "405c3a96a4cb7785b1de96e5e0711033f04854ecb5999be98e28757687e248a1",
+            "input_schema_hash": "5b602bc3c3e1fa8a6ed2b6b2510c9549fd976e17dd368d97f24ae62d48ffbc42",
             "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -5453,7 +5454,7 @@
             "mcp_name": "stonewright-learning-record",
             "kind": "Write",
             "input_schema_hash": "f2d29f390056e1d1a9d57c6fb4c9590bc1017e567a05d6824f26cffdfd975c6f",
-            "output_schema_hash": "d096c3424720d7c9879f36c46d5ab3dfc3c5545815d858b699b5abbf4a5d95bb",
+            "output_schema_hash": "ff47626ee2ebe9a724d45e1a9e57926306d0667fc00c13c7b8db5e78be589062",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -5613,7 +5614,7 @@
             "mcp_name": "stonewright-memory-generalize",
             "kind": "Write",
             "input_schema_hash": "dc6b1a40d897e4010fefea9731f331612bb08dc963c063a239d58fc24d9672b8",
-            "output_schema_hash": "db4774a134e9fbbb65cbba5c3f619e02e60bb459bf7a0c3ea26c644b2ff21f11",
+            "output_schema_hash": "fac53d0e6808ce20a99ce0e5eba7e920cda5bc36e1e0c36f3f83894bbe64e5f5",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -5673,7 +5674,7 @@
             "mcp_name": "stonewright-memory-save",
             "kind": "Write",
             "input_schema_hash": "f90bc49f897ad18542f6da69f79910ec4fa5c4c1b5f7772ce89c8fdcd4d3b034",
-            "output_schema_hash": "51c8b80e7152a8c239b3ccddd5bf26eecb566b1aeef378455d46d4f6c2b8e2bd",
+            "output_schema_hash": "38759862de2095429712638244328e277374f17c34d674fefe88298209c79ddb",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -7272,7 +7273,7 @@
             "ability_name": "stonewright/theme-json-handoff",
             "mcp_name": "stonewright-theme-json-handoff",
             "kind": "Write",
-            "input_schema_hash": "2d60ea3eed76e7f6059d2fdb36c795cd7b2d485852365c235caa844467f943e5",
+            "input_schema_hash": "3ce7a64f29bf3a5387bc7a61a1ac4b5044d06e36e54419259d7040ab570768e1",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::can_manage_fse()",
             "gates": {

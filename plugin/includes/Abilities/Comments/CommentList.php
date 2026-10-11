@@ -55,7 +55,9 @@ final class CommentList extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'items' => [ 'type' => 'array' ],
-				'total' => [ 'type' => 'integer', 'description' => 'Number of comments that match the filters, across all pages.' ],
+				'total' => [ 'type' => 'integer', 'description' => 'Number of comments that match the filters, across all pages. When truncated is true it counts only the comments that were checked.' ],
+				'truncated' => [ 'type' => 'boolean', 'description' => 'True when the list was cut at the scan limit, so items and total can be incomplete for a user who can edit only some comments.' ],
+				'hint'      => [ 'type' => 'string', 'description' => 'Present when truncated is true: how to narrow the list.' ],
 			],
 			'required'   => [ 'items', 'total' ],
 		];
@@ -79,8 +81,9 @@ final class CommentList extends AbilityKernel {
 				if ( isset( $args['search'] ) ) {
 					$filters['search'] = (string) $args['search'];
 				}
-				$per_page = max( 1, min( (int) ( $args['per_page'] ?? 20 ), 50 ) );
-				$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+				$per_page  = max( 1, min( (int) ( $args['per_page'] ?? 20 ), 50 ) );
+				$page      = max( 1, (int) ( $args['page'] ?? 1 ) );
+				$truncated = false;
 
 				if ( self::can_edit_every_post() ) {
 					// A user who can edit every post can edit every comment on them, so core can count and page.
@@ -90,8 +93,10 @@ final class CommentList extends AbilityKernel {
 					$total    = is_int( $count ) ? $count : count( $rows );
 				} else {
 					// Otherwise every comment is checked, so the total counts only the ones this user may edit.
-					$allowed = self::editable_comments( $filters );
-					$total   = count( $allowed );
+					$scan      = self::editable_comments( $filters );
+					$allowed   = $scan['comments'];
+					$truncated = $scan['truncated'];
+					$total     = count( $allowed );
 					$rows    = array_slice( $allowed, ( $page - 1 ) * $per_page, $per_page );
 				}
 
@@ -107,7 +112,15 @@ final class CommentList extends AbilityKernel {
 						'excerpt'     => mb_substr( $content, 0, 200 ),
 					];
 				}
-				return [ 'items' => $items, 'total' => $total ];
+				$result = [ 'items' => $items, 'total' => $total, 'truncated' => $truncated ];
+				if ( $truncated ) {
+					$result['hint'] = sprintf(
+						/* translators: %d: number of comments checked. */
+						__( 'Only the first %d matching comments were checked, so items and total can be incomplete. Narrow the list with post_id, status or search.', 'stonewright' ),
+						self::MAX_SCAN
+					);
+				}
+				return $result;
 			}
 		);
 	}
@@ -124,7 +137,7 @@ final class CommentList extends AbilityKernel {
 	 * The comments that match the filters and that the user may edit, read in batches up to a bound.
 	 *
 	 * @param array<string, mixed> $filters Comment query filters.
-	 * @return list<object>
+	 * @return array{comments: list<object>, truncated: bool} Truncated when comments remain after the bound.
 	 */
 	private static function editable_comments( array $filters ): array {
 		$allowed = [];
@@ -138,9 +151,11 @@ final class CommentList extends AbilityKernel {
 			}
 			$scanned += count( $batch );
 			if ( count( $batch ) < self::SCAN_BATCH ) {
-				break;
+				return [ 'comments' => $allowed, 'truncated' => false ];
 			}
 		}
-		return $allowed;
+		// The bound was reached with a full last batch: one more comment past it means the list is cut.
+		$more = (array) get_comments( $filters + [ 'number' => 1, 'paged' => self::MAX_SCAN + 1 ] );
+		return [ 'comments' => $allowed, 'truncated' => [] !== $more ];
 	}
 }

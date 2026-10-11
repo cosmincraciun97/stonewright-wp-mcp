@@ -241,7 +241,7 @@ final class MemoryInstructionsPage {
 			'invalid'   => Notice::render( 'danger', __( 'The entry needs a name and a key.', 'stonewright' ), __( 'Fill in both fields and try again. Nothing was saved.', 'stonewright' ) ),
 			'failed'    => Notice::render( 'danger', __( 'The entry could not be saved.', 'stonewright' ), __( 'Check that the memory table is writable and try again.', 'stonewright' ) ),
 			'not-found' => Notice::render( 'danger', __( 'That memory entry no longer exists.', 'stonewright' ), __( 'It may have been deleted already. The list below is current.', 'stonewright' ) ),
-			'not-draft' => Notice::render( 'warn', __( 'That entry is not a draft, so nothing changed.', 'stonewright' ), __( 'Only draft lessons can be approved or discarded.', 'stonewright' ) ),
+			'not-draft' => Notice::render( 'warn', __( 'That entry is not a draft or waiting for review, so nothing changed.', 'stonewright' ), __( 'Only draft lessons and entries that need review can be approved or discarded.', 'stonewright' ) ),
 			default     => '',
 		};
 	}
@@ -425,6 +425,7 @@ final class MemoryInstructionsPage {
 			$state  = match ( $status ) {
 				'active'   => Badge::render( __( 'Active', 'stonewright' ), [ 'variant' => 'ok' ] ),
 				'draft'    => Badge::render( __( 'Draft', 'stonewright' ), [ 'variant' => 'warn' ] ),
+				'needs_review' => Badge::render( __( 'Needs review', 'stonewright' ), [ 'variant' => 'warn' ] ),
 				'stale'    => Badge::render( __( 'Stale', 'stonewright' ) ),
 				'rejected' => Badge::render( __( 'Rejected', 'stonewright' ) ),
 				default    => Badge::render( __( 'Unknown', 'stonewright' ) ),
@@ -434,7 +435,7 @@ final class MemoryInstructionsPage {
 			}
 
 			$actions = [];
-			if ( 'draft' === $status ) {
+			if ( in_array( $status, [ 'draft', 'needs_review' ], true ) ) {
 				$actions[] = FormField::post_form(
 					'stonewright_memory_approve_draft',
 					'stonewright_memory_draft',
@@ -827,14 +828,23 @@ final class MemoryInstructionsPage {
 	}
 
 	/**
-	 * Promote a draft lesson to active, or reject it. Only draft rows move.
+	 * A draft lesson, or an entry whose text the instruction screen flagged, waits for a person to approve or reject it.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function awaits_review( array $entry ): bool {
+		return in_array( (string) ( $entry['status'] ?? '' ), [ 'draft', 'needs_review' ], true );
+	}
+
+	/**
+	 * Promote a draft lesson, or an entry flagged for review, to active, or reject it. Only those rows move.
 	 */
 	public static function apply_draft_review( int $id, string $decision ): bool {
 		if ( $id <= 0 || ! in_array( $decision, [ 'approve', 'discard' ], true ) ) {
 			return false;
 		}
 		$entry = Memory::get_by_id( $id );
-		if ( null === $entry || 'draft' !== (string) ( $entry['status'] ?? '' ) ) {
+		if ( null === $entry || ! self::awaits_review( $entry ) ) {
 			return false;
 		}
 		if ( 'approve' === $decision ) {
@@ -857,7 +867,7 @@ final class MemoryInstructionsPage {
 		if ( null === $entry || ! in_array( $decision, [ 'approve', 'discard' ], true ) ) {
 			return self::notice_url( 'not-found' );
 		}
-		if ( 'draft' !== (string) ( $entry['status'] ?? '' ) ) {
+		if ( ! self::awaits_review( $entry ) ) {
 			return self::notice_url( 'not-draft', [ 'entry' => (string) $id ] );
 		}
 		if ( ! self::apply_draft_review( $id, $decision ) ) {

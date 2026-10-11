@@ -128,7 +128,10 @@ site, so its protections are the companion's own:
   not match, refuses a resource that no longer exists, saves the current state
   first so the restore can be undone, writes the stored fields back through the
   same REST route (Elementor backups through the Elementor update path), reads
-  the resource back and audits it. The names are kept apart from the Plugin
+  the resource back and audits it. Saved meta is written over the current meta
+  and no key is deleted, so a meta key added after the backup stays; the result
+  lists those keys as `meta_not_in_backup`, and `matches_backup` can be false
+  after a correct restore. The names are kept apart from the Plugin
   abilities (`backup-restore`, `site-backup-page`, `rescue-*`).
 - **Block edits.** `stonewright-blocks-batch-mutate` plans in memory and sends
   nothing until every operation has applied. A dry run returns `before_hash` and

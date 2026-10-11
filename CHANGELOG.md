@@ -489,6 +489,25 @@ development builds were never stable releases.
 
 ### Fixed
 
+- `stonewright-custom-code-provider` accepts the arguments the theme-file
+  provider reads: `start_marker`, `end_marker`, `marker`, `create_if_missing`,
+  `theme`, `smoke_url`, `id` and `expected_active`, each typed and bounded, and
+  `mode` lists its four values. `replace_between_markers` and `create_if_missing`
+  now work through the tool instead of being refused as unknown properties.
+- `stonewright-blueprint-apply` with `mode: publish` needs the publish capability
+  of the post type (for a page, `publish_pages`), as the other content writers do;
+  a role that can only edit pages can still apply a blueprint as a draft.
+- `stonewright-comment-list` says when it stopped at its limit of 2000 checked
+  comments: the answer carries `truncated: true` and a `hint` that names the
+  filters to narrow the list with, instead of ending silently.
+- `stonewright-theme-json-handoff` refuses with `stonewright_child_theme_required`
+  when no child theme is active, so it never writes `theme.json` into a parent
+  theme that an update replaces. The description already said child theme.
+- Direct `stonewright-direct-backup-restore` lists the meta keys that were added
+  after the backup as `meta_not_in_backup` (also in a dry run). A restore writes
+  the saved meta back over the current meta and deletes no key, so
+  `matches_backup` can be false after a correct restore; the tool text, the
+  README and the Direct guide now say so.
 - Name the right tool in `next_ability` when a generic content write is refused
   for an executable-code post type: `stonewright-custom-code-provider`.
 - Show the real tool limit of the Bootstrap surface in the Setup surface menu
@@ -751,6 +770,24 @@ development builds were never stable releases.
 
 ### Security
 
+- Rolling back a WPCode or Code Snippets snippet through
+  `stonewright-custom-code-provider` needs the human-issued one-time grant that an
+  apply needs, bound to the code the snapshot restores. `rollback` with
+  `dry_run: true` stages the restore for approval and writes nothing; a rollback
+  without the grant answers `stonewright_custom_code_grant_required` with
+  `approval_required`, `agent_must_stop` and the approval link, before a
+  production-safe confirmation token is read. The restore that follows a failed
+  apply is not changed.
+- Memory text is screened for instructions that tell an agent to override the
+  plugin's rules or safety gates, to disable confirmation tokens, or to send
+  credentials elsewhere, with the screen that imported skills already go
+  through. `memory-save`, `learning-record` and `memory-generalize` (and Direct
+  `learning-record`) store a match with the status `needs_review` and say so
+  (`needs_review: true`, `review_rules`); it is not offered at task start or as
+  site context, drafts no skill, and a later save under its key does not clear it.
+  An administrator approves or rejects it on the Memory page; in Direct it is
+  cleared by editing its status in the local memory file or deleting it. A
+  prohibition ("never ignore the system prompt") is not flagged.
 - Direct mode holds a local WP-CLI command that changes the site to the Direct
   write gate (task-start, `confirm`, a matching local install, an audit row),
   refuses custom code in the remaining text-sending writes (ACF, media, menu,
@@ -921,6 +958,11 @@ development builds were never stable releases.
 
 ### Documentation
 
+- Correct the Direct Elementor write description in the write-verification guide
+  and the companion README: `elementor-data-update` refuses duplicate element
+  ids, has an optional base hash (`expected_hash`), reads `_elementor_data` back,
+  and its backup is restored by `stonewright-direct-backup-restore`. There is still
+  no per-post lock or lease.
 - Describe Client ID Metadata Documents and the `localhost` callback host in
   the OAuth part of the connect-clients guide.
 - Document in the Design Spec reference the two versions the validator accepts,

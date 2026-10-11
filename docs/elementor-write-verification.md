@@ -253,11 +253,15 @@ typed live-schema validator and must not pass `regenerate_css` to verify;
 that input does not exist.
 
 Direct `elementor-data-update` refuses custom CSS setting keys and HTML-type
-widgets, runs an integrity gate, and saves a full-tree file backup that no tool
-restores. It has no unique-id check, per-post lease or base hash (a concurrent
-edit is overwritten), and no readback of `_elementor_data`. It uses WP-CLI only
-when the local install's `home` or `siteurl` matches the alias URL, and
-otherwise reports `wp_cli_refused` and uses REST.
+widgets, refuses duplicate element ids, runs an integrity gate, and saves a
+full-tree file backup that `stonewright-direct-backup-restore` puts back. A base
+hash is optional: pass the hash from `elementor-data-get` as `expected_hash` and
+the write is refused when the stored tree changed since. There is no per-post
+lock or lease, so without `expected_hash` a concurrent edit is overwritten. After
+the write the tool reads `_elementor_data` back and reports `verification` as
+`verified`, `mismatch` or `not_checked`; a mismatch is reported, not restored
+automatically. It uses WP-CLI only when the local install's `home` or `siteurl`
+matches the alias URL, and otherwise reports `wp_cli_refused` and uses REST.
 
 Remote Direct REST cannot load Elementor's PHP renderer or post-cache manager.
 It reports cache and frontend verification as `not_checked` instead of

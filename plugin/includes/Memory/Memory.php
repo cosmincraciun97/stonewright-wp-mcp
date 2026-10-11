@@ -235,7 +235,7 @@ final class Memory {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT memory_key, value_json FROM {$table} WHERE scope = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT memory_key, value_json, status FROM {$table} WHERE scope = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$scope
 			),
 			ARRAY_A
@@ -243,6 +243,10 @@ final class Memory {
 
 		$out = [];
 		foreach ( (array) $rows as $row ) {
+			// An entry waiting for review is never handed out as site context.
+			if ( MemoryScreen::NEEDS_REVIEW === (string) ( $row['status'] ?? '' ) ) {
+				continue;
+			}
 			$out[ $row['memory_key'] ] = self::decode_value( (string) $row['value_json'] );
 		}
 		return $out;
@@ -379,6 +383,11 @@ final class Memory {
 			),
 			'created_by' => get_current_user_id(),
 		];
+
+		// Only a person clears an entry that waits for review; a write under its key does not.
+		if ( MemoryScreen::NEEDS_REVIEW === $existing_status ) {
+			$data['status'] = MemoryScreen::NEEDS_REVIEW;
+		}
 
 		$formats = [ '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d' ];
 		// Times are written in UTC by the plugin, not left to the database clock.
@@ -845,7 +854,7 @@ final class Memory {
 
 	private static function sanitize_status( mixed $status, string $fallback = 'active' ): string {
 		$status = (string) $status;
-		return in_array( $status, [ 'active', 'draft', 'stale', 'rejected' ], true ) ? $status : $fallback;
+		return in_array( $status, [ 'active', 'draft', 'stale', 'rejected', MemoryScreen::NEEDS_REVIEW ], true ) ? $status : $fallback;
 	}
 
 	private static function sanitize_expiry( mixed $value ): ?string {

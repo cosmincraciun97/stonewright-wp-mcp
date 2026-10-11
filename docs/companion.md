@@ -138,6 +138,13 @@ companion only. `stonewright-memory-delete` removes a local lesson by id and nee
 confirmation bound to the call (`confirmation_id`). A skill saved through Direct, or drafted with `learning-record`,
 is a disabled candidate; Direct refuses `enabled:true` and any change to an active
 skill, because activation needs an administrator's approval in Plugin mode.
+`stonewright-learning-record` screens the lesson like the plugin's memory does: a
+lesson that tells an agent to override the plugin rules, disable confirmation
+tokens or send credentials elsewhere is stored with the status `needs_review`
+(`needs_review: true` in the answer), is not offered at task start, saves no
+`draft_skill`, and is not cleared by recording the same text again. A person
+clears it by deleting it (`stonewright-memory-delete`) or by setting its status to
+`active` in `~/.stonewright/memory/<scope>.jsonl`.
 
 Direct `stonewright-task-start` lists open incidents in `incident_actions`. It
 asks for `repair_open_incidents_first` in `required_actions` only for an open
@@ -159,7 +166,10 @@ REST resource only, never request headers or credentials.
 `stonewright-direct-backup-list` lists the saved copies and
 `stonewright-direct-backup-restore` puts one back (it needs `confirm:true`,
 checks the stored hash and saves the current state first, so a restore can be
-undone).
+undone). A restore writes the saved meta back over the current meta and deletes
+no key, so a meta key added after the backup stays; the result lists those keys
+as `meta_not_in_backup`, and `matches_backup` can be false after a correct
+restore.
 
 `stonewright-gutenberg-validate` parses the post's blocks: balanced comments,
 valid JSON attributes, block names against the site's block list when it can be

@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\CustomCode\Providers;
 
+use Stonewright\WpMcp\CustomCode\GrantedRollbackInterface;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
 use Stonewright\WpMcp\CustomCode\ProviderSupport;
 use Stonewright\WpMcp\CustomCode\RestoresBodyInterface;
@@ -14,7 +15,7 @@ use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
  * Prefers the public `code_snippets()` DB API. Never performs blind raw SQL
  * updates outside that API surface.
  */
-final class CodeSnippetsProvider implements ProviderInterface, RestoresBodyInterface {
+final class CodeSnippetsProvider implements ProviderInterface, RestoresBodyInterface, GrantedRollbackInterface {
 
 	public const PLUGIN_FILE = 'code-snippets/code-snippets.php';
 	public const MIN_VERSION = '3.0.0';
@@ -295,6 +296,64 @@ final class CodeSnippetsProvider implements ProviderInterface, RestoresBodyInter
 
 	/** @param array<string, mixed> $args */
 	public function rollback( array $args ) {
+		$resolved = $this->resolve_rollback( $args );
+		if ( $resolved instanceof \WP_Error ) {
+			return $resolved;
+		}
+		$snapshot_id = $resolved['snapshot_id'];
+		$target      = $resolved['target'];
+		$snap        = $resolved['snapshot'];
+		$snippet     = $resolved['snippet'];
+
+		$saved = $this->save( $target, (string) $snap['body'], $snippet );
+		if ( $saved instanceof \WP_Error ) {
+			return $saved;
+		}
+		$verify = $this->verify(
+			[
+				'target_id'       => $target,
+				'expected_sha256' => (string) $snap['before_sha256'],
+			]
+		);
+		return [
+			'ok'                  => true,
+			'rolled_back'         => true,
+			'provider'            => $this->id(),
+			'target_id'           => $target,
+			'snapshot_id'         => $snapshot_id,
+			'effect_verified'     => is_array( $verify ) && ! empty( $verify['effect_verified'] ),
+			'verification_status' => is_array( $verify ) ? (string) ( $verify['verification_status'] ?? '' ) : 'failed',
+			'before_sha256'       => (string) $snap['before_sha256'],
+		];
+	}
+
+	/**
+	 * The restore a rollback of these arguments would make, without making it.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{path: string, language: string, before: string, after: string}|\WP_Error
+	 */
+	public function rollback_candidate( array $args ) {
+		$resolved = $this->resolve_rollback( $args );
+		if ( $resolved instanceof \WP_Error ) {
+			return $resolved;
+		}
+		$language = sanitize_key( (string) $resolved['snippet']['language'] );
+		return [
+			'path'     => $this->path_for( $resolved['target'] ),
+			'language' => in_array( $language, [ 'php', 'css', 'js', 'html' ], true ) ? $language : 'php',
+			'before'   => (string) $resolved['snippet']['code'],
+			'after'    => (string) $resolved['snapshot']['body'],
+		];
+	}
+
+	/**
+	 * The snapshot and the snippet a rollback acts on, checked the same way for the restore and for its plan.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array{snapshot_id: string, target: string, snapshot: array<string, mixed>, snippet: array{id:string,title:string,code:string,language:string,active:bool}}|\WP_Error
+	 */
+	private function resolve_rollback( array $args ) {
 		$snapshot_id = sanitize_text_field( (string) ( $args['snapshot_id'] ?? '' ) );
 		$target      = sanitize_text_field( (string) ( $args['target_id'] ?? $args['id'] ?? '' ) );
 		$snap        = ProviderSupport::load_snapshot( $snapshot_id );
@@ -325,26 +384,7 @@ final class CodeSnippetsProvider implements ProviderInterface, RestoresBodyInter
 		if ( $snippet instanceof \WP_Error ) {
 			return $snippet;
 		}
-		$saved = $this->save( $target, (string) $snap['body'], $snippet );
-		if ( $saved instanceof \WP_Error ) {
-			return $saved;
-		}
-		$verify = $this->verify(
-			[
-				'target_id'       => $target,
-				'expected_sha256' => (string) $snap['before_sha256'],
-			]
-		);
-		return [
-			'ok'                  => true,
-			'rolled_back'         => true,
-			'provider'            => $this->id(),
-			'target_id'           => $target,
-			'snapshot_id'         => $snapshot_id,
-			'effect_verified'     => is_array( $verify ) && ! empty( $verify['effect_verified'] ),
-			'verification_status' => is_array( $verify ) ? (string) ( $verify['verification_status'] ?? '' ) : 'failed',
-			'before_sha256'       => (string) $snap['before_sha256'],
-		];
+		return [ 'snapshot_id' => $snapshot_id, 'target' => $target, 'snapshot' => $snap, 'snippet' => $snippet ];
 	}
 
 	/**

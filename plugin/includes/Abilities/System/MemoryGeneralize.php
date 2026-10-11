@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\Memory\Scrubber;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -44,7 +45,7 @@ final class MemoryGeneralize extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Reports, and on request applies, de-identification of stored memory in bounded batches. Defaults to a dry run. Continue with next_cursor until done is true. In production-safe mode an apply requires a confirmation token issued for the same arguments.', 'stonewright' );
+		return __( 'Reports, and on request applies, de-identification of stored memory in bounded batches. Defaults to a dry run. Continue with next_cursor until done is true. In production-safe mode an apply requires a confirmation token issued for the same arguments. A row whose rewritten text tells an agent to override the plugin rules is marked needs_review (needs_review:true in its proposal) and, on apply, stored with status needs_review so it is not offered to agents until an administrator approves it.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -97,6 +98,7 @@ final class MemoryGeneralize extends AbilityKernel {
 							'changes' => [ 'type' => 'object' ],
 							'before'  => [ 'type' => 'string' ],
 							'after'   => [ 'type' => 'string' ],
+							'needs_review' => [ 'type' => 'boolean' ],
 						],
 						'required'   => [ 'id', 'action', 'reason', 'before', 'after' ],
 					],
@@ -140,6 +142,17 @@ final class MemoryGeneralize extends AbilityKernel {
 					$plan = Scrubber::plan( $row );
 					if ( null === $plan ) {
 						continue;
+					}
+
+					// The text the row would hold after the rewrite goes through the screen. A match is not generalized into
+					// a lesson that agents read: the row is marked for review instead.
+					$after_name  = (string) ( $plan['changes']['name'] ?? $row['name'] ?? '' );
+					$after_value = array_key_exists( 'value', $plan['changes'] ) ? $plan['changes']['value'] : ( $row['value'] ?? null );
+					if ( 'generalize' === $plan['action'] && [] !== MemoryScreen::blocking_rules( $after_name, $after_value ) ) {
+						$plan['needs_review'] = true;
+						if ( MemoryScreen::NEEDS_REVIEW !== (string) ( $row['status'] ?? '' ) ) {
+							$plan['changes']['status'] = MemoryScreen::NEEDS_REVIEW;
+						}
 					}
 
 					$proposals[] = $plan;

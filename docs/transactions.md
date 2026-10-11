@@ -128,7 +128,7 @@ sizes and `verification.evidence.truncated` names a list that was cut.
 | `stonewright/theme-file-patch` | `file` / theme-relative path / the patch mode | `theme_backup` |
 | `stonewright/theme-backup-restore` | `file` / theme-relative path / `restore` | none |
 | `stonewright/theme-custom-css` | `custom_code` / Customizer CSS path / `update` | `post_snapshot` |
-| `stonewright/custom-code-provider` (`dry-run`, `apply`, `rollback`) | `custom_code` / `provider:target` / `apply` or `rollback` | `provider_snapshot` (apply only) |
+| `stonewright/custom-code-provider` (`dry-run`, `apply`, `rollback`; a snippet rollback needs the human grant) | `custom_code` / `provider:target` / `apply` or `rollback` | `provider_snapshot` (apply only) |
 | `stonewright/theme-chrome-update` | `theme_option` / `bucket.key` / `set` | `option_snapshot` |
 | `stonewright/elementor-native-execute` (writes; the structure read returns none) | `default_style` / tag / `update` or `delete`, or `element` / parent id or `document` / `insert_composition` or `replace_children` | `post_snapshot` (none for a kit-level write) |
 | `stonewright/elementor-post-write-verify` | `element` or `content` / checked element id or marker hash / `render` | taken from the given change set |

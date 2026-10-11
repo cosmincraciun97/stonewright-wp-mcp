@@ -99,7 +99,13 @@ All ability responses support optional `stonewright_fields` projection while
 retaining top-level fields required by their declared output schema. The
 `stonewright/rules-get` ability serves the native registry with digest/filter
 semantics, `stonewright/memory-generalize` de-identifies memory in bounded
-batches, and `stonewright/elementor-v3-get-page-structure` accepts `knownHash`
+batches, `stonewright/memory-save`, `stonewright/learning-record` and
+`memory-generalize` store text that tells an agent to override the plugin rules,
+disable confirmation tokens or send credentials elsewhere with the status
+`needs_review` (it is not offered at task start or as site context until an
+administrator approves it on the Memory page; the screen is the one imported
+skills go through, and a prohibition such as "never ignore the system prompt" is
+not flagged), and `stonewright/elementor-v3-get-page-structure` accepts `knownHash`
 for unchanged short-circuit reads.
 
 ## Context Requirement
