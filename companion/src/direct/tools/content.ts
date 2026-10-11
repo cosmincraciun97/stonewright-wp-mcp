@@ -5,6 +5,12 @@ import {
   type DirectWriteMode,
 } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
+import {
+  refuseCustomCode,
+  scanMarkupFields,
+  scanMeta,
+} from "../custom-code-guard.js";
+import { storePreImage } from "../preimage.js";
 import { resolveRestBase } from "../rest-discovery.js";
 import type { ResolvedSite } from "../sites-config.js";
 
@@ -12,6 +18,19 @@ export interface ContentToolContext {
   client: WpRestClient;
   site: ResolvedSite;
   writeMode: DirectWriteMode;
+  env?: NodeJS.ProcessEnv | undefined;
+}
+
+/** Custom code a content write would store: markup in title or content, and code or CSS carried in meta. */
+function contentCodeFindings(input: {
+  title?: string | undefined;
+  content?: string | undefined;
+  meta?: Record<string, unknown> | undefined;
+}) {
+  return [
+    ...scanMarkupFields({ title: input.title, content: input.content }),
+    ...scanMeta(input.meta),
+  ];
 }
 
 type WpPost = {
@@ -156,6 +175,14 @@ export async function contentCreate(
     destructive: false,
     tool,
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    tool,
+    input.kind ?? input.type ?? "page",
+    contentCodeFindings(input),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(
     ctx,
     input.kind ?? input.type ?? "page",
@@ -212,7 +239,23 @@ export async function contentUpdate(
     destructive: false,
     tool: "stonewright-content-update",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-content-update",
+    `${input.type ?? "pages"}/${input.id}`,
+    contentCodeFindings(input),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.type ?? "pages");
+  const preImage = await storePreImage({
+    client: ctx.client,
+    site: ctx.site,
+    env: ctx.env,
+    tool: "stonewright-content-update",
+    restPath: `/wp/v2/${collection}/${input.id}`,
+    resourceId: `${collection}-${input.id}`,
+  });
   const body: Record<string, unknown> = {};
   if (input.title !== undefined) body.title = input.title;
   if (input.content !== undefined) body.content = input.content;
@@ -233,7 +276,7 @@ export async function contentUpdate(
       resource: `${collection}/${input.id}`,
       status: "ok",
     });
-    return compactPost(post);
+    return { ...compactPost(post), ...preImage };
   } catch (err) {
     appendDirectAudit({
       tool: "stonewright-content-update",
@@ -432,6 +475,14 @@ export async function contentAutosaveCreate(
     ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
     tool: "stonewright-content-autosave-create",
   });
+  const refusal = refuseCustomCode(
+    ctx.site,
+    "stonewright-content-autosave-create",
+    `${input.type ?? "pages"}/${input.id}/autosaves`,
+    contentCodeFindings(input),
+    ctx.env ?? process.env,
+  );
+  if (refusal) return refusal;
   const collection = await collectionFor(ctx, input.type ?? "pages");
   const body: Record<string, unknown> = {};
   if (input.title !== undefined) body.title = input.title;

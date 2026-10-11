@@ -7,6 +7,7 @@ import {
   normalizeToTree,
 } from "../elementor-integrity.js";
 import { assertWriteAllowed, resolveDirectWriteMode } from "../writes.js";
+import { refuseCustomCode, scanElementorTree } from "../custom-code-guard.js";
 import { runWpCli, type WpCliCommandResult } from "../../wp-cli.js";
 
 export type ElementorCli = typeof runWpCli;
@@ -625,6 +626,16 @@ export async function elementorDataUpdate(
     );
   }
   const tree = normalized.tree;
+
+  // Direct never writes custom code: custom CSS keys, HTML widgets, script/style/iframe markup.
+  const refusal = refuseCustomCode(
+    { alias: resolveScope(input.site), url: auditTargetIdentity },
+    "stonewright-elementor-data-update",
+    `post:${input.post_id}`,
+    scanElementorTree(tree),
+    env,
+  );
+  if (refusal) return refusal;
 
   const base = {
     ...(input.cwd ? { cwd: input.cwd } : {}),

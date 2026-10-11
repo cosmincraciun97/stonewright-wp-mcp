@@ -2,6 +2,46 @@
 
 ## [Unreleased]
 
+### Added
+
+- Refuse custom code in Direct writes. `stonewright-global-styles-update` refuses
+  theme.json `styles.css` and any per-block `css`. `stonewright-elementor-data-update`
+  refuses custom CSS setting keys (`custom_css`, `_custom_css`, `customcss`,
+  `page_custom_css`, `kit_custom_css`, `additional_custom_css`, `custom_css_pro`, and
+  any `custom_css` key with a suffix) that hold a value, HTML-type widgets
+  (`html`, `raw-html`, `raw_html`, `text-path`, and any widget type containing
+  `html`), and script, style, iframe, object, embed, link, or meta http-equiv markup in any setting. Content, template,
+  template part, blueprint, and widget (`stonewright-widget-manage`) writes, and autosaves, refuse `<script>`,
+  `<style>`, `<iframe>`, `<object>`, `<embed>`, `<link>`, `<meta http-equiv>`, inline `on*=` event handlers, and `javascript:` URLs in
+  the title, content, description, widget instance, and meta (`_elementor_data` meta is checked as
+  an Elementor tree). `stonewright-widget-manage` also refuses HTML-type widgets (`custom_html`). Element and attribute names are matched case-insensitively,
+  entity-encoded and whitespace-split `javascript:` URLs are detected, and block
+  comment attributes are decoded before they are checked. A refusal sends nothing,
+  writes one blocked audit row, and returns the `stonewright-custom-css` envelope
+  (`approval_required`, `agent_must_stop`) with the offending paths; custom code
+  needs Plugin mode and its custom-code approval. The refusal text says that a page,
+  template, or widget that already holds custom code (an HTML widget, custom CSS, or
+  inline script) cannot be saved through Direct either.
+- Save a pre-image before a whole-document write. `stonewright-template-update`,
+  `stonewright-template-part-update`, `stonewright-global-styles-update`,
+  `stonewright-content-update`, and `stonewright-blueprint-apply` with `post_id`
+  read the current resource with `context=edit` and store it under
+  `~/.stonewright/backups/<site alias>/<tool>/<resource id>/<timestamp>.json` (mode
+  0600 where the platform supports it) before they write. The result returns
+  `backup_path` and `backup_sha256` (SHA-256 of the stored file). When the resource
+  cannot be read or the file cannot be stored, the write is refused with
+  `preimage_unavailable` and nothing is sent. The last 20 backups per resource are
+  kept; the oldest are deleted. The file holds the REST resource only, never
+  request headers or credentials.
+
+### Changed
+
+- `stonewright-template-update` and `stonewright-template-part-update` take
+  `confirm` and need `confirm: true` when `STONEWRIGHT_DIRECT_WRITES=confirm` or the
+  site is remote, as destructive Direct tools do. `stonewright-blueprint-apply` over
+  an existing page (`post_id`) keeps that rule, and its schema and description now
+  say so.
+
 ## [1.0.0-beta.14] - 2026-10-10
 
 ### Added
