@@ -1,6 +1,7 @@
 import { appendDirectAudit, defaultAuditPath } from "./audit.js";
 import { checkLocalWpTarget } from "./elementor-target.js";
-import { loadSitesConfig, resolveSite, type ResolvedSite, type SitesConfig } from "./sites-config.js";
+import { loadSitesConfig, resolveSessionSite, type ResolvedSite, type SitesConfig } from "./sites-config.js";
+import { assertDirectWriteAllowedOnSite, runWithDirectCallContext } from "./plugin-guard.js";
 import {
   assertWriteAllowed,
   DirectSafetyBlockedError,
@@ -88,7 +89,7 @@ function blockedRow(
 function resolveDirectSite(input: DirectWpCliGateInput): ResolvedSite {
   try {
     const config = input.sitesConfig ?? loadSitesConfig({ env: input.env });
-    return resolveSite(config);
+    return resolveSessionSite(config, input.env ?? process.env);
   } catch (error) {
     const message = `Direct WP-CLI writes need the configured Direct site (its task-start, confirmation and audit trail), and it could not be resolved: ${error instanceof Error ? error.message.slice(0, 160) : "unknown error"}`;
     blockedRow(input, null, "direct_site_unresolved", message);
@@ -121,6 +122,18 @@ export async function gateDirectWpCli(input: DirectWpCliGateInput): Promise<Dire
       env: input.env,
       site,
     });
+  } catch (error) {
+    if (error instanceof DirectSafetyBlockedError) {
+      blockedRow(input, site, error.code, error.message);
+    }
+    throw error;
+  }
+
+  try {
+    // A site that runs the Stonewright plugin takes its writes through Plugin mode (same rule as Direct REST writes).
+    await runWithDirectCallContext({ tool: input.tool, confirm: input.confirm === true }, () =>
+      assertDirectWriteAllowedOnSite(site, { env: input.env, tool: input.tool }),
+    );
   } catch (error) {
     if (error instanceof DirectSafetyBlockedError) {
       blockedRow(input, site, error.code, error.message);

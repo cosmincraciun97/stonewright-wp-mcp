@@ -52,14 +52,14 @@ site, so its protections are the companion's own:
 - **Plugin guard.** A write is refused on a site where the Stonewright plugin is
   active (`stonewright/v1` in the REST index), with
   `stonewright_direct_write_blocked_plugin_present`; the message points to Plugin
-  mode. This covers every REST write, the media upload and the Elementor WP-CLI
-  write. The answer is cached per site for five minutes and cleared on reconnect.
+  mode. This covers every REST write, the media upload, the Elementor WP-CLI
+  write and the WP-CLI commands that change the site (`stonewright-wp-cli-run`
+  and `stonewright-wp-cli-job-start`). The answer is cached per site for five minutes and cleared on reconnect.
   When the check fails twice the write is refused with
   `stonewright_direct_plugin_check_failed`. Reads and the typed plugin bridge are
   not checked. Recovery only: `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` plus
   `confirm: true` on the call lets a write through, writes an audit row and adds
-  a `warnings` entry to the result. `stonewright-wp-cli-run` and its batch and job
-  forms are not covered by this check.
+  a `warnings` entry to the result.
 - **Task-start latch.** Every write needs a `stonewright-task-start` for the same
   alias within 30 minutes, bound to the alias's canonical URL
   (`STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off` opts out).

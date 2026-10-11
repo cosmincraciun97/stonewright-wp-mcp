@@ -165,7 +165,8 @@ development builds were never stable releases.
   Plugin mode, because a Direct write skips the plugin's context token,
   confirmation, snapshot, Rescue ledger and audit. The check covers every REST
   write, the media upload (before the file is read or downloaded) and the
-  Elementor WP-CLI write. The answer is cached per site for five minutes, shared
+  Elementor WP-CLI write, and the WP-CLI commands that change the site
+  (`stonewright-wp-cli-run`, `stonewright-wp-cli-job-start`). The answer is cached per site for five minutes, shared
   by concurrent calls, and cleared on reconnect, so a write adds no request once
   it is known. When the index cannot be read twice, the write is refused with
   `stonewright_direct_plugin_check_failed`. Reads and the typed plugin bridge used
