@@ -175,7 +175,7 @@ define( 'STONEWRIGHT_REMOVE_ALL_DATA', true );
 
 Deleting the plugin then removes:
 
-- every Stonewright database table: the audit log, incidents, memory, skills
+- every Stonewright database table: the audit log, the change ledger, incidents, memory, skills
   and their revisions, design directions and their versions, expertise packs
   and scorecards, knowledge candidates, and the OAuth clients, consents,
   authorization codes, access and refresh credentials, grant families, and

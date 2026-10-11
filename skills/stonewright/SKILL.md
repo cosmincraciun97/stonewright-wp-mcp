@@ -25,9 +25,9 @@ It routes the agent to the right specialized skill and MCP tools.
 3. Use `fast_path.tool_profile` from task-start before making a separate
    `stonewright-tool-profile` call. Call `stonewright-tool-profile` only when
    switching or verifying a compact profile.
-4. Read `expertise_packs`; load only the matching section with
-   `stonewright-expertise-get`. Never activate draft, stale, retired, or
-   version-incompatible guidance.
+4. Read `expertise_refs` (`expertise_packs` with `responseMode=full`); load only
+   the matching section with `stonewright-expertise-get`. Never activate draft,
+   stale, retired, or version-incompatible guidance.
 5. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed. Status uses
@@ -60,7 +60,7 @@ Honor site policy from compact `stonewright-task-start`:
 - `fast_path.routing_hint`, when present, names the typed tool for post meta,
   option, Elementor data, or menu work the task mentions. A `routing_hint` in a
   `stonewright-php-execute` response does the same for the snippet that ran.
-  Prefer the named tool; `php-execute` is never blocked.
+  Prefer the named tool; the hint is advice and never blocks a call.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
@@ -87,6 +87,12 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
 3. Retry the original work with the newly visible tools. If the client still
    shows the old list after notification, restart the MCP session.
 
+The `full` profile (`stonewright/php-execute` and the other abilities that run
+or write code) is never switched on this way. Only an administrator chooses the
+Full surface in wp-admin (**Stonewright → Setup → Settings**); a request for it
+is refused with `stonewright_tool_profile_full_requires_admin`. Show the user
+the settings link and stop; do not look for another way to switch the profile.
+
 ## Route
 
 - Design/image/Figma-to-WordPress: use `design-to-wordpress`.
@@ -109,7 +115,11 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
   the native Loop Grid/Carousel widget and loop-item template,
   `stonewright/content-bulk-upsert-posts` for repeated
   post/CPT/custom-field rows, `stonewright/media-upload-batch`,
-  and tokenized `stonewright-wp-cli-run` for plugin/theme/content operations.
+  and tokenized `stonewright-wp-cli-run` for content, option, cache, rewrite
+  and read-only plugin/theme commands (plugin and theme install, update, delete
+  and activate are refused there; use `stonewright/plugin-activate`,
+  `stonewright/plugin-deactivate`, `stonewright/plugin-delete`,
+  `stonewright/theme-activate`).
   `stonewright/php-execute` for short runtime snippets is on the `full` profile
   only.
 - For Theme Builder work, do not edit `_elementor_conditions` directly. Use
@@ -129,7 +139,7 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
   PowerShell/Node scripts; it refuses writes, which go through typed abilities,
   `stonewright-wp-cli-run`, or a background job.
-- For long WP-CLI imports, plugin operations, cache rebuilds, or large content
+- For long WP-CLI imports, plugin-owned CLI jobs, cache rebuilds, or large content
   batches, use `stonewright-wp-cli-job-start` and poll with
   `stonewright-wp-cli-job-status` instead of blocking one MCP request.
 - Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use

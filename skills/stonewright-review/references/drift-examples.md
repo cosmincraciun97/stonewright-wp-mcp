@@ -73,7 +73,7 @@ Live element settings:
 ```
 
 Check:
-1. Call MCP tool `stonewright-media-get` with `attachment_id: 77` to get the original
+1. Call MCP tool `stonewright-media-get` with `id: 77` to get the original
    source URL.
 2. Compare against spec image URL.
 3. If different, flag as `asset-mismatch` and let the user decide which is
@@ -82,7 +82,7 @@ Check:
 ```json
 {
   "ability": "stonewright/media-get",
-  "args": { "attachment_id": 77 }
+  "args": { "id": 77 }
 }
 ```
 

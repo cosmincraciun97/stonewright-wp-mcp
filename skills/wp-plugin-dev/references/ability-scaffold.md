@@ -41,7 +41,8 @@ final class <VerbName> extends AbilityKernel {
             'type'                 => 'object',
             'additionalProperties' => false,
             'properties'           => [
-                'post_id' => [ 'type' => 'integer', 'minimum' => 1 ],
+                'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
+                'confirmation_token' => [ 'type' => 'string' ],
                 // add your fields here
             ],
             'required'             => [ 'post_id' ],
@@ -64,7 +65,9 @@ final class <VerbName> extends AbilityKernel {
     }
 
     public function execute( array $args ): array|\WP_Error {
-        return $this->audit(
+        // audit_write() records the audit row and, in production-safe mode, refuses a call without a valid
+        // confirmation_token. A read-only ability uses audit_read() and declares no confirmation_token.
+        return $this->audit_write(
             $args,
             function ( array $args ) {
                 $post_id = (int) $args['post_id'];
@@ -74,6 +77,9 @@ final class <VerbName> extends AbilityKernel {
 
                 // Take snapshot before any write.
                 $snapshot_id = Backup::snapshot_post( $post_id );
+                if ( '' === $snapshot_id ) {
+                    return $this->backup_failed_error();
+                }
 
                 // ... your logic here ...
 
@@ -97,35 +103,52 @@ In `plugin/includes/Core/AbilityRegistry.php`, add to the registry map:
 
 ## Write the test first
 
-`plugin/tests/Abilities/<Category>/<VerbName>Test.php`
+`plugin/tests/Unit/Abilities/<Category>/<VerbName>Test.php`
+
+The unit suite runs on the WordPress stubs in `plugin/tests/bootstrap.php` (no
+WordPress install): set the user, capabilities and options through the
+`$GLOBALS['stonewright_test_*']` arrays, as the existing tests under
+`plugin/tests/Unit/Abilities/` do.
 
 Minimum test shape:
 
 ```php
 <?php
+declare( strict_types=1 );
 
-namespace Stonewright\WpMcp\Tests\Abilities\<Category>;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\<Category>;
 
-use WP_UnitTestCase;
+use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\<Category>\<VerbName>;
 
-class <VerbName>Test extends WP_UnitTestCase {
+final class <VerbName>Test extends TestCase {
 
-    public function test_returns_error_when_post_not_found(): void {
-        $ability = new <VerbName>();
-        $result  = $ability->execute( [ 'post_id' => 999999 ] );
-        $this->assertInstanceOf( \WP_Error::class, $result );
-        $this->assertSame( 'not_found', $result->get_error_code() );
+    protected function setUp(): void {
+        $GLOBALS['stonewright_test_user_logged_in'] = true;
+        $GLOBALS['stonewright_test_user_caps']      = [ 'edit_post' => true ];
+        $GLOBALS['stonewright_test_options']        = [ 'stonewright_mode' => 'development' ];
+        $GLOBALS['stonewright_test_posts']          = [];
     }
 
-    public function test_happy_path(): void {
-        $post_id = $this->factory()->post->create();
-        $ability = new <VerbName>();
-        $result  = $ability->execute( [ 'post_id' => $post_id ] );
-        $this->assertIsArray( $result );
-        $this->assertArrayHasKey( 'snapshot_id', $result );
+    protected function tearDown(): void {
+        $GLOBALS['stonewright_test_user_caps'] = [];
+        $GLOBALS['stonewright_test_options']   = [];
+        $GLOBALS['stonewright_test_posts']     = [];
+    }
+
+    public function test_refuses_a_caller_without_the_capability(): void {
+        $GLOBALS['stonewright_test_user_caps'] = [];
+        self::assertFalse( ( new <VerbName>() )->permission_callback( [ 'post_id' => 1 ] ) );
+    }
+
+    public function test_returns_error_when_post_not_found(): void {
+        $result = ( new <VerbName>() )->execute( [ 'post_id' => 999999 ] );
+        self::assertInstanceOf( \WP_Error::class, $result );
+        // $this->error() prefixes the code with "stonewright_".
+        self::assertSame( 'stonewright_not_found', $result->get_error_code() );
     }
 }
 ```
 
-Run: `cd plugin && composer test`
+Run: `cd plugin && composer test`. After adding or changing an ability, regenerate the
+generated files with `composer docs:matrix` and `composer contracts:generate`.

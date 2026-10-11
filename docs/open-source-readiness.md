@@ -22,7 +22,10 @@ This checklist tracks the public-release surface for Stonewright.
 ## Security Envelope
 
 - Direct PHP runtime execution is exposed only through
-  `stonewright/php-execute`, on the `full` profile only.
+  `stonewright/php-execute`, on the `full` profile only. An administrator
+  chooses that profile in wp-admin; an agent cannot switch to it. The ability
+  and the WP-CLI runners need `edit_plugins` and `manage_options`, and a super
+  admin on multisite.
 - Write abilities use explicit permission callbacks.
 - Elementor, template, and theme-backed writes snapshot first.
 - Design specs validate before rendering.
@@ -54,6 +57,7 @@ Pop-Location
 
 node scripts/check-docs-freshness.mjs
 node scripts/check-license-metadata.mjs
+node scripts/check-admin-control-sizing.mjs
 node scripts/check-public-hygiene.mjs --require-private-terms
 node scripts/package-verify.mjs --strict-vendor
 ```

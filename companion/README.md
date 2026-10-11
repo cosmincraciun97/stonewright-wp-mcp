@@ -199,7 +199,7 @@ switch when the recovery is done.
 Destructive Direct writes on remote sites need a confirmation when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
 flagged destructive ask for it: deletes, template and template-part creates,
-`global-styles-update`, `elementor-data-update`, plugin, theme-activate, settings
+`global-styles-update`, `elementor-data-update`, plugin, theme-activate, comment, widget, settings
 and user changes, `template-update`, `template-part-update`, and
 `blueprint-apply` over an existing page (`post_id`). Content, media, ACF, menu,
 and taxonomy writes do not.
@@ -892,15 +892,15 @@ Example body for `/wp-cli/batch`:
 ```json
 {
   "commands": [
-    ["post", "create", "--post_type=page", "--post_title=Marius Șoflete"],
-    ["term", "create", "echipa_rol", "Producție Media"]
+    ["post", "list", "--post_type=page", "--s=Marius Șoflete", "--format=ids"],
+    ["term", "list", "echipa_rol", "--search=Producție Media", "--format=ids"]
   ],
   "stopOnError": true
 }
 ```
 
 Batch requests preserve Unicode through JSON and still run each command through
-`execFile` argv tokens with the same blocked-command checks as single runs.
+`execFile` argv tokens with the same blocked-command checks as single runs, plus the read-oriented command list of batch runs.
 
 Agent recovery rule: do not run `wp cli info`, `wp plugin activate`,
 `wp option update`, or other `wp ...` commands in a normal shell to debug
@@ -931,10 +931,10 @@ npm run build
 
 ## Direct mode tool surface
 
-**105** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+**105** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`). The companion adds its own local tools to them: 8 connection and diagnostics tools (`stonewright-setup-profile`, `-wordpress-mcp-status`, `-client-surface-check`, `-connect-doctor`, `-mode-capabilities`, `-reconnect`, `-ping`, `-tool-profile`) and 7 `stonewright-wp-cli-*` tools; the `full` profile also lists five legacy `companion_wp_cli_*` aliases. In Direct mode `tools/list` therefore shows 125 tools with `full` (105 + 20) and 37 with `essential` or `essential-static` (22 Direct tools + 15 local tools). `stonewright-task-start` is one of the 105.
 
 - Waves 1–3: content (including `stonewright-content-create` for any registered post type, plus `stonewright-content-create-page` / `stonewright-content-create-post`), menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`. WooCommerce catalog writes and audits are plugin-only.
-- Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
+- Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-incident-repair-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
 - Wave 4 ACF/SEO: `stonewright-acf-fields-get|update`, `stonewright-seo-head-get`
 - Wave 5: `stonewright-elementor-status|data-get|data-update` (local WP-CLI + mandatory backup), `stonewright-gutenberg-validate`, `stonewright-agents-md-sync`, `stonewright-rules-get` (the same native rule registry the plugin ships; also on the bootstrap surface, because task start hands out a rule digest and the tool that resolves it has to be reachable first)
 - Wave 6 backups: `stonewright-direct-backup-list`, `stonewright-direct-backup-restore` (task profiles and `full`; not on the bootstrap or essential surface)

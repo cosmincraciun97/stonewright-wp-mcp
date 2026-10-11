@@ -71,7 +71,9 @@ typed dry-run, returns `approval_url`, exact target path, byte counts, and a
 short summary, then stops. It must not open the approval page, issue or retrieve
 the one-time grant, or apply `custom_code_grant` unless the user explicitly asks
 the agent to perform that approval step. This applies to theme files,
-Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces. Generic
+Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces. Rolling back
+a WPCode or Code Snippets snippet needs the same grant, and the undo of a verified
+change to code is run only by an administrator on the Rescue or Changes page. Generic
 content create/update/duplicate/bulk abilities reject provider-owned
 executable-code post types (`stonewright_custom_code_provider_required`) and
 never skip KSES to preserve PHP. WPCode active PHP uses the provider's public
@@ -119,7 +121,8 @@ npm test
 
 A site with no stored mode starts in the mode of its environment type: `production` gives
 `production-safe`, `staging` gives `staging`, anything else gives `development`. This includes
-every site of a network activation, on its first request.
+every site of a network activation, on its first request, and a site created after one,
+when it is created.
 
 ### `stonewright_companion_url`
 
@@ -159,6 +162,11 @@ that recommends a method and does not guess credentials). Failed prerequisites
 mark dependents skipped instead of inventing secondary failures. Use it when a
 client never lists Stonewright tools, fails auth, or cannot reach the site.
 Copy the report for support; it never includes secrets.
+When another plugin has loaded its own copy of the MCP adapter, Stonewright uses
+that copy if it is version 0.5.0 or newer and offers the calls Stonewright needs.
+If it cannot be used, the **MCP route unavailable** card and the **MCP runtime**
+check name the plugin that owns it, and both MCP routes answer 503 instead of
+disappearing.
 
 Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
 credentials, REST index/namespaces, REST auth, and MCP initialize without
@@ -248,7 +256,10 @@ A fresh activation creates the schema with no memory rows, no user-created
 skills, and no audit events. Generic built-in skills and native rules are
 versioned product assets. Upgrades run schema migrations in place and never
 reset existing memory, user skills, audit history, or admin settings. Memory
-and skill writes reject high-confidence credential material.
+and skill writes reject high-confidence credential material. Memory text that
+tells an agent to override the plugin rules or move credentials is stored as
+`needs_review` and is not offered to agents until an administrator approves it on
+the Memory page.
 
 Site memory is for what is true about **this** site. Rules that hold everywhere
 belong in the shipped native rule registry instead — see [Native Rules](#native-rules).
@@ -357,7 +368,7 @@ Risky writes are recorded before they run and checked after they finish.
 - `HealthProbe` asks the site over HTTP whether it still loads (the home page, a wp-admin screen, the REST index, the written post, an optional same-site URL). `RollbackRecipes` undoes the change when it does not.
 - The journal is `wp-content/uploads/stonewright-state/journal-<random>.json` (at most 50 entries) and the `stonewright_change_journal` option.
 - Abilities: `stonewright/rescue-status` (read) and `stonewright/rescue-rollback` (write; confirmation token in production-safe mode). Admin page: **Stonewright → Activity → Rescue**. WP-CLI: `wp stonewright rescue status` and `wp stonewright rescue rollback`.
-- Change history: `stonewright/change-history-list` and `stonewright/change-diff-get` (read) and `stonewright/change-rollback` (write; the rollback engine verifies the confirmation token in production-safe mode; code is undone only by an administrator on **Stonewright → Activity → Changes**). WP-CLI: `wp stonewright changes list`, `diff` and `rollback`.
+- Change history: `stonewright/change-history-list` and `stonewright/change-diff-get` (read) and `stonewright/change-rollback` (write; the rollback engine verifies the confirmation token in production-safe mode; code is undone only by an administrator on **Stonewright → Activity → Changes**). WP-CLI: `wp stonewright changes list`, `diff` and `rollback`. The history keeps 90 days, 500 changes and 100 MB of stored content by default, whichever is reached first (`stonewright_change_ledger_days`, `stonewright_change_ledger_max_changes`, `stonewright_change_ledger_max_bytes`).
 - Filters: `stonewright_rescue_probe_enabled`, `stonewright_rescue_probe_args`, and `https_local_ssl_verify`.
 
 See [docs/rescue.md](../docs/rescue.md).
@@ -394,11 +405,22 @@ not cover arms a rescue entry with the matching `RescueGuard` method.
 
 ## Ability Groups
 
+- ACF
+- Block libraries
+- Blueprints
+- Brand kits
+- Comments
 - Content
+- Content model
+- Custom code
 - Design
+- Diagnostics
 - Elementor V3
+- Elementor native
 - Elementor V4
+- Elementor widgets (per-widget `add-*`)
 - Elementor Widget Builder
+- Expertise
 - Full Site Editing
 - Gutenberg
 - Knowledge
@@ -406,12 +428,23 @@ not cover arms a rescue entry with the matching `RescueGuard` method.
 - Memory
 - Menu
 - Patterns
+- Plugins
+- Revisions
+- Runtime (`php-execute`)
 - Sandbox
+- Search
+- Section reuse
 - Security
+- SEO
+- Settings
 - Site
 - Skills
 - System
 - Theme Builder
+- Themes
+- Users
+- Widgets
+- WooCommerce
 - WP-CLI
 
 See [docs/ability-truth-matrix.md](../docs/ability-truth-matrix.md) for the full

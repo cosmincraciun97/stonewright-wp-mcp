@@ -4,12 +4,13 @@ The full security reference lives in [plugin/SECURITY.md](../plugin/SECURITY.md)
 
 ## Summary
 
-Stonewright runs direct WordPress automation with four operator-control layers:
+Stonewright runs direct WordPress automation with five operator-control layers:
 
-1. **WordPress capabilities** — every ability checks a real capability before running.
+1. **WordPress capabilities** — every ability checks a real capability before running, on the object it acts on where there is one.
 2. **Pre-write backups** — every write that touches Elementor data or FSE styles snapshots the current state first.
-3. **Confirmation tokens** — destructive operations require a short-lived, single-use token to proceed.
+3. **Confirmation tokens** — destructive operations require a short-lived, single-use token to proceed in `production-safe` mode.
 4. **Audit log** — every write is recorded in an append-only database table.
+5. **Human approval** — custom code, the undo of a change to code, a snippet rollback, promotion of knowledge to guidance, memory that reads as an instruction, and the Full tool surface wait for an administrator in wp-admin.
 
 ## Threat model
 
@@ -25,9 +26,20 @@ for the exact trusted-principal policy, host prerequisites, and restart recovery
 
 An MCP client that authenticates with an administrator account can call any ability, including destructive ones. Mitigations:
 
-- Set `stonewright_mode` to `production-safe` to block all destructive abilities regardless of authentication level.
+- Set `stonewright_mode` to `production-safe` so every destructive ability needs a confirmation token bound to its exact call, whatever the authentication level. A site with no stored mode starts in the mode of its environment type (`production` gives `production-safe`), on every site of a network.
 - Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. For read-only agents, `read` is sufficient. For content workflows, `editor` is usually enough.
 - Rotate Application Passwords regularly.
+
+### Permissions per object
+
+A capability such as `edit_users` says that a user may manage accounts in general, not which account. wp-admin checks the capability on the object, and so do the abilities that act on one:
+
+- **Users.** `user-update`, `user-create` and `user-delete` check `edit_user` or `delete_user` for the target. A role change also needs `promote_users`, `promote_user` for the target and a role from the editable roles. A user cannot change, delete or promote an account, or grant a role, that holds `manage_options`, `promote_users` or `edit_users` when the user lacks it, and on multisite only a super admin can change a super admin. The last administrator cannot be deleted or demoted, and `reassign` must name another existing user. `user-app-passwords` checks the target user for each action and only where application passwords are available for that user.
+- **Settings.** `settings-update` checks every key before it writes any, and `default_role` cannot be `administrator` or a role with an elevated capability.
+- **Comments and media.** The comment abilities check `edit_comment` for the comment, and `comment-list` returns only comments the user may edit. `media-get` and `media-list` check `read_post` for each attachment.
+- **Theme Builder.** The abilities need `edit_theme_options` and, on a template, `edit_post` or `delete_post`. A template is moved to the trash; `force` is refused.
+- **History and restore.** `change-log` lists only posts where `edit_post` holds, and `change-restore` needs the publish capability of the post type when the snapshot is published, scheduled or private.
+- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`.
 
 ### Compromised MCP client
 
@@ -36,9 +48,11 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
 - Enable `production-safe` mode on all sites that are not development or staging.
 - Monitor the audit log at `/wp-json/stonewright/v1/audit-log` for unexpected
   ability names or unusual argument patterns. Coverage is **Stonewright-owned
-  mutations only**: abilities that call `AbilityKernel::audit()` and
+  mutations**: abilities that call `AbilityKernel::audit()` and
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
-  dedupe). Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
+  dedupe), plus the write abilities of Elementor's own MCP server (`elementor/*`), which an
+  observer records as `observed_native` after they ran (it never blocks them).
+  Status vocabulary is `ok` | `error` | `blocked` | `auth`. Unrelated WordPress
   REST traffic is not logged. Successful finalizer heartbeats stay out of the
   stream. Repeated identical permission and safety denials are scoped by site,
   ability, and error: the first blocked event and bounded count summaries retain
@@ -175,8 +189,10 @@ does with the hints. See [Abilities](abilities.md#tool-annotations-and-exposure)
 
 ### Custom code and theme-file recovery
 
-`stonewright/php-execute` cannot mutate code files. Theme PHP/CSS/JS changes use
-`stonewright/theme-file-patch`: dry-run validation, native-gap evidence,
+`stonewright/php-execute` is not a route for code files: a static scan refuses
+common patterns that write theme, plugin or core files, but it is a best-effort
+guard, not a barrier (see [php-execute runtime guards](#php-execute-runtime-guards)).
+Theme PHP/CSS/JS changes use `stonewright/theme-file-patch`: dry-run validation, native-gap evidence,
 authenticated wp-admin approval, a single-use grant bound to the exact site,
 user, logical path, language, candidate hash, risk class, and byte budget, then
 atomic replace, readback, fresh bootstrap smoke, and rollback.
@@ -203,6 +219,10 @@ grant, a snippet rollback, an undo of code, the full profile) carries its
 text an MCP client receives, not only in the error data a REST client reads, so
 the client can show the link and stop. A link that is not an http or https
 address is left out.
+
+### Memory that reads as an instruction
+
+Memory is read back to agents as context, so a stored line that tells an agent to ignore the plugin's rules is an instruction. `memory-save`, `learning-record`, `memory-generalize`, `knowledge-import`, `incident-repair-record` and `POST /stonewright/v1/memory` screen the text the way imported skills are screened. Text that tells an agent to override the plugin rules, safety gates or confirmation tokens, or to send credentials elsewhere, is stored with the status `needs_review` (the answer says `needs_review: true`). Nothing is dropped silently: the entry is not offered at task start or as site context, it drafts no skill, and a later save under its key does not clear it. An administrator approves or discards it on the Memory page. Prohibitions and plain mentions of credentials are not flagged, and the entry form of the Memory page is not screened, because a person types there. In Direct mode the companion screens `stonewright-learning-record` and `stonewright-incident-repair-record` the same way; a person clears an entry there by deleting it or by setting its status to `active` in the local memory file.
 
 ### Rescue after a failed change
 
@@ -244,6 +264,12 @@ Elementor prints colour, typography, unit and spacing values into the generated 
 - **Before generation**, `elementor-css-regenerate` scans the stored settings of the post (and its page or kit settings) for `;`, braces, `<`, `>`, `url(`, `expression(`, `@import`, comment markers and backslashes under colour, typography, unit and numeric-side keys. A match is refused with `stonewright_elementor_css_unsafe_value` and the paths, before any backup, lock or generation. Custom CSS keys are not scanned there; they stay under the custom-code approval gate.
 
 Atomic (`e-*`) widgets keep structure-only validation, as before.
+
+### Elementor's own abilities
+
+`stonewright-elementor-native-execute` runs one certified ability of Elementor's own MCP integration in-process, inside Stonewright's snapshot, write lock, readback, rollback and audit. The tool exists when the native Elementor state is `available` and at least one ability is certified; the experimental V4 flag plays no part. It plans first (`dry_run` is on by default), and its permission follows the family of the ability: `edit_theme_options` for the kit defaults, `edit_post` on the post for a tree composition or a structure read. A read and a dry run need no confirmation token in any mode; a real write needs one in `production-safe` mode, bound to its arguments. An ability that clears generated CSS for the whole site is refused, and a change to a published page that Elementor stages in an autosave is reported as `staged_in_autosave`, never as applied.
+
+Elementor's own write abilities, when something other than this tool runs them (for example Elementor's own MCP server), are not blocked or changed. An observer takes a snapshot first, and after the call records a change-history row and an audit row marked `observed_native`; it opens no Rescue frame, so such a call is not probed or rolled back automatically.
 
 ### Design mirror export
 
@@ -292,7 +318,7 @@ parameter and return types, nullability/unions, constants, and versions before
 any adapter method can run. Troubleshoot reports each blocked symbol and its
 active owner/version separately without exposing filesystem paths. A copy of the adapter that
 another plugin loaded first is accepted only when it passes the same signature checks from version
-0.5.0; otherwise Stonewright registers nothing through it and says which plugin owns it.
+0.5.0; otherwise Stonewright registers nothing through it, says which plugin owns it, and the two MCP routes answer 503.
 
 ### Companion exposure
 
@@ -442,7 +468,8 @@ The scan of the source is a best-effort guard, not a runtime barrier: a snippet
 that reaches a write through an indirect call can pass it. `php-execute` and the
 WP-CLI runners (`wp-cli-run`, `wp-cli-batch-run`, `wp-cli-job-start`) need
 `edit_plugins` and `manage_options`, the sandbox capability pair, and a super
-admin on multisite. While `DISALLOW_FILE_MODS` is set, php-execute also refuses
+admin on multisite. `wp-cli-batch-run` runs read-oriented commands only: one
+command outside its allowlist refuses the whole batch before any runs. While `DISALLOW_FILE_MODS` is set, php-execute also refuses
 snippets that call the plugin, theme and core installers and updaters, and the
 WP-CLI abilities refuse commands that write files.
 
@@ -508,7 +535,7 @@ archives exclude Direct sites config, memory, and audit state.
 ## Hardening checklist
 
 - [ ] HTTPS enabled on the WordPress installation.
-- [ ] `stonewright_mode` set to `production-safe` on production sites.
+- [ ] `stonewright_mode` set to `production-safe` on production sites (a site with no stored mode starts in the mode of its environment type).
 - [ ] Dedicated Application Password for the MCP client with the minimum required role.
 - [ ] `COMPANION_BEARER_TOKEN` set to a strong random value.
 - [ ] `COMPANION_ALLOWED_ORIGINS` restricted to known request origins.

@@ -181,8 +181,9 @@ Rules the write enforces, so do not work around them:
   or WP-CLI to copy a section.
 - Production-safe: an Elementor V3 copy needs a `confirmation_token` issued for
   the exact call (every `elementor-v3-batch-mutate` write that is not a dry run
-  does); a Gutenberg copy needs one only when the same batch removes a block;
-  Elementor V4 writes stay blocked there. Dry runs need no token.
+  does); a Gutenberg copy needs one too (every `blocks-batch-mutate` write that
+  is not a dry run does); Elementor V4 writes stay blocked there. Dry runs need
+  no token.
 
 ### When the copy is refused for its settings (Elementor V3)
 

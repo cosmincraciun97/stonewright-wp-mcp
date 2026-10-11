@@ -106,13 +106,16 @@ Runs up to 100 WP-CLI commands from one UTF-8 JSON request.
 | `stopOnError` | boolean | No | Defaults to true. Stop after the first failed command. |
 
 Each command is still validated and executed through `execFile` with shell
-disabled. Use this endpoint for repeated operations with UTF-8 data instead of
-large inline shell scripts.
+disabled. A batch accepts read-oriented commands only (reads, `db check`, cron
+lists, cache and rewrite flushes); a command off that list refuses the whole
+batch before any command runs. Use this endpoint for repeated reads with UTF-8
+data instead of large inline shell scripts.
 
 ### POST /wp-cli/job-start
 
 Starts one command or one batch in the companion background queue. The job uses
-the same tokenized `execFile` runner as `/wp-cli/run` and `/wp-cli/batch`.
+the same tokenized `execFile` runner and blocked-command checks as `/wp-cli/run`;
+a job batch is not limited to the read-oriented list of `/wp-cli/batch`.
 
 Request fields combine `/wp-cli/run` and `/wp-cli/batch`: provide either
 `command` or `commands`, plus optional `path`, `url`, `user`, `context`,
@@ -169,6 +172,11 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
 3. WP-CLI PHP and shell-oriented groups are blocked: `eval`, `eval-file`,
    `shell`, and `package`.
 4. Blocked flags are rejected: `--exec`, `--require`, and `--prompt`.
+   The agent-facing runners (run, batch, jobs and their HTTP routes) also refuse
+   `config`, `scaffold`, plugin and theme installs, updates, deletes and
+   activations, user and role changes, `core` downloads, updates and installs,
+   and `search-replace` without `--dry-run` (see the
+   [companion README](../companion/README.md#mcp-tools)).
 5. `path`/cwd must resolve inside `STONEWRIGHT_WP_ROOT`,
    `STONEWRIGHT_WP_ALLOWED_ROOTS`, or the companion process cwd fallback.
    `STONEWRIGHT_WP_ROOT` is optional and, when configured, is the absolute

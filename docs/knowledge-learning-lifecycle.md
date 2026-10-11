@@ -73,6 +73,10 @@ The Memory admin page has views for User, Project, Verified repairs, Unresolved
 incidents, Incident lifecycle, Audit feedback, and Reference entries. An entry
 shows backend, origin, visibility, lifecycle state, verification state, and last
 retrieval.
+An entry whose text tells an agent to override the plugin rules or move
+credentials is stored as `needs_review`: it carries a Needs review badge, is never
+offered at task start or as site context, and waits for an administrator to
+approve or discard it. Knowledge bundle imports are screened the same way.
 Legacy audit feedback is reclassified only through the explicit migration
 action after the operator confirms an export; migration preserves historical
 rows and never invents an active rule.

@@ -167,7 +167,7 @@ Before `template-update`, `template-part-update`, `global-styles-update`,
 cannot be stored, the write is refused and nothing is sent. The file holds the
 REST resource only, never request headers or credentials.
 `stonewright-direct-backup-list` lists the saved copies and
-`stonewright-direct-backup-restore` puts one back (it needs `confirm:true`,
+`stonewright-direct-backup-restore` puts one back (it needs a confirmation, `confirm:true` on a local site and otherwise a `confirmation_id`,
 checks the stored hash and saves the current state first, so a restore can be
 undone). A restore writes the saved meta back over the current meta and deletes
 no key, so a meta key added after the backup stays; the result lists those keys

@@ -64,7 +64,7 @@ The authoritative gate columns live in the generated
 | `stonewright/elementor-v4-update-class` | Write | experimental | Fallback. Updates a global class. |
 | `stonewright/elementor-v4-migrate` | Write | experimental | Explicit V3-to-V4 migration with a per-element loss report; never implicit. |
 | `stonewright/elementor-v4-render-from-spec` | Write | experimental | Fallback. Renders a validated DesignSpec into an Atomic tree; `dry_run` defaults to true. |
-| `stonewright/elementor-v4-atomic-widget-define` | Read | sandboxed | Sandboxed Atomic widget definition. |
+| `stonewright/elementor-v4-atomic-widget-define` | Write | sandboxed | Sandboxed Atomic widget definition. |
 | `stonewright/elementor-native-execute` | Write | experimental | Runs a certified Elementor ability (default styles, element composition, structure read) inside the snapshot, lock, readback, rollback, and audit closure; `dry_run` defaults to true. |
 
 ## Write envelope for V4 abilities
@@ -128,18 +128,16 @@ an error and the snapshot is restored.
   write operations. `stonewright/elementor-native-execute` is the exception: it
   follows the token rule above.
 
-## Using Elementor's own MCP server alongside
+## Elementor's own MCP server
 
-Stonewright does not disable, replace, or compete with Elementor's MCP server,
-and both can be connected to the same client. Use Stonewright when you want
-snapshots, readback, audit, and rollback. Elementor's MCP alone is fine for a
-quick draft that you will review in the editor. Do not send one change through
-both servers: Stonewright's backup and readback only cover what it writes. When
+Connect only Stonewright to the AI client; do not add Elementor's own MCP server
+next to it. Stonewright's backup and readback only cover what it writes. When
 Stonewright runs an Elementor ability itself, through
 `stonewright/elementor-native-execute`, the closure covers it. A write made
-through Elementor's own server is still observed: the affected post or kit is
+through Elementor's own server is still observed, as a safety net: the affected post or kit is
 snapshotted before the call, and a change-history row and an audit row are
-written after it, without blocking or changing the call.
+written after it, without blocking or changing the call. See
+[Elementor MCP with Stonewright](../elementor-mcp.md).
 
 ## Enabling for development
 

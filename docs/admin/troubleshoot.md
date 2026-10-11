@@ -140,14 +140,14 @@ or disables the other plugin.
   says which plugin owns the adapter and the version, for example "The MCP adapter in use is the
   copy bundled with Rank Math SEO (version 0.5.0)". **MCP runtime compatibility** on Troubleshoot
   shows the same as information. When only the adapter class itself came from the other plugin and
-  the rest of the adapter came from Stonewright's copy, the card says the family is mixed; that
-  works while both copies agree on the server API, which is checked.
+  the rest of the adapter came from Stonewright's copy, the check still passes while both copies
+  agree on the server API, which is checked.
 - *A copy Stonewright cannot use* (older than 0.5.0, a different server API, or parts missing).
   The route `/wp-json/mcp/stonewright` cannot be served, so no MCP client can connect, although
   abilities still run inside WordPress. An error notice on every Stonewright screen, the Plugins screen and the Dashboard
   (administrators only; **Dismiss for 7 days** hides it for that user, and it returns when the owner
-  or version of the loaded copy changes), a **MCP
-  route unavailable** card on Troubleshoot, a failed **MCP runtime** check in the connection checks,
+  or version of the loaded copy changes), an **MCP
+  route unavailable** notice in the **MCP runtime compatibility** card on Troubleshoot, a failed **MCP runtime** check in the connection checks,
   `mcp_runtime` in `stonewright-site-capabilities` and in `stonewright-task-start`, and an HTTP 503
   answer on both MCP routes (instead of a missing route) all name the plugin that owns the loaded
   copy, its version, the reason and what to do.

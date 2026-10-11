@@ -51,13 +51,15 @@ allows a native write is executed only by `stonewright/elementor-native-execute`
 (see Native execution below); the Stonewright V4 writers above stay as the
 fallback.
 
-Elementor's MCP server and Stonewright do not compete: both can be connected to
-one client. Use Stonewright when you want snapshots, readback, audit, and
-rollback; Elementor's MCP alone is fine for a quick draft.
+Connect only Stonewright to the AI client. Stonewright runs the certified Elementor
+abilities itself, with snapshots, readback, audit, and rollback; a call on Elementor's
+own MCP server has none of them. See [Elementor MCP with Stonewright](elementor-mcp.md).
 
 ### What the module needs
 
-`native_elementor.mcp_module` reports each requirement as met or missing:
+`native_elementor.mcp_module` reports the first three as `requirements` (each met or
+missing, with the names of the missing ones in `missing`), the site switch as
+`site_exposure_enabled` and the Atomic Editor as `atomic_editor_active`:
 
 - the WordPress Abilities API (`wp_register_ability`, part of WordPress core);
 - the WordPress MCP Adapter (`WP\MCP\Core\McpAdapter`);
@@ -75,7 +77,7 @@ requirement. `mcp_adapter.provider_id` names the plugin whose copy was loaded.
 `native_elementor` appears in `stonewright/site-capabilities`,
 `stonewright/elementor-v3-status`, and `stonewright/elementor-provider-discovery`.
 `stonewright-task-start` carries only its `state` as
-`elementor.status.native_elementor`. The report lists the Elementor version, the
+`elementor.status.native_elementor`, plus one short `native_hint`. The report lists the Elementor version, the
 module requirements, the registered `elementor/*` abilities, ownership
 (`official`, `third-party`, or `mixed`), one schema fingerprint per ability, and
 a certification entry per contract.
@@ -157,23 +159,26 @@ does not guess fields. Writes plan first: `dry_run` defaults to `true`.
 
 A write runs in this order and stops at the first failure:
 
-1. **Route.** The ability must be certified for the live Elementor version and its
+1. **Gates.** The permission for the family (`edit_theme_options` for default
+   styles, edit access to the post for a composition or a structure read; Elementor's
+   own ability checks its capability again when it runs). The tool is available when
+   the native Elementor state is `available` and at least one ability is certified;
+   otherwise the call fails with `stonewright_native_unavailable`, the state, the
+   issue codes (for example `elementor_version_out_of_range`) and the Stonewright
+   writers to use instead. The experimental V4 flag is not part of this gate. Then,
+   for a real write in `production-safe` mode, a confirmation token bound to the
+   arguments (`stonewright/security-issue-confirmation-token`), the same rule the
+   other writers follow. Reads and dry-run plans need no token in any mode.
+2. **Route.** The ability must be certified for the live Elementor version and its
    contract must allow a native write; otherwise the call fails with
    `stonewright_native_route_refused`, the exact reason or issues, the missing
    feature (for example `elementor_mcp_site_exposure`), and the Stonewright
-   writers to use instead. Documents route per subtree and are never converted:
+   writers to use instead. A contract that requires the Atomic Editor fails with
+   `stonewright_native_atomic_editor_inactive` while that experiment is off.
+   Documents route per subtree and are never converted:
    a V3 document or a V3 subtree of a mixed document routes to the V3 writers, an
    insert at the root of a mixed document and a missing parent are refused, and an
    Atomic subtree or an empty or V4 document routes native.
-2. **Gates.** The tool is available when the native Elementor state is
-   `available` and at least one ability is certified; otherwise the call fails with
-   `stonewright_native_unavailable`, the state, the issue codes (for example
-   `elementor_version_out_of_range`) and the Stonewright writers to use instead. The
-   experimental V4 flag is not part of this gate. Then the Atomic Editor
-   requirement, the permission for the family (kit options, or the post), and, for
-   a real write in `production-safe` mode, a confirmation token bound to the
-   arguments (`stonewright/security-issue-confirmation-token`), the same rule the
-   other writers follow. Reads and dry-run plans need no token in any mode.
 3. **Exposure.** Every Atomic type in the composition must be registered on the
    site; a missing one fails with `stonewright_atomic_type_unavailable`,
    `missing_feature: atomic_type:<type>`, and the types the site has.

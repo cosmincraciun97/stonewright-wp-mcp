@@ -48,7 +48,7 @@ final class NativeExecute extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Runs a certified Elementor ability (default styles, element composition, or the structure read) in-process inside Stonewright\'s snapshot, write lock, readback, rollback, and audit closure. Plans first by default. Abilities that clear generated CSS site-wide are refused. A change to a published page is reported as staged_in_autosave, never as applied. Reads and dry-run plans work in every mode; a real write needs a confirmation_token in production-safe mode. Prefer this tool over Elementor\'s own MCP tools, which skip the backup, the change history and the audit.', 'stonewright' );
+		return __( 'Runs a certified Elementor ability (default styles, element composition, or the structure read) in-process inside Stonewright\'s snapshot, write lock, readback, rollback, and audit closure. Plans first by default. Abilities that clear generated CSS site-wide are refused. A change to a published page is reported as staged_in_autosave, never as applied. Reads and dry-run plans work in every mode; a real write needs a confirmation_token in production-safe mode. Prefer this tool over Elementor\'s own MCP tools: called directly, they skip the confirmation token, the write lock and the readback, and Stonewright can only record them after the fact.', 'stonewright' );
 	}
 
 	public function category(): string {
