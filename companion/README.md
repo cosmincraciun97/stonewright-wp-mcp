@@ -92,7 +92,8 @@ against core WordPress REST.
 |---|---|---|
 | `STONEWRIGHT_MODE` | `auto` \| `direct` \| `plugin` | `auto` |
 | `STONEWRIGHT_DIRECT_WRITES` | `on` \| `off` \| `confirm` | `on` for localhost/`.local`/`.test`; `confirm` for remote |
-| `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry | unset |
+| `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry; binds the session to that site | unset |
+| `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE` | `1` allows a Direct write on a plugin site when the call also passes `confirm: true`. Recovery only; every use is audited and warned about | unset |
 | Multi-site registry | `~/.stonewright/sites.json` | schema v2: metadata only; secrets in OS store / `env://` |
 
 **Auto-detect:** probes `{site}/wp-json/mcp/stonewright` with HEAD, then GET
@@ -102,9 +103,19 @@ when HEAD is 404 or the HEAD probe fails. Status includes `endpoint_evidence`.
   response → **plugin** mode. 401/403 is authentication failure, not Direct
   fallback.
 - WordPress JSON `rest_no_route` on GET → plugin route **missing**. In `auto`,
-  Direct tools may register; `plugin.reachable` is false and
-  `configured_mcp_url` stays the plugin MCP URL. In `plugin-only`, stay
-  degraded with no Direct tools.
+  Direct tools may register when the site does not have the Stonewright plugin;
+  `plugin.reachable` is false and `configured_mcp_url` stays the plugin MCP URL.
+  In `plugin-only`, stay degraded with no Direct tools.
+- Route missing but the REST index lists the plugin's `stonewright/v1` namespace
+  (for example the MCP Adapter is inactive) → the plugin is live, so `auto`
+  stays degraded with `plugin_route_missing` and registers no Direct tools.
+  Enable the MCP Adapter, then call `stonewright-reconnect`.
+- A site whose `fallback_policy` is `never` also stays degraded instead of
+  falling back to Direct. `always-direct` and `direct-when-plugin-unavailable`
+  allow it.
+- `STONEWRIGHT_MODE=direct` (`direct-only`) never switches to the plugin, but
+  still reads the REST index. When the plugin is active, Direct registers with
+  `mode_conflict` in the status: reads work and writes are refused.
 - HTML/CDN 404 → **inconclusive**; keep the plugin path.
 - Network errors → keep plugin proxy path (existing recovery)
 
@@ -143,6 +154,29 @@ site-hosted state.
 | Change sets, Rescue (probe, rollback), backup restore | no | yes |
 | After-write readback and verification | no (local Elementor cache readback only) | yes |
 | Audit | local redacted JSONL; no server UI | server-side UI |
+
+**Session site.** With `STONEWRIGHT_SITE_ALIAS` set, every Direct tool acts on
+that alias, not on the registry default, and a `site` argument that names another
+alias is refused with `site_not_in_session`. This covers REST calls, WP-CLI,
+memory scope, incidents and the task-start latch. Without an alias, nothing
+changes: the registry default, or the alias the call names.
+
+**Plugin on the site.** Before a Direct write, the companion checks the site's
+REST index for the plugin's `stonewright/v1` namespace. If the plugin is active,
+the write is refused with `stonewright_direct_write_blocked_plugin_present`: use
+Plugin mode (`STONEWRIGHT_MODE=auto` or `plugin`, then `stonewright-reconnect`).
+The answer is cached per site for five minutes and cleared on reconnect, so a
+write adds no request once it is known. If the check cannot be completed, the
+write is refused with `stonewright_direct_plugin_check_failed`. Reads, and the
+typed plugin bridge used by `task-start` and `learning-record`, are not checked.
+A Direct session whose `task-start` reaches the plugin reports `plugin_detected`
+and `required_actions: ["switch_to_plugin_mode"]`; an `auto` session switches to
+Plugin mode right away when the MCP route answers.
+
+For recovery only, `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE=1` in the client entry
+plus `confirm: true` on the call lets one write through. Each use writes an audit
+row (`direct_write_plugin_override`) and returns a `warnings` entry. Remove the
+switch when the recovery is done.
 
 Destructive Direct writes on remote sites require `confirm: true` when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts). Tools
@@ -328,7 +362,8 @@ it replaces stale or inherited `STONEWRIGHT_WP_*` values instead of allowing a
 named entry to start against another site. Other sites' secrets stay unloaded.
 
 **Modes per site:** `auto` (default probe), `plugin-only` (fail closed without
-plugin MCP), `direct-only` (skip plugin probe). Prefer `--password-env` or the
+plugin MCP), `direct-only` (never use the plugin MCP route; a plugin on the site still
+refuses Direct writes). Prefer `--password-env` or the
 interactive prompt over `--password` (shell history).
 
 Browser provider, scan consent, and install consent are distinct per-client

@@ -624,6 +624,8 @@ describe('direct error audit', () => {
 			},
 			fetchImpl,
 		});
+		// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
+		fetchImpl.mockClear();
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools ?? {};
 		const calls: Array<[string, Record<string, unknown>]> = [
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],
@@ -658,6 +660,8 @@ describe('direct error audit', () => {
 			},
 			fetchImpl,
 		});
+		// Direct-only startup reads the public REST index to look for the plugin; the tool calls below must send nothing.
+		fetchImpl.mockClear();
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ isError?: boolean; content: Array<{ text: string }> }> }> })._registeredTools ?? {};
 		const calls: Array<[string, Record<string, unknown>]> = [
 			['stonewright-theme-activate', { stylesheet: 'synthetic-theme', confirm: true }],

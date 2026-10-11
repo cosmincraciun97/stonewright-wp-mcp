@@ -130,6 +130,8 @@ export async function mediaUpload(
     destructive: false,
     tool: "stonewright-media-upload",
   });
+  // Refuse on a plugin site before reading a local file or downloading a URL.
+  await ctx.client.assertWritable();
 
   const env = ctx.env ?? process.env;
   const maxBytes = mediaMaxBytes(env);

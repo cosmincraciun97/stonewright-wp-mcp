@@ -5,6 +5,7 @@ export default defineConfig({
 		globals: false,
 		environment: 'node',
 		globalSetup: ['./tests/helpers/oauth-fixture-global-setup.ts'],
+		setupFiles: ['./tests/helpers/plugin-guard-absent.ts'],
 		include: ['tests/**/*.test.ts'],
 		fileParallelism: false,
 		coverage: {

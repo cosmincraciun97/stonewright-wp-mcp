@@ -40,7 +40,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*` |
+| `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*`. Direct tools then act on this site only and refuse a `site` argument that names another |
+| `STONEWRIGHT_DIRECT_ALLOW_ON_PLUGIN_SITE` | Recovery only. `1` lets a Direct write run on a site where the Stonewright plugin is active, when the call also passes `confirm: true`; each use is audited. Direct otherwise refuses writes on a plugin site |
 | `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
 | `STONEWRIGHT_CONFIGURED_PACKAGE` | Optional exact official package source used for authenticated `/health` configured-package evidence; invalid values are omitted |
 | `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs also set `essential-static` and save `essential` as the WordPress surface. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
@@ -71,6 +72,18 @@ MCP client configs set `STONEWRIGHT_SITE_ALIAS` only; the companion injects
 `STONEWRIGHT_WP_*` for that alias at startup. Prefer `--password-env` or an
 interactive prompt over `--password` on argv. Legacy v1 plaintext files remain
 readable; run `connect migrate` to move secrets out of the file.
+
+Direct tools act on the session's site. With `STONEWRIGHT_SITE_ALIAS` set, that
+alias replaces the registry default for every Direct tool (REST, WP-CLI, memory,
+incidents, task-start latch) and a `site` argument naming another alias is
+refused (`site_not_in_session`).
+
+Before a write, Direct checks whether the Stonewright plugin is active on the
+site (its `stonewright/v1` namespace in `/wp-json/`, cached five minutes per
+site and cleared on reconnect). On a plugin site the write is refused and the
+agent is told to use Plugin mode. `auto` mode does not fall back to Direct when
+the plugin is live but its MCP route is missing, and it honors the site's
+`fallback_policy`; `direct-only` still detects the plugin and refuses writes.
 
 Each record also retains configured Direct/Plugin policy and the WordPress
 Setup expectations (`enabled_requested`, mode, bootstrap/essential/full

@@ -23,6 +23,8 @@ export type ElementorRestClient = {
     },
   ) => Promise<T>;
   post: <T>(path: string, opts?: { body?: unknown }) => Promise<T>;
+  /** Refuses when the Stonewright plugin is active on the site; covers the WP-CLI write, which sends no REST request. */
+  assertWritable?: () => Promise<void>;
 };
 
 function resolveScope(site?: string): string {
@@ -646,6 +648,8 @@ export async function elementorDataUpdate(
         ? { site: input.site }
         : {}),
   });
+  // Both transports write: the WP-CLI path sends no REST request of its own.
+  await rest?.assertWritable?.();
 
   const normalized = normalizeToTree(input.data);
   if (!normalized.ok || !normalized.tree) {

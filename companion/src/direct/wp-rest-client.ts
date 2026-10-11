@@ -1,3 +1,4 @@
+import { assertDirectWriteAllowedOnSite } from './plugin-guard.js';
 import type { ResolvedSite } from './sites-config.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -13,6 +14,8 @@ export interface RequestOpts {
 export interface WpRestClientOptions {
 	fetchImpl?: typeof fetch | undefined;
 	timeoutMs?: number | undefined;
+	/** Environment for the plugin guard (override switch, audit location). Defaults to process.env. */
+	env?: NodeJS.ProcessEnv | undefined;
 }
 
 export class WpRestError extends Error {
@@ -106,6 +109,7 @@ async function fetchWithTimeout(
 export class WpRestClient {
 	private readonly fetchImpl: typeof fetch;
 	private readonly timeoutMs: number;
+	private readonly env: NodeJS.ProcessEnv | undefined;
 
 	constructor(
 		private readonly site: ResolvedSite,
@@ -113,6 +117,7 @@ export class WpRestClient {
 	) {
 		this.fetchImpl = options.fetchImpl ?? fetch;
 		this.timeoutMs = options.timeoutMs ?? 30_000;
+		this.env = options.env;
 	}
 
 	get siteAlias(): string {
@@ -125,6 +130,21 @@ export class WpRestClient {
 
 	get target(): Readonly<Pick<ResolvedSite, 'alias' | 'url' | 'siteId'>> {
 		return this.site;
+	}
+
+	/**
+	 * Refuse when this site has the Stonewright plugin active. Every non-GET
+	 * request runs this first; tools that write without a REST call (or that want
+	 * to refuse before doing other work) call it directly. Cached per site.
+	 */
+	async assertWritable(method: HttpMethod = 'POST', path = ''): Promise<void> {
+		await assertDirectWriteAllowedOnSite(this.site, {
+			fetchImpl: this.fetchImpl,
+			timeoutMs: this.timeoutMs,
+			env: this.env,
+			method,
+			path,
+		});
 	}
 
 	async get<T>(path: string, opts: RequestOpts = {}): Promise<T> {
@@ -145,6 +165,9 @@ export class WpRestClient {
 
 	async request<T>(method: HttpMethod, path: string, opts: RequestOpts = {}): Promise<T> {
 		const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+		if (method !== 'GET') {
+			await this.assertWritable(method, normalizedPath);
+		}
 		const url = new URL(`${this.site.restBase}${normalizedPath}`);
 		for (const [key, value] of Object.entries(opts.query ?? {})) {
 			if (value === undefined || value === null) {
