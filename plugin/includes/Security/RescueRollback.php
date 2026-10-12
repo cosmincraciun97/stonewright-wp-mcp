@@ -166,6 +166,21 @@ final class RescueRollback {
 	 * @return array<string, mixed>
 	 */
 	public static function judge( array $probe, array $entries, array $context, bool $retry = false ): array {
+		$passed = self::passed_before( $entries, $context );
+		if ( $retry ) {
+			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
+		}
+		return HealthProbe::compare( $probe, $passed );
+	}
+
+	/**
+	 * The legs that passed in the baselines the entries took before their writes.
+	 *
+	 * @param list<array<string, mixed>> $entries
+	 * @param array<string, mixed>       $context
+	 * @return list<string>
+	 */
+	private static function passed_before( array $entries, array $context ): array {
 		$passed  = [];
 		$post_id = (int) ( $context['post_id'] ?? 0 );
 		foreach ( $entries as $entry ) {
@@ -182,11 +197,7 @@ final class RescueRollback {
 				$passed[ $name ] = true;
 			}
 		}
-		$passed = array_keys( $passed );
-		if ( $retry ) {
-			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
-		}
-		return HealthProbe::compare( $probe, $passed );
+		return array_keys( $passed );
 	}
 
 	/**
@@ -624,6 +635,7 @@ final class RescueRollback {
 			'verification_status' => 'healthy' === $site ? 'verified' : ( 'still_failing' === $site ? 'failed' : 'unverified' ),
 			'recipe'              => (string) $rollback['recipe'],
 			'detail'              => (string) $rollback['detail'],
+			'verification_reason' => HealthProbe::verdict( $after ),
 			'probe'               => self::compact_probe( $after ),
 			'resource_type'       => (string) $entry['resource_type'],
 			'mode'                => $verdict['emergency'] ? 'emergency' : 'normal',
@@ -973,9 +985,19 @@ final class RescueRollback {
 			// A probe now would judge a site in the middle of being put back.
 			return self::in_progress_error( $entry['id'] );
 		}
-		$user  = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
-		$probe = HealthProbe::run( self::probe_context( $entry, $user ) );
-		$site  = self::site_status( $probe );
+		$user    = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+		$context = self::probe_context( $entry, $user );
+		// The probe is judged against the one taken before the change, as the probe after a write is: a check that passed
+		// then and does not answer now is a failure, not a pass that happens to be partial.
+		$probe  = self::judge( HealthProbe::run( $context ), [ $entry ], $context, ! HealthProbe::loopback_cooling_down() );
+		$site   = self::site_status( $probe );
+		$reason = HealthProbe::verdict( $probe );
+		$lost   = 'healthy' === $site ? self::lost_checks( $entry, $probe, $context ) : [];
+		if ( [] !== $lost ) {
+			// The probe passed, but a check that passed before the change could not be made or did not pass: recovery is not shown.
+			$site   = 'unknown';
+			$reason = [] === array_diff( array_column( $lost, 'reason' ), [ 'token_unavailable' ] ) ? 'not_started' : 'check_lost';
+		}
 		if ( 'healthy' === $site ) {
 			$entry = ChangeJournal::settle( $entry['id'], 'verified', [ 'probe' => $probe, 'note' => 'confirmed_by_probe' ] ) ?? $entry;
 		} else {
@@ -989,9 +1011,35 @@ final class RescueRollback {
 			'resolved'            => 'verified' === $entry['state'],
 			'site_status'         => $site,
 			'verification_status' => 'healthy' === $site ? 'verified' : ( 'still_failing' === $site ? 'failed' : 'unverified' ),
+			'verification_reason' => $reason,
 			'probe'               => self::compact_probe( $probe ),
 			'resource_type'       => (string) $entry['resource_type'],
 		];
+	}
+
+	/**
+	 * The checks that passed before the change and did not pass in this probe, though it passed as a whole: a check that
+	 * could not be asked for (no token, no user, no time left) or got no verdict. A check that is not asked for because
+	 * the page it names is gone or foreign is not lost.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @param array<string, mixed> $probe
+	 * @param array<string, mixed> $context
+	 * @return list<array{leg:string,reason:string}>
+	 */
+	private static function lost_checks( array $entry, array $probe, array $context ): array {
+		$before = self::passed_before( [ $entry ], $context );
+		$lost   = [];
+		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
+			if ( ! is_array( $leg ) || ! in_array( (string) ( $leg['leg'] ?? '' ), $before, true ) || 'passed' === ( $leg['status'] ?? '' ) ) {
+				continue;
+			}
+			if ( 'skipped' === ( $leg['status'] ?? '' ) && in_array( (string) ( $leg['reason'] ?? '' ), [ 'not_viewable', 'foreign_host' ], true ) ) {
+				continue;
+			}
+			$lost[] = [ 'leg' => (string) $leg['leg'], 'reason' => (string) ( $leg['reason'] ?? '' ) ];
+		}
+		return $lost;
 	}
 
 	/**
