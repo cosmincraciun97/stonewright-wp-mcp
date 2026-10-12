@@ -10,27 +10,36 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Ui\Button;
+use Stonewright\WpMcp\Admin\Ui\FormField;
 use Stonewright\WpMcp\Core\RescueInstaller;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
 use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\HealthProbe;
+use Stonewright\WpMcp\Security\ChangeRollback;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ProbeToken;
 use Stonewright\WpMcp\Security\RescueRollback;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
 use Stonewright\WpMcp\Security\RollbackRecipes;
 
 /**
  * Lists the changes that need attention and rolls one back without an agent.
  *
- * The page needs nothing but WordPress and Stonewright, so it keeps working in safe mode.
- * Every action needs manage_options and a nonce. In production-safe mode a rollback also needs
- * a confirmation token, which the page issues for exactly one change set and one action.
+ * The page needs nothing but WordPress and Stonewright, so it keeps working in safe mode and when the change ledger is
+ * not readable: it is an entry point of its own (`page=stonewright-rescue`), and the Rescue tab of the Changes page
+ * (`page=stonewright-changes&tab=rescue`) prints the same content. Both are chosen before the ledger is asked anything.
  *
- * Markup is server-rendered and every action is a plain form post. The script only adds the
- * confirmation dialog, the copy buttons and a busy state. Its stylesheet comes from the page
- * style map in AdminBootstrap.
+ * Every action needs manage_options and a nonce. In production-safe mode a rollback also needs a confirmation token,
+ * which the page issues for exactly one change set and one action, and the phrase ROLL BACK, which the server compares.
+ *
+ * Markup is server-rendered. The first press of Roll back is a link to a review (`review=<id>`) that changes nothing and
+ * holds the one form that does; Cancel is a link back. The script only adds a dialog in place of the review, the copy
+ * buttons and a busy state: without it, or when it does not load, or when the browser has no `showModal`, the link is
+ * followed and the review is the page. The stylesheet comes from the page style map in AdminBootstrap.
  */
 final class RescuePage {
 
@@ -39,14 +48,35 @@ final class RescuePage {
 
 	private const TOKEN_TTL = 600;
 
-	/** The words typed in the confirmation dialog in production-safe mode. */
+	/** The words typed to confirm a rollback in production-safe mode. */
 	private const PHRASE = 'ROLL BACK';
 
 	/** The class that issues safe-mode links. It is optional, so it is named rather than imported. */
 	private const KEYS_CLASS = '\Stonewright\WpMcp\Security\RescueKeys';
 
+	/** How many rows of one page get the plan of the change ledger for their confirmation. */
+	private const PLAN_BUDGET = 10;
+
+	/** Outcomes that ran nothing and can be fixed on the review itself. */
+	private const RETRYABLE = [ 'confirmation_required', 'confirmation_invalid', 'confirmation_phrase', 'drift', 'drift_hash_required', 'changed_since_preview', 'live_unreadable' ];
+
+	/** Where a person came from: the standalone page or the Rescue tab of the Changes page. A posted value is checked against this list. */
+	private const CONTEXTS = [ 'rescue', 'changes' ];
+
 	/** @var callable(int):?string|false|null null uses RescueKeys when it exists; false means no safe mode. */
 	private static $safe_mode_resolver = null;
+
+	/** @var array<string, array<string, mixed>|null> Ledger rows already asked for on this request. */
+	private static array $ledger_rows = [];
+
+	/** @var bool Whether the ledger failed on this request: it is not asked again. */
+	private static bool $ledger_failed = false;
+
+	/** @var int How many more plans of the change ledger this request may ask for. */
+	private static int $plans_left = self::PLAN_BUDGET;
+
+	/** @var string Which of CONTEXTS this request prints, so every link and form goes back to the same place. */
+	private static string $context = 'rescue';
 
 	public static function register(): void {
 		add_action( 'init', [ self::class, 'add_to_menu_registry' ] );
@@ -55,8 +85,13 @@ final class RescuePage {
 		add_action( 'admin_post_stonewright_rescue_recheck', [ self::class, 'handle_recheck' ] );
 		add_action( 'admin_post_stonewright_rescue_safe_mode', [ self::class, 'handle_safe_mode' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue' ] );
+		add_filter( 'submenu_file', [ self::class, 'highlight_submenu' ] );
 	}
 
+	/**
+	 * The page stays at its own address, as an entry point that needs nothing else. Its menu item is registered like any
+	 * other, so WordPress opens the Stonewright menu on it, and MenuOrder hides it: the Changes entry has the Rescue tab.
+	 */
 	public static function add_submenu(): void {
 		add_submenu_page(
 			ConfigurationPage::SLUG,
@@ -68,20 +103,49 @@ final class RescuePage {
 		);
 	}
 
-	/** The tab of the Activity hub. It is registered on `init`, where labels can be translated; render() makes sure it exists too. */
+	/** On this page the Changes entry is the one marked in the open menu: it holds this page as its Rescue tab. */
+	public static function highlight_submenu( mixed $submenu_file ): mixed {
+		return self::on_this_page() ? ChangesPage::SLUG : $submenu_file;
+	}
+
+	private static function on_this_page(): bool {
+		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( (string) $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		return self::SLUG === $page;
+	}
+
+	/**
+	 * Registered on `init`, where labels can be translated; render() makes sure it exists too. The page is a view of the
+	 * Rescue tab of the Changes page: it is not listed on its own in the band or the sidebar, and the Changes link of
+	 * the band is the current one on it.
+	 */
 	public static function add_to_menu_registry(): void {
+		// The Changes entry and its tabs come with it: this page is a view of the Rescue tab, and its parent has to be there.
+		ChangesPage::add_to_menu_registry();
+	}
+
+	/** The registration of this page itself, which ChangesPage::add_to_menu_registry() makes after its own tabs. */
+	public static function add_alias_to_menu_registry(): void {
 		MenuRegistry::add(
 			self::SLUG,
 			__( 'Rescue', 'stonewright' ),
 			'activity',
 			[
-				'order'       => 30,
+				'order'       => 32,
 				'beta'        => true,
+				'in_menu'     => false,
+				'parent'      => ChangesPage::SLUG,
+				'parent_tab'  => ChangesPage::TAB_RESCUE,
 				'lede'        => self::lede(),
-				'count'       => static fn (): int => count( ChangeJournal::open_incidents() ) + count( ChangeJournal::unconfirmed() ),
+				'count'       => static fn (): int => self::attention_count(),
 				'count_label' => __( 'needing attention', 'stonewright' ),
 			]
 		);
+	}
+
+	/** Open incidents and changes no health check reported back on: the number beside Rescue. */
+	public static function attention_count(): int {
+		return count( ChangeJournal::open_incidents() ) + count( ChangeJournal::unconfirmed() );
 	}
 
 	/**
@@ -92,6 +156,18 @@ final class RescuePage {
 		if ( self::SLUG !== $page && ! str_contains( $hook_suffix, self::SLUG ) ) {
 			return;
 		}
+		self::enqueue_script();
+	}
+
+	/** The assets of the Rescue tab of the Changes page: its stylesheet is not in that page's entry of the style map. */
+	public static function enqueue_tab_assets(): void {
+		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
+		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
+		wp_enqueue_style( 'stonewright-admin-pages/rescue', $base . 'assets/admin/pages/rescue.css', [ 'stonewright-admin-shell', 'stonewright-admin' ], $version );
+		self::enqueue_script();
+	}
+
+	private static function enqueue_script(): void {
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
 		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
 		wp_enqueue_script( 'stonewright-admin-rescue', $base . 'assets/admin/pages/rescue.js', [ 'stonewright-admin' ], $version, true );
@@ -106,17 +182,105 @@ final class RescuePage {
 		self::$safe_mode_resolver = $resolver;
 	}
 
+	/** Forget what one request learned about the ledger. For tests. */
+	public static function reset_for_tests(): void {
+		self::forget_request();
+		self::$context = 'rescue';
+	}
+
+	private static function forget_request(): void {
+		self::$ledger_rows   = [];
+		self::$ledger_failed = false;
+		self::$plans_left    = self::PLAN_BUDGET;
+	}
+
+	// -----------------------------------------------------------------------
+	// Addresses.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * An address of the independent Rescue page. Empty values are left out.
+	 *
+	 * @param array<string, string> $args
+	 */
+	public static function url( array $args = [] ): string {
+		return self::url_in( self::$context, $args );
+	}
+
+	/**
+	 * An address of Rescue in one of its two places: the page at its own address, or the Rescue tab of Changes.
+	 *
+	 * @param array<string, string> $args
+	 */
+	public static function url_in( string $context, array $args = [] ): string {
+		$query = 'changes' === $context ? [ 'page' => ChangesPage::SLUG, 'tab' => ChangesPage::TAB_RESCUE ] : [ 'page' => self::SLUG ];
+		foreach ( $args as $key => $value ) {
+			if ( '' !== $value ) {
+				$query[ $key ] = $value;
+			}
+		}
+		return add_query_arg( $query, admin_url( 'admin.php' ) );
+	}
+
+	/** The address of the review of one rollback: it changes nothing and holds the form that does. */
+	public static function review_url( string $id ): string {
+		return self::url( [ 'review' => $id ] );
+	}
+
 	// -----------------------------------------------------------------------
 	// Rendering.
 	// -----------------------------------------------------------------------
 
+	/** The page at its own address. */
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			AccessDenied::deny( esc_html__( 'You do not have permission to view Stonewright Rescue.', 'stonewright' ) );
 		}
 		self::add_to_menu_registry();
+		self::$context = 'rescue';
+		AdminShell::open(
+			self::SLUG,
+			[
+				'title'   => __( 'Rescue', 'stonewright' ),
+				'lede'    => self::lede(),
+				'actions' => self::safe_mode_action(),
+			]
+		);
+		self::render_content();
+		AdminShell::close();
+	}
+
+	/**
+	 * The Rescue tab of the Changes page: the same content in the frame of that page. The caller has checked the
+	 * capability and has not asked the change ledger anything.
+	 */
+	public static function render_tab(): void {
+		self::$context = 'changes';
+		AdminShell::open( ChangesPage::SLUG, [ 'actions' => self::safe_mode_action() ] );
+		self::render_content();
+		AdminShell::close();
+	}
+
+	/** Everything between the header and the end of the page. It reads the journal, and the ledger only for a link. */
+	private static function render_content(): void {
+		self::forget_request();
 		// Bring in anything a fatal recorded while the database was unavailable.
 		ChangeJournal::sync_from_file();
+
+		// The health probe loads this page to see that wp-admin renders. Nobody reads that response,
+		// so it gets no confirmation tokens.
+		$guarded = Permissions::is_production_safe() && ! ProbeToken::is_probe_request();
+
+		echo '<div class="sw-ui sw-rescue-page stonewright-rescue-page" data-sw-rescue data-sw-rescue-probe="ok">';
+		self::render_result();
+
+		$review = self::requested_review();
+		if ( '' !== $review ) {
+			self::render_review( $review, $guarded );
+			echo '<p class="screen-reader-text" role="status" aria-live="polite" data-sw-rescue-live></p>';
+			echo '</div>';
+			return;
+		}
 
 		$open        = ChangeJournal::open_incidents();
 		$unconfirmed = ChangeJournal::unconfirmed();
@@ -128,42 +292,30 @@ final class RescuePage {
 				static fn ( array $entry ): bool => ! in_array( $entry['id'], $listed, true )
 			)
 		);
-		// The health probe loads this page to see that wp-admin renders. Nobody reads that response,
-		// so it gets no confirmation tokens.
-		$guarded     = Permissions::is_production_safe() && ! ProbeToken::is_probe_request();
 
-		ob_start();
-		self::render_changes_link();
-		self::render_safe_mode_action();
-		AdminShell::open(
-			self::SLUG,
-			[
-				'title'   => __( 'Rescue', 'stonewright' ),
-				'lede'    => self::lede(),
-				'actions' => (string) ob_get_clean(),
-			]
-		);
-		echo '<div class="sw-rescue-page stonewright-rescue-page" data-sw-rescue data-sw-rescue-probe="ok">';
-		self::render_result();
 		if ( 'unavailable' === ChangeJournal::storage_status()['mirror'] ) {
 			echo '<div class="sw-rescue-notice sw-rescue-notice--warn" role="status"><p>' . esc_html__( 'The journal file could not be written, so a fatal cannot be matched to a change while the database is down. Rollbacks from this page still work. Check that the uploads folder is writable.', 'stonewright' ) . '</p></div>';
 		}
 		self::render_callouts( $guarded );
 		self::render_stats( count( $open ), count( $unconfirmed ), RescueInstaller::summary() );
 		self::render_attention( $attention, $guarded, count( $unconfirmed ) );
-		self::render_recent( $recent, $guarded );
+		self::render_fallback( $recent, $guarded );
 		echo '<p class="screen-reader-text" role="status" aria-live="polite" data-sw-rescue-live></p>';
 		echo '</div>';
-		AdminShell::close();
 	}
 
 	private static function lede(): string {
+		return self::tab_lede();
+	}
+
+	/** The line under the title of Rescue, on its own page and on the tab of the Changes page. */
+	public static function tab_lede(): string {
 		return __( 'Roll back a change that stopped the site from loading, or check that it loads again.', 'stonewright' );
 	}
 
-	/** History and diffs of every change live on the Changes page; Rescue stays the page for incidents. */
-	private static function render_changes_link(): void {
-		echo '<a class="sw-btn sw-btn--secondary" href="' . esc_url( ChangesPage::url() ) . '">' . esc_html__( 'View changes', 'stonewright' ) . '</a>';
+	/** The change a review is asked for, or an empty string. */
+	private static function requested_review(): string {
+		return isset( $_GET['review'] ) ? self::clean_id( (string) wp_unslash( (string) $_GET['review'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only: a review changes nothing.
 	}
 
 	/**
@@ -172,31 +324,85 @@ final class RescuePage {
 	 *
 	 * @param array<string, mixed> $entry
 	 */
-	private static function render_diff_link( array $entry ): void {
+	private static function diff_link( array $entry ): string {
 		$id = (string) $entry['id'];
-		try {
-			$known = null !== ChangeLedger::get( $id );
-		} catch ( \Throwable $failure ) {
-			unset( $failure );
-			$known = false;
-		}
-		if ( ! $known ) {
-			return;
+		if ( null === self::ledger_row( $id ) ) {
+			return '';
 		}
 		/* translators: %s: short change set id */
-		$name = sprintf( __( 'View diff of change set %s', 'stonewright' ), self::short_id( $id ) );
-		echo '<a class="sw-btn sw-btn--secondary sw-btn--sm" href="' . esc_url( ChangesPage::diff_url( $id ) ) . '" aria-label="' . esc_attr( $name ) . '">' . esc_html__( 'View diff', 'stonewright' ) . '</a>';
+		$name = sprintf( __( 'of change set %s', 'stonewright' ), self::short_id( $id ) );
+		return Button::render( __( 'View diff', 'stonewright' ), [ 'size' => 'sm', 'href' => ChangesPage::diff_url( $id ), 'context' => $name ] );
 	}
-	private static function render_safe_mode_action(): void {
-		if ( ! self::safe_mode_available() ) {
-			return;
+
+	/**
+	 * The ledger row of a change, or null when there is none or the ledger cannot be read. A ledger that fails once is
+	 * not asked again on this request.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function ledger_row( string $id ): ?array {
+		if ( self::$ledger_failed ) {
+			return null;
 		}
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sw-rescue-header__action">';
+		if ( ! array_key_exists( $id, self::$ledger_rows ) ) {
+			try {
+				self::$ledger_rows[ $id ] = ChangeLedger::get( $id );
+			} catch ( \Throwable $failure ) {
+				unset( $failure );
+				self::$ledger_failed      = true;
+				self::$ledger_rows[ $id ] = null;
+			}
+		}
+		return self::$ledger_rows[ $id ];
+	}
+
+	/**
+	 * Whether the history keeps this change in a form it can undo: a row that is restorable, of a family with a handler.
+	 * Such a change has its diff and its Undo on the History tab; everything else stays here.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function history_owns( array $entry ): bool {
+		$row = self::ledger_row( (string) $entry['id'] );
+		if ( null === $row || empty( $row['restorable'] ) ) {
+			return false;
+		}
+		try {
+			return null !== RollbackFamilies::handler_for( (string) $row['family'] );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return false;
+		}
+	}
+
+	/**
+	 * Open in safe mode, in the header where it always was: one action row with its help text under it, described by the
+	 * help, so a longer help never moves the button. Empty when there is no safe mode to open.
+	 */
+	private static function safe_mode_action(): string {
+		if ( ! self::safe_mode_available() ) {
+			return '';
+		}
+		ob_start();
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sw-rescue-header-action">';
 		self::hidden( 'action', 'stonewright_rescue_safe_mode' );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_safe_mode' );
-		echo '<button type="submit" class="sw-btn sw-btn--secondary">' . esc_html__( 'Open in safe mode', 'stonewright' ) . '</button>';
-		echo '<p class="description">' . esc_html__( 'Loads WordPress with only Stonewright and a default theme. The link works once.', 'stonewright' ) . '</p>';
+		echo self::actions( Button::render( __( 'Open in safe mode', 'stonewright' ), [ 'type' => 'submit', 'attrs' => [ 'aria-describedby' => 'sw-rescue-safe-help' ] ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
+		echo '<p class="sw-rescue-note" id="sw-rescue-safe-help">' . esc_html__( 'Loads WordPress with only Stonewright and a default theme. The link works once.', 'stonewright' ) . '</p>';
 		echo '</form>';
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * One row of actions: the layer's action group, so every control in it has the shared height and one gap, and the
+	 * row wraps on a narrow screen. A form in the row prints no box of its own (see rescue.css), so its button is a
+	 * member of the row.
+	 *
+	 * @param string $buttons Rendered buttons, links and forms built with the Ui helpers.
+	 */
+	private static function actions( string $buttons, bool $end = false ): string {
+		return '<div class="sw-ui-actions' . ( $end ? ' sw-ui-actions--end' : '' ) . '" data-sw-actions>' . $buttons . '</div>';
 	}
 
 	/**
@@ -224,7 +430,7 @@ final class RescuePage {
 				admin_url( 'admin.php' )
 			);
 			echo '<p>' . esc_html__( 'Receipt', 'stonewright' ) . ' <code class="sw-rescue-id">' . esc_html( $incident ) . '</code> ';
-			self::copy_button( $incident, __( 'Copy receipt id', 'stonewright' ) );
+			self::copy_button( $incident, __( 'receipt id', 'stonewright' ) );
 			echo ' <a href="' . esc_url( $audit ) . '">' . esc_html__( 'View in Audit log', 'stonewright' ) . '</a></p>';
 		}
 		echo '</div>';
@@ -236,7 +442,7 @@ final class RescuePage {
 		echo '<p><strong>' . esc_html__( 'What it never does.', 'stonewright' ) . '</strong> ' . esc_html__( 'It never touches anything Stonewright did not change, and it cannot repair WordPress core, wp-config.php or a database that is down.', 'stonewright' ) . '</p>';
 		echo '</div>';
 		if ( $guarded ) {
-			echo '<div class="sw-rescue-callout sw-rescue-callout--info" role="note"><p>' . esc_html__( 'Production-safe mode is on. A rollback or a re-check needs a one-time confirmation token. This page issues one for that change set only, and it expires after ten minutes. Typing ROLL BACK in the dialog confirms a rollback.', 'stonewright' ) . '</p></div>';
+			echo '<div class="sw-rescue-callout sw-rescue-callout--info" role="note"><p>' . esc_html__( 'Production-safe mode is on. A rollback or a re-check needs a one-time confirmation token. This page issues one for that change set only, and it expires after ten minutes. Typing ROLL BACK in the confirmation confirms a rollback.', 'stonewright' ) . '</p></div>';
 		}
 	}
 
@@ -292,44 +498,57 @@ final class RescuePage {
 			return;
 		}
 		if ( $unverified > 0 ) {
-			echo '<p class="sw-rescue-note">' . esc_html__( 'Not verified means the change was made but no health check reported back. This usually means the host blocks requests from the site to itself. Check these again, or roll them back.', 'stonewright' ) . '</p>';
+			echo '<p class="sw-rescue-note">' . esc_html__( 'Not verified means no health check has reported on the change yet. It does not mean the site is broken. Check again, or roll the change back.', 'stonewright' ) . '</p>';
 		}
 		echo '<table class="sw-rescue-table" data-sw-rescue-table="attention">';
-		self::table_head( true, __( 'Changes that need attention', 'stonewright' ) );
+		self::table_head( __( 'Changes that need attention', 'stonewright' ) );
 		echo '<tbody>';
 		foreach ( $attention as $entry ) {
-			self::render_row( $entry, true, $guarded );
+			self::render_row( $entry, $guarded );
 		}
 		echo '</tbody></table></section>';
 	}
 
 	/**
-	 * The changes the journal keeps (the last 50), each with the way to roll it back when it can be.
+	 * The recent changes the history cannot undo, each with the way to roll it back when there is one: the journal is
+	 * the only record of them, or the only one that can put them back. A change the history can undo is on the History
+	 * tab, so it is not listed twice.
 	 *
 	 * @param list<array<string, mixed>> $recent
 	 */
-	private static function render_recent( array $recent, bool $guarded ): void {
-		echo '<section aria-labelledby="sw-rescue-recent-title">';
-		echo '<h2 id="sw-rescue-recent-title">' . esc_html__( 'Recent changes', 'stonewright' ) . '</h2>';
-		if ( [] === $recent ) {
-			echo '<p class="sw-rescue-note">' . esc_html__( 'No other risky change has been journaled yet.', 'stonewright' ) . '</p></section>';
+	private static function render_fallback( array $recent, bool $guarded ): void {
+		$own      = [];
+		$kept_in  = 0;
+		foreach ( $recent as $entry ) {
+			if ( self::history_owns( $entry ) ) {
+				++$kept_in;
+				continue;
+			}
+			$own[] = $entry;
+		}
+
+		echo '<section aria-labelledby="sw-rescue-recent-title" data-sw-rescue-fallback>';
+		echo '<h2 id="sw-rescue-recent-title">' . esc_html__( 'Recent changes only Rescue keeps', 'stonewright' ) . '</h2>';
+		if ( $kept_in > 0 ) {
+			/* translators: %d: number of recent changes that are on the History tab */
+			echo '<p class="sw-rescue-note">' . esc_html( sprintf( _n( '%d recent change is on the History tab, with its diff and Undo.', '%d recent changes are on the History tab, with their diffs and Undo.', $kept_in, 'stonewright' ), $kept_in ) ) . ' <a href="' . esc_url( ChangesPage::url() ) . '">' . esc_html__( 'Open History', 'stonewright' ) . '</a></p>';
+		}
+		if ( [] === $own ) {
+			echo '<p class="sw-rescue-note">' . esc_html__( 'Every other recent change is in History, or none has been journaled yet.', 'stonewright' ) . '</p></section>';
 			return;
 		}
-		echo '<p class="sw-rescue-note">' . esc_html__( 'A change that passed its health check can still be rolled back. The journal keeps the last 50 changes.', 'stonewright' ) . '</p>';
+		echo '<p class="sw-rescue-note">' . esc_html__( 'History has no record of these changes, or cannot undo them, so they stay here. A change that passed its health check can still be rolled back. The journal keeps the last 50 changes.', 'stonewright' ) . '</p>';
 		echo '<table class="sw-rescue-table" data-sw-rescue-table="recent">';
-		self::table_head( true, __( 'Recent changes', 'stonewright' ) );
+		self::table_head( __( 'Recent changes only Rescue keeps', 'stonewright' ) );
 		echo '<tbody>';
-		foreach ( $recent as $entry ) {
-			self::render_row( $entry, true, $guarded, false );
+		foreach ( $own as $entry ) {
+			self::render_row( $entry, $guarded, false );
 		}
 		echo '</tbody></table></section>';
 	}
 
-	private static function table_head( bool $actions, string $caption ): void {
-		$headings = [ __( 'Change set', 'stonewright' ), __( 'When', 'stonewright' ), __( 'What changed', 'stonewright' ), __( 'Status', 'stonewright' ) ];
-		if ( $actions ) {
-			$headings[] = __( 'Actions', 'stonewright' );
-		}
+	private static function table_head( string $caption ): void {
+		$headings = [ __( 'Change', 'stonewright' ), __( 'When', 'stonewright' ), __( 'Status', 'stonewright' ), __( 'Actions', 'stonewright' ) ];
 		echo '<caption class="screen-reader-text">' . esc_html( $caption ) . '</caption><thead><tr>';
 		foreach ( $headings as $heading ) {
 			echo '<th scope="col">' . esc_html( $heading ) . '</th>';
@@ -338,56 +557,96 @@ final class RescuePage {
 	}
 
 	/**
-	 * One change set. Each cell repeats its heading so a row still reads on its own at 400px.
+	 * One change set. The object and what was done come first; the ability, the client, the ids and the codes of the
+	 * health check are under Details. Each cell repeats its heading so a row still reads on its own at 400px.
 	 *
 	 * @param array<string, mixed> $entry
-	 * @param bool                 $actionable Whether the row has the actions column.
-	 * @param bool                 $attention  Whether the row is one that needs attention: it shows the health check, the recipe and the agent prompt.
+	 * @param bool                 $attention Whether the row is one that needs attention: it shows the health check, the recipe and the agent prompt.
 	 */
-	private static function render_row( array $entry, bool $actionable, bool $guarded, bool $attention = true ): void {
+	private static function render_row( array $entry, bool $guarded, bool $attention = true ): void {
 		$id    = (string) $entry['id'];
-		$short = self::short_id( $id );
 		$state = (string) $entry['state'];
 
 		echo '<tr data-sw-rescue-row="' . esc_attr( $id ) . '">';
-		echo '<th scope="row" data-label="' . esc_attr( __( 'Change set', 'stonewright' ) ) . '"><code class="sw-rescue-id">' . esc_html( $short ) . '</code> ';
-		/* translators: %s: short change set id */
-		self::copy_button( $id, sprintf( __( 'Copy change set id %s', 'stonewright' ), $short ) );
-		echo '</th>';
-		echo '<td data-label="' . esc_attr( __( 'When', 'stonewright' ) ) . '">' . self::time_html( self::when( $entry ), 'j M Y, H:i' ) . '<span class="sw-rescue-sub">' . esc_html( sprintf( /* translators: %s: how long ago, for example "3 hours ago" */ __( 'Changed %s', 'stonewright' ), self::age( (int) $entry['armed_at'] ) ) ) . '</span></td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- time_html() escapes.
-
-		echo '<td data-label="' . esc_attr( __( 'What changed', 'stonewright' ) ) . '"><strong>' . esc_html( self::what_changed( $entry ) ) . '</strong>';
-		$by = '<code>' . esc_html( (string) $entry['ability'] ) . '</code>';
-		if ( '' !== (string) $entry['client'] ) {
-			/* translators: 1: ability name, 2: agent client */
-			$line = sprintf( esc_html__( 'Changed by %1$s through %2$s', 'stonewright' ), $by, '<code>' . esc_html( (string) $entry['client'] ) . '</code>' );
-		} else {
-			/* translators: %s: ability name */
-			$line = sprintf( esc_html__( 'Changed by %s', 'stonewright' ), $by );
-		}
-		echo '<span class="sw-rescue-sub">' . $line . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped parts.
+		echo '<th scope="row" data-label="' . esc_attr( __( 'Change', 'stonewright' ) ) . '"><strong class="sw-rescue-object">' . esc_html( self::object_title( $entry ) ) . '</strong>';
+		echo '<span class="sw-rescue-sub">' . esc_html( self::summary_line( $entry ) ) . '</span>';
 		$origin = self::rollback_origin( $entry );
 		if ( '' !== $origin ) {
 			echo '<span class="sw-rescue-sub">' . esc_html( $origin ) . '</span>';
 		}
 		if ( $attention ) {
-			echo '<span class="sw-rescue-sub">' . esc_html__( 'Health check:', 'stonewright' ) . ' ' . self::evidence_html( $entry ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- evidence_html() escapes.
-			echo '<span class="sw-rescue-sub">' . esc_html__( 'Rollback:', 'stonewright' ) . ' ' . esc_html( RollbackRecipes::describe( $entry ) ) . self::rollback_note( $entry ) . '</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- rollback_note() escapes.
-			if ( in_array( $state, [ 'incident', 'rollback_failed' ], true ) ) {
-				self::render_prompt( $entry );
+			$message = self::verification_message( $entry );
+			if ( '' !== $message ) {
+				echo '<span class="sw-rescue-sub" data-sw-rescue-verification="' . esc_attr( self::verification_kind( is_array( $entry['probe'] ?? null ) ? $entry['probe'] : [] ) ) . '">' . esc_html( $message ) . '</span>';
 			}
 		}
-		echo '</td>';
+		self::render_details( $entry, $attention );
+		echo '</th>';
 
+		echo '<td data-label="' . esc_attr( __( 'When', 'stonewright' ) ) . '">' . self::time_html( self::when( $entry ), 'j M Y, H:i' ) . '<span class="sw-rescue-sub">' . esc_html( sprintf( /* translators: %s: how long ago, for example "3 hours ago" */ __( 'Changed %s', 'stonewright' ), self::age( (int) $entry['armed_at'] ) ) ) . '</span></td>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- time_html() escapes.
 		echo '<td data-label="' . esc_attr( __( 'Status', 'stonewright' ) ) . '"><span class="sw-badge sw-rescue-badge--' . esc_attr( self::badge_kind( $state ) ) . '">' . esc_html( self::state_label( $state ) ) . '</span></td>';
-
-		if ( $actionable ) {
-			echo '<td data-label="' . esc_attr( __( 'Actions', 'stonewright' ) ) . '">';
-			self::render_actions( $entry, $guarded );
-			self::render_diff_link( $entry );
-			echo '</td>';
-		}
+		echo '<td data-label="' . esc_attr( __( 'Actions', 'stonewright' ) ) . '">';
+		self::render_actions( $entry, $guarded );
+		echo '</td>';
 		echo '</tr>';
+	}
+
+	/**
+	 * What the change was made to, as a person would name it: the title of a post, else the kind of object and its name.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function object_title( array $entry ): string {
+		if ( 'post' === (string) $entry['resource_type'] ) {
+			$named = ChangeLabels::resource( [ 'resource_type' => 'post', 'resource_id' => (string) $entry['resource_key'] ] );
+			if ( ! $named['code'] && '' !== $named['text'] ) {
+				return $named['text'];
+			}
+		}
+		return self::what_changed( $entry );
+	}
+
+	/**
+	 * What was done to it, in a line: the summary the history recorded when it has one, else the operation in words.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function summary_line( array $entry ): string {
+		$row = self::ledger_row( (string) $entry['id'] );
+		if ( null !== $row && '' !== (string) ( $row['summary'] ?? '' ) ) {
+			return (string) $row['summary'];
+		}
+		/* translators: %s: the operation, for example "elementor v3 batch mutate" */
+		return sprintf( __( 'Changed by %s', 'stonewright' ), ChangeLabels::ability_words( (string) $entry['ability'] ) );
+	}
+
+	/**
+	 * The ids, the ability, the client, the health check and the recipe, for whoever needs them.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function render_details( array $entry, bool $attention ): void {
+		$id    = (string) $entry['id'];
+		$short = self::short_id( $id );
+		$state = (string) $entry['state'];
+
+		echo '<details class="sw-rescue-details"><summary>' . esc_html__( 'Details', 'stonewright' ) . '</summary>';
+		echo '<dl class="sw-rescue-kv">';
+		/* translators: %s: short change set id */
+		self::kv( __( 'Change set', 'stonewright' ), '<code class="sw-rescue-id">' . esc_html( $short ) . '</code> ' . self::copy_button_html( $id, sprintf( __( 'change set id %s', 'stonewright' ), $short ) ) );
+		self::kv( __( 'Ability', 'stonewright' ), '<code>' . esc_html( (string) $entry['ability'] ) . '</code>' );
+		if ( '' !== (string) $entry['client'] ) {
+			self::kv( __( 'Client', 'stonewright' ), '<code>' . esc_html( (string) $entry['client'] ) . '</code>' );
+		}
+		if ( $attention ) {
+			self::kv( __( 'Health check', 'stonewright' ), self::evidence_html( $entry ) );
+			self::kv( __( 'Rollback', 'stonewright' ), esc_html( RollbackRecipes::describe( $entry ) ) . self::rollback_note( $entry ) );
+		}
+		echo '</dl>';
+		if ( $attention && in_array( $state, [ 'incident', 'rollback_failed' ], true ) ) {
+			self::render_prompt( $entry );
+		}
+		echo '</details>';
 	}
 
 	/**
@@ -400,19 +659,19 @@ final class RescuePage {
 		echo '<details class="sw-rescue-prompt"><summary>' . esc_html__( 'Prompt for your agent', 'stonewright' ) . '</summary>';
 		echo '<label class="screen-reader-text" for="' . esc_attr( $prompt_id ) . '">' . esc_html__( 'Prompt for your agent', 'stonewright' ) . '</label>';
 		echo '<textarea id="' . esc_attr( $prompt_id ) . '" rows="6" readonly>' . esc_textarea( self::prompt_for( $entry ) ) . '</textarea>';
-		echo '<button type="button" class="sw-btn sw-btn--secondary sw-btn--sm" hidden data-sw-rescue-copy="' . esc_attr( $prompt_id ) . '">' . esc_html__( 'Copy prompt for your agent', 'stonewright' ) . '</button>';
+		echo self::actions( Button::render( __( 'Copy prompt for your agent', 'stonewright' ), [ 'size' => 'sm', 'attrs' => [ 'hidden' => true, 'data-sw-rescue-copy' => $prompt_id ] ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
 		echo '</details>';
 	}
 
 	/**
-	 * The row actions. Every name says which change set it acts on.
+	 * The row actions in one row, every name saying which change set it acts on. A note about an action that is
+	 * missing goes under the row, so it never moves a button.
 	 *
 	 * @param array<string, mixed> $entry
 	 */
 	private static function render_actions( array $entry, bool $guarded ): void {
 		$id        = (string) $entry['id'];
 		$short     = self::short_id( $id );
-		$hash      = md5( $id );
 		$available = RollbackRecipes::available( $entry );
 		$retry     = 'rollback_failed' === (string) $entry['state'];
 		$state     = (string) $entry['state'];
@@ -428,80 +687,163 @@ final class RescuePage {
 			echo '<p class="sw-rescue-note">' . esc_html__( 'A rollback of this change set is running.', 'stonewright' ) . '</p>';
 			return;
 		}
-		echo '<div class="sw-actions">';
+
+		$buttons = '';
 		if ( $available ) {
-			/* translators: %s: short change set id */
-			$name = $retry ? __( 'Roll back change set %s again', 'stonewright' ) : __( 'Roll back change set %s', 'stonewright' );
-			echo '<button type="submit" form="sw-rescue-form-' . esc_attr( $hash ) . '" class="sw-btn sw-btn--danger sw-btn--sm" data-sw-rescue-open="sw-rescue-dlg-' . esc_attr( $hash ) . '" aria-label="' . esc_attr( sprintf( $name, $short ) ) . '">' . esc_html( $retry ? __( 'Try again', 'stonewright' ) : __( 'Roll back', 'stonewright' ) ) . '</button>';
-		} elseif ( 'verified' === $state ) {
-			echo '<p class="sw-rescue-note">' . esc_html__( 'No automatic rollback is available for this change.', 'stonewright' ) . '</p>';
-		} else {
-			echo '<p class="sw-rescue-note">' . esc_html__( 'No automatic rollback is available for this change. Undo it by hand, then check the site again.', 'stonewright' ) . '</p>';
+			$buttons .= Button::render(
+				$retry ? __( 'Try again', 'stonewright' ) : __( 'Roll back', 'stonewright' ),
+				[
+					'variant' => 'danger',
+					'size'    => 'sm',
+					'href'    => self::review_url( $id ),
+					/* translators: %s: short change set id */
+					'context' => sprintf( $retry ? __( 'to roll back change set %s', 'stonewright' ) : __( 'change set %s', 'stonewright' ), $short ),
+					'attrs'   => [ 'data-sw-rescue-open' => 'sw-rescue-dlg-' . md5( $id ) ],
+				]
+			);
 		}
 		if ( 'verified' !== $state ) {
-			self::render_recheck_form( $id, $short, $guarded );
+			$buttons .= self::recheck_form( $id, $short, $guarded );
 		}
-		echo '</div>';
+		$buttons .= self::diff_link( $entry );
+
+		echo self::actions( $buttons ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
+		if ( ! $available ) {
+			echo '<p class="sw-rescue-note">' . esc_html( 'verified' === $state ? __( 'No automatic rollback is available for this change.', 'stonewright' ) : __( 'No automatic rollback is available for this change. Undo it by hand, then check the site again.', 'stonewright' ) ) . '</p>';
+		}
 		if ( $available ) {
 			self::render_dialog( $entry, $guarded );
 		}
 	}
 
-	private static function render_recheck_form( string $id, string $short, bool $guarded ): void {
+	private static function recheck_form( string $id, string $short, bool $guarded ): string {
+		ob_start();
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-sw-rescue-form>';
 		self::hidden( 'action', 'stonewright_rescue_recheck' );
 		self::hidden( 'incident_id', $id );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_recheck' );
 		if ( $guarded ) {
 			self::hidden( 'confirmation_token', ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $id, 'action' => 'recheck' ], self::TOKEN_TTL ) );
 		}
 		/* translators: %s: short change set id */
-		$name = sprintf( __( 'Check change set %s again', 'stonewright' ), $short );
-		echo '<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm" data-sw-rescue-submit data-sw-busy-label="' . esc_attr( __( 'Checking the site...', 'stonewright' ) ) . '" aria-label="' . esc_attr( $name ) . '">' . esc_html__( 'Check again', 'stonewright' ) . '</button>';
+		echo Button::render( __( 'Check again', 'stonewright' ), [ 'type' => 'submit', 'size' => 'sm', 'context' => sprintf( __( 'change set %s', 'stonewright' ), $short ), 'attrs' => [ 'data-sw-rescue-submit' => true, 'data-sw-busy-label' => __( 'Checking the site...', 'stonewright' ) ] ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
 		echo '</form>';
+		return (string) ob_get_clean();
 	}
 
 	/**
-	 * The confirmation for one rollback. The form is always in the page, so without the script the
-	 * row button posts it directly; the script shows it as a dialog first.
+	 * The dialog the script shows in place of the review. It holds the same form, so the page works the same either way,
+	 * and a browser without `showModal` or a script that does not load follows the Roll back link to the review.
 	 *
 	 * @param array<string, mixed> $entry
 	 */
 	private static function render_dialog( array $entry, bool $guarded ): void {
 		$id     = (string) $entry['id'];
-		$short  = self::short_id( $id );
-		$hash   = md5( $id );
-		$dialog = 'sw-rescue-dlg-' . $hash;
+		$dialog = 'sw-rescue-dlg-' . md5( $id );
 
 		echo '<dialog class="sw-rescue-dialog" id="' . esc_attr( $dialog ) . '" aria-labelledby="' . esc_attr( $dialog ) . '-title" data-sw-rescue-dialog>';
+		self::render_confirmation( $entry, $guarded, $dialog, true );
+		echo '</dialog>';
+	}
+
+	/**
+	 * The review of one rollback, at its own address: what it does, the form, and a Cancel that is a link.
+	 */
+	private static function render_review( string $id, bool $guarded ): void {
+		$entry = ChangeJournal::get( $id );
+		echo '<section class="sw-rescue-review" aria-labelledby="sw-rescue-review-title" data-sw-rescue-review>';
+		if ( null === $entry || ! in_array( (string) $entry['state'], RescueRollback::ROLLBACK_STATES, true ) || ! RollbackRecipes::available( $entry ) || ChangeJournal::is_claimed( $entry ) ) {
+			echo '<h2 id="sw-rescue-review-title">' . esc_html__( 'Nothing to roll back here', 'stonewright' ) . '</h2>';
+			echo '<p>' . esc_html__( 'This change is not open for a rollback: it is already rolled back, a rollback of it is running, or no automatic rollback is available for it.', 'stonewright' ) . '</p>';
+			echo self::actions( Button::render( __( 'Back to Rescue', 'stonewright' ), [ 'href' => self::url() ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
+			echo '</section>';
+			return;
+		}
+		self::render_confirmation( $entry, $guarded, 'sw-rescue-review', false );
+		echo '</section>';
+	}
+
+	/**
+	 * The words and the form of one rollback's confirmation. $prefix names its elements, so a page of several dialogs has
+	 * no two ids alike.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function render_confirmation( array $entry, bool $guarded, string $prefix, bool $dialog ): void {
+		$id    = (string) $entry['id'];
+		$short = self::short_id( $id );
+		$hash  = md5( $id );
+		$state = (string) $entry['state'];
+		$plan  = self::plan_for( $id );
+
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" id="sw-rescue-form-' . esc_attr( $hash ) . '" data-sw-rescue-form>';
 		/* translators: %s: short change set id */
-		echo '<h2 id="' . esc_attr( $dialog ) . '-title">' . esc_html( sprintf( __( 'Roll back change set %s?', 'stonewright' ), $short ) ) . '</h2>';
+		echo '<h2 id="' . esc_attr( $prefix ) . '-title">' . esc_html( sprintf( __( 'Roll back change set %s?', 'stonewright' ), $short ) ) . '</h2>';
 		echo '<dl class="sw-rescue-kv">';
 		self::kv( __( 'What changed', 'stonewright' ), esc_html( self::what_changed( $entry ) ) );
 		self::kv( __( 'Changed by', 'stonewright' ), '<code>' . esc_html( (string) $entry['ability'] ) . '</code>' );
 		self::kv( __( 'Restores', 'stonewright' ), esc_html( RollbackRecipes::describe( $entry ) ) );
 		echo '</dl>';
 		echo '<p>' . esc_html__( 'This puts the item back as it was before the change (anything saved to it since is overwritten), then checks that the site loads.', 'stonewright' ) . '</p>';
-		if ( 'verified' === (string) $entry['state'] ) {
+		if ( 'verified' === $state ) {
 			echo '<p>' . esc_html__( 'This change passed its health check. Rolling it back undoes a change that worked. The current state is saved first; if the site stops loading after the undo, it is put back.', 'stonewright' ) . '</p>';
 		}
 		self::render_newer_warning( $entry );
 		self::hidden( 'action', 'stonewright_rescue_rollback' );
 		self::hidden( 'incident_id', $id );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_rollback' );
+		// The state the person is shown, which the engine compares with the item when the rollback runs.
+		if ( null !== $plan && '' !== (string) ( $plan['current_sha256'] ?? '' ) ) {
+			self::hidden( 'expected_current_sha256', substr( (string) $plan['current_sha256'], 0, ChangeRollback::MIN_HASH_PREFIX ) );
+		}
+		if ( self::needs_drift_acknowledgement( $plan ) ) {
+			echo FormField::checkbox( __( 'I understand that this overwrites changes made since.', 'stonewright' ), 'force_drift', [ 'id' => $prefix . '-drift', 'required' => true ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
+		}
 		if ( $guarded ) {
 			self::hidden( 'confirmation_token', ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $id ], self::TOKEN_TTL ) );
 			$phrase_id = 'sw-rescue-phrase-' . $hash;
 			echo '<p class="sw-rescue-field"><label for="' . esc_attr( $phrase_id ) . '">' . esc_html__( 'Type ROLL BACK to confirm', 'stonewright' ) . '</label>';
-			echo '<input type="text" id="' . esc_attr( $phrase_id ) . '" name="confirm_phrase" value="" autocomplete="off" spellcheck="false" data-sw-rescue-phrase="' . esc_attr( self::PHRASE ) . '" /></p>';
+			echo '<input type="text" class="sw-ui-input" id="' . esc_attr( $phrase_id ) . '" name="confirm_phrase" value="" autocomplete="off" spellcheck="false" data-sw-rescue-phrase="' . esc_attr( self::PHRASE ) . '" /></p>';
 		}
 		echo '<p class="sw-rescue-busy" role="status" data-sw-rescue-status></p>';
-		echo '<div class="sw-actions">';
-		echo '<button type="button" class="sw-btn sw-btn--secondary" autofocus data-sw-rescue-cancel>' . esc_html__( 'Cancel', 'stonewright' ) . '</button>';
-		echo '<button type="submit" class="sw-btn sw-rescue-solid" data-sw-rescue-submit data-sw-busy-label="' . esc_attr( __( 'Rolling back and checking the site...', 'stonewright' ) ) . '">' . esc_html__( 'Roll back', 'stonewright' ) . '</button>';
-		echo '</div>';
-		echo '</form></dialog>';
+		$buttons = Button::render( __( 'Cancel', 'stonewright' ), [ 'href' => self::url(), 'attrs' => array_merge( [ 'data-sw-rescue-cancel' => true ], $dialog ? [ 'autofocus' => true ] : [] ) ] )
+			. Button::render( __( 'Roll back', 'stonewright' ), [ 'type' => 'submit', 'variant' => 'danger-solid', 'attrs' => [ 'data-sw-rescue-submit' => true, 'data-sw-busy-label' => __( 'Rolling back and checking the site...', 'stonewright' ) ] ] );
+		echo self::actions( $buttons, true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
+		echo '</form>';
+	}
+
+	/**
+	 * What the engine says a rollback of this change would do now (its dry run: it writes nothing, asks for no token and
+	 * makes no request): whether the item was edited since, and the hash of the state the person is shown. At most a few
+	 * per page. Null when the engine gives no plan.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function plan_for( string $id ): ?array {
+		if ( self::$plans_left < 1 ) {
+			return null;
+		}
+		--self::$plans_left;
+		try {
+			$plan = RescueRollback::run( $id, [ 'dry_run' => true, 'user_id' => (int) get_current_user_id() ] );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return null;
+		}
+		return $plan instanceof \WP_Error ? null : $plan;
+	}
+
+	/**
+	 * Whether the review asks the person to say they know a rollback overwrites later edits. The engine decides: its plan
+	 * says `requires_force` for an ordinary rollback over a later edit and not for a recovery of a failing site, and it
+	 * refuses a run that lacks the confirmation. The box only gives the person a way to give it.
+	 *
+	 * @param array<string, mixed>|null $plan
+	 */
+	private static function needs_drift_acknowledgement( ?array $plan ): bool {
+		return null !== $plan && ! empty( $plan['requires_force'] );
 	}
 
 	/**
@@ -561,8 +903,13 @@ final class RescuePage {
 	}
 
 	/** A control that only the script reveals: the page itself needs no clipboard. */
-	private static function copy_button( string $value, string $label ): void {
-		echo '<button type="button" class="sw-btn sw-btn--ghost sw-btn--sm" hidden data-sw-rescue-copy-text="' . esc_attr( $value ) . '" aria-label="' . esc_attr( $label ) . '">' . esc_html__( 'Copy', 'stonewright' ) . '</button>';
+	private static function copy_button( string $value, string $object ): void {
+		echo self::copy_button_html( $value, $object ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in copy_button_html().
+	}
+
+	/** @param string $object What is copied, for the name of the button: "change set id 1a2b3c4d". */
+	private static function copy_button_html( string $value, string $object ): string {
+		return Button::render( __( 'Copy', 'stonewright' ), [ 'variant' => 'tertiary', 'size' => 'xs', 'context' => $object, 'attrs' => [ 'hidden' => true, 'data-sw-rescue-copy-text' => $value ] ] );
 	}
 
 	private static function time_html( int $timestamp, string $format ): string {
@@ -598,7 +945,11 @@ final class RescuePage {
 			}
 			$parts[] = $part;
 		}
-		return [] === $parts ? esc_html( (string) ( $probe['status'] ?? 'unavailable' ) ) : implode( '; ', $parts );
+		$line = [] === $parts ? esc_html( (string) ( $probe['status'] ?? 'unavailable' ) ) : implode( '; ', $parts );
+		if ( '' !== (string) ( $probe['unavailable_reason'] ?? '' ) ) {
+			$line .= ' <code>' . esc_html( (string) $probe['unavailable_reason'] ) . '</code>';
+		}
+		return $line;
 	}
 
 	/**
@@ -639,6 +990,74 @@ final class RescuePage {
 	}
 
 	// -----------------------------------------------------------------------
+	// What a health check said.
+	// -----------------------------------------------------------------------
+
+	/**
+	 * What a recorded probe says, in one of six words, so the page can say different things where it used to say one:
+	 *
+	 * - `healthy`     the checks passed;
+	 * - `site_failed` a check got a failing answer;
+	 * - `not_started` no request could be made (no token could be issued, a check was skipped), so nothing was asked of the site;
+	 * - `unreachable` requests were made and none reached a verdict (no answer, a redirect, a login screen, an unexpected reply);
+	 * - `check_lost`  a check that passed before the change no longer answers: recovery is not shown, and the site is not shown to be broken;
+	 * - `unknown`     no result was recorded.
+	 *
+	 * Only `site_failed` says anything about the site. The others say something about the check. The words come from the
+	 * engine (HealthProbe::verdict()); reason_kind() is where each of its verdicts becomes one of these.
+	 *
+	 * @param array<string, mixed> $probe A recorded probe, or an empty array.
+	 */
+	public static function verification_kind( array $probe ): string {
+		$legs = is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [];
+		// Nothing recorded: no legs, no reason and no result.
+		if ( [] === $legs && '' === (string) ( $probe['unavailable_reason'] ?? '' ) && ! in_array( (string) ( $probe['status'] ?? '' ), [ 'passed', 'failed' ], true ) ) {
+			return 'unknown';
+		}
+		return self::reason_kind( HealthProbe::verdict( $probe ) );
+	}
+
+	/**
+	 * The one place that says which `verification_reason` of the engine is which kind on this page. A reason that is not
+	 * listed is a check that got no verdict, never a failed site: a reason the engine adds is one line here, and until
+	 * then it reads as `unreachable`.
+	 */
+	public static function reason_kind( string $verification_reason ): string {
+		return match ( $verification_reason ) {
+			'verified'              => 'healthy',
+			'not_started'           => 'not_started',
+			'transport_unavailable' => 'unreachable',
+			'check_lost'            => 'check_lost',
+			'site_failed'           => 'site_failed',
+			default                 => 'unreachable',
+		};
+	}
+
+	/**
+	 * A sentence under the change that says what the health check did, in words that never call the site broken or
+	 * blame the host unless the check found the site failing. The codes are in Details.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function verification_message( array $entry ): string {
+		$state = (string) $entry['state'];
+		$kind  = self::verification_kind( is_array( $entry['probe'] ?? null ) ? $entry['probe'] : [] );
+		if ( 'incident' === $state ) {
+			return __( 'A fatal error was recorded after this change.', 'stonewright' );
+		}
+		if ( 'rollback_failed' === $state ) {
+			return __( 'The site failed after this change and the automatic rollback did not finish.', 'stonewright' );
+		}
+		return match ( $kind ) {
+			'not_started' => __( 'The health check could not start, so this change has not been checked. That says nothing about the site.', 'stonewright' ),
+			'unreachable' => __( 'The health check got no answer it could judge, so the result is unknown. The site may be fine.', 'stonewright' ),
+			'check_lost'  => __( 'A health check that passed before this change no longer answers, so recovery is not shown. That does not mean the site is broken.', 'stonewright' ),
+			'site_failed' => __( 'The health check found the site failing after this change.', 'stonewright' ),
+			default       => __( 'No health check has reported on this change yet. That says nothing about the site.', 'stonewright' ),
+		};
+	}
+
+	// -----------------------------------------------------------------------
 	// Requests.
 	// -----------------------------------------------------------------------
 
@@ -660,31 +1079,43 @@ final class RescuePage {
 	}
 
 	/**
+	 * The rollback the review asked for. The page keeps the checks that are about the page (who, the typed phrase, the
+	 * token); whether the item may be replaced is the engine's: it refuses a rollback over a later edit, a confirmation
+	 * without the state it was given for, and a state that is not the confirmed one, so the page asks it first, before
+	 * the token is looked at, and passes the confirmation on.
+	 *
 	 * @return array{code:string,incident_id:string}
 	 */
 	public static function process_rollback_request(): array {
-		$id      = self::guarded_incident_id( 'stonewright_rescue_rollback' );
+		$id = self::guarded_incident_id( 'stonewright_rescue_rollback' );
+		// The page asks for the phrase in production-safe mode; the script that holds the button back is not what enforces it.
+		// It is compared before the token is looked at, so a refusal for a missing phrase does not spend the token.
+		if ( Permissions::is_production_safe() && self::PHRASE !== self::posted( 'confirm_phrase' ) ) {
+			return [ 'code' => 'confirmation_phrase', 'incident_id' => $id ];
+		}
+
+		// The administrator who pressed the button is the approval that undoing a verified change to code needs.
+		$options = [
+			'by'                      => 'admin-page',
+			'user_id'                 => (int) get_current_user_id(),
+			'human_approved'          => true,
+			'force_drift'             => '1' === self::posted( 'force_drift' ),
+			'expected_current_sha256' => self::posted( 'expected_current_sha256' ),
+		];
+		$refused = RescueRollback::preflight_refusal( $id, $options );
+		if ( null !== $refused ) {
+			return [ 'code' => self::outcome_for_error( $refused ), 'incident_id' => $id ];
+		}
 		$refused = self::confirmation_refusal( $id, [ 'incident_id' => $id ] );
 		if ( null !== $refused ) {
 			return [ 'code' => $refused, 'incident_id' => $id ];
 		}
-		// The administrator who pressed the button is the approval that undoing a verified change to code needs.
-		$result = RescueRollback::run( $id, [ 'by' => 'admin-page', 'user_id' => (int) get_current_user_id(), 'human_approved' => true ] );
+
+		$result = RescueRollback::run( $id, $options );
 		RescueRollback::audit_outcome( $id, $result, 'admin-page', 'rollback' );
 
 		if ( $result instanceof \WP_Error ) {
-			return [
-				'code'        => match ( $result->get_error_code() ) {
-					'stonewright_rescue_incident_not_found' => 'not_found',
-					'stonewright_rescue_not_open'           => 'not_open',
-					'stonewright_rescue_no_recipe'          => 'no_recipe',
-					'stonewright_rescue_in_progress'        => 'in_progress',
-					'stonewright_rescue_undo_capture_failed' => 'undo_refused',
-					'stonewright_rescue_undo_reverted'      => 'healthy' === (string) ( $result->get_error_data()['site_status'] ?? '' ) ? 'undo_reverted' : 'undo_reverted_still_failing',
-					default                                 => 'rollback_failed',
-				},
-				'incident_id' => $id,
-			];
+			return [ 'code' => self::outcome_for_error( $result ), 'incident_id' => $id ];
 		}
 		return [
 			'code'        => match ( (string) ( $result['site_status'] ?? '' ) ) {
@@ -694,6 +1125,26 @@ final class RescuePage {
 			},
 			'incident_id' => $id,
 		];
+	}
+
+	/**
+	 * The outcome code of a refused or failed rollback. One place, so the codes a newer engine adds are one line each.
+	 */
+	private static function outcome_for_error( \WP_Error $error ): string {
+		$data = is_array( $error->get_error_data() ) ? $error->get_error_data() : [];
+		return match ( $error->get_error_code() ) {
+			'stonewright_rescue_incident_not_found'          => 'not_found',
+			'stonewright_rescue_not_open'                    => 'not_open',
+			'stonewright_rescue_no_recipe'                   => 'no_recipe',
+			'stonewright_rescue_in_progress'                 => 'in_progress',
+			'stonewright_rescue_undo_capture_failed'         => 'undo_refused',
+			'stonewright_rescue_undo_reverted'               => 'healthy' === (string) ( $data['site_status'] ?? '' ) ? 'undo_reverted' : 'undo_reverted_still_failing',
+			'stonewright_change_drift'                       => 'drift',
+			'stonewright_change_drift_hash_required'         => 'drift_hash_required',
+			'stonewright_change_changed_since_preview'       => 'changed_since_preview',
+			'stonewright_change_live_unreadable'             => 'live_unreadable',
+			default                                          => 'rollback_failed',
+		};
 	}
 
 	/**
@@ -718,7 +1169,21 @@ final class RescuePage {
 				'incident_id' => $id,
 			];
 		}
-		return [ 'code' => ! empty( $result['resolved'] ) ? 'rechecked_resolved' : 'rechecked_open', 'incident_id' => $id ];
+		if ( ! empty( $result['resolved'] ) ) {
+			return [ 'code' => 'rechecked_resolved', 'incident_id' => $id ];
+		}
+		// The engine says why it did not close: `verification_reason`.
+		$kind = '' !== (string) ( $result['verification_reason'] ?? '' ) ? self::reason_kind( (string) $result['verification_reason'] ) : self::verification_kind( is_array( $result['probe'] ?? null ) ? $result['probe'] : [] );
+		return [
+			'code'        => match ( $kind ) {
+				'site_failed' => 'rechecked_site_failed',
+				'not_started' => 'rechecked_not_started',
+				'unreachable' => 'rechecked_unreachable',
+				'check_lost'  => 'rechecked_check_lost',
+				default       => 'rechecked_open',
+			},
+			'incident_id' => $id,
+		];
 	}
 
 	/**
@@ -735,20 +1200,37 @@ final class RescuePage {
 	}
 
 	/**
+	 * Back to the page the person came from with the outcome.
+	 *
 	 * @param array{code:string,incident_id:string} $outcome
 	 */
 	private static function redirect_with( array $outcome ): void {
-		wp_safe_redirect(
-			add_query_arg(
-				[
-					'page'     => self::SLUG,
-					'rescue'   => $outcome['code'],
-					'incident' => $outcome['incident_id'],
-				],
-				admin_url( 'admin.php' )
-			)
-		);
+		wp_safe_redirect( self::outcome_url( $outcome, self::posted_context() ) );
 		exit;
+	}
+
+	/** Where a post came from: one of CONTEXTS, and the standalone page for anything else. */
+	private static function posted_context(): string {
+		$value = self::posted( 'return_to' );
+		return in_array( $value, self::CONTEXTS, true ) ? $value : 'rescue';
+	}
+
+	/**
+	 * Where an outcome is shown. A refusal that ran nothing and can be fixed goes back to the review, so the missing
+	 * phrase or the unticked box is one step away.
+	 *
+	 * @param array{code:string,incident_id:string} $outcome
+	 * @param string                                $context One of CONTEXTS; an unknown one is the standalone page.
+	 */
+	public static function outcome_url( array $outcome, string $context = 'rescue' ): string {
+		$args = [
+			'rescue'   => $outcome['code'],
+			'incident' => $outcome['incident_id'],
+		];
+		if ( in_array( $outcome['code'], self::RETRYABLE, true ) && '' !== $outcome['incident_id'] ) {
+			$args['review'] = $outcome['incident_id'];
+		}
+		return self::url_in( in_array( $context, self::CONTEXTS, true ) ? $context : 'rescue', $args );
 	}
 
 	/** Capability and nonce, or the request ends. */
@@ -765,6 +1247,11 @@ final class RescuePage {
 	private static function guarded_incident_id( string $nonce_action ): string {
 		self::guard_request( $nonce_action );
 		return isset( $_POST['incident_id'] ) ? self::clean_id( (string) wp_unslash( (string) $_POST['incident_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+	}
+
+	/** A posted value, trimmed. Read only after guard_request(). */
+	private static function posted( string $key ): string {
+		return isset( $_POST[ $key ] ) && is_scalar( $_POST[ $key ] ) ? trim( sanitize_text_field( wp_unslash( (string) $_POST[ $key ] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Read after the nonce check.
 	}
 
 	/**
@@ -931,15 +1418,24 @@ final class RescuePage {
 		return [
 			'rolled_back'               => [ 'ok', __( 'The change was rolled back and the site loads again.', 'stonewright' ), true ],
 			'rolled_back_still_failing' => [ 'warn', __( 'The change was rolled back, but the site still fails to load. The fault may not come from this change.', 'stonewright' ), true ],
-			'rolled_back_unverified'    => [ 'warn', __( 'The change was rolled back. The health check afterwards was unavailable, so recovery is not confirmed.', 'stonewright' ), true ],
+			'rolled_back_unverified'    => [ 'warn', __( 'The change was rolled back. The health check afterwards got no answer it could judge, so recovery is not confirmed. Check again, or look at the site.', 'stonewright' ), true ],
 			'rollback_failed'           => [ 'danger', __( 'The rollback did not complete. Try safe mode, or undo the change by hand and check the site again.', 'stonewright' ), true ],
 			'undo_reverted'             => [ 'warn', __( 'The undo would have broken the site, so it was put back. The change is still in effect and the site loads.', 'stonewright' ), true ],
 			'undo_reverted_still_failing' => [ 'danger', __( 'The undo made the site stop loading and was put back, but the site still fails to load. The fault may not come from the undo. Try safe mode, or check the site.', 'stonewright' ), true ],
 			'undo_refused'              => [ 'warn', __( 'The undo was refused: the current state could not be saved first, so there would be no way back. Nothing was changed.', 'stonewright' ), true ],
 			'rechecked_resolved'        => [ 'ok', __( 'The site loads. The incident is closed.', 'stonewright' ), true ],
-			'rechecked_open'            => [ 'warn', __( 'The site still does not pass the health check, so the incident stays open.', 'stonewright' ), true ],
-			'confirmation_required'     => [ 'danger', __( 'Production-safe mode needs the confirmation on the form. Reload the page and try again.', 'stonewright' ), false ],
-			'confirmation_invalid'      => [ 'danger', __( 'The confirmation expired or does not match. Reload the page and try again.', 'stonewright' ), false ],
+			'rechecked_open'            => [ 'warn', __( 'The incident stays open: the health check did not confirm that the site loads.', 'stonewright' ), true ],
+			'rechecked_site_failed'     => [ 'danger', __( 'The health check found the site failing, so the incident stays open. Roll the change back, or try safe mode.', 'stonewright' ), true ],
+			'rechecked_not_started'     => [ 'warn', __( 'The health check could not start, so nothing was checked and the incident stays open. That says nothing about the site. Check again in a moment.', 'stonewright' ), true ],
+			'rechecked_check_lost'      => [ 'warn', __( 'A health check that passed before this change no longer answers, so the incident stays open and recovery is not shown. That does not mean the site is broken. Check again, or look at the site.', 'stonewright' ), true ],
+			'rechecked_unreachable'     => [ 'warn', __( 'The health check got no answer it could judge, so the incident stays open and the result is unknown. The site may be fine. Check again, or look at the site.', 'stonewright' ), true ],
+			'confirmation_required'     => [ 'danger', __( 'Production-safe mode needs the confirmation on the form. Nothing was changed. Try again from the review below.', 'stonewright' ), false ],
+			'confirmation_invalid'      => [ 'danger', __( 'The confirmation expired or does not match. Nothing was changed. Try again from the review below.', 'stonewright' ), false ],
+			'confirmation_phrase'       => [ 'warn', __( 'Production-safe mode asks you to type ROLL BACK to confirm. Nothing was changed. Type it in the box and press the button again.', 'stonewright' ), false ],
+			'drift'                     => [ 'warn', __( 'The item has changed since the recorded change. Nothing was changed. Review it below, and tick the box to overwrite those edits.', 'stonewright' ), false ],
+			'drift_hash_required'       => [ 'warn', __( 'Overwriting later edits needs the state of the item you were shown, and the confirmation did not carry it. Nothing was changed. The review below shows the state now and has it filled in: tick the box and confirm again.', 'stonewright' ), false ],
+			'live_unreadable'           => [ 'danger', __( 'The current state of this item cannot be read, so a rollback cannot be checked. Nothing was changed. Try safe mode, or undo the change by hand and check the site again.', 'stonewright' ), false ],
+			'changed_since_preview'     => [ 'warn', __( 'The item changed while the review was open. Nothing was changed. Review it again below.', 'stonewright' ), false ],
 			'not_found'                 => [ 'danger', __( 'No incident has that id.', 'stonewright' ), true ],
 			'not_open'                  => [ 'info', __( 'That change is already verified or rolled back.', 'stonewright' ), true ],
 			'no_recipe'                 => [ 'danger', __( 'No automatic rollback is available for this change.', 'stonewright' ), true ],

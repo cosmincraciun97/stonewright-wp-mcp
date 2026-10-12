@@ -100,35 +100,46 @@ final class ChangesPageTest extends TestCase {
 		}
 	}
 
-	public function test_changes_registers_itself_in_the_activity_hub_after_rescue_with_the_exp_marker(): void {
+	public function test_changes_registers_itself_in_the_activity_hub_with_the_history_and_rescue_tabs_and_the_exp_marker(): void {
 		ChangesPage::register();
 		self::assertNull( MenuRegistry::entry( ChangesPage::SLUG ), 'The entry is registered on init, where labels can be translated.' );
 		do_action( 'init' );
-		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30, 'beta' => true ] );
 
-		self::assertSame( 'Changes', AdminShell::pages()[ ChangesPage::SLUG ] );
 		self::assertSame( 'activity', MenuRegistry::hub_for( ChangesPage::SLUG ) );
-		self::assertSame( [ 'stonewright-audit-log', 'stonewright-rescue', 'stonewright-changes' ], array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ) );
+		self::assertSame(
+			[ 'stonewright-audit-log|', 'stonewright-changes|history', 'stonewright-changes|rescue', 'stonewright-rescue|' ],
+			array_map( static fn ( array $entry ): string => $entry['slug'] . '|' . $entry['tab'], MenuRegistry::hub_entries( 'activity' ) ),
+			'One Changes page with two tabs; Rescue at its own address is a view of the second tab.'
+		);
 		$entry = MenuRegistry::entry( ChangesPage::SLUG );
+		self::assertSame( 'history', $entry['tab'] ?? '', 'History is the default tab.' );
 		self::assertSame( 'manage_options', $entry['capability'] ?? '' );
 		self::assertTrue( $entry['beta'] ?? false, 'Changes carries the EXP marker in the band and the sidebar.' );
 		self::assertSame( 'Changes', $entry['title'] ?? '' );
+		self::assertSame( 'Changes', $entry['menu_label'] ?? '', 'The sidebar and the band say Changes, not the name of the first tab.' );
 		self::assertStringContainsString( 'what each one changed', $entry['lede'] ?? '' );
+		$rescue = MenuRegistry::entry( ChangesPage::SLUG, 'rescue' );
+		self::assertSame( 'Rescue', $rescue['label'] ?? '' );
+		self::assertSame( 'Rescue', $rescue['title'] ?? '' );
+		self::assertTrue( $rescue['beta'] ?? false );
+		self::assertTrue( $rescue['menu_count'] ?? false, 'The count of changes needing attention is on the sidebar entry.' );
 	}
 
-	public function test_the_band_lists_changes_after_rescue_and_only_to_people_who_can_open_it(): void {
+	public function test_the_band_lists_one_changes_link_that_is_current_on_both_tabs_and_on_the_rescue_address(): void {
 		ChangesPage::add_to_menu_registry();
-		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 30, 'beta' => true ] );
 
-		$labels = [];
-		foreach ( MenuRegistry::band_groups( ChangesPage::SLUG ) as $group ) {
-			foreach ( $group['links'] as $link ) {
-				$labels[ $link['label'] ] = $link;
+		foreach ( [ ChangesPage::SLUG, 'stonewright-rescue' ] as $current ) {
+			$labels = [];
+			foreach ( MenuRegistry::band_groups( $current ) as $group ) {
+				foreach ( $group['links'] as $link ) {
+					$labels[ $link['label'] ] = $link;
+				}
 			}
+			self::assertSame( [ 'Audit log', 'Changes' ], array_slice( array_keys( $labels ), -2 ), 'No Rescue link of its own.' );
+			self::assertTrue( $labels['Changes']['current'], $current );
+			self::assertTrue( $labels['Changes']['beta'] );
+			self::assertStringEndsWith( 'page=stonewright-changes', $labels['Changes']['url'] );
 		}
-		self::assertSame( [ 'Audit log', 'Rescue', 'Changes' ], array_slice( array_keys( $labels ), -3 ) );
-		self::assertTrue( $labels['Changes']['current'] );
-		self::assertTrue( $labels['Changes']['beta'] );
 
 		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_posts' => true ];
 		$after                                = [];
@@ -179,7 +190,8 @@ final class ChangesPageTest extends TestCase {
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Changes</h1>', $html );
 		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link sw-ui-band__link--exp" href="[^"]*page=stonewright-changes" aria-current="page" data-sw-ui-tip="This feature is experimental\.">Changes<span class="sw-ui-band__exp" aria-hidden="true">EXP<\/span>/', $html );
 		self::assertStringContainsString( 'sw-changes-page', $html );
-		self::assertStringNotContainsString( 'sw-ui-hubnav', $html, 'Changes has no tabs of its own.' );
+		self::assertSame( 1, substr_count( $html, 'class="sw-ui-hubnav"' ), 'The tab bar: History and Rescue.' );
+		self::assertMatchesRegularExpression( '#<nav aria-label="Changes sections"><ul class="sw-ui-hubnav"><li><a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=history" aria-current="page">History</a></li><li><a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=rescue">Rescue</a></li></ul></nav>#', $html );
 	}
 
 	public function test_an_empty_ledger_says_what_the_page_is_for_and_offers_no_dead_control(): void {
@@ -191,10 +203,63 @@ final class ChangesPageTest extends TestCase {
 		self::assertStringNotContainsString( '<dialog', $html );
 	}
 
-	public function test_the_header_links_to_rescue_for_incidents(): void {
+	public function test_the_header_has_no_rescue_button_because_rescue_is_a_tab(): void {
 		$html = $this->html();
 
-		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn"[^>]*href="[^"]*page=stonewright-rescue"[^>]*>Rescue/', $html );
+		self::assertStringNotContainsString( 'page=stonewright-rescue', $html );
+		self::assertStringNotContainsString( 'sw-ui-page-header__aside', $html );
+	}
+
+	public function test_history_is_the_default_tab_and_an_unknown_tab_is_history(): void {
+		self::assertSame( 'history', ChangesPage::current_tab() );
+		$_GET = [ 'tab' => 'history' ];
+		self::assertSame( 'history', ChangesPage::current_tab() );
+		$_GET = [ 'tab' => '"><script>' ];
+		self::assertSame( 'history', ChangesPage::current_tab() );
+		$_GET = [ 'tab' => 'rescue' ];
+		self::assertSame( 'rescue', ChangesPage::current_tab() );
+	}
+
+	public function test_the_rescue_tab_prints_rescue_with_its_own_title_and_the_tab_marked_and_asks_the_ledger_nothing(): void {
+		$this->seed_change( [], [ 'post_title' => 'a' ], [ 'post_title' => 'b' ] );
+		$this->db->statements = [];
+
+		$html = $this->html( [ 'tab' => 'rescue' ] );
+
+		self::assertSame( [], array_values( array_filter( $this->db->statements, static fn ( string $sql ): bool => str_contains( $sql, 'stonewright_changes' ) ) ), 'The tab is chosen before anything asks the ledger for the list.' );
+		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Rescue</h1>', $html );
+		self::assertStringContainsString( 'data-sw-rescue-probe="ok"', $html );
+		self::assertStringContainsString( 'Nothing to rescue', $html );
+		self::assertMatchesRegularExpression( '#<a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=rescue" aria-current="page">Rescue</a>#', $html );
+		self::assertStringNotContainsString( 'sw-changes-filters', $html, 'The list of the History tab is not here.' );
+		self::assertMatchesRegularExpression( '#<a class="sw-ui-band__link[^"]*" href="[^"]*page=stonewright-changes" aria-current="page"#', $html );
+	}
+
+	public function test_the_rescue_tab_still_renders_when_the_ledger_table_is_missing_or_every_query_fails(): void {
+		$previous        = $GLOBALS['wpdb'];
+		$GLOBALS['wpdb'] = new \stdClass();
+		try {
+			$html = $this->html( [ 'tab' => 'rescue' ] );
+		} finally {
+			$GLOBALS['wpdb'] = $previous;
+		}
+
+		self::assertStringContainsString( 'data-sw-rescue-probe="ok"', $html );
+		self::assertStringContainsString( 'Nothing to rescue', $html );
+	}
+
+	public function test_the_rescue_tab_loads_its_stylesheet_and_script_and_history_does_not(): void {
+		$_GET = [ 'page' => 'stonewright-changes', 'tab' => 'rescue' ];
+		ChangesPage::enqueue( 'stonewright_page_stonewright-changes' );
+		self::assertSame( [ 'stonewright-admin-changes', 'stonewright-admin-rescue' ], $GLOBALS['stonewright_test_enqueued_scripts'] );
+		self::assertSame( [ 'stonewright-admin-pages/rescue' ], $GLOBALS['stonewright_test_enqueued_styles'], 'The style map has one stylesheet for the page; the Rescue tab adds its own.' );
+
+		$GLOBALS['stonewright_test_enqueued_scripts'] = [];
+		$GLOBALS['stonewright_test_enqueued_styles']  = [];
+		$_GET                                         = [ 'page' => 'stonewright-changes' ];
+		ChangesPage::enqueue( 'stonewright_page_stonewright-changes' );
+		self::assertSame( [ 'stonewright-admin-changes' ], $GLOBALS['stonewright_test_enqueued_scripts'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_enqueued_styles'] );
 	}
 
 	// ---- The timeline ------------------------------------------------------------------------------

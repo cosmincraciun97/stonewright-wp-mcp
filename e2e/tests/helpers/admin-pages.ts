@@ -17,9 +17,13 @@ export const STONEWRIGHT_PAGES = [
 	{ slug: 'stonewright-custom-code-approval', label: 'Custom code approval', title: 'Custom code approval', hub: 'custom-code', link: 'Code approval' },
 	{ slug: 'stonewright-audit-log', label: 'Audit log', title: 'Audit log', hub: 'activity', link: 'Audit log' },
 	{ slug: 'stonewright-block-finalizer', label: 'Block queue', title: 'Block queue', hub: 'activity', link: 'Block queue' },
-	{ slug: 'stonewright-rescue', label: 'Rescue', title: 'Rescue', hub: 'activity', link: 'Rescue' },
+	// Rescue keeps its own address as an entry point of its own. It is the Rescue tab of Changes, so the band marks Changes.
+	{ slug: 'stonewright-rescue', label: 'Rescue', title: 'Rescue', hub: 'activity', link: 'Changes' },
 	{ slug: 'stonewright-changes', label: 'Changes', title: 'Changes', hub: 'activity', link: 'Changes' },
 ] as const;
+
+/** Pages that have an address of their own but no entry in the sidebar or the band: they are the tab of another page. */
+export const STONEWRIGHT_VIEWS = ['stonewright-rescue'] as const;
 
 /**
  * The groups of the band, in order, and the text of each link. A group with two links or more shows its name in
@@ -31,11 +35,11 @@ export const STONEWRIGHT_BAND = [
 	{ hub: 'AI Abilities', links: ['AI Abilities'] },
 	{ hub: 'Knowledge', links: ['Skills', 'Memory', 'Context', 'Design', 'Prompt library'] },
 	{ hub: 'Custom code', links: ['Custom code', 'Code approval'] },
-	{ hub: 'Activity', links: ['Audit log', 'Block queue', 'Rescue', 'Changes'] },
+	{ hub: 'Activity', links: ['Audit log', 'Block queue', 'Changes'] },
 ] as const;
 
 /** The pages that are still changing: their band link and their sidebar entry carry the EXP marker. */
-export const STONEWRIGHT_EXP_LINKS = ['Troubleshoot', 'Context', 'Design', 'Block queue', 'Rescue', 'Changes'] as const;
+export const STONEWRIGHT_EXP_LINKS = ['Troubleshoot', 'Context', 'Design', 'Block queue', 'Changes'] as const;
 
 /** The words of the marker's tooltip and of its hidden text. */
 export const EXP_HINT = 'This feature is experimental.';
@@ -43,6 +47,9 @@ export const EXP_HINT = 'This feature is experimental.';
 /** The tab bars of the pages that have tabs of their own, by slug. Setup's four views are page tabs, not this bar. */
 export const STONEWRIGHT_OWN_TABS: Readonly<Record<string, readonly string[]>> = {
 	'stonewright-sandbox': ['Drafts', 'Library', 'Active', 'Crash recovery'],
+	// One Changes entry with two tabs; Rescue at its own address shows the same bar with its tab current.
+	'stonewright-changes': ['History', 'Rescue'],
+	'stonewright-rescue': ['History', 'Rescue'],
 };
 
 /** The sidebar entries under "Stonewright", in order: a hub's landing page carries the hub name. */
@@ -59,7 +66,6 @@ export const STONEWRIGHT_SIDEBAR = [
 	'Custom code',
 	'Code approval',
 	'Activity',
-	`Rescue EXP ${EXP_HINT}`,
 	`Changes EXP ${EXP_HINT}`,
 ] as const;
 
