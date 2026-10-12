@@ -401,6 +401,12 @@ $GLOBALS['stonewright_test_transient_ttls'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {
 	function set_transient( string $transient, mixed $value, int $expiration = 0 ): bool {
+		// A test lists the transient names (or name prefixes) that cannot be stored, to see what the code does when a write fails.
+		foreach ( (array) ( $GLOBALS['stonewright_test_set_transient_fails'] ?? [] ) as $prefix ) {
+			if ( is_string( $prefix ) && str_starts_with( $transient, $prefix ) ) {
+				return false;
+			}
+		}
 		$GLOBALS['stonewright_test_transients'][ $transient ]     = $value;
 		$GLOBALS['stonewright_test_transient_ttls'][ $transient ] = $expiration;
 		return true;
@@ -1957,7 +1963,7 @@ if ( ! function_exists( 'get_edit_post_link' ) ) {
 if ( ! function_exists( 'get_preview_post_link' ) ) {
 	function get_preview_post_link( int|object|null $post = null, array $query_args = [], string $preview_link = '' ): string {
 		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
-		return 'https://example.test/?p=' . $id . '&preview=true';
+		return $GLOBALS['stonewright_test_preview_links'][ $id ] ?? 'https://example.test/?p=' . $id . '&preview=true';
 	}
 }
 
@@ -1978,7 +1984,7 @@ if ( ! function_exists( 'get_post_type' ) ) {
 if ( ! function_exists( 'get_permalink' ) ) {
 	function get_permalink( int|object $post = 0, bool $leavename = false ): string|false {
 		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
-		return 'https://example.test/?p=' . $id;
+		return $GLOBALS['stonewright_test_permalinks'][ $id ] ?? 'https://example.test/?p=' . $id;
 	}
 }
 
@@ -3118,6 +3124,7 @@ if ( ! function_exists( 'wp_nonce_field' ) ) {
 
 if ( ! function_exists( 'wp_verify_nonce' ) ) {
 	function wp_verify_nonce( string $nonce, string|int $action = -1 ): int|false {
+		$GLOBALS['stonewright_test_last_nonce_action'] = $action;
 		// In tests, treat any non-empty nonce as valid for happy-path tests.
 		// Tests that need to test nonce failure should override this.
 		if ( isset( $GLOBALS['stonewright_test_nonce_invalid'] ) && $GLOBALS['stonewright_test_nonce_invalid'] ) {
@@ -3214,6 +3221,12 @@ if ( ! function_exists( 'wp_clear_scheduled_hook' ) ) {
 	}
 }
 
+if ( ! function_exists( 'number_format_i18n' ) ) {
+	function number_format_i18n( float|int $number, int $decimals = 0 ): string {
+		return number_format( $number, $decimals );
+	}
+}
+
 if ( ! function_exists( 'size_format' ) ) {
 	function size_format( int $bytes, int $decimals = 0 ): string {
 		if ( $bytes >= 1048576 ) {
@@ -3247,6 +3260,32 @@ if ( ! function_exists( 'wp_generate_password' ) ) {
 
 if ( ! function_exists( 'settings_fields' ) ) {
 	function settings_fields( string $option_group ): void {
+	}
+}
+
+$GLOBALS['stonewright_test_settings_errors'] ??= [];
+
+if ( ! function_exists( 'add_settings_error' ) ) {
+	function add_settings_error( string $setting, string $code, string $message, string $type = 'error' ): void {
+		$GLOBALS['stonewright_test_settings_errors'][] = [
+			'setting' => $setting,
+			'code'    => $code,
+			'message' => $message,
+			'type'    => $type,
+		];
+	}
+}
+
+if ( ! function_exists( 'get_settings_errors' ) ) {
+	/** @return list<array{setting: string, code: string, message: string, type: string}> */
+	function get_settings_errors( string $setting = '', bool $sanitize = false ): array {
+		unset( $sanitize );
+		$errors = $GLOBALS['stonewright_test_settings_errors'] ?? [];
+		if ( '' === $setting ) {
+			return array_values( $errors );
+		}
+
+		return array_values( array_filter( $errors, static fn ( array $error ): bool => $setting === $error['setting'] ) );
 	}
 }
 

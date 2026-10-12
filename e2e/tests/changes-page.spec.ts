@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { expectNoAxeViolations, settle } from './helpers/axe-gate';
@@ -24,6 +24,7 @@ const OPEN = 'cs-aaaaaaaaaaaaaaaaaaaaaaaa';
 
 const FILES: Record<string, string> = {
 	'changes-page.html': 'plugin/tests/fixtures/admin-ui/changes-page.html',
+	'changes-page-review.html': 'plugin/tests/fixtures/admin-ui/changes-page-review.html',
 	'sw-ui.css': 'plugin/assets/admin/sw-ui.css',
 	'sw-ui.js': 'plugin/assets/admin/sw-ui.js',
 	'shell.css': 'plugin/assets/admin/shell.css',
@@ -67,6 +68,49 @@ test.describe('Changes page fixture', () => {
 		await expect(drawer.locator('.sw-ui-dialog__title')).toHaveText(/^Change cs-aaaaaaaaaaaa/);
 		await expect(drawer.locator('[data-sw-ui-diff="text"]')).toHaveCount(1);
 		await expect(drawer.locator('.sw-ui-tabs__tab[aria-selected="true"]')).toHaveText('Diff');
+	});
+
+	const FILTERS = 'from=2026-09-01&to=2026-09-30&status=verified&family=theme_file&restorable=1&ability=theme-file-write&resource=example-theme%2Ffunctions.php&user=editor-one&paged=2';
+
+	function filtersOf(address: string): Record<string, string> {
+		const found: Record<string, string> = {};
+		new URL(address).searchParams.forEach((value, key) => {
+			found[key] = value;
+		});
+		return found;
+	}
+
+	test('closing the drawer with Escape or Close keeps the filters, the search and the page of the list in the address, and a reload shows the same list', async ({ page }) => {
+		const wanted = filtersOf(`${ORIGIN}/?${FILTERS}`);
+		for (const how of ['Escape', 'Close']) {
+			await openFixture(page, `?change=${OPEN}&view=details&${FILTERS}`);
+			await expect(page.locator('[data-sw-changes-drawer]')).toBeVisible();
+
+			if (how === 'Escape') {
+				await page.keyboard.press('Escape');
+			} else {
+				await page.locator('[data-sw-changes-drawer]').getByRole('link', { name: /^Close/ }).click();
+			}
+			await expect(page.locator('[data-sw-changes-drawer]'), how).toBeHidden();
+
+			expect(filtersOf(page.url()), `${how} leaves from, to, status, family, restorable, search and the page, and only the drawer goes`).toEqual(wanted);
+			await page.reload({ waitUntil: 'load' });
+			expect(filtersOf(page.url()), `${how}: the address after a reload`).toEqual(wanted);
+		}
+	});
+
+	test('the date a list starts on stays in from, and an old address that names the change an Undo acted on in from loses only that', async ({ page }) => {
+		await openFixture(page, `?change=${OPEN}&undone=undone&source_change=${OPEN}&from=2026-09-01&status=verified`);
+		await expect(page.locator('[data-sw-changes-drawer]')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('[data-sw-changes-drawer]')).toBeHidden();
+		expect(filtersOf(page.url()), 'source_change and the result go, the date stays').toEqual({ from: '2026-09-01', status: 'verified' });
+
+		await openFixture(page, `?change=${OPEN}&undone=undone&from=${OPEN}&status=verified`);
+		await expect(page.locator('[data-sw-changes-drawer]')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('[data-sw-changes-drawer]')).toBeHidden();
+		expect(filtersOf(page.url()), 'a from that is a change id is the old name of source_change').toEqual({ status: 'verified' });
 	});
 
 	test('Escape closes the drawer, gives focus back to the row that opened it and takes the change out of the address', async ({ page }) => {
@@ -161,7 +205,7 @@ test.describe('Changes page fixture', () => {
 		await redo.click();
 
 		await expect(dialog).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+		await expect(dialog.getByRole('link', { name: 'Cancel' })).toBeFocused();
 		await expect(dialog.getByRole('heading', { level: 2 })).toContainText('Redo change');
 		await expect(dialog).toContainText('This puts code back');
 		await expect(dialog.locator('form[method="post" i]')).toHaveCount(1);
@@ -207,7 +251,8 @@ test.describe('Changes page fixture', () => {
 		}
 	});
 
-	test('without script the Undo link prints the dialog open and the form posts without it', async ({ browser }) => {
+	/** A page of the fixture in a browser that runs no script, so only what the server printed works. */
+	async function openWithoutScript(browser: Browser, file: string, query: string): Promise<{ page: Page; close: () => Promise<void> }> {
 		const context = await browser.newContext({ javaScriptEnabled: false });
 		const page = await context.newPage();
 		await page.route(`${ORIGIN}/**`, async (route) => {
@@ -215,11 +260,40 @@ test.describe('Changes page fixture', () => {
 			const relative = FILES[name];
 			await route.fulfill(relative ? { status: 200, contentType: MIME[path.extname(relative)] ?? 'application/octet-stream', body: fs.readFileSync(path.join(repository, relative)) } : { status: 404, body: 'not part of the fixture' });
 		});
-		await page.goto(`${ORIGIN}/changes-page.html?change=${OPEN}`, { waitUntil: 'load' });
+		await page.goto(`${ORIGIN}/${file}${query}`, { waitUntil: 'load' });
+		return { page, close: () => context.close() };
+	}
+
+	test('without script the first press of Undo is a link to a review that changes nothing', async ({ browser }) => {
+		const { page, close } = await openWithoutScript(browser, 'changes-page.html', `?change=${OPEN}`);
 
 		await expect(page.locator('#sw-changes-undo-dialog')).toBeHidden();
-		await expect(page.getByRole('link', { name: 'Redo this change' })).toHaveAttribute('href', /undo=1/);
-		await context.close();
+		const href = await page.getByRole('link', { name: 'Redo this change' }).getAttribute('href');
+		expect(new URL(href ?? '', ORIGIN).searchParams.get('undo'), 'a link with undo=1, not a button that posts').toBe('1');
+		expect(new URL(href ?? '', ORIGIN).searchParams.get('change')).toBe(OPEN);
+		await expect(page.locator('form[method="post" i]')).toHaveCount(1);
+		await expect(page.locator('form[method="post" i]')).toBeHidden();
+		await close();
+	});
+
+	test('without script the review prints the confirmation open: Cancel is a link and Confirm posts', async ({ browser }) => {
+		const { page, close } = await openWithoutScript(browser, 'changes-page-review.html', `?change=${OPEN}&undo=1`);
+
+		const dialog = page.locator('#sw-changes-undo-dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByRole('heading', { level: 2 })).toContainText('change');
+		const cancel = dialog.getByRole('link', { name: 'Cancel' });
+		await expect(cancel).toBeVisible();
+		const target = new URL((await cancel.getAttribute('href')) ?? '', ORIGIN);
+		expect(target.searchParams.get('change'), 'Cancel goes back to the change').toBe(OPEN);
+		expect(target.searchParams.get('undo'), 'and does not print the review again').toBeNull();
+		const confirm = dialog.getByRole('button', { name: /this change$/ });
+		await expect(confirm).toBeEnabled();
+		await expect(confirm).toHaveAttribute('type', 'submit');
+		await expect(dialog.locator('form[method="post" i]')).toHaveCount(1);
+		await expect(dialog.locator('input[name="action"]')).toHaveValue('stonewright_change_rollback');
+		expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+		await close();
 	});
 
 	test('the list lists newest first with a View diff link per row, named after its change', async ({ page }) => {
@@ -345,9 +419,37 @@ test.describe('Changes page on the site under test', () => {
 		await expect(page.locator('[data-sw-changes-open]').first()).toBeFocused();
 	});
 
-	test('Rescue links to the Changes page', async ({ page }) => {
+	test('has a History and a Rescue tab, History first and selected, and no second button for Rescue in the header', async ({ page }) => {
+		const bar = page.getByRole('navigation', { name: 'Changes sections' });
+		await expect(bar.getByRole('link')).toHaveText([/^History/, /^Rescue/]);
+		await expect(bar.getByRole('link', { name: /^History/ })).toHaveAttribute('aria-current', 'page');
+		await expect(bar.getByRole('link', { name: /^Rescue/ })).toHaveAttribute('href', /page=stonewright-changes&tab=rescue/);
+		await expect(page.locator('.sw-ui-page-header__aside')).toHaveCount(0);
+	});
+
+	test('the Rescue tab prints Rescue, with its own title and the tab selected, and the Changes link of the band stays current', async ({ page }) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright-changes&tab=rescue', { waitUntil: 'domcontentloaded' });
+
+		await expect(page.locator('h1')).toHaveText('Rescue');
+		await expect(page.locator('[data-sw-rescue-probe="ok"]')).toHaveCount(1);
+		await expect(page.getByRole('navigation', { name: 'Changes sections' }).getByRole('link', { name: /^Rescue/ })).toHaveAttribute('aria-current', 'page');
+		await expect(page.locator('.sw-ui-band__link[aria-current="page"]')).toContainText('Changes');
+		await expect(page.locator('.sw-changes-filters')).toHaveCount(0);
+		expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+	});
+
+	test('Rescue at its own address is still a working page with the same tab bar, and History is one click away', async ({ page }) => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-rescue', { waitUntil: 'domcontentloaded' });
 
-		await expect(page.getByRole('link', { name: 'View changes' })).toHaveAttribute('href', /page=stonewright-changes/);
+		await expect(page.locator('h1')).toHaveText('Rescue');
+		await expect(page.locator('[data-sw-rescue-probe="ok"]')).toHaveCount(1);
+		const bar = page.getByRole('navigation', { name: 'Changes sections' });
+		await expect(bar.getByRole('link', { name: /^Rescue/ })).toHaveAttribute('aria-current', 'page');
+		await expect(page.locator('.sw-ui-band__link[aria-current="page"]')).toContainText('Changes');
+		await expect(page.locator('.sw-ui-band__link', { hasText: /^Rescue/ })).toHaveCount(0);
+
+		await bar.getByRole('link', { name: /^History/ }).click();
+		await expect(page).toHaveURL(/page=stonewright-changes&tab=history/);
+		await expect(page.locator('h1')).toHaveText('Changes');
 	});
 });

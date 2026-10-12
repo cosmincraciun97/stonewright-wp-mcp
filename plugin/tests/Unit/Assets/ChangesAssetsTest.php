@@ -58,7 +58,11 @@ final class ChangesAssetsTest extends TestCase {
 		self::assertStringContainsString( 'data-sw-changes-open', $js );
 		self::assertStringContainsString( 'openDialog', $js, 'The layer opens the dialog, traps focus and gives it back to the opener.' );
 		self::assertStringContainsString( "removeAttribute( 'open' )", $js, 'The server prints the dialog open; showModal() needs it closed.' );
-		self::assertStringContainsString( "[ 'change', 'view', 'undo', 'undone', 'from' ]", $js );
+		self::assertStringContainsString( "[ 'change', 'view', 'undo', 'undone', 'source_change' ]", $js, 'Closing the drawer takes the drawer and the result of an Undo out of the address.' );
+		foreach ( [ 'to', 'status', 'family', 'resource', 'ability', 'user', 'restorable', 'paged' ] as $filter ) {
+			self::assertStringNotContainsString( "'" . $filter . "'", $js, 'The filter ' . $filter . ' is not dropped with the drawer.' );
+		}
+		self::assertMatchesRegularExpression( '/legacyOrigin.*?\^cs-\[a-f0-9\]\{24\}\$/s', $js, 'An old from is dropped only when it is a change id; a date stays.' );
 		self::assertStringContainsString( 'searchParams.delete( name )', $js );
 		self::assertStringContainsString( 'replaceState', $js );
 		self::assertStringNotContainsString( 'opener.focus', $js, 'The layer gives focus back.' );

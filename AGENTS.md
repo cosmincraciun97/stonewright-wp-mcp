@@ -180,6 +180,12 @@ override default behavior.
   line-height. `node scripts/check-admin-control-sizing.mjs` enforces it.
 - Rows of controls are centred and level: the controls of a row share one height, and a button beside a field with a
   label above it lines up with the input.
+- Buttons that belong together (the actions of a table row, of a panel, of a dialog footer) are one action row:
+  `Button::group()` (`sw-ui-actions`, flex with the layer's gap, wrapping on a narrow screen), every control at the
+  height of its size, level on one top. A form in the row prints no box of its own, so its button is a member of the
+  row. Help text for an action goes under the row, or in a note the button is `aria-describedby`, never beside the
+  button, and a note about an action that is missing goes under the row too. A destructive action is `danger`; the
+  button that confirms it is `danger-solid`. A page stylesheet places the row and never lays it out.
 - Before a PR that touches admin UI, run the layout check against a test site:
   `cd e2e && npx playwright test admin-layout.spec.ts` (`WP_BASE_URL`, `WP_USERNAME`, `WP_PASSWORD` as in
   `e2e/README.md`). It reads the pages from the admin menu, so a new page is covered without editing the test.

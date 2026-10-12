@@ -14,7 +14,7 @@
     "wp-admin"
   ],
   "enabled": true,
-  "updated_at": "2026-07-16T00:00:00.000Z"
+  "updated_at": "2026-10-12T00:00:00.000Z"
 }
 ---
 
@@ -26,9 +26,9 @@ Do **not** drive wp-admin with browser click/fill as the default. Clicks are bri
 
 ## Preferred stack
 
-1. **WP REST** + Application Password  
+1. **Stonewright typed tools** (Direct or plugin mode); Direct writes only through them, and `stonewright-rest-request` is GET only
 2. **Official plugin REST/APIs** when available  
-3. **Stonewright typed tools** (Direct or plugin mode)  
+3. **WP REST** + Application Password for reads
 4. **Admin form POST** with session cookies: GET page → extract nonces → POST fields  
 5. **Browser tools**: screenshots / visual verification; UI clicks only if no HTTP path works  
 

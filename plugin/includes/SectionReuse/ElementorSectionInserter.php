@@ -381,7 +381,20 @@ final class ElementorSectionInserter {
 			return $validated;
 		}
 
-		return $validated['settings'] !== $settings
+		// A value the validator only re-types (a number for a select whose options are numeric strings) is copied as it
+		// is in the source: the copy is not validated into a new value, so that difference is not a change.
+		$retyped = [];
+		foreach ( $validated['warnings'] as $warning ) {
+			if ( 'value_coerced' === ( $warning['code'] ?? '' ) && is_string( $warning['path'] ?? null ) ) {
+				$retyped[ (string) preg_replace( '/^settings\./', '', $warning['path'] ) ] = true;
+			}
+		}
+		$changed = array_filter(
+			array_keys( array_merge( $validated['settings'], $settings ) ),
+			static fn( int|string $key ): bool => ! isset( $retyped[ (string) $key ] ) && ( $validated['settings'][ $key ] ?? null ) !== ( $settings[ $key ] ?? null )
+		);
+
+		return [] !== $changed
 			? new \WP_Error( 'stonewright_elementor_settings_invalid', 'The settings would change when written.', [ 'violations' => [ [ 'path' => 'settings', 'code' => 'delta_result_mismatch' ] ] ] )
 			: null;
 	}

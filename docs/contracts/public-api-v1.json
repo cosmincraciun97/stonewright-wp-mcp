@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T20:08:19+00:00",
+    "generated_at": "2026-10-12T13:39:43+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -86,7 +86,10 @@
             "stonewright/site-capabilities",
             "stonewright/theme-builder-apply-template",
             "stonewright/theme-builder-create-template",
-            "stonewright/theme-json-handoff"
+            "stonewright/theme-json-handoff",
+            "stonewright/rescue-rollback",
+            "stonewright/change-rollback",
+            "stonewright/change-restore"
         ]
     },
     "abilities": [
@@ -755,7 +758,7 @@
             "mcp_name": "stonewright-change-restore",
             "kind": "Write",
             "input_schema_hash": "659ac95d31837e95301b56e08c3e7822b91eb61eb2fc4351eb497e1be915ac20",
-            "output_schema_hash": "94be09194562c563837193c53f65ea661b733d9051a690e0bfb85b180b24c4c3",
+            "output_schema_hash": "c6b198c5dd7f11b72e2889be27d02e6e5247edbc2a2fd96ad3360eef185a3c98",
             "permission_class": "Permissions::edit_post( $post_id ) (compound)",
             "gates": {
                 "backup": true,
@@ -774,8 +777,8 @@
             "ability_name": "stonewright/change-rollback",
             "mcp_name": "stonewright-change-rollback",
             "kind": "Write",
-            "input_schema_hash": "70a856264293aa83aeda3017e4fd62fbdc33c2e15c19dc85ec55e317b20468a4",
-            "output_schema_hash": "6cd5c48fcd05e7f5cfbcb2b69ffc1e67bcc6c45bea5dc0abed8124e82624ac3c",
+            "input_schema_hash": "892a45979a1e283f4c83a821b3306d28e31069f6bfe282dec0a9c3ed7feb918f",
+            "output_schema_hash": "8fc5f13ffd7b6e0d5af83bee6fe6114ad588b1871287e3a9c41358d93f942eea",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -3775,7 +3778,7 @@
             "mcp_name": "stonewright-elementor-css-regenerate",
             "kind": "Write",
             "input_schema_hash": "eb7718421af5102b2b5ed009e4f750b8bfee85935aefcde10d188f481f774e09",
-            "output_schema_hash": "dfbdaa8525db5be5947b0158b4e848b6b495070ab751089bf4e98ce10cba5243",
+            "output_schema_hash": "4788483b8aaa76935d71cc0427a209491ddb749784b4dfdff9d023fc4aaf51f4",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -3955,7 +3958,7 @@
             "mcp_name": "stonewright-elementor-post-write-verify",
             "kind": "Read",
             "input_schema_hash": "1d49a72098c9883005368d11f99bb79fc86154890c8b22bb09d40a8009ec11c8",
-            "output_schema_hash": "5d831a0f0332178f13ac24b806dc5e70b6afb0685cea0414057b95d84ab682e5",
+            "output_schema_hash": "8d46ae9710aa06c945091c0da7aa59fde3e9aebfb6c0bcf9c667b67eb209edf9",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
@@ -6094,8 +6097,8 @@
             "ability_name": "stonewright/rescue-rollback",
             "mcp_name": "stonewright-rescue-rollback",
             "kind": "Write",
-            "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
-            "output_schema_hash": "24cb95dd9b842466c34f910691322c18054472ae547b14da52f7c8c1fd755556",
+            "input_schema_hash": "1a54f1674af2f4af4a812b17e2db1bf6858212fc36cbbf232a5542a8454fe6fb",
+            "output_schema_hash": "af39c2e8320b85bf7da5e4fbc600cb8ad15277c9dbfa86326c08d0af095c0681",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

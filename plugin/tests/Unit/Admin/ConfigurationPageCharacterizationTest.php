@@ -200,6 +200,9 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 				'stonewright_settings stonewright_elementor_v4_atomic boolean default=false',
 				'stonewright_settings stonewright_unsplash_access_key string default=\'\'',
 				'stonewright_settings stonewright_pexels_api_key string default=\'\'',
+				'stonewright_settings stonewright_change_ledger_days integer default=NULL',
+				'stonewright_settings stonewright_change_ledger_max_changes integer default=NULL',
+				'stonewright_settings stonewright_change_ledger_max_bytes integer default=NULL',
 			],
 			$saved
 		);

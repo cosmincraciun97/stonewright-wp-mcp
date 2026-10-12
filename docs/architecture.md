@@ -637,6 +637,20 @@ compact, task-aware response that includes:
 - MCP tool naming hints
 - a **typed-tool hint** (`fast_path.routing_hint`) naming the typed ability for
   the post meta, option, Elementor data, or menu work the task mentions
+- the **next tools for the task** (`fast_path.ordered_tools`), in call order,
+  without the start tools: the task-start response is the start, so
+  `stonewright-context-bootstrap`, `stonewright-task-start` and
+  `stonewright-tool-profile` are not listed again for the same goal. An
+  Elementor build lists the live schema and the design evidence plan before the
+  write and the result check after it; an Elementor or WordPress text change
+  reads a bounded outline or the one page and does not load the design flow;
+  skills loading and the production-safe confirmation token stay in the list
+  where they apply. A start tool returns to the list only when something is
+  still unsettled: `stonewright-task-start` while the Elementor architecture
+  blocks the write until a start names the post or target, and
+  `stonewright-tool-profile` while a needed tool is not callable yet. A new
+  goal, site, mode or sign-in is a new `stonewright-task-start` call. The rule
+  bodies stay one call away through `hard_rules.tool`
 - recommended external MCPs such as Playwright for browser work
 - a short-lived context token for write abilities
 - the native rule registry **digest** plus the tool that resolves it

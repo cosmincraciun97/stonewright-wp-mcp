@@ -139,6 +139,141 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertLessThan( 3600, strlen( wp_json_encode( $result ) ?: '' ) );
 	}
 
+	/** @var list<string> */
+	private const START_TOOLS = [ 'stonewright-context-bootstrap', 'stonewright-task-start', 'stonewright-tool-profile' ];
+
+	/**
+	 * @return list<string>
+	 */
+	private function ordered_tools_after_start( string $task, string $surface, string $intent = 'write', array $extra = [] ): array {
+		$result = ( new TaskStart() )->execute(
+			array_merge(
+				[
+					'task'    => $task,
+					'surface' => $surface,
+					'intent'  => $intent,
+				],
+				$extra
+			)
+		);
+		self::assertIsArray( $result );
+		self::assertSame( 'compact', $result['response_mode'] );
+		self::assertArrayHasKey( 'ordered_tools', $result['fast_path'] );
+
+		return $result['fast_path']['ordered_tools'];
+	}
+
+	public function test_ordered_tools_do_not_repeat_the_start_for_a_simple_wordpress_edit(): void {
+		$ordered = $this->ordered_tools_after_start( 'Update an existing post title and excerpt.', 'wordpress' );
+
+		foreach ( self::START_TOOLS as $tool ) {
+			self::assertNotContains( $tool, $ordered );
+		}
+		self::assertContains( 'stonewright-content-get-page', $ordered );
+		// A text edit does not load the visual tree or the design flow.
+		foreach ( $ordered as $tool ) {
+			self::assertStringNotContainsString( 'elementor', $tool );
+			self::assertStringNotContainsString( 'design-', $tool );
+		}
+	}
+
+	public function test_ordered_tools_for_an_elementor_build_run_schema_and_evidence_before_the_write_and_close_after_it(): void {
+		$ordered = $this->ordered_tools_after_start( 'Build a hero section on the Elementor home page from the Figma design.', 'elementor' );
+
+		foreach ( self::START_TOOLS as $tool ) {
+			self::assertNotContains( $tool, $ordered );
+		}
+		$schema = array_search( 'stonewright-elementor-schema', $ordered, true );
+		$plan   = array_search( 'stonewright-design-native-plan', $ordered, true );
+		$write  = array_search( 'stonewright-elementor-v3-build-page-from-spec', $ordered, true );
+		$verify = array_search( 'stonewright-elementor-post-write-verify', $ordered, true );
+		self::assertIsInt( $schema );
+		self::assertIsInt( $plan );
+		self::assertIsInt( $write );
+		self::assertIsInt( $verify );
+		self::assertLessThan( $write, $schema, 'The live schema comes before the write.' );
+		self::assertLessThan( $write, $plan, 'The design evidence plan comes before the write.' );
+		self::assertGreaterThan( $write, $verify, 'The result is verified after the write.' );
+	}
+
+	public function test_ordered_tools_for_an_elementor_text_change_read_a_bounded_outline_not_the_whole_tree(): void {
+		$ordered = $this->ordered_tools_after_start( 'Change the heading text on the Elementor home page to "Our story".', 'elementor' );
+
+		foreach ( self::START_TOOLS as $tool ) {
+			self::assertNotContains( $tool, $ordered );
+		}
+		self::assertSame(
+			[
+				'stonewright-elementor-v3-get-page-structure',
+				'stonewright-elementor-schema',
+				'stonewright-elementor-v3-batch-mutate',
+				'stonewright-elementor-post-write-verify',
+			],
+			$ordered
+		);
+		self::assertNotContains( 'stonewright-elementor-build-tree', $ordered );
+		self::assertNotContains( 'stonewright-elementor-page-digest', $ordered );
+		self::assertNotContains( 'stonewright-design-native-plan', $ordered );
+		self::assertNotContains( 'stonewright-elementor-v3-build-page-from-spec', $ordered );
+	}
+
+	public function test_ordered_tools_keep_loading_matched_skills(): void {
+		$ordered = $this->ordered_tools_after_start( 'Import the WooCommerce product catalog from a CSV.', 'woocommerce' );
+
+		self::assertSame( 'stonewright-skills-get', $ordered[0] );
+		foreach ( self::START_TOOLS as $tool ) {
+			self::assertNotContains( $tool, $ordered );
+		}
+	}
+
+	public function test_ordered_tools_name_the_confirmation_token_before_a_destructive_write_in_production_safe_mode(): void {
+		update_option( 'stonewright_mode', 'production-safe', false );
+		$ordered = $this->ordered_tools_after_start( 'Delete the old pricing post and remove its excerpt.', 'wordpress' );
+
+		self::assertContains( 'stonewright-security-issue-confirmation-token', $ordered );
+		self::assertNotContains( 'stonewright-task-start', $ordered );
+	}
+
+	public function test_ordered_tools_keep_task_start_when_the_architecture_blocks_the_write(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_version'] = static fn (): string => '4.1.3';
+		$ordered = $this->ordered_tools_after_start( 'Build a Figma page in Elementor', 'elementor' );
+
+		// The blocker is cleared by a new start with post_id or target_architecture, which is a changed goal input.
+		self::assertContains( 'stonewright-task-start', $ordered );
+		self::assertNotContains( 'stonewright-elementor-v3-build-page-from-spec', $ordered );
+		self::assertNotContains( 'stonewright-elementor-v3-batch-mutate', $ordered );
+		self::assertNotContains( 'stonewright-context-bootstrap', $ordered );
+	}
+
+	public function test_ordered_tools_keep_tool_profile_when_the_needed_tools_are_not_callable_yet(): void {
+		// No MCP session id: the session profile cannot widen the surface, so the needed tools stay hidden.
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+		$ordered = $this->ordered_tools_after_start( 'Build a hero section on the Elementor home page from the Figma design.', 'elementor' );
+
+		self::assertSame( 'stonewright-tool-profile', $ordered[0] );
+		self::assertNotContains( 'stonewright-task-start', $ordered );
+		self::assertNotContains( 'stonewright-context-bootstrap', $ordered );
+		self::assertContains( 'stonewright-elementor-post-write-verify', $ordered );
+	}
+
+	public function test_ordered_tools_stay_inside_the_compact_payload_budget(): void {
+		$result = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Implement a responsive Elementor landing-page hero from a supplied design image.',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertLessThan( 3750, strlen( wp_json_encode( $result ) ?: '' ) );
+		// Two floor rows were kept before the ordered tools changed; no further row is trimmed to make room for them.
+		self::assertGreaterThanOrEqual( 2, count( $result['context']['visual_quality_contract']['anti_slop_floor'] ?? [] ) );
+		self::assertSame( 'stonewright-rules-get', $result['hard_rules']['tool'], 'The rule bodies stay one named call away.' );
+		self::assertNotSame( '', $result['hard_rules']['digest'] );
+	}
+
 	public function test_task_start_signals_relist_when_admin_surface_is_full(): void {
 		update_option( 'stonewright_mcp_surface', 'full', false );
 		$result = ( new TaskStart() )->execute(

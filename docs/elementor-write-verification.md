@@ -110,18 +110,32 @@ or generation.
   `css_version_not_changed`;
 - HTTP probes for the target CSS and any existing
   `custom-frontend.min.css` / `custom-pro-widget-nav-menu.min.css` assets.
-  Probes are anonymous and same-origin. A redirect chain of at most two
-  same-origin hops (same scheme, host and port, never a login page) that ends
-  in HTTP 200 `text/css` with the written bytes is `verified`, and the probe
-  records `redirect_hops`. A cross-origin, downgraded or looping redirect fails
-  with `stonewright_elementor_css_probe_unsafe_redirect` before any write. A
-  redirect to a login page or to any page that is not the CSS, a 401 or a 403,
-  is access control in front of the file: `delivery_status` is `blocked`, the
-  call answers `ok: true` with `warnings`
-  (`stonewright_elementor_css_delivery_protected`) and a `repair` text, and the
-  layout must not be rebuilt because of it. A file that was delivered before the
-  write and is not after it fails with `stonewright_elementor_css_probe_failed`
-  and is rolled back;
+  Probes are anonymous and never go to another origin than the site. A redirect
+  chain of at most two same-origin hops (same scheme, host and port, never a
+  login page) that ends in HTTP 200 `text/css` with the written bytes is
+  `verified`, and the probe records `redirect_hops`. A cross-origin, downgraded
+  or looping redirect fails with `stonewright_elementor_css_probe_unsafe_redirect`
+  before any write, and the error says which kind it was and what to change.
+- Once the file is written and verified on disk, what the anonymous probe finds
+  never turns the call into a failure. The call answers `ok: true`, with a
+  `delivery_cause` on the result and on each probe row, a `warnings` entry that
+  names the cause in plain words, and a `repair` text with the next step. The
+  layout must not be rebuilt because of it:
+
+  | `delivery_cause` | Found | `delivery_status` | Warning code |
+  |---|---|---|---|
+  | `login_redirect`, `login_page` | A redirect to the login page, or a login page answered in place of the file | `blocked` | `stonewright_elementor_css_delivery_protected` |
+  | `http_401`, `http_403` | Authentication or a firewall refuses the file | `blocked` | `stonewright_elementor_css_delivery_protected` |
+  | `other_page_html`, `redirect_to_other_page` | An HTML page (maintenance, coming soon, a security challenge) or a redirect to a page that is not the stylesheet | `blocked` | `stonewright_elementor_css_delivery_protected` |
+  | `http_5xx`, `no_response` | HTTP 5xx (for example a maintenance mode answering 503), a timeout or no connection | `not_checked` | `stonewright_elementor_css_delivery_unverified` |
+  | `http_404`, `http_<4xx>`, `not_css` | Another 4xx, or an answer that is not CSS, on a URL that was not delivered before the write | `failed` | `stonewright_elementor_css_delivery_unverified` |
+  | `other_origin_not_probed` | The uploads URL is on another origin (a CDN or an offload plugin); it is never requested | `not_checked` | `stonewright_elementor_css_delivery_unverified` |
+
+  A file that was delivered before the write and answers with a 404, a non-CSS
+  body or a redirect to another page after it fails with
+  `stonewright_elementor_css_probe_failed` and is rolled back. A login page,
+  401, 403, 5xx, no answer and another HTML page after the write are changes of
+  the environment, not evidence against the written file, and keep it;
 - collateral-change and rollback status;
 - backup snapshot id and `effect_verified` only when the requested effect
   actually closed.
@@ -168,7 +182,29 @@ other host, CDN or page cache.
 `stonewright-elementor-post-write-verify` reports:
 
 - rendered byte count and SHA-256, never raw page HTML;
-- pass/fail for requested Elementor element IDs;
+- pass/fail for requested Elementor element IDs, found by the markers the
+  element's kind renders: a V3 element or a V4 container (`e-div-block`,
+  `e-flexbox`, `e-grid`, the accordion and list families) by `data-id` or the
+  `elementor-element-<id>` class; V4 tabs, background video and form elements by
+  `data-id`; V4 leaf widgets (`e-heading`, `e-paragraph`, `e-button`,
+  `e-image`, `e-svg`, `e-divider`) by `data-interaction-id`; `e-youtube` and
+  `e-self-hosted-video` by `data-id` or `data-interaction-id`. An id matches as a
+  whole token, so `abc` is not found in `abcd`. Each check lists the
+  `markers_checked` and the `matched_marker`;
+- for every element that is not found a `reason`, decided from evidence:
+  `not_in_document` (the id is not in the stored tree), `not_rendered` (the
+  document rendered and the element did not; an `e-*` element also gets a note
+  when the atomic-elements experiment is off), `render_empty`,
+  `password_protected`, `not_built_with_elementor`, `no_elementor_data`,
+  `cached_html_suspected` (the stored tree has the element, the render lacks it
+  and Elementor's element cache holds an unexpired entry for the post) or
+  `renderer_failed` (the exception class only). `missing_elements` lists them,
+  and `render_context` gives the evidence: `post_status`, `password_protected`,
+  `built_with_elementor`, `element_cache_active`, `rendered_bytes` and
+  `atomic_elements_active`. A post that is not published is still verified
+  (Elementor renders drafts) and `notes` says an anonymous visitor cannot see it;
+- on a failure a plain `message` that names up to five missing ids with their
+  reasons and the next step, so the Audit Log row carries it;
 - hashed pass/fail receipts for requested content markers;
 - a browser recipe that explicitly keeps visual verification open.
 
@@ -209,10 +245,29 @@ The live Elementor schema is authoritative. Before the write:
   `hidden`;
 - keep unknown settings unchanged.
 
-A dry-run error can return `schema_requests`. Read each requested schema once,
-replace only rejected settings, then rerun one consolidated dry-run. Repeated
-guess-and-retry writes are a process defect.
+A refused batch returns `rejected_settings`: for each rejected setting the
+operation, the element or parent, the widget type, the setting, what was
+received, what the live control accepts (`allowed_values`, `units`,
+`responsive_keys`, `requires`) and an example. Replace those values, then rerun
+one consolidated dry-run. A dry-run error can also return `schema_requests`; read
+each requested schema once, for a setting that has no example. Repeated
+guess-and-retry writes are a process defect. See
+[Elementor V3 schema repository](elementor-v3-schema-repository.md#when-a-setting-is-refused).
 
+## Troubleshooting a failed call
+
+Every failed call carries a message that says what failed, and the Audit Log row
+keeps it. What to read, and what to send next:
+
+| Code | Read | Next call |
+|---|---|---|
+| `stonewright_batch_operation_failed` with cause `stonewright_elementor_settings_invalid` | `rejected_settings`: operation, element or parent, widget type, setting, received value, `allowed_values`, `units`, `requires`, `example` | The same batch with only the rejected values replaced, as a dry run first |
+| `stonewright_batch_operation_failed` with another cause | `items[].error` and the message (`Operation 0 failed: ...`); a breakpoint refusal says to add the breakpoint to `responsive_scope` | The batch with that operation corrected |
+| `stonewright_elementor_frontend_verification_failed` | `missing_elements` (element id, widget type, `reason`), `render_context`, `message` | The step the reason names: clear the Elementor cache for `cached_html_suspected`, verify in a logged-in browser for `password_protected`, re-read the tree for `not_in_document` |
+| `stonewright_elementor_css_delivery_protected`, `stonewright_elementor_css_delivery_unverified` (warnings of an `ok: true` result) | `delivery_cause`, the warning `message` and `repair` | Nothing in Elementor: check the stylesheet URL in a logged-out browser and the host, firewall, login or CDN rule in front of it |
+| `stonewright_elementor_css_probe_failed` | `rollback_status: succeeded` | Make the stylesheet URL answer 200 `text/css` to a logged-out request, then regenerate once |
+| `stonewright_not_found` from `section-reuse-extract` | `reason` and, for a user who may edit the post, `offered_statuses` | A `post_id` from `section-reuse-find` |
+| `stonewright_section_not_found` from `section-reuse-extract` | `valid_locators`, `closest` | One of the listed locators |
 ## Measurement contract
 
 Record source and live measurements in one compact table before applying

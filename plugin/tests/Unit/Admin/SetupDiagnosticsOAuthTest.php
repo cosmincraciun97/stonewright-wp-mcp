@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\SetupDiagnostics;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
+use Stonewright\WpMcp\Authorization\WordPress\ClientDocumentRefusals;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Authorization\WordPress\RegistrationEndpoint;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
@@ -62,6 +63,40 @@ final class SetupDiagnosticsOAuthTest extends TestCase {
 		HttpSurface::use_site( HttpRig::site( true, 'production', 'pretty', 'http://example.test' ) );
 
 		self::assertSame( 'problem', self::checks( [ 'method' => 'oauth-http' ] )['oauth_transport']['status'] );
+	}
+
+	public function test_without_a_refused_client_document_the_report_says_so(): void {
+		$check = self::checks( [ 'method' => 'oauth-http' ] )['oauth_client_documents'];
+
+		self::assertSame( 'info', $check['status'] );
+		self::assertStringContainsString( 'No client metadata document', (string) $check['summary'] );
+	}
+
+	/** @dataProvider refusals */
+	public function test_a_refused_client_document_is_reported_with_its_reason( string $reason, string $detail, string $expected ): void {
+		ClientDocumentRefusals::record( 'client.example.test', $reason, $detail, StorageRig::T );
+
+		$check = self::checks( [ 'method' => 'oauth-http' ] )['oauth_client_documents'];
+
+		self::assertSame( 'warning', $check['status'] );
+		self::assertStringContainsString( 'client.example.test', (string) $check['summary'] );
+		self::assertStringContainsString( $expected, (string) $check['summary'] );
+		self::assertNotSame( '', (string) $check['remedy'] );
+	}
+
+	public function refusals(): array {
+		return [
+			'firewall'          => [ 'http_status', '403', 'HTTP 403' ],
+			'not found'         => [ 'http_status', '404', 'HTTP 404' ],
+			'transport'         => [ 'fetch_failed', 'http_request_failed', 'http_request_failed' ],
+			'dns'               => [ 'dns_empty', '', 'did not resolve' ],
+			'private address'   => [ 'non_public_address', '', 'not public' ],
+			'too large'         => [ 'too_large', '', 'too large' ],
+			'not json'          => [ 'invalid_document', '', 'not a JSON object' ],
+			'other client id'   => [ 'client_id_mismatch', '', 'does not match' ],
+			'secret'            => [ 'has_secret', '', 'shared secret' ],
+			'metadata'          => [ 'metadata_refused', 'redirect_uris', 'redirect_uris' ],
+		];
 	}
 
 	public function test_probes_see_the_challenge_and_a_self_test_registration_that_leaves_no_client(): void {

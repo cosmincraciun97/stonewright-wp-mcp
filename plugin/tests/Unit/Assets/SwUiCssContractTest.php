@@ -48,6 +48,9 @@ final class SwUiCssContractTest extends TestCase {
 	 */
 	private const ALLOWED_TO_NAME_THE_LAYER = [
 		'includes/Admin/AdminBootstrap.php',
+		// Rescue prints its buttons, links and fields with the layer's helpers and its stylesheet only places them.
+		'includes/Admin/RescuePage.php',
+		'assets/admin/pages/rescue.css',
 		// The frame prints the band, the page header and the tab bar of a page with tabs with the layer's helpers.
 		'includes/Admin/AdminShell.php',
 		// The Overview is the first page built wholly from the layer; its stylesheet only places the sparkline.
@@ -119,6 +122,7 @@ final class SwUiCssContractTest extends TestCase {
 		'includes/Admin/ChangeDetail.php',
 		'includes/Admin/ChangeUndo.php',
 		'includes/Admin/ChangeLabels.php',
+		'includes/Admin/ChangeHistoryRetention.php',
 		'assets/admin/pages/changes.css',
 		'assets/admin/pages/changes.js',
 	];

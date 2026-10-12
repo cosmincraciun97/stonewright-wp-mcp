@@ -68,10 +68,10 @@ final class HelpTabs {
 		$hub     = (string) $entry['hub'];
 		$related = '';
 		foreach ( MenuRegistry::hub_entries( $hub ) as $sibling ) {
-			if ( $sibling['slug'] === $entry['slug'] || ! current_user_can( $sibling['capability'] ) || str_contains( $related, 'page=' . $sibling['slug'] . '"' ) ) {
+			if ( $sibling['slug'] === $entry['slug'] || '' !== $sibling['parent'] || ! current_user_can( $sibling['capability'] ) || str_contains( $related, 'page=' . $sibling['slug'] . '"' ) ) {
 				continue;
 			}
-			$related .= '<li><a href="' . esc_url( add_query_arg( [ 'page' => $sibling['slug'] ], admin_url( 'admin.php' ) ) ) . '">' . esc_html( $sibling['label'] ) . '</a></li>';
+			$related .= '<li><a href="' . esc_url( add_query_arg( [ 'page' => $sibling['slug'] ], admin_url( 'admin.php' ) ) ) . '">' . esc_html( '' !== $sibling['menu_label'] ? $sibling['menu_label'] : $sibling['label'] ) . '</a></li>';
 		}
 
 		$html .= '<p>' . esc_html(

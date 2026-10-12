@@ -1,14 +1,16 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { build } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, beforeAll } from 'vitest';
 import {
 	DirectIncidentStore,
 	type DirectIncidentFailure,
 } from '../src/direct/incidents.js';
+import { expectPrivateStorage } from './helpers/private-storage.js';
+import { OAUTH_WARMUP_TIMEOUT_MS, createOAuthTestDirectory, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 
 function fingerprint(site: string): string {
 	return createHash('sha256').update(site).digest('hex');
@@ -28,6 +30,9 @@ function failure(overrides: Partial<DirectIncidentFailure> = {}): DirectIncident
 
 describe('DirectIncidentStore', () => {
 	const spawnedChildren: Array<ReturnType<typeof spawn>> = [];
+
+	// On Windows the private-storage check starts a native ACL helper; build it once, outside the first test.
+	beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
 
 	afterEach(() => {
 		for (const child of spawnedChildren.splice(0)) {
@@ -112,7 +117,8 @@ describe('DirectIncidentStore', () => {
 	});
 
 	it('stores only bounded normalized fields with private permissions', () => {
-		const baseDir = mkdtempSync(join(tmpdir(), 'sw-direct-incidents-'));
+		// The state directory carries a private ACL on Windows, where the file modes below do not apply.
+		const baseDir = createOAuthTestDirectory('sw-direct-incidents-');
 		const siteFingerprint = fingerprint('site-a');
 		const store = new DirectIncidentStore(baseDir, siteFingerprint);
 		store.observeFailure(failure({
@@ -129,8 +135,7 @@ describe('DirectIncidentStore', () => {
 		expect(body).not.toContain('private-cookie');
 		expect(body).not.toContain('site-a');
 		expect(body).not.toContain('arguments');
-		expect(statSync(path).mode & 0o777).toBe(0o600);
-		expect(statSync(join(baseDir, 'incidents')).mode & 0o777).toBe(0o700);
+		expectPrivateStorage(path, join(baseDir, 'incidents'));
 	});
 
 	it('migrates pre-envelope incident rows without discarding history', () => {

@@ -93,8 +93,13 @@ final class TaskStartRoutingHintTest extends TestCase {
 
 		self::assertArrayNotHasKey( 'routing_hint', $start['fast_path'] );
 		self::assertLessThan( 3750, strlen( (string) wp_json_encode( $start ) ) );
-		// No contract field was trimmed to make room.
-		self::assertSame( $base['context']['visual_quality_contract'], $start['context']['visual_quality_contract'] );
+		// The hint took no contract field. This task also matches a skill, so its ordered tools name skills-get and may
+		// shed a lower-ranked floor row under the cap; what stays is a leading part of the same floor, with the same count.
+		$base_floor  = $base['context']['visual_quality_contract']['anti_slop_floor'];
+		$start_floor = $start['context']['visual_quality_contract']['anti_slop_floor'];
+		self::assertNotEmpty( $start_floor );
+		self::assertSame( array_slice( $base_floor, 0, count( $start_floor ) ), $start_floor );
+		self::assertSame( $base['context']['visual_quality_contract']['floor_count'], $start['context']['visual_quality_contract']['floor_count'] );
 	}
 
 	/**

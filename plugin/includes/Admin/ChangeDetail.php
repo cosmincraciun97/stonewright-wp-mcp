@@ -86,7 +86,7 @@ final class ChangeDetail {
 		);
 		$body   = Html::element( 'div', [ 'class' => 'sw-ui-dialog__body' ], self::summary( $row ) . $tabs . $panels );
 		$undo   = ChangeUndo::parts( $row, $carry, $undo_open );
-		$footer = Html::element( 'div', [ 'class' => 'sw-ui-dialog__footer' ], $undo['control'] );
+		$footer = Html::element( 'div', [ 'class' => 'sw-ui-dialog__footer', 'data-sw-actions' => true ], $undo['control'] );
 
 		return Html::element(
 			'dialog',

@@ -419,6 +419,8 @@ final class ConfigurationPage {
 			'default'           => '',
 			'sanitize_callback' => self::secret_sanitizer( 'stonewright_pexels_api_key' ),
 		] );
+
+		ChangeHistoryRetention::register_settings();
 	}
 
 	/**

@@ -1,6 +1,6 @@
 {
 	"name": "@stonewright/companion",
-	"version": "1.0.0-beta.15",
+	"version": "1.0.0-beta.16",
 	"description": "Node companion for the Stonewright WordPress MCP plugin: WP-CLI, health checks, and optional MCP HTTP proxy.",
 	"type": "module",
 	"license": "MIT",
@@ -53,6 +53,7 @@
 		"typecheck": "tsc --noEmit",
 		"tokens:measure": "node scripts/measure-tool-surface.mjs",
 		"contracts:generate": "node scripts/generate-direct-tools-contract.mjs",
+		"skills:manifest": "node scripts/generate-builtin-skills-manifest.mjs",
 		"catalog:generate": "node scripts/generate-client-catalog.mjs",
 		"catalog:check": "node scripts/generate-client-catalog.mjs --check",
 		"contracts:compat": "vitest run tests/direct-tools-contract.test.ts",

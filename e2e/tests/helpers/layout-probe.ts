@@ -1,12 +1,17 @@
 /**
  * The layout check of the Stonewright admin pages, shared by `admin-layout.spec.ts`.
  *
- * Four measurements, each a list of offenders (empty is a pass) so a failing run names the element:
+ * Five measurements, each a list of offenders (empty is a pass) so a failing run names the element:
  *
  * - controls that share a row have the same height (within 1px);
  * - controls that share a row are centred on the same line (within 1px);
  * - no control and no text runs past the edge of the box that holds it, unless that box clips or scrolls on purpose;
- * - no two interactive controls overlap.
+ * - no two interactive controls overlap;
+ * - every action group (`.sw-ui-actions`, `[data-sw-actions]`, the one row a page puts its buttons in) holds controls of
+ *   the height of their size tier (`--sw-control-h`, `-sm`, `-xs`: the height a button of that size has in the layer at
+ *   this width, found by measuring a hidden reference of the same size), level on one top, with one gap between
+ *   neighbours (the group's own `column-gap`), on one line when they fit on one, and with the text that explains them
+ *   under the row.
  *
  * "Share a row" means two controls sit in the same small layout group (their nearest common ancestor is at most three
  * levels above each) and their vertical extents overlap by at least half of the smaller one. A page whose controls
@@ -23,6 +28,10 @@ export interface LayoutProbe {
 	overflows: string[];
 	/** Pairs of interactive controls whose boxes overlap, as "a.x overlaps button.y". */
 	overlaps: string[];
+	/** Action groups that were measured. A populated page has some: a fixture that has none proves nothing. */
+	actionGroups: number;
+	/** Action groups that break the rules above, as "group y=120: button.sw-ui-btn 36px, the height of its size is 32px". */
+	actionGroupMismatches: string[];
 }
 
 /**
@@ -238,11 +247,106 @@ export function probeLayout(options: { scope: string }): LayoutProbe {
 		}
 	}
 
+	// 5. Action groups.
+	const groups = Array.from(root.querySelectorAll<HTMLElement>('.sw-ui-actions, [data-sw-actions]')).filter((el) => visible(el) && !excluded(el));
+	const actionGroupMismatches: string[] = [];
+	let measuredGroups = 0;
+	// The height a control of this size has in the layer at this width: a hidden reference of the same size, in the same
+	// scope, so the narrow-screen tiers (44px and 40px at 782px and below) are the layer's own and not copied here.
+	const referenceHeight = (group: HTMLElement, el: HTMLElement): number => {
+		const tag = el.matches('select') ? 'select' : el.matches('input') ? 'input' : 'button';
+		const reference = document.createElement(tag);
+		reference.className = Array.from(el.classList)
+			.filter((name) => ['sw-ui-btn', 'sw-ui-btn--sm', 'sw-ui-btn--xs', 'sw-ui-input', 'sw-ui-select'].includes(name))
+			.join(' ');
+		reference.setAttribute('aria-hidden', 'true');
+		reference.setAttribute('tabindex', '-1');
+		reference.setAttribute('style', 'position:absolute;visibility:hidden;pointer-events:none;');
+		if (tag === 'button') {
+			reference.textContent = 'x';
+		}
+		group.appendChild(reference);
+		const height = reference.getBoundingClientRect().height;
+		reference.remove();
+		return height;
+	};
+	groups.forEach((group) => {
+		const members = Array.from(group.querySelectorAll<HTMLElement>(controlSelector)).filter(
+			(el) => visible(el) && !excluded(el) && !el.matches('.sw-ui-btn--icon, [role="tab"], .button-link, .sw-ui-btn--link'),
+		);
+		if (!members.length) {
+			return;
+		}
+		measuredGroups++;
+		const boxes = members.map((el) => el.getBoundingClientRect());
+		const y = Math.round(Math.min(...boxes.map((box) => box.top + window.scrollY)));
+		const where = `group ${describe(group)} y=${y}`;
+		const style = getComputedStyle(group);
+
+		// The height of the size tier. A control taller than its tier is one whose label wrapped, or one a page sized.
+		members.forEach((el, index) => {
+			const expected = referenceHeight(group, el);
+			if (expected > 1 && Math.abs(boxes[index].height - expected) > 1) {
+				actionGroupMismatches.push(`${where}: ${describe(el)} "${(el.textContent ?? '').trim().slice(0, 24)}" is ${Math.round(boxes[index].height * 10) / 10}px, the height of its size is ${expected}px`);
+			}
+		});
+
+		// Lines: controls whose vertical extents overlap by more than half share a line.
+		const lines: number[][] = [];
+		boxes.forEach((box, index) => {
+			const line = lines.find((members_) => members_.some((other) => Math.min(box.bottom, boxes[other].bottom) - Math.max(box.top, boxes[other].top) > Math.min(box.height, boxes[other].height) / 2));
+			if (line) {
+				line.push(index);
+			} else {
+				lines.push([index]);
+			}
+		});
+		lines.forEach((line) => {
+			const tops = line.map((index) => boxes[index].top);
+			if (Math.max(...tops) - Math.min(...tops) > 1) {
+				actionGroupMismatches.push(`${where}: tops differ by ${Math.round((Math.max(...tops) - Math.min(...tops)) * 10) / 10}px on one line (${line.map((index) => describe(members[index])).join(', ')})`);
+			}
+			const heights = line.map((index) => boxes[index].height);
+			if (Math.max(...heights) - Math.min(...heights) > 1) {
+				actionGroupMismatches.push(`${where}: heights differ on one line (${line.map((index) => `${describe(members[index])} ${Math.round(boxes[index].height * 10) / 10}`).join(', ')})`);
+			}
+			// One gap between neighbours: the group's own column gap.
+			const ordered = [...line].sort((a, b) => boxes[a].left - boxes[b].left);
+			const wanted = parseFloat(style.columnGap);
+			for (let k = 1; k < ordered.length; k++) {
+				const gap = boxes[ordered[k]].left - boxes[ordered[k - 1]].right;
+				if (Number.isFinite(wanted) && Math.abs(gap - wanted) > 1) {
+					actionGroupMismatches.push(`${where}: gap of ${Math.round(gap * 10) / 10}px between ${describe(members[ordered[k - 1]])} and ${describe(members[ordered[k]])}, the group's gap is ${wanted}px`);
+				}
+			}
+		});
+
+		// Controls that fit on one line are on one line: a row that stacks while there is room is the row that was reported.
+		if (members.length > 1 && lines.length > 1) {
+			const gap = Number.isFinite(parseFloat(style.columnGap)) ? parseFloat(style.columnGap) : 0;
+			const needed = boxes.reduce((sum, box) => sum + box.width, 0) + gap * (members.length - 1);
+			if (needed <= group.getBoundingClientRect().width - 1) {
+				actionGroupMismatches.push(`${where}: ${lines.length} lines for ${members.length} controls that fit on one`);
+			}
+		}
+
+		// What explains the row is under it.
+		const note = group.nextElementSibling;
+		if (note instanceof HTMLElement && note.matches('.sw-rescue-note, .sw-ui-hint, .sw-ui-field__help, [data-sw-action-help]') && visible(note)) {
+			const under = note.getBoundingClientRect().top - Math.max(...boxes.map((box) => box.bottom));
+			if (under < -1) {
+				actionGroupMismatches.push(`${where}: its help text starts ${Math.round(-under)}px above the bottom of the row`);
+			}
+		}
+	});
+
 	return {
 		controls: controls.length,
 		heightMismatches,
 		centreMismatches,
 		overflows: Array.from(overflows),
 		overlaps: Array.from(overlaps),
+		actionGroups: measuredGroups,
+		actionGroupMismatches,
 	};
 }

@@ -40,6 +40,55 @@ final class ClientMetadataTest extends TestCase {
 		}
 	}
 
+	public function test_a_substituting_policy_keeps_only_the_supported_grant_and_response_types(): void {
+		$profile = [ 'grant_types' => [ 'authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ], 'response_types' => [ 'code', 'id_token' ] ] + $this->profile();
+
+		$accepted = ( new ClientMetadataRules() )->accept( $profile, [ 'substitute_unsupported_types' => true ] + $this->policy() );
+
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $accepted['grant_types'] );
+		self::assertSame( [ 'code' ], $accepted['response_types'] );
+	}
+
+	/** @dataProvider unusable_type_lists */
+	public function test_a_substituting_policy_still_needs_the_authorization_code_flow( array $grant_types, array $response_types ): void {
+		try {
+			( new ClientMetadataRules() )->accept( [ 'grant_types' => $grant_types, 'response_types' => $response_types ] + $this->profile(), [ 'substitute_unsupported_types' => true ] + $this->policy() );
+			self::fail( 'Nothing left to substitute with must fail.' );
+		} catch ( OAuthFault $fault ) {
+			self::assertSame( 'invalid_client_metadata', $fault->error() );
+			self::assertNotSame( '', $fault->detail() );
+		}
+	}
+
+	public function unusable_type_lists(): array {
+		return [
+			'refresh only'             => [ [ 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ], [ 'code' ] ],
+			'only unsupported grants'  => [ [ 'client_credentials', 'implicit' ], [ 'code' ] ],
+			'only unsupported answers' => [ [ 'authorization_code' ], [ 'token', 'id_token' ] ],
+			'no grants'                => [ [], [ 'code' ] ],
+		];
+	}
+
+	public function test_without_substitution_an_unsupported_grant_type_is_still_refused(): void {
+		$this->expectException( OAuthFault::class );
+		( new ClientMetadataRules() )->accept( [ 'grant_types' => [ 'authorization_code', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ] ] + $this->profile(), $this->policy() );
+	}
+
+	public function test_a_refusal_names_the_field_and_never_the_value(): void {
+		try {
+			( new ClientMetadataRules() )->accept( [ 'client_name' => str_repeat( 'a', 129 ) ] + $this->profile(), $this->policy() );
+			self::fail( 'An oversized name must fail.' );
+		} catch ( OAuthFault $fault ) {
+			self::assertSame( 'client_name', $fault->detail() );
+		}
+		try {
+			( new ClientMetadataRules() )->accept( [ 'redirect_uris' => [ 'https://example.test/cb#x' ] ] + $this->profile(), $this->policy() );
+			self::fail( 'A fragment callback must fail.' );
+		} catch ( OAuthFault $fault ) {
+			self::assertSame( 'redirect_uris', $fault->detail() );
+		}
+	}
+
 	public function test_real_client_callbacks_register(): void {
 		$redirects = [ 'http://localhost:8787/callback', 'http://127.0.0.1:33418', 'http://[::1]:8123/callback', 'https://editor.example.test/redirect', 'http://localhost:54321/oauth/callback', 'https://assistant.example.test/api/mcp/auth_callback', 'https://chat.example.test/connector/oauth_redirect' ];
 		$accepted = ( new ClientMetadataRules() )->accept( [ 'redirect_uris' => $redirects ] + $this->profile(), [ 'maximum_redirects' => 10 ] + $this->policy() );

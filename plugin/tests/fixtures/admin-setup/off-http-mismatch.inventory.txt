@@ -8,6 +8,7 @@ h4 Cannot sign in to this site 2
 h2 4. Verify the connection
 h2 General
 h2 Stock images
+h2 Change history
 h2 Domain lock
 h2 OAuth sign-in
 h2 Connected OAuth clients
@@ -139,6 +140,9 @@ form action=options.php method=post class="stonewright-settings-form sw-ui-stack
   input type=checkbox name=stonewright_section_reuse id=stonewright_section_reuse value=ask checked data-sw-ui-live-fill=#stonewright_section_reuse_callout_region data-sw-ui-live-fill-from=#stonewright_section_reuse_callout_template
   input type=password name=stonewright_unsplash_access_key id=stonewright_unsplash_access_key value= autocomplete=new-password class=sw-ui-input
   input type=password name=stonewright_pexels_api_key id=stonewright_pexels_api_key value= autocomplete=new-password class=sw-ui-input
+  input type=number name=stonewright_change_ledger_days id=stonewright_change_ledger_days value=90 class=sw-ui-input
+  input type=number name=stonewright_change_ledger_max_changes id=stonewright_change_ledger_max_changes value=500 class=sw-ui-input
+  input type=number name=stonewright_change_ledger_max_mb id=stonewright_change_ledger_max_mb value=100 class=sw-ui-input
   input type=url name=stonewright_companion_url id=stonewright_companion_url value= placeholder=http://127.0.0.1:8765 autocomplete=off class=sw-ui-input
   input type=password name=stonewright_companion_token id=stonewright_companion_token value= autocomplete=new-password class=sw-ui-input
   button type=button class=sw-ui-btn data-sw-ui-reveal=#stonewright_companion_token data-sw-ui-show-label=Show bridge token data-sw-ui-hide-label=Hide bridge token text="Show bridge token"
@@ -568,6 +572,7 @@ stonewright-abilities-settings
 stonewright-application-password
 stonewright-apply-mcp-surface
 stonewright-bridge-token-status
+stonewright-change-history
 stonewright-companion-bridge-env
 stonewright-companion-bridge-env-status
 stonewright-companion-bridge-settings
@@ -581,6 +586,12 @@ stonewright-oauth-connections
 stonewright-verify
 stonewright_app_password_name
 stonewright_app_password_name_help
+stonewright_change_ledger_days
+stonewright_change_ledger_days-help
+stonewright_change_ledger_max_changes
+stonewright_change_ledger_max_changes-help
+stonewright_change_ledger_max_mb
+stonewright_change_ledger_max_mb-help
 stonewright_companion_token
 stonewright_companion_url
 stonewright_elementor_v4_atomic
@@ -799,6 +810,7 @@ sw-ui-card-title-1
 sw-ui-card-title-10
 sw-ui-card-title-11
 sw-ui-card-title-12
+sw-ui-card-title-13
 sw-ui-card-title-2
 sw-ui-card-title-3
 sw-ui-card-title-4

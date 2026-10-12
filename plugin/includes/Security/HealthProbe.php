@@ -51,6 +51,13 @@ final class HealthProbe {
 	/** Key of the agent notice that says probes are unavailable on this host. */
 	public const NOTICE_KEY = 'rescue_probe';
 
+	/**
+	 * What a probe proves, as a closed list of codes (see verdict()): verified, not_started (no request could be made),
+	 * transport_unavailable (requests were made and none could reach a verdict), check_lost (a check that passed before
+	 * the change did not answer now) and site_failed (the site answered with a failure).
+	 */
+	public const VERDICTS = [ 'verified', 'not_started', 'transport_unavailable', 'check_lost', 'site_failed' ];
+
 	private const LEGS = [ 'home', 'admin', 'rest', 'post', 'custom' ];
 
 	/** How many redirects on the site's own origin a leg that carries a mark-only token follows. */
@@ -413,11 +420,16 @@ final class HealthProbe {
 				if ( null === $target ) {
 					return self::leg_result( $leg, 'skipped', 0, 'not_viewable', 0 );
 				}
+				// The address is on the site's own origin before a token is issued for it, and the token is bound to the path
+				// the request will have: a page at the root has no path in its address, and its request path is "/".
+				if ( null === self::same_site_url( $target['url'] ) ) {
+					return self::leg_result( $leg, 'skipped', 0, 'foreign_host', 0 );
+				}
 				$url = add_query_arg( ProbeToken::PARAM, $nonce, $target['url'] );
 				// A draft is shown to the user who may edit it, so its leg carries the login token. A public page is
 				// requested as a visitor, so its leg carries the mark-only token: it marks a probe request and
 				// logs nobody in.
-				$path      = (string) wp_parse_url( $url, PHP_URL_PATH );
+				$path      = self::request_path( $url );
 				$mark_only = ! $target['needs_login'];
 				$token     = $mark_only ? ProbeToken::issue_mark( $path, $nonce ) : ProbeToken::issue( $user_id, $path, $nonce );
 				if ( null === $token ) {
@@ -465,7 +477,7 @@ final class HealthProbe {
 			++$hops;
 			$nonce = bin2hex( random_bytes( 8 ) );
 			$url   = add_query_arg( ProbeToken::PARAM, $nonce, $next );
-			$token = ProbeToken::issue_mark( (string) wp_parse_url( $url, PHP_URL_PATH ), $nonce );
+			$token = ProbeToken::issue_mark( self::request_path( $url ), $nonce );
 			if ( null === $token ) {
 				return self::leg_result( $leg, 'unavailable', 0, 'token_unavailable', (int) ( ( hrtime( true ) - $begun ) / 1_000_000 ) );
 			}
@@ -481,6 +493,48 @@ final class HealthProbe {
 		$http  = (int) wp_remote_retrieve_response_code( $response );
 		$judge = self::classify( $http, (string) wp_remote_retrieve_body( $response ), $leg, $marker );
 		return self::leg_result( $leg, $judge['status'], $http, $judge['reason'], $ms );
+	}
+
+	/**
+	 * The path a request for an address will have. An address on the site's origin with no path (https://example.test or
+	 * https://example.test?p=1) is requested for "/". Only call it with an address that is on the site's origin.
+	 */
+	private static function request_path( string $url ): string {
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		return '' === $path ? '/' : $path;
+	}
+
+	/**
+	 * What a probe proves, as one of VERDICTS. A probe that passed is verified, whatever its coverage: a check that never
+	 * passed is not held against it. A probe that failed is site_failed when a check got a failing answer, and check_lost
+	 * when the only failures are checks that passed before the change and then did not answer (see compare()). A probe
+	 * that could not say is not_started when no request was made (a token that could not be issued, a check that was
+	 * skipped, a probe switched off), and transport_unavailable when requests were made and none reached a verdict
+	 * (no answer, a blocked loopback, a login wall, a redirect).
+	 *
+	 * @param array<string, mixed> $probe
+	 */
+	public static function verdict( array $probe ): string {
+		$status = (string) ( $probe['status'] ?? '' );
+		$legs   = is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [];
+		if ( 'passed' === $status ) {
+			return 'verified';
+		}
+		if ( 'failed' === $status ) {
+			foreach ( $legs as $leg ) {
+				if ( is_array( $leg ) && 'failed' === ( $leg['status'] ?? '' ) && ! str_starts_with( (string) ( $leg['reason'] ?? '' ), 'degraded_' ) ) {
+					return 'site_failed';
+				}
+			}
+			return 'check_lost';
+		}
+		$asked = 0;
+		foreach ( $legs as $leg ) {
+			if ( is_array( $leg ) && 'skipped' !== ( $leg['status'] ?? '' ) && 'token_unavailable' !== ( $leg['reason'] ?? '' ) ) {
+				++$asked;
+			}
+		}
+		return 0 === $asked || 'disabled' === (string) ( $probe['unavailable_reason'] ?? '' ) ? 'not_started' : 'transport_unavailable';
 	}
 
 	/**

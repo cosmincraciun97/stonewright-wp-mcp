@@ -89,3 +89,8 @@
 	margin: auto;
 	z-index: var(--sw-z-modal);
 }
+
+/* The retention line and its warning: one line of help text and a notice, with no space of their own. */
+.sw-changes-page .sw-changes-retention {
+	margin: 0;
+}

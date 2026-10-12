@@ -255,19 +255,116 @@ final class CssRegenerateTest extends TestCase {
 		self::assertArrayNotHasKey( 'repair', $result );
 	}
 
-	public function test_a_failed_delivery_check_that_is_not_access_control_keeps_the_probe_failed_code(): void {
+	/**
+	 * A written, verified file is a success whatever an anonymous request to its URL finds; the warning names the cause and
+	 * the next step. (Before, a 503 here was ok:false with a probe_failed code although the file was written.)
+	 *
+	 * @return array<string, array{0:array<string,mixed>,1:string,2:string,3:string,4:string}> Response, delivery status, warning code, cause, text the sentence holds.
+	 */
+	public static function delivery_causes(): array {
+		$protected   = 'stonewright_elementor_css_delivery_protected';
+		$unverified  = 'stonewright_elementor_css_delivery_unverified';
+		return [
+			'login redirect'            => [ [ 'response' => [ 'code' => 302 ], 'headers' => [ 'location' => 'https://example.test/wp-login.php' ], 'body' => '' ], 'blocked', $protected, 'login_redirect', 'login page' ],
+			'basic auth 401'            => [ [ 'response' => [ 'code' => 401 ], 'headers' => [], 'body' => '' ], 'blocked', $protected, 'http_401', 'HTTP 401' ],
+			'forbidden 403'             => [ [ 'response' => [ 'code' => 403 ], 'headers' => [], 'body' => '' ], 'blocked', $protected, 'http_403', 'HTTP 403' ],
+			'maintenance 200 other page' => [ [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/html' ], 'body' => '<html>Back soon</html>' ], 'blocked', $protected, 'other_page_html', 'HTML page' ],
+			'maintenance 503'           => [ [ 'response' => [ 'code' => 503 ], 'headers' => [], 'body' => '' ], 'not_checked', $unverified, 'http_5xx', 'HTTP 503' ],
+			'not found 404'             => [ [ 'response' => [ 'code' => 404 ], 'headers' => [], 'body' => '' ], 'failed', $unverified, 'http_404', 'HTTP 404' ],
+		];
+	}
+
+	/**
+	 * @dataProvider delivery_causes
+	 * @param array<string,mixed> $response
+	 */
+	public function test_a_written_file_stays_ok_with_a_warning_that_names_the_delivery_cause( array $response, string $delivery, string $code, string $cause, string $text ): void {
 		$this->write_css( 'post-301.css', 'old-post' );
 		$this->configure_update_file( 301 );
-		$url = 'https://example.test/wp-content/uploads/elementor/css/post-301.css';
-		$GLOBALS['stonewright_test_asset_responses'][ $url ] = static fn(): array => [ 'response' => [ 'code' => 503 ], 'headers' => [], 'body' => '' ];
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-301.css'] = static fn(): array => $response;
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertIsArray( $result, $cause );
+		self::assertTrue( $result['ok'], $cause );
+		self::assertTrue( $result['effect_verified'], $cause );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ), $cause );
+		self::assertSame( $delivery, $result['delivery_status'] ?? null, $cause );
+		self::assertSame( $cause, $result['delivery_cause'] ?? null, $cause );
+		self::assertSame( $code, $result['warnings'][0]['code'] ?? null, $cause );
+		self::assertSame( $cause, $result['warnings'][0]['cause'] ?? null, $cause );
+		self::assertStringContainsString( $text, (string) ( $result['warnings'][0]['message'] ?? '' ), $cause );
+		self::assertStringContainsString( 'written and verified on disk', (string) ( $result['warnings'][0]['message'] ?? '' ), $cause );
+		self::assertArrayNotHasKey( 'root_error_code', $result, $cause );
+		self::assertArrayNotHasKey( 'failed_check', $result, $cause );
+		self::assertArrayNotHasKey( 'message', $result, $cause );
+		self::assertStringContainsString( 'Do not rebuild', (string) ( $result['repair'] ?? '' ), $cause );
+		self::assertSame( 'not_needed', $result['rollback_status'] ?? null, $cause );
+		self::assertStringNotContainsString( 'Back soon', (string) wp_json_encode( $result ), $cause );
+	}
+
+	public function test_a_stylesheet_url_on_another_origin_is_not_requested_and_the_write_stays_ok(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$uploads = wp_upload_dir();
+		$GLOBALS['stonewright_test_upload_dir'] = [ 'basedir' => $uploads['basedir'], 'baseurl' => 'https://cdn.example.test/wp-content/uploads' ];
+		$requested = [];
+		$GLOBALS['stonewright_test_asset_responses']['https://cdn.example.test/wp-content/uploads/elementor/css/post-301.css'] = static function ( string $url ) use ( &$requested ): array {
+			$requested[] = $url;
+			return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => '' ];
+		};
+
+		try {
+			$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+		} finally {
+			unset( $GLOBALS['stonewright_test_upload_dir'] );
+		}
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( [], $requested );
+		self::assertSame( 'post-css', $this->read_css( 'post-301.css' ) );
+		self::assertSame( 'not_checked', $result['delivery_status'] ?? null );
+		self::assertSame( 'other_origin_not_probed', $result['delivery_cause'] ?? null );
+		self::assertSame( 'stonewright_elementor_css_delivery_unverified', $result['warnings'][0]['code'] ?? null );
+		self::assertStringContainsString( 'another origin', (string) ( $result['warnings'][0]['message'] ?? '' ) );
+		self::assertStringContainsString( 'Purge the CDN', (string) ( $result['repair'] ?? '' ) );
+		self::assertStringNotContainsString( 'cdn.example.test', (string) wp_json_encode( $result ) );
+	}
+
+	/** The stylesheet URL does not depend on the password of the post, so a protected post regenerates like any other. */
+	public function test_a_password_protected_post_regenerates_with_verified_delivery(): void {
+		$GLOBALS['stonewright_test_posts'][ 301 ]->post_password = 'fixture-post-password';
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
 
 		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
 
 		self::assertIsArray( $result );
-		self::assertFalse( $result['ok'] );
-		self::assertSame( 'not_checked', $result['delivery_status'] ?? null );
-		self::assertSame( 'stonewright_elementor_css_probe_failed', $result['root_error_code'] ?? null );
-		self::assertStringContainsString( 'Do not rebuild', (string) ( $result['repair'] ?? '' ) );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'verified', $result['delivery_status'] ?? null );
+		self::assertArrayNotHasKey( 'warnings', $result );
+		self::assertStringNotContainsString( 'fixture-post-password', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_a_refused_unsafe_redirect_names_the_cause_and_the_next_step(): void {
+		$this->write_css( 'post-301.css', 'old-post' );
+		$this->configure_update_file( 301 );
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-301.css'] = static fn(): array => [
+			'response' => [ 'code' => 302 ],
+			'headers'  => [ 'location' => 'https://elsewhere.test/' ],
+			'body'     => '',
+		];
+
+		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_css_probe_unsafe_redirect', $result->get_error_code() );
+		self::assertStringContainsString( 'HTTP 302', $result->get_error_message() );
+		$data = (array) $result->get_error_data();
+		self::assertSame( 'cross_origin', $data['cause'] ?? null );
+		self::assertStringContainsString( 'Nothing was written', (string) ( $data['repair'] ?? '' ) );
+		self::assertSame( 'old-post', $this->read_css( 'post-301.css' ) );
 	}
 
 	public function test_page_without_post_css_regenerates_with_a_truthful_result(): void {
@@ -534,7 +631,7 @@ final class CssRegenerateTest extends TestCase {
 		$result = ( new CssRegenerate() )->execute( [ 'post_id' => 301 ] );
 
 		self::assertIsArray( $result );
-		self::assertFalse( $result['ok'] );
+		self::assertTrue( $result['ok'] );
 		self::assertSame( [ 'litespeed_cache', 'wordpress_post_cache' ], $result['cache_purge']['ran'] ?? null );
 		self::assertStringContainsString( 'LiteSpeed Cache', (string) ( $result['repair'] ?? '' ) );
 	}
@@ -592,7 +689,7 @@ final class CssRegenerateTest extends TestCase {
 				}
 
 				public function get_url(): string {
-					return 'https://example.test/wp-content/uploads/elementor/css/post-' . $this->post_id . '.css';
+					return rtrim( (string) wp_upload_dir()['baseurl'], '/' ) . '/elementor/css/post-' . $this->post_id . '.css';
 				}
 			};
 		};

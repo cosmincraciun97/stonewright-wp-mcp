@@ -6,8 +6,9 @@
  * it reads without script. Here the open dialog becomes the layer's modal drawer: sw-ui.js opens it, keeps focus
  * inside it, closes it on Escape, the Close control or a click outside, and gives focus back to the row's "View
  * diff" link. This script makes no request and builds no markup; it only opens the dialogs and, when the drawer
- * closes, takes the change out of the address so a reload shows the list. The Undo dialog is part of the page; its
- * form posts to admin-post.php without script too.
+ * closes, takes the change and the result of an Undo out of the address so a reload shows the list, with the filters,
+ * the search and the page the person was on. The Undo dialog is part of the page; its form posts to admin-post.php
+ * without script too, and its Cancel is a link.
  */
 ( function () {
 	'use strict';
@@ -34,8 +35,26 @@
 		window.history.replaceState( null, '', url.toString() );
 	}
 
+	/**
+	 * An address from before `source_change` named the change an Undo acted on in `from`. Only that goes: a date in
+	 * `from` is the list's filter, and closing the drawer must leave the list as it was.
+	 */
+	function legacyOrigin() {
+		var value;
+		if ( typeof URL !== 'function' ) {
+			return false;
+		}
+		value = new URL( window.location.href ).searchParams.get( 'from' );
+		return null !== value && /^cs-[a-f0-9]{24}$/.test( value );
+	}
+
+	/** Closing the drawer takes the drawer and the result of an Undo out of the address, and nothing else. */
 	function leaveAddress() {
-		dropParams( [ 'change', 'view', 'undo', 'undone', 'from' ] );
+		var names = [ 'change', 'view', 'undo', 'undone', 'source_change' ];
+		if ( legacyOrigin() ) {
+			names.push( 'from' );
+		}
+		dropParams( names );
 	}
 
 	function leaveUndoAddress() {
@@ -61,6 +80,7 @@
 		var form;
 		var submit;
 		var status;
+		var phrase;
 		var idle;
 		var busy = false;
 
@@ -73,6 +93,11 @@
 		idle = submit ? submit.textContent : '';
 
 		dialog.addEventListener( 'close', leaveUndoAddress );
+		// The server prints the confirm button enabled, so it works without script; here it waits for the phrase.
+		phrase = dialog.querySelector( '[data-sw-ui-confirm-phrase]' );
+		if ( phrase && submit ) {
+			submit.disabled = phrase.value !== phrase.getAttribute( 'data-sw-ui-confirm-phrase' );
+		}
 		if ( form && submit ) {
 			form.addEventListener( 'submit', function ( event ) {
 				var label;

@@ -495,7 +495,17 @@ final class ElementorData {
 		if ( $validated instanceof \WP_Error ) {
 			return $validated;
 		}
-		if ( self::sorted_by_key( $validated['settings'] ) !== self::sorted_by_key( $after ) ) {
+		$settled = $validated['settings'];
+		foreach ( $validated['warnings'] as $warning ) {
+			// A value the validator only re-types (a number for a select with numeric option keys) is the same setting.
+			if ( 'value_coerced' === ( $warning['code'] ?? '' ) && is_string( $warning['path'] ?? null ) ) {
+				$coerced_key = (string) preg_replace( '/^settings\./', '', $warning['path'] );
+				if ( array_key_exists( $coerced_key, $after ) && array_key_exists( $coerced_key, $settled ) ) {
+					$settled[ $coerced_key ] = $after[ $coerced_key ];
+				}
+			}
+		}
+		if ( self::sorted_by_key( $settled ) !== self::sorted_by_key( $after ) ) {
 			return self::settings_delta_error( $path . '.settings', 'delta_result_mismatch', 'The validated settings delta does not reproduce the proposed document exactly.' );
 		}
 

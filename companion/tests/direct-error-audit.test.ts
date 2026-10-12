@@ -1,12 +1,13 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync, readdirSync, statSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { build } from 'esbuild';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendDirectAudit as appendDirectAuditRaw, directTerminalAuditReceipt, recentRecurringErrors, defaultAuditPath, rotateDirectAudit, withDirectAuditReceiptContext, type DirectAuditEntry, type DirectAuditRotationPolicy } from '../src/direct/audit.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { resetTaskStartSeenForTests } from '../src/direct/writes.js';
+import { expectPrivateStorage } from './helpers/private-storage.js';
+import { OAUTH_WARMUP_TIMEOUT_MS, createOAuthTestDirectory, warmUpOAuthStore } from './helpers/windows-oauth-acl.js';
 
 function appendDirectAudit(entry: DirectAuditEntry, path?: string, rotation?: DirectAuditRotationPolicy) {
 	const identities: Record<string, string> = {
@@ -30,8 +31,11 @@ describe('direct error audit', () => {
 	let stateDir: string;
 	const spawnedChildren: Array<ReturnType<typeof spawn>> = [];
 
+	// On Windows the private-storage check starts a native ACL helper; build it once, outside the first test.
+	beforeAll(warmUpOAuthStore, OAUTH_WARMUP_TIMEOUT_MS);
+
 	beforeEach(() => {
-		stateDir = mkdtempSync(join(tmpdir(), 'sw-err-audit-'));
+		stateDir = createOAuthTestDirectory('sw-err-audit-');
 		resetTaskStartSeenForTests();
 	});
 
@@ -98,7 +102,7 @@ describe('direct error audit', () => {
 		});
 		expect(String(row['request_id'])).toHaveLength(36);
 		expect(String(row['site_fingerprint'])).toHaveLength(64);
-		expect(statSync(path).mode & 0o777).toBe(0o600);
+		expectPrivateStorage(path);
 		const incidentsDir = join(stateDir, 'incidents');
 		expect(existsSync(incidentsDir)).toBe(true);
 		const incidentFiles = readFileSync(path, 'utf8').includes('write_failed');

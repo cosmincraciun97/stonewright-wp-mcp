@@ -74,6 +74,9 @@ final class RemediationHintsTest extends TestCase {
 			'css protected'      => [ 'stonewright_elementor_css_delivery_protected', 'Do not rebuild or re-save the layout' ],
 			'css probe failed'   => [ 'stonewright_elementor_css_probe_failed', 'do not rebuild the layout' ],
 			'css unsafe redirect' => [ 'stonewright_elementor_css_probe_unsafe_redirect', 'Do not rebuild the layout' ],
+			'css unverified'     => [ 'stonewright_elementor_css_delivery_unverified', 'Do not rebuild the layout' ],
+			'frontend verify'    => [ 'stonewright_elementor_frontend_verification_failed', 'missing_elements' ],
+			'settings rejected'  => [ 'stonewright_elementor_settings_invalid', 'rejected_settings' ],
 		];
 	}
 
