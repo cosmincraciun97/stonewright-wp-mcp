@@ -64,7 +64,17 @@ final class RescueRollback extends AbilityKernel {
 					'type'    => 'boolean',
 					'default' => false,
 				],
-				'confirmation_token' => [
+				'force_drift'             => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Roll back even though the item was edited after the change, overwriting those edits. Only after a dry_run showed drift or newer_changes and the person agreed. A site that fails now, with a fault recorded against the change, needs no force.',
+				],
+				'expected_current_sha256' => [
+					'type'        => 'string',
+					'pattern'     => '^[a-fA-F0-9]{32,64}$',
+					'description' => 'The current_sha256 of the dry_run. The rollback stops when the item is not in that state any more.',
+				],
+				'confirmation_token'      => [
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode, except for a dry_run of the rollback action.',
 				],
@@ -114,6 +124,17 @@ final class RescueRollback extends AbilityKernel {
 					'type'  => 'array',
 					'items' => [ 'type' => 'string' ],
 				],
+				'drift'               => [ 'type' => 'boolean' ],
+				'drift_known'         => [ 'type' => 'boolean' ],
+				'requires_force'      => [ 'type' => 'boolean' ],
+				'current_sha256'      => [ 'type' => 'string' ],
+				'expected_sha256'     => [ 'type' => 'string' ],
+				'redo_available'      => [ 'type' => 'boolean' ],
+				'mode'                => [ 'type' => 'string', 'enum' => [ 'normal', 'emergency' ] ],
+				'drift_forced'        => [ 'type' => 'boolean' ],
+				'rollback_change_id'  => [ 'type' => 'string' ],
+				'restorable_again'    => [ 'type' => 'boolean' ],
+				'history'             => [ 'type' => 'string', 'enum' => [ 'recorded', 'ledger_unavailable', 'no_ledger_row', 'not_restorable', 'not_recorded' ] ],
 			],
 			'required'   => [ 'ok', 'incident_id' ],
 		];
@@ -130,10 +151,22 @@ final class RescueRollback extends AbilityKernel {
 				$incident_id = (string) ( $a['incident_id'] ?? '' );
 				// A verified change to code is undone by an administrator at the Rescue page. Say so before
 				// asking for a token that would not change that.
+				$options = [
+					'by'                      => 'ability',
+					'dry_run'                 => ! empty( $a['dry_run'] ),
+					'force_drift'             => ! empty( $a['force_drift'] ),
+					'expected_current_sha256' => isset( $a['expected_current_sha256'] ) && is_string( $a['expected_current_sha256'] ) ? $a['expected_current_sha256'] : '',
+				];
 				if ( 'rollback' === $action && empty( $a['dry_run'] ) ) {
 					$approval = RescueRollbackService::approval_refusal( $incident_id );
 					if ( $approval instanceof \WP_Error ) {
 						return $approval;
+					}
+					// A rollback over a later edit, or of a state that is not the one the dry run showed, is refused here,
+					// before the token below is looked at, so that the refusal does not use it up.
+					$preflight = RescueRollbackService::preflight_refusal( $incident_id, $options );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
 					}
 				}
 				// Only the plan of a rollback is free. A recheck changes the incident (it can close it), so
@@ -150,7 +183,7 @@ final class RescueRollback extends AbilityKernel {
 				if ( 'recheck' === $action ) {
 					return RescueRollbackService::recheck( $incident_id );
 				}
-				return RescueRollbackService::run( $incident_id, [ 'by' => 'ability', 'dry_run' => ! empty( $a['dry_run'] ) ] );
+				return RescueRollbackService::run( $incident_id, $options );
 			}
 		);
 	}

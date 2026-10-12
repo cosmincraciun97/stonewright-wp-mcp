@@ -97,32 +97,6 @@ final class RollbackRecipes {
 	}
 
 	/**
-	 * Whether what the recipe restores from is gone: the snapshot of a post or the restore point of the options. A
-	 * recipe that cannot find its source writes nothing, so asking first lets a caller refuse without touching the entry.
-	 *
-	 * @param array<string, mixed> $entry
-	 */
-	public static function source_missing( array $entry ): bool {
-		try {
-			switch ( self::type( $entry ) ) {
-				case 'post_snapshot':
-					$detail      = self::detail( $entry );
-					$post_id     = (int) ( $detail['post_id'] ?? $entry['resource_key'] ?? 0 );
-					$snapshot_id = '' !== self::ref( $entry ) ? self::ref( $entry ) : (string) ( $detail['snapshot_id'] ?? '' );
-					return $post_id < 1 || '' === $snapshot_id || null === Backup::get_snapshot( $post_id, $snapshot_id );
-				case 'option_restore':
-					$store = get_option( Backup::OPTION_SNAPSHOTS, [] );
-					return '' === self::ref( $entry ) || ! is_array( $store ) || ! isset( $store[ self::ref( $entry ) ] );
-				default:
-					return false;
-			}
-		} catch ( \Throwable $failure ) {
-			unset( $failure );
-			return false;
-		}
-	}
-
-	/**
 	 * One sentence about what the rollback does.
 	 *
 	 * @param array<string, mixed> $entry
@@ -366,14 +340,15 @@ final class RollbackRecipes {
 			return [ 'status' => 'failed', 'detail' => 'post_missing' ];
 		}
 		// What the recipe overwrites is what the snapshot it restores covers: save the current state over the same surfaces.
+		// A snapshot that is gone writes nothing when the recipe runs (it fails with snapshot_missing), so the post and its
+		// tracked meta are saved as they always were.
 		$source = '' !== $snapshot_id ? Backup::get_snapshot( $post_id, $snapshot_id ) : null;
-		if ( null === $source ) {
-			return [ 'status' => 'failed', 'detail' => 'snapshot_missing' ];
-		}
 		// The snapshot the recipe restores must outlive the one that is saved now.
-		$saved = Backup::snapshot_covering( $post_id, $source, [ $snapshot_id ] );
+		$saved = null === $source
+			? Backup::snapshot_post( $post_id, '' !== $snapshot_id ? [ $snapshot_id ] : [], false )
+			: Backup::snapshot_covering( $post_id, $source, [ $snapshot_id ] );
 		if ( '' === $saved ) {
-			return [ 'status' => 'failed', 'detail' => Backup::surfaces_readable( $source ) ? 'snapshot_failed' : 'capture_incomplete' ];
+			return [ 'status' => 'failed', 'detail' => null === $source || Backup::surfaces_readable( $source ) ? 'snapshot_failed' : 'capture_incomplete' ];
 		}
 		return self::captured( 'post_snapshot', $saved, [ 'post_id' => $post_id, 'snapshot_id' => $saved ], 'post', (string) $post_id );
 	}

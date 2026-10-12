@@ -532,6 +532,8 @@ final class ChangeRollbackTest extends RollbackTestCase {
 	public function test_an_open_incident_goes_through_the_journal_path_and_keeps_both_stores_consistent(): void {
 		[ $id ] = $this->journaled_change( 'rollback_failed' );
 		$this->edit_post( 'post_content', 'Broken by a fatal' );
+		// The site fails now: that is what lets the recovery go over a later edit without the confirmation a drift needs.
+		$this->site( fn (): string => str_contains( $this->post_field( 'post_content' ), 'Broken' ) ? 'broken' : 'healthy' );
 
 		$result = ChangeRollback::run( $id );
 
@@ -539,7 +541,7 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		self::assertSame( 'journal', $result['path'] );
 		self::assertSame( $id, $result['incident_id'], 'The journal path answers as the journal path does.' );
 		self::assertSame( 'succeeded', $result['rollback_status'] );
-		self::assertSame( 'Original body', $this->post_field( 'post_content' ), 'The incident needed no force: the site is failing.' );
+		self::assertSame( 'Original body', $this->post_field( 'post_content' ), 'The incident needed no force: the site is failing now.' );
 		self::assertSame( 'rolled_back', ChangeJournal::get( $id )['state'] );
 		self::assertSame( 'rolled_back_by', $this->row( $id )['status'] );
 		$children = ChangeLedger::children( $id );
@@ -593,9 +595,15 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		self::assertSame( 'rolled_back_by', $this->row( $id )['status'] );
 	}
 
-	public function test_the_rescue_path_for_an_incident_is_unchanged_when_called_directly(): void {
+	/**
+	 * The Rescue screens and the Changes screen record a restore the same way: the rescue path writes the rollback row
+	 * under the change, and the Changes engine adds none of its own. This replaces the earlier rule that the rescue path
+	 * wrote no ledger row, which left a Rescue restore without the Redo that Changes offers.
+	 */
+	public function test_the_rescue_path_for_an_incident_answers_in_its_own_shape_and_records_the_rollback_row(): void {
 		[ $id ] = $this->journaled_change( 'rollback_failed' );
 		$this->edit_post( 'post_content', 'Broken by a fatal' );
+		$this->site( fn (): string => str_contains( $this->post_field( 'post_content' ), 'Broken' ) ? 'broken' : 'healthy' );
 		$rows = ChangeLedger::count();
 
 		$result = RescueRollback::run( $id, [ 'by' => 'admin-page', 'user_id' => 7 ] );
@@ -604,18 +612,35 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		self::assertSame( 'succeeded', $result['rollback_status'] );
 		self::assertArrayNotHasKey( 'path', $result, 'The incident answer has the shape it always had.' );
 		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
-		self::assertSame( $rows, ChangeLedger::count(), 'The rescue path writes no ledger row of its own.' );
+		self::assertSame( $rows + 1, ChangeLedger::count(), 'The rollback is recorded under the change.' );
+		self::assertSame( $result['rollback_change_id'], ChangeLedger::children( $id )[0]['change_id'] );
+		self::assertTrue( $result['restorable_again'] );
 	}
 
-	public function test_a_dry_run_of_an_open_incident_names_the_journal_path_and_asks_for_no_force(): void {
+	/**
+	 * An armed change is not an incident: over a later edit it asks for the confirmation, like any other change. This
+	 * replaces the earlier rule that an open change needed no force.
+	 */
+	public function test_a_dry_run_of_an_open_change_names_the_journal_path_and_asks_for_the_confirmation_a_drift_needs(): void {
 		[ $id ] = $this->journaled_change( 'armed' );
-		$this->edit_post( 'post_content', 'Broken by a fatal' );
+		$this->edit_post( 'post_content', 'Edited by hand' );
 
 		$plan = ChangeRollback::run( $id, [ 'dry_run' => true ] );
 
 		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
 		self::assertSame( 'journal', $plan['path'] );
-		self::assertFalse( $plan['requires_force'], 'An incident is rolled back without force.' );
+		self::assertTrue( $plan['drift'] );
+		self::assertTrue( $plan['requires_force'] );
+	}
+
+	public function test_a_dry_run_of_an_open_change_that_nothing_came_after_asks_for_no_force(): void {
+		[ $id ] = $this->journaled_change( 'armed' );
+
+		$plan = ChangeRollback::run( $id, [ 'dry_run' => true ] );
+
+		self::assertIsArray( $plan, $plan instanceof \WP_Error ? $plan->get_error_message() : '' );
+		self::assertSame( 'journal', $plan['path'] );
+		self::assertFalse( $plan['requires_force'] );
 	}
 
 	// ---- the registry -----------------------------------------------------------------------------------

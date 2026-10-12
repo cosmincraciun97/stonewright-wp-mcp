@@ -433,11 +433,15 @@ final class RollbackRecipesKitDomainTest extends TestCase {
 		self::assertSame( 'NEW', $this->meta( self::VARIABLES ) );
 	}
 
-	public function test_a_snapshot_that_is_gone_cannot_be_captured_for(): void {
-		$captured = RollbackRecipes::capture( $this->entry( 'snap_0000000000000000' ) );
+	/** A snapshot that is gone writes nothing when the recipe runs, so the capture saves the post as it always did. */
+	public function test_a_snapshot_that_is_gone_is_captured_without_a_domain_and_the_recipe_then_fails_without_writing(): void {
+		$this->set_meta( self::VARIABLES, 'NEW' );
+		$entry    = $this->entry( 'snap_0000000000000000' );
+		$captured = RollbackRecipes::capture( $entry );
 
-		self::assertSame( 'failed', $captured['status'] );
-		self::assertSame( 'snapshot_missing', $captured['detail'] );
+		self::assertSame( 'ok', $captured['status'], $captured['detail'] );
+		self::assertSame( 'failed', RollbackRecipes::run( $entry )['status'] );
+		self::assertSame( 'NEW', $this->meta( self::VARIABLES ), 'Nothing was written.' );
 	}
 
 	public function test_the_snapshot_the_recipe_needs_is_kept_by_the_capture(): void {

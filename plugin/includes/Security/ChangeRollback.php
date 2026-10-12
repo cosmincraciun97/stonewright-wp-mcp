@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\Rollback\FamilySupport;
+use Stonewright\WpMcp\Security\Rollback\LiveState;
 use Stonewright\WpMcp\Security\Rollback\RollbackClaim;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
@@ -63,7 +64,7 @@ final class ChangeRollback {
 	private const CHANGES_PAGE = 'stonewright-changes';
 
 	/** Shortest start of a hash that expected_current_sha256 may be. The page prints this much, never a whole hash. */
-	public const MIN_HASH_PREFIX = 32;
+	public const MIN_HASH_PREFIX = LiveState::MIN_HASH_PREFIX;
 
 	private const POST_FAMILIES = [ 'post', 'elementor', 'gutenberg', 'fse', 'global_styles' ];
 
@@ -170,13 +171,26 @@ final class ChangeRollback {
 		if ( $plan['approval_required'] && ! $options['human_approved'] ) {
 			return self::approval_required( $row );
 		}
-		if ( $state['strict'] ) {
-			if ( $plan['already_restored'] ) {
-				return self::error( 'stonewright_change_already_restored', __( 'The item already is as it was before this change. There is nothing to undo.', 'stonewright' ), 409 );
+		if ( $state['strict'] && $plan['already_restored'] ) {
+			return self::error( 'stonewright_change_already_restored', __( 'The item already is as it was before this change. There is nothing to undo.', 'stonewright' ), 409 );
+		}
+		if ( $state['open'] && null !== $state['entry'] ) {
+			// The journal path judges drift itself, before a token is looked at: a change that is only armed, or an incident
+			// that is long past, is not recovered over a later edit unless the person confirmed the state they saw, while a
+			// site that fails now is recovered without that confirmation (RescueRollback::preflight_refusal).
+			$refused = RescueRollback::preflight_refusal(
+				(string) $row['change_id'],
+				[
+					'force_drift'             => $options['force_drift'],
+					'expected_current_sha256' => $options['expected_current_sha256'],
+					'user_id'                 => $options['actor'],
+				]
+			);
+			if ( $refused instanceof \WP_Error ) {
+				return $refused;
 			}
-			if ( $plan['requires_force'] && ! $options['force_drift'] ) {
-				return self::error( 'stonewright_change_drift', __( 'This item has changed since the recorded change, so undoing it would overwrite those later edits. Review the plan, and run again with force_drift to overwrite them.', 'stonewright' ), 409, [ 'drift' => true, 'warnings' => $plan['warnings'], 'current_sha256' => $plan['current_sha256'], 'expected_sha256' => $plan['expected_sha256'] ] );
-			}
+		} elseif ( $plan['requires_force'] && ! $options['force_drift'] ) {
+			return self::error( 'stonewright_change_drift', __( 'This item has changed since the recorded change, so undoing it would overwrite those later edits. Review the plan, and run again with force_drift to overwrite them.', 'stonewright' ), 409, [ 'drift' => true, 'warnings' => $plan['warnings'], 'current_sha256' => $plan['current_sha256'], 'expected_sha256' => $plan['expected_sha256'] ] );
 		}
 		if ( '' !== $options['expected_current_sha256'] && $state['supported'] && ! self::hash_matches( $options['expected_current_sha256'], $plan['current_sha256'] ) ) {
 			return self::error( 'stonewright_change_changed_since_preview', __( 'The item is not in the state that was previewed. Review the plan again.', 'stonewright' ), 409, [ 'current_sha256' => $plan['current_sha256'] ] );
@@ -260,11 +274,17 @@ final class ChangeRollback {
 
 		$entry   = ChangeJournal::get( (string) $row['change_id'] );
 		$open    = null !== $entry && in_array( (string) $entry['state'], [ 'armed', 'incident', 'rollback_failed' ], true );
+		// A fault was recorded against the change (a fatal, or a rollback that failed): the one kind of entry that may be recovered without the comparison.
+		$fault   = null !== $entry && in_array( (string) $entry['state'], RescueRollback::FAULT_STATES, true );
 
 		$live      = $handler->live_image( $row );
 		$supported = ! ( $live instanceof \WP_Error && RollbackFamilyHandler::LIVE_UNSUPPORTED === $live->get_error_code() );
 		if ( $live instanceof \WP_Error && $supported ) {
-			return self::error( 'stonewright_change_live_unreadable', __( 'The current state of this item cannot be read, so an undo cannot be checked.', 'stonewright' ), 409, [ 'detail' => FamilySupport::short_code( $live ) ] );
+			if ( ! $fault ) {
+				return self::error( 'stonewright_change_live_unreadable', __( 'The current state of this item cannot be read, so an undo cannot be checked.', 'stonewright' ), 409, [ 'detail' => FamilySupport::short_code( $live ) ] );
+			}
+			// A failing site is recovered without the comparison; the plan says it could not be made.
+			$supported = false;
 		}
 
 		$target    = null;
@@ -327,7 +347,8 @@ final class ChangeRollback {
 			'diff'                  => $diff,
 			'drift'                 => $drift,
 			'drift_known'           => $supported,
-			'requires_force'        => $drift && $strict,
+			// Every kind of entry asks for the confirmation a drift needs; a site that fails now is the one thing that skips it, and only in the run.
+			'requires_force'        => $drift,
 			'current_sha256'        => $current,
 			'expected_sha256'       => (string) $row['after_sha256'],
 			'already_restored'      => $restored && $strict,
@@ -377,35 +398,50 @@ final class ChangeRollback {
 		$result = RescueRollback::run(
 			(string) $row['change_id'],
 			[
-				'by'             => $options['by'],
-				'user_id'        => $options['actor'],
-				'human_approved' => $options['human_approved'],
+				'by'                      => $options['by'],
+				'user_id'                 => $options['actor'],
+				'human_approved'          => $options['human_approved'],
+				'force_drift'             => $options['force_drift'],
+				'expected_current_sha256' => $options['expected_current_sha256'],
 			]
 		);
 		if ( $result instanceof \WP_Error ) {
 			return $result;
 		}
-		$new_id   = '';
-		$resource = (string) $row['resource_id'];
-		$after    = self::read_live( $context['handler'], $row );
-		$site     = (string) ( $result['site_status'] ?? '' );
-		$created  = self::record_row( $row, $context['kind'], $state['live'], $after, 'healthy' === $site ? 'verified' : 'probe_unavailable', $resource, $options['actor'] );
-		if ( null !== $created ) {
-			$new_id = (string) $created['change_id'];
-			self::mark_after_success( $row, $context['kind'] );
-		}
+		// The rescue path writes the rollback row and marks the change, whichever screen started it: nothing is recorded twice here.
 		return array_merge(
 			$result,
 			[
 				'change_id'          => (string) $row['change_id'],
 				'kind'               => $context['kind'],
 				'path'               => 'journal',
-				'rollback_change_id' => $new_id,
-				'resource_id'        => $resource,
-				'drift_forced'       => $state['plan']['drift'] && $options['force_drift'],
-				'restorable_again'   => '' !== $new_id,
+				'rollback_change_id' => (string) ( $result['rollback_change_id'] ?? '' ),
+				'resource_id'        => (string) $row['resource_id'],
+				'drift_forced'       => ! empty( $result['drift_forced'] ),
+				'restorable_again'   => ! empty( $result['restorable_again'] ),
 			]
 		);
+	}
+
+	/**
+	 * The rollback row of a restore the rescue path ran, and the marks that go with it: the change is rolled back by it, and
+	 * a Redo of it is the same call on the new row. Never throws.
+	 *
+	 * @internal Called by RescueRollback; a screen starts a restore through run().
+	 *
+	 * @param array<string, mixed>     $row    The ledger row of the change.
+	 * @param string|array<mixed>|null $before The live state the restore replaced.
+	 * @param string|array<mixed>|null $after  The live state the restore left.
+	 * @return string The id of the new row, or '' when nothing was recorded.
+	 */
+	public static function record_journal_restore( array $row, string|array|null $before, string|array|null $after, string $status, int $actor ): string {
+		$kind    = self::action_for( $row );
+		$created = self::record_row( $row, $kind, $before, $after, $status, (string) $row['resource_id'], $actor );
+		if ( null === $created ) {
+			return '';
+		}
+		self::mark_after_success( $row, $kind );
+		return (string) $created['change_id'];
 	}
 
 	/**
@@ -851,16 +887,12 @@ final class ChangeRollback {
 	}
 
 	private static function clean_hash( mixed $value ): string {
-		return is_string( $value ) ? strtolower( trim( $value ) ) : '';
+		return LiveState::clean_hash( $value );
 	}
 
 	/** The whole hash, or its first MIN_HASH_PREFIX characters or more, equals the live hash. */
 	private static function hash_matches( string $expected, string $live ): bool {
-		$length = strlen( $expected );
-		if ( $length < self::MIN_HASH_PREFIX || $length > 64 || ! ctype_xdigit( $expected ) || '' === $live ) {
-			return false;
-		}
-		return hash_equals( substr( $live, 0, $length ), $expected );
+		return LiveState::hash_matches( $expected, $live );
 	}
 
 	// -----------------------------------------------------------------------

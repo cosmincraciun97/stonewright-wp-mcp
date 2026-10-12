@@ -584,12 +584,16 @@ final class RescueAbilitiesTest extends TestCase {
 		ChangeJournal::settle( $newer['id'], 'verified' );
 
 		$plan    = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'dry_run' => true ] );
-		$blocked = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+		$drift   = ( new RescueRollback() )->execute( [ 'incident_id' => $id ] );
+		$blocked = ( new RescueRollback() )->execute( [ 'incident_id' => $id, 'force_drift' => true ] );
 
 		self::assertSame( [ $newer['id'] ], array_column( $plan['newer_changes'], 'incident_id' ) );
 		self::assertStringContainsString( 'newer change', $plan['warnings'][0] );
+		self::assertTrue( $plan['requires_force'] );
+		self::assertInstanceOf( \WP_Error::class, $drift );
+		self::assertSame( 'stonewright_change_drift', $drift->get_error_code(), 'The newer change is refused first, so no token is asked for or spent.' );
 		self::assertInstanceOf( \WP_Error::class, $blocked );
-		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code(), 'A confirmed rollback still needs the token.' );
 		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
 		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
 	}
