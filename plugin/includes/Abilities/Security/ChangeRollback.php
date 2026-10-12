@@ -36,7 +36,7 @@ final class ChangeRollback extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Undoes one change from the change history, or redoes a rollback (pass the change_id of the rollback row). Always call with dry_run true first: it returns the plan (a short diff, drift, newer changes to the same item, whether an administrator is needed) and changes nothing. A run puts the item back as it was before the change, probes the site and records a rollback row; a failing probe puts the earlier state back. Drift (the item was edited after the change) is refused unless force_drift is true; pass expected_current_sha256 from the plan to undo exactly the state you saw. In production-safe mode a run needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for the confirmation_args that the dry run returns (all four keys, as returned). A change to code (theme file, custom code, sandbox file, Customizer CSS) is never undone on a call: the answer is stonewright_rescue_approval_required with approval_url. Show it to the user, ask an administrator to use Stonewright > Activity > Changes, and stop; do not retry. Needs manage_options.', 'stonewright' );
+		return __( 'Undoes one change from the change history, or redoes a rollback (pass the change_id of the rollback row). Always call with dry_run true first: it returns the plan (a short diff, drift, newer changes to the same item, whether an administrator is needed) and changes nothing. A run puts the item back as it was before the change, probes the site and records a rollback row; a failing probe puts the earlier state back. Drift (the item was edited after the change) is refused unless force_drift is true together with expected_current_sha256 from the plan (force_drift alone is refused with stonewright_change_drift_hash_required), for a change that was never verified as for any other. A site that fails now, with an incident or a failed rollback recorded for the change, is recovered without force_drift. In production-safe mode a run needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for the confirmation_args that the dry run returns (all four keys, as returned). A change to code (theme file, custom code, sandbox file, Customizer CSS) is never undone on a call: the answer is stonewright_rescue_approval_required with approval_url. Show it to the user, ask an administrator to use Stonewright > Activity > Changes, and stop; do not retry. Needs manage_options.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -60,12 +60,12 @@ final class ChangeRollback extends AbilityKernel {
 				'force_drift'             => [
 					'type'        => 'boolean',
 					'default'     => false,
-					'description' => 'Undo even though the item was edited after the change, overwriting those edits.',
+					'description' => 'Undo even though the item was edited after the change, overwriting those edits. Needs expected_current_sha256.',
 				],
 				'expected_current_sha256' => [
 					'type'        => 'string',
 					'pattern'     => '^[a-fA-F0-9]{32,64}$',
-					'description' => 'The current_sha256 of the plan. The run stops when the item is not in that state any more.',
+					'description' => 'The current_sha256 of the plan. Required with force_drift. The run stops when the item is not in that state any more.',
 				],
 				'permanent'               => [
 					'type'        => 'boolean',

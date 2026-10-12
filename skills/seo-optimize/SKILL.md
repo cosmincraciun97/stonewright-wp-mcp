@@ -103,8 +103,8 @@ role with administrative capabilities. Unknown keys are skipped, not stored.
 ## Honest limits — no typed AIOSEO schema writes
 
 There is no typed AIOSEO (or Yoast / Rank Math) schema-graph, FAQ,
-breadcrumb, or social-preview writer. no typed AIOSEO schema writes —
-use settings-get/update for WordPress identity only.
+breadcrumb, or social-preview writer. Use settings-get/update for WordPress
+identity only.
 
 `stonewright-settings-get` / `stonewright-settings-update` will **not**
 persist AIOSEO graph JSON, Yoast schema pieces, or Rank Math schema
@@ -114,7 +114,7 @@ for schema markup:
 - Stop. Say the typed surface is title / description / canonical /
   robots / focus keyword plus WP identity settings.
 - Do not php-execute guessed `aioseo_options` blobs.
-- Do not invent `stonewright-seo-schema-update`.
+- Do not look for a schema writer; none exists.
 
 AIOSEO (and others) may also keep data in plugin tables. Adapter
 readback is post meta only. If the editor UI still shows old schema,

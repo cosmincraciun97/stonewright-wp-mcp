@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Refresh the Direct built-in skills when the companion updates. The companion
+  package lists the hash of every text it has shipped for each built-in skill in
+  `skills-builtin/manifest.json` (`npm run skills:manifest` rewrites it). On
+  startup, a copy in `~/.stonewright/skills/_builtin/` that still holds an earlier
+  shipped text is replaced with the current one; a copy you edited is left as it
+  is, and a missing one is copied. Without a readable manifest nothing is replaced.
+- Check the tool names in the bundled skills, the Direct built-in skills, the
+  expertise packs and the specializations against the ability and Direct tool
+  contracts in a unit test, and check that no skill asks an agent to activate the
+  `full` profile.
+
 ### Changed
 
 - Changes and Rescue are one entry in the sidebar and in the band. The Changes
@@ -34,6 +47,66 @@
   not start, it got no answer it could judge, or it found the site failing. Not
   verified no longer reads as a broken site or a host problem; the code of the
   check is under Details. Check again reports each of the three.
+- A rollback from Rescue, from the `stonewright-rescue-rollback` ability or from
+  Changes stops with `stonewright_change_drift` when the item was edited after the
+  change, whether the change was verified, never verified or recorded as an
+  incident earlier. Nothing is saved, written or claimed, and a confirmation token
+  is not used up. Run it again with `force_drift` and the `current_sha256` of the
+  dry run as `expected_current_sha256` (both are new inputs of
+  `stonewright-rescue-rollback`) to overwrite the edit. `force_drift` without
+  `expected_current_sha256` is refused with `stonewright_change_drift_hash_required`
+  and changes nothing, in the ability, Changes, Rescue and WP-CLI alike. A change with an incident
+  or a failed rollback recorded against it is still recovered without that
+  confirmation while a health check fails, and without the change history.
+- A rollback of a change that was never verified saves the current state first,
+  probes the site before and after, and puts the state back when the rollback
+  breaks a site that worked, as the rollback of a verified change does.
+- A rollback from Rescue records a rollback row under the change in the change
+  history, the same row Undo writes, so Changes lists it and offers Redo; Changes
+  no longer writes a second row for an open change. The answer of
+  `stonewright-rescue-rollback` carries `mode`, `drift_forced`,
+  `rollback_change_id`, `restorable_again`, `history` and `verification_reason`;
+  its dry run carries `drift`, `drift_known`, `requires_force`, `current_sha256`,
+  `expected_sha256` and `redo_available`.
+- Check again closes an incident only when every check that passed before the
+  change passes again, with the same single retry of a silent check that a probe
+  after a write gets. The answer carries `verification_reason`: `verified`,
+  `not_started`, `transport_unavailable`, `check_lost` or `site_failed`.
+- `wp stonewright rescue rollback` and `wp stonewright changes rollback` take
+  `--force-drift` and `--expected-sha256=<hash>` (a drift override needs both). A
+  refused rollback prints the current hash and the flags to use; the command line
+  still does not approve a change to code.
+- Bring the bundled skills, playbooks and Direct built-in skills up to date with
+  the current abilities and rules. They name the change history and Rescue steps
+  (`stonewright-change-history-list`, `-change-diff-get`, `-change-rollback`
+  with `force_drift` and `expected_current_sha256`), the `approval_url` stop for
+  code approvals and code undo, the Direct `confirmation_id`, and the refusal of
+  Direct writes on a site where the plugin is active. They state that
+  `stonewright/php-execute` is on the `full` profile only, which an
+  administrator chooses in wp-admin. The Elementor V3 skill and its examples use
+  the kit lists `system_colors`, `custom_colors`, `system_typography` and
+  `custom_typography` and `stonewright/elementor-v3-kit-batch-mutate` for the
+  system lists. The V4 skill names the Stonewright > Setup > Settings switch and
+  the `elementor_mcp_enabled` option. The block-builder skills use the Block queue
+  console and its `url`. The skill pack README lists the playbooks and the Claude
+  Code install path. The WooCommerce skill lists the typed `wc-*` abilities and
+  the delete behaviour of each.
+- Remove the instructions for `stonewright-acf-options-page`,
+  `stonewright-forms-save`, `stonewright-cf7-update`,
+  `stonewright-seo-schema-update`, `stonewright/elementor-add` and
+  `stonewright/backups`, which are not abilities, and the descriptions of one
+  inspected site from the block-builder skills.
+- Offer the expertise packs for V3 documents (`elementor-v3`, `theme-builder`,
+  `elementor-pro-dynamic`) on Elementor 3.20 up to 5.0 instead of below 4.0, and
+  require WordPress 6.7 or later in every bundled pack. The scoped-snippet pack
+  lists `stonewright/custom-code-provider` instead of `stonewright/php-execute`,
+  and the write-recovery pack lists `stonewright/change-history-list` and
+  `stonewright/change-rollback`.
+- Name the typed `wc-*` abilities in the WooCommerce specialization and the typed
+  `acf-field-group-*`, `acf-values-get` and `acf-value-update` abilities in the
+  ACF specialization before REST or WP-CLI.
+- Call the block finalizer page "Block queue" in the connect prompt and in the
+  description of `stonewright/blocks-finalizer-runtime`.
 
 ### Fixed
 
@@ -45,6 +118,18 @@
 - The Undo and Redo dialog of the Changes page works without script: its confirm
   button is not disabled in production-safe mode, the server checks the typed
   phrase, and a refusal that ran nothing returns to the confirmation.
+- The state saved before an undo of a kit change covers the same surfaces as the
+  snapshot being restored: the V4 global variables, the legacy class list, the
+  global classes and default styles read through Elementor's repositories, and
+  keys that did not exist when the snapshot was taken. The undo is refused before
+  it writes when a surface cannot be read, and a put-back counts as done only when
+  the whole saved state reads back.
+- The health probe asks for a page at the root of the site, whose address has no
+  path, with a token bound to `/`. A page address that is not on the site's own
+  origin is skipped before a token is issued for it.
+- A restore of options and theme mods reads every value back and is reported as
+  failed when it does not match the restore point; a rollback that depends on it
+  is not marked rolled back.
 
 ## [1.0.0-beta.15] - 2026-10-12
 

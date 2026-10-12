@@ -30,18 +30,51 @@ workflow against the `stonewright/*` ability surface.
 | `spectra-build-page` | Spectra (`uagb/*`) pages with live schemas and the Gutenberg finalizer |
 | `how-to-write-skills` | Write, review, import, or test a site skill: trigger descriptions, body size, version constraints, and the checks a skill must pass |
 
+## Playbooks
+
+Task playbooks in `playbooks/<name>.md` ship with the pack as `playbook-<name>`
+and open on request.
+
+| Playbook | Description |
+|---|---|
+| `ab-copy-variants` | A/B headline and CTA copy variants for a landing section |
+| `about-page` | About page with story, team, values, and supporting media |
+| `blog-series` | Multi-post blog series with shared structure, categories, and featured images |
+| `contact-page` | Contact page with form, map or address block, and response expectations |
+| `faq-accordion` | FAQ section with accessible accordion structure |
+| `homepage-hero` | Homepage hero with headline, subcopy, CTA, and background media |
+| `mega-menu` | Multi-column navigation menu with locations and nested items |
+| `multilingual-prep` | Prepare pages and content models for multilingual plugins |
+| `page-migration` | Move a page layout between builders, or rebuild a page from its current content |
+| `popup-lead-capture` | Lead-capture popup or modal section with a form shortcode |
+| `portfolio-gallery` | Portfolio or project gallery with filters, cards, and detail links |
+| `pricing-table` | Pricing comparison table with tiers, features, and CTA buttons |
+| `section-refactor` | Refactor one page section for spacing, hierarchy, and builder-native structure |
+| `seo-on-page-audit` | Audit a page for title, headings, alt text, internal links, and schema readiness |
+| `services-grid` | Services or features grid with icons or images and consistent cards |
+| `stock-image-fill` | Search and import Openverse stock images with license attribution |
+| `testimonials-section` | Testimonials band with quotes, names, and optional avatars |
+| `woocommerce-catalog-setup` | Products, categories, attributes, and catalog pages with the WooCommerce tools |
+
 ## Install for Claude Code
 
-Copy or reference only the skills you need:
+Claude Code loads skills from `~/.claude/skills/<name>/SKILL.md` (personal),
+`.claude/skills/<name>/SKILL.md` (one project), or the `skills/` folder of a
+Claude Code plugin. Copy or reference only the skills you need:
 
 ```bash
-cp -r skills/design-to-wordpress ~/.claude/plugins/
-cp -r skills/content-model-integrations ~/.claude/plugins/
-cp -r skills/elementor-v3-builder ~/.claude/plugins/
-cp -r skills/gutenberg-fse-builder ~/.claude/plugins/
-cp -r skills/woocommerce-catalog ~/.claude/plugins/
-cp -r skills/wp-plugin-dev ~/.claude/plugins/
+mkdir -p ~/.claude/skills
+cp -r skills/stonewright skills/design-to-wordpress ~/.claude/skills/
+cp -r skills/elementor-v3-builder skills/gutenberg-fse-builder ~/.claude/skills/
+cp -r skills/woocommerce-catalog skills/wp-plugin-dev ~/.claude/skills/
 ```
+
+For one project only, copy into `.claude/skills/` at the project root instead.
+
+The plugin ZIP bundles this folder, so a site that runs the plugin already has
+these skills under **Stonewright > Knowledge > Skills**, and MCP clients reach
+them through `stonewright-task-start` and `stonewright-skills-get` without any
+copy.
 
 ## Install for Codex
 
@@ -89,8 +122,9 @@ old indexed backups before moving them.
   can install `wp-cli.phar` into the Stonewright cache.
 
 Skills are routing guidance, not substitutes for live MCP tools. If
-`stonewright-context-bootstrap` is missing, restart or fix the MCP client
-instead of reading repository files as a replacement. For WP-CLI work, use
+`stonewright-task-start` is missing (or the compatibility tool
+`stonewright-context-bootstrap`), restart or fix the MCP client instead of
+reading repository files as a replacement. For WP-CLI work, use
 `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
@@ -106,7 +140,7 @@ proxy.
 
 ```bash
 cd companion
-npm install
+npm ci
 npm run build
 npm start
 ```
@@ -120,6 +154,9 @@ unless `STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` is also set;
 stdio MCP remains the primary transport for normal agent sessions.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients; it keeps the client-visible startup surface under
-30 tools. Use `essential` for normal fast-path sessions and specialist aliases
-such as `elementor`, `acf`, `cpt-ui`, `fse`, or `wp cli` when a session needs
-one narrow surface.
+30 tools. The default is `essential-static` for normal fast-path sessions. Use
+specialist aliases such as `elementor`, `acf`, `cpt-ui`, `fse`, or `wp cli` when
+a session needs one narrow surface. `full` (the only profile that lists
+`stonewright/php-execute`) is chosen by a person, never by a tool: an
+administrator in wp-admin (**Stonewright > Setup > Settings**) or whoever runs
+the companion.

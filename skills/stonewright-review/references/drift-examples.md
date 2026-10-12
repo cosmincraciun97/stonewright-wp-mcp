@@ -38,27 +38,41 @@ Spec tokens:
 { "colors": { "primary": "#0057FF", "secondary": "#1A1A2E" } }
 ```
 
-Kit colors from `stonewright/elementor-v3-get-kit-globals`:
+Kit colors from `stonewright/elementor-v3-get-kit-globals` (`colors.items`,
+abbreviated; the kit keeps `system_colors` and `custom_colors` and no other list):
 ```json
-[
-  { "id": "primary",   "color": "#0044CC" },
-  { "id": "secondary", "color": "#1A1A2E" }
-]
+{
+  "system": [
+    { "id": "primary",   "title": "Primary",   "color": "#0044CC" },
+    { "id": "secondary", "title": "Secondary", "color": "#1A1A2E" }
+  ],
+  "custom": []
+}
 ```
 
 Finding: primary token drifted from `#0057FF` to `#0044CC`. Report as
-`token-drift`. Proposed fix:
+`token-drift`. `primary`, `secondary`, `text` and `accent` are system colors, so
+the proposed fix writes the `system` bucket:
 
 ```json
 {
-  "ability": "stonewright/elementor-v3-update-kit-colors",
+  "ability": "stonewright/elementor-v3-kit-batch-mutate",
   "args": {
-    "colors": [
-      { "id": "primary", "title": "Primary", "color": "#0057FF" }
+    "operations": [
+      {
+        "group": "colors",
+        "bucket": "system",
+        "colors": [
+          { "id": "primary", "title": "Primary", "color": "#0057FF" }
+        ]
+      }
     ]
   }
 }
 ```
+
+A drifted color of the `custom` list is fixed with
+`stonewright/elementor-v3-update-kit-colors` and the same `colors` rows.
 
 ## Comparing spec assets to media library
 
@@ -73,9 +87,11 @@ Live element settings:
 ```
 
 Check:
-1. Call MCP tool `stonewright-media-get` with `id: 77` to get the original
-   source URL.
-2. Compare against spec image URL.
+1. Call MCP tool `stonewright-media-get` with `id: 77` to read the attachment's
+   `url`, `width`, `height` and `alt`.
+2. Compare against the spec asset: its `attachment_id` when it has one,
+   otherwise the file name and the `width` and `height` it lists. An imported
+   file gets a new address, so the spec URL itself is not expected to match.
 3. If different, flag as `asset-mismatch` and let the user decide which is
    correct.
 

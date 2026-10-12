@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- Refresh the built-in skills in `~/.stonewright/skills/_builtin/` on startup. The
+  package lists the hash of every text it has shipped for each skill in
+  `skills-builtin/manifest.json` (`npm run skills:manifest` rewrites it); a copy
+  that still holds an earlier shipped text is replaced with the current one, a
+  copy you edited is left as it is, and a missing one is copied. Without a
+  readable manifest nothing is replaced.
+
+### Changed
+
+- Bring the Direct built-in skills up to date: the Direct refusal of writes on a
+  site where the plugin is active, the `confirmation_id` repeat, the custom-code
+  refusal, `stonewright-rest-request` as GET only, and the `full` profile as an
+  administrator's choice.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added

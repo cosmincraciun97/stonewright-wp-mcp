@@ -37,13 +37,17 @@ scale costs one section to fix here and a whole page to fix later.
 
 ## 4. Quality check
 
-Call `stonewright-design-quality-check` with the collected evidence. The report
-separates:
+Call `stonewright-design-quality-check` with the collected evidence (`evidence`;
+pass `post_id` and `persist: true` to store the report and get a `report_id`).
+The report has a `status` of `pass`, `warn`, `fail` or `not_checked`, a list of
+`findings`, and a `coverage` block:
 
-- **Failures** — a named rule did not pass. These block.
-- **Warnings** — worth a look, not a stop.
-- **Unverifiable** — a rule that had no evidence to run against. Treat this as
-  missing work, not as a pass.
+- **`error` findings** — a measurable rule did not pass. These block (`fail`).
+- **`warning` findings** — direction guidance worth a look, not a stop (`warn`).
+  A waived rule shows as `info`; the finding stays visible.
+- **`coverage.not_checked_rules`** — rules that had no evidence to run against.
+  Treat this as missing work, not as a pass; a report with nothing checked is
+  `not_checked`, never `pass`.
 
 Fix failures, then re-run the check against fresh evidence. Do not carry an old
 report forward after a write; the report describes the render it was given.

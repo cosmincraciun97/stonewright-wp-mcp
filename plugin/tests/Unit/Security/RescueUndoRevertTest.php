@@ -462,29 +462,59 @@ final class RescueUndoRevertTest extends TestCase {
 		}
 	}
 
-	// -- Open changes keep today's behaviour --------------------------------------------------------
+	// -- A change with a fault recorded against it keeps today's behaviour ----------------------------
 
 	/** @dataProvider families */
 	public function test_an_incident_rollback_saves_nothing_probes_once_and_is_never_put_back( string $family ): void {
-		foreach ( [ 'rollback_failed', 'armed' ] as $state ) {
-			ChangeJournal::reset_for_tests();
-			$this->requests = 0;
-			$scenario       = $this->scenario( $family, $state );
-			$this->breaks_when_undone( $scenario );
-			$captures = ( $scenario['captures'] )();
-			$this->requests = 0;
+		$scenario = $this->scenario( $family, 'rollback_failed' );
+		$this->breaks_when_undone( $scenario );
+		$captures       = ( $scenario['captures'] )();
+		$this->requests = 0;
 
-			$result = $this->undo( $scenario['id'] );
+		$result = $this->undo( $scenario['id'] );
 
-			self::assertIsArray( $result, $state );
-			self::assertTrue( $result['ok'], $state );
-			self::assertSame( 'rolled_back', $result['state'], $state );
-			self::assertSame( 'still_failing', $result['site_status'], $state );
-			self::assertArrayNotHasKey( 'undo_guard', $result, $state );
-			self::assertSame( $scenario['after'], ( $scenario['observe'] )(), $state . ': the recipe stays applied; the rollback is the cure.' );
-			self::assertSame( $captures, ( $scenario['captures'] )(), $state . ': nothing is saved first.' );
-			self::assertSame( 1, $this->probes( $scenario ), $state . ': one probe, after the recipe.' );
-		}
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'rolled_back', $result['state'] );
+		self::assertSame( 'still_failing', $result['site_status'] );
+		self::assertArrayNotHasKey( 'undo_guard', $result );
+		self::assertSame( 'emergency', $result['mode'] );
+		self::assertSame( $scenario['after'], ( $scenario['observe'] )(), 'The recipe stays applied; the rollback is the cure.' );
+		self::assertSame( $captures, ( $scenario['captures'] )(), 'Nothing newer than the change exists, so nothing is saved first.' );
+		self::assertSame( 1, $this->probes( $scenario ), 'One probe, after the recipe.' );
+	}
+
+	// -- An armed change is a normal rollback: saved first and put back when it breaks the site ------
+
+	/** @dataProvider families */
+	public function test_an_armed_change_is_rolled_back_like_a_verified_one_saved_first_and_put_back_when_it_breaks_the_site( string $family ): void {
+		$scenario = $this->scenario( $family, 'armed' );
+		$this->breaks_when_undone( $scenario );
+		$captures = ( $scenario['captures'] )();
+
+		$result = $this->undo( $scenario['id'] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_rescue_undo_reverted', $result->get_error_code() );
+		self::assertSame( $scenario['before'], ( $scenario['observe'] )(), 'The state from before the rollback is back.' );
+		self::assertSame( $captures + $scenario['delta'], ( $scenario['captures'] )(), 'The current state was saved before the recipe ran.' );
+		self::assertSame( 3, $this->probes( $scenario ), 'Baseline, after the rollback, after the put-back.' );
+		self::assertNull( ChangeJournal::banner(), 'No incident is opened for a rollback that was put back.' );
+	}
+
+	/** @dataProvider families */
+	public function test_an_armed_change_whose_rollback_leaves_the_site_healthy_is_kept_and_was_saved_first( string $family ): void {
+		$scenario = $this->scenario( $family, 'armed' );
+		$captures = ( $scenario['captures'] )();
+
+		$result = $this->undo( $scenario['id'] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'rolled_back', $result['state'] );
+		self::assertSame( 'kept', $result['undo_guard'] );
+		self::assertSame( 'normal', $result['mode'] );
+		self::assertSame( $scenario['after'], ( $scenario['observe'] )() );
+		self::assertSame( $captures + $scenario['delta'], ( $scenario['captures'] )() );
 	}
 
 	/** @dataProvider families */
@@ -602,15 +632,32 @@ final class RescueUndoRevertTest extends TestCase {
 		self::assertSame( 0, $this->requests );
 	}
 
-	public function test_the_newer_change_warning_still_comes_with_the_result(): void {
+	/**
+	 * A rollback that would overwrite a newer change of the same item is not run until the person confirms it. The
+	 * history cannot compare here (no row), so the journal's own list of newer changes is what says so.
+	 */
+	public function test_a_newer_change_stops_the_rollback_until_it_is_confirmed_and_the_warning_comes_with_the_result(): void {
 		$scenario = $this->scenario( 'post' );
 		$newer    = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
 		ChangeJournal::settle( $newer['id'], 'verified' );
+		$captures = ( $scenario['captures'] )();
 
-		$result = $this->undo( $scenario['id'] );
+		$refused = $this->undo( $scenario['id'] );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_change_drift', $refused->get_error_code() );
+		self::assertStringContainsString( 'newer change', $refused->get_error_data()['warnings'][0] );
+		self::assertSame( $scenario['before'], ( $scenario['observe'] )(), 'Nothing was written.' );
+		self::assertSame( $captures, ( $scenario['captures'] )(), 'Nothing was saved.' );
+		self::assertSame( 'verified', ChangeJournal::get( $scenario['id'] )['state'] );
+
+		$result = RescueRollback::run( $scenario['id'], [ 'by' => 'admin-page', 'user_id' => 7, 'human_approved' => true, 'force_drift' => true ] );
 
 		self::assertIsArray( $result );
+		self::assertTrue( $result['drift_forced'] );
 		self::assertStringContainsString( 'newer change', $result['warnings'][0] );
+		self::assertSame( $scenario['after'], ( $scenario['observe'] )() );
+		self::assertSame( $captures + $scenario['delta'], ( $scenario['captures'] )(), 'The state that was replaced was saved first.' );
 	}
 
 	public function test_a_dry_run_changes_and_saves_nothing(): void {
