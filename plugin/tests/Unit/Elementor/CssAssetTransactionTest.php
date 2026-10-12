@@ -143,22 +143,24 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
 	}
 
-	public function test_blocks_wrong_origin_before_operation(): void {
+	/** A stylesheet URL on another origin than the site is no longer a refusal: it is never requested, and the file on disk is verified. */
+	public function test_a_foreign_origin_is_not_requested_and_does_not_block_the_operation(): void {
+		$this->write( 'post-701.css', 'old-post' );
 		$this->write( 'custom-frontend.min.css', 'frontend' );
 		$GLOBALS['stonewright_test_home_url'] = 'https://other.test/';
-		$called = false;
+		$requested                           = [];
+		$GLOBALS['stonewright_test_asset_responses']['https://example.test/wp-content/uploads/elementor/css/post-701.css'] = static function ( string $url ) use ( &$requested ): array {
+			$requested[] = $url;
+			return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => '' ];
+		};
 
-		$result = CssAssetTransaction::run(
-			$this->target( 701 ),
-			static function () use ( &$called ): array {
-				$called = true;
-				return [ 'ok' => true ];
-			}
-		);
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
 
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_elementor_css_probe_unsafe_origin', $result->get_error_code() );
-		self::assertFalse( $called );
+		self::assertIsArray( $result );
+		self::assertSame( [], $requested );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'not_checked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'other_origin_not_probed', $result['css_evidence']['delivery_cause'] ?? null );
 	}
 
 	public function test_rolls_back_when_a_protected_asset_returns_404_after_operation(): void {
@@ -915,7 +917,8 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertContains( 'GET', $methods );
 	}
 
-	public function test_head_and_get_failures_reject_commit(): void {
+	/** A 5xx after delivery that worked is the host, not the bytes just written: the write is kept and the status is not_checked. */
+	public function test_head_and_get_5xx_after_available_delivery_keep_the_write_unchecked(): void {
 		$this->write( 'post-701.css', 'old-post' );
 		$url = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
 		$calls = 0;
@@ -936,11 +939,11 @@ final class CssAssetTransactionTest extends TestCase {
 			}
 		);
 
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
-		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
-		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
-		self::assertSame( 'failed', $result->get_error_data()['delivery_status'] ?? null );
+		self::assertIsArray( $result );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'not_checked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'http_5xx', $result['css_evidence']['delivery_cause'] ?? null );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null );
 	}
 
 	public function test_target_redirect_rejects_commit(): void {
@@ -1471,6 +1474,122 @@ final class CssAssetTransactionTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_css_probe_failed', $result->get_error_code() );
 		self::assertSame( 'old-post', $this->read( 'post-701.css' ) );
 		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] ?? null );
+	}
+
+	/** @return array<string, array{0:array<string,mixed>,1:string,2:string,3:string}> Response, delivery status, probe classification, cause. */
+	public static function unverified_delivery_cases(): array {
+		return [
+			'basic auth 401'              => [ [ 'response' => [ 'code' => 401 ], 'headers' => [ 'www-authenticate' => 'Basic realm="x"' ], 'body' => '' ], 'blocked', 'protected', 'http_401' ],
+			'forbidden 403'               => [ [ 'response' => [ 'code' => 403 ], 'headers' => [], 'body' => '' ], 'blocked', 'protected', 'http_403' ],
+			'login redirect'              => [ [ 'response' => [ 'code' => 302 ], 'headers' => [ 'location' => 'https://example.test/wp-login.php' ], 'body' => '' ], 'blocked', 'protected', 'login_redirect' ],
+			'maintenance page with 200'   => [ [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/html; charset=UTF-8' ], 'body' => '<html><body>Back soon</body></html>' ], 'blocked', 'invalid_body', 'other_page_html' ],
+			'maintenance answer 503'      => [ [ 'response' => [ 'code' => 503 ], 'headers' => [ 'retry-after' => '600' ], 'body' => '' ], 'not_checked', 'unavailable', 'http_5xx' ],
+			'not found 404'               => [ [ 'response' => [ 'code' => 404 ], 'headers' => [], 'body' => '' ], 'failed', 'failed', 'http_404' ],
+			'200 with a non css type'     => [ [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'application/json' ], 'body' => '{"a":1}' ], 'failed', 'failed', 'not_css' ],
+		];
+	}
+
+	/**
+	 * @dataProvider unverified_delivery_cases
+	 * @param array<string,mixed> $response
+	 */
+	public function test_a_written_file_with_unverifiable_delivery_is_kept_and_names_its_cause( array $response, string $delivery, string $classification, string $cause ): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$GLOBALS['stonewright_test_asset_responses'][ self::CSS_URL ] = static fn(): array => $response;
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result, $cause );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ), $cause );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null, $cause );
+		self::assertSame( $delivery, $result['css_evidence']['delivery_status'] ?? null, $cause );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null, $cause );
+		$probe = $result['css_evidence']['protected_probes_after'][0] ?? [];
+		self::assertSame( $classification, $probe['classification'] ?? null, $cause );
+		self::assertSame( $cause, $probe['cause'] ?? null, $cause );
+		self::assertSame( $cause, $result['css_evidence']['delivery_cause'] ?? null, $cause );
+		self::assertStringNotContainsString( 'Back soon', (string) wp_json_encode( $result ), $cause );
+	}
+
+	/** @return array<string, array{0:array<string,mixed>,1:string}> */
+	public static function environment_answers_after_available_delivery(): array {
+		return [
+			'basic auth appears'  => [ [ 'response' => [ 'code' => 401 ], 'headers' => [], 'body' => '' ], 'http_401' ],
+			'login redirect'      => [ [ 'response' => [ 'code' => 302 ], 'headers' => [ 'location' => 'https://example.test/wp-login.php' ], 'body' => '' ], 'login_redirect' ],
+			'maintenance 503'     => [ [ 'response' => [ 'code' => 503 ], 'headers' => [], 'body' => '' ], 'http_5xx' ],
+			'maintenance page'    => [ [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/html' ], 'body' => '<html>Back soon</html>' ], 'other_page_html' ],
+		];
+	}
+
+	/**
+	 * Access control, a 5xx and another HTML page are changes of the environment: the bytes just written are not
+	 * what changed them, so the write is kept.
+	 *
+	 * @dataProvider environment_answers_after_available_delivery
+	 * @param array<string,mixed> $after
+	 */
+	public function test_an_environment_answer_after_available_delivery_does_not_roll_the_write_back( array $after, string $cause ): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$written = false;
+		$GLOBALS['stonewright_test_asset_responses'][ self::CSS_URL ] = static function () use ( &$written, $after ): array {
+			return $written ? $after : [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => 'old-post' ];
+		};
+
+		$result = CssAssetTransaction::run(
+			$this->target( 701 ),
+			function () use ( &$written ): array {
+				$written = true;
+				$this->write( 'post-701.css', 'new-post' );
+				return [ 'ok' => true ];
+			}
+		);
+
+		self::assertIsArray( $result, $cause );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ), $cause );
+		self::assertSame( 'not_needed', $result['css_evidence']['rollback_status'] ?? null, $cause );
+		self::assertSame( $cause, $result['css_evidence']['delivery_cause'] ?? null, $cause );
+	}
+
+	public function test_uploads_on_another_origin_are_not_probed_and_do_not_refuse_the_write(): void {
+		$uploads = wp_upload_dir();
+		$GLOBALS['stonewright_test_upload_dir'] = [
+			'basedir' => $uploads['basedir'],
+			'baseurl' => 'https://cdn.example.test/wp-content/uploads',
+		];
+		$this->write( 'post-701.css', 'old-post' );
+		$requested = [];
+		$GLOBALS['stonewright_test_asset_responses']['https://cdn.example.test/wp-content/uploads/elementor/css/post-701.css'] = static function ( string $url ) use ( &$requested ): array {
+			$requested[] = $url;
+			return [ 'response' => [ 'code' => 200 ], 'headers' => [ 'content-type' => 'text/css' ], 'body' => '' ];
+		};
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertIsArray( $result );
+		self::assertSame( [], $requested, 'A foreign origin is never requested.' );
+		self::assertSame( 'new-post', $this->read( 'post-701.css' ) );
+		self::assertSame( 'verified', $result['css_evidence']['generation_status'] ?? null );
+		self::assertSame( 'not_checked', $result['css_evidence']['delivery_status'] ?? null );
+		self::assertSame( 'other_origin_not_probed', $result['css_evidence']['delivery_cause'] ?? null );
+		self::assertSame( 'not_probed', $result['css_evidence']['protected_probes_after'][0]['classification'] ?? null );
+		self::assertStringNotContainsString( 'cdn.example.test', (string) wp_json_encode( $result ) );
+	}
+
+	public function test_an_unsafe_redirect_refusal_names_the_cause_and_the_next_step(): void {
+		$this->write( 'post-701.css', 'old-post' );
+		$GLOBALS['stonewright_test_asset_responses'][ self::CSS_URL ] = static fn(): array => [
+			'response' => [ 'code' => 302 ],
+			'headers'  => [ 'location' => 'https://elsewhere.test/' ],
+			'body'     => '',
+		];
+
+		$result = CssAssetTransaction::run( $this->target( 701 ), $this->write_target( 'new-post' ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$data = (array) $result->get_error_data();
+		self::assertSame( 'cross_origin', $data['cause'] ?? null );
+		self::assertStringContainsString( 'nothing was written', strtolower( (string) ( $data['repair'] ?? '' ) ) );
+		self::assertStringContainsString( 'redirect', strtolower( (string) ( $data['repair'] ?? '' ) ) );
 	}
 
 	public function test_restores_collateral_file_bytes_and_modes(): void {

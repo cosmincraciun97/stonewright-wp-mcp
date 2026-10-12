@@ -200,7 +200,9 @@ final class CssRegenerator {
 	}
 
 	private static function css_url_matches( string $expected, string $actual ): bool {
-		if ( ! self::same_origin( home_url( '/' ), $actual ) || ! self::same_origin( $expected, $actual ) ) {
+		// Elementor must report the location the transaction expects. That location may be on another origin than the
+		// site (a CDN or an offload plugin); CssAssetTransaction never requests such an origin.
+		if ( ! self::same_origin( $expected, $actual ) ) {
 			return false;
 		}
 		$expected_parts = wp_parse_url( $expected );
