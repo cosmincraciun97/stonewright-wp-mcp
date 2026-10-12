@@ -326,6 +326,10 @@ final class ResponsiveScope {
 					__( 'Elementor visibility setting %1$s must be empty or use its native value %2$s.', 'stonewright' ),
 					$key,
 					$expected
+				) . ' ' . sprintf(
+					/* translators: %s: received value type and a short preview */
+					__( 'Received %s.', 'stonewright' ),
+					ControlHints::received_phrase( $value )
 				),
 				[
 					'status'      => 400,
@@ -337,6 +341,10 @@ final class ResponsiveScope {
 							'expected'    => 'an empty value or ' . $expected,
 							'got_type'    => get_debug_type( $value ),
 							'suggestions' => [ '', $expected ],
+							'setting'        => $key,
+							'received_value' => ControlHints::received( $value ),
+							'allowed_values' => [ '', $expected ],
+							'example'        => [ $key => $expected ],
 						],
 					],
 					'retryable'   => true,
