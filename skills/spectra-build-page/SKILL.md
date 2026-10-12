@@ -29,25 +29,24 @@ Call `stonewright-task-start` with surface `gutenberg`. Then:
 
 If the active theme is Blocksy, Kadence, or GeneratePress, read tokens with
 `stonewright-theme-chrome-get`. Otherwise use `stonewright-fse-get-theme-json`.
-On the introspection site none of those theme adapters were active.
+A theme adapter whose theme is not active returns `active: false`.
 
-Introspection on a local plugin site (Spectra absent) returned
-`active: false`, `version: ""`, `status: "unavailable"`, and `list-blocks`
-count `0`. No `uagb/*` name was registered. The recipes below use verified
-`core/*` blocks from that same registry. When Spectra is actually active,
-replace `core/group` and `core/columns` with live `uagb/*` containers from
-the list — after reading each schema.
+When Spectra is not active, `check-setup.active` is false and `list-blocks`
+returns count `0`, so no `uagb/*` name exists to use. The recipes below use
+`core/*` blocks; confirm each one with `stonewright-blocks-get-schema` before
+queueing it. When Spectra is active, replace `core/group` and `core/columns`
+with live `uagb/*` containers from the list — after reading each schema.
 
 ## Namespaces (plugin vs add-on)
 
 `list-blocks` only returns `uagb/`. Additional Spectra-related prefixes
 appear only if another pack registered them. Do not invent those names.
 
-| Prefix | Role | Verified on the introspection site |
-|---|---|---|
-| `uagb/` | Spectra plugin. This is what `list-blocks` returns. | Not registered. Count `0`. `check-setup.active` is false. |
-| Any other Spectra-related prefix | Add-on packs, if they register their own namespace | None registered. Do not invent widgets. |
-| `core/` | WordPress core. Use until Spectra containers are live. | 116 blocks registered. Recipes below use this set. |
+| Prefix | Role |
+|---|---|
+| `uagb/` | Spectra plugin. This is what `list-blocks` returns. |
+| Any other Spectra-related prefix | Add-on packs, if they register their own namespace. Do not invent widgets. |
+| `core/` | WordPress core. Use until Spectra containers are live. The recipes below use this set. |
 
 Re-run list-blocks on the target before every build. Spectra One is a
 **theme**. It does not register `uagb/*`. Do not treat a Spectra One site
@@ -68,8 +67,9 @@ keep the block queue console tab online, then persist hashed HTML.
 3. Call `stonewright-blocks-finalizer-runtime`. You need `online: true`, a
    `finalizer_url` / `url`, `pending_count`, and per-target
    `editor_frame_url`. `keep_open` is true on purpose.
-4. If `online` is false, tell the operator to open **Stonewright → Activity →
-   Block queue** and leave that tab open. Do not finalize while the
+4. If `online` is false, give the operator the returned `url` (the
+   **Stonewright → Activity → Block queue** console with your queue session)
+   and ask them to leave that tab open. Do not finalize while the
    heartbeat is dead. `stonewright-blocks-finalizer-url` is the same URL if
    you only need the link.
 5. Poll `stonewright-blocks-pending-batch` until the queued ids are
@@ -95,8 +95,7 @@ What that means:
   they are not a hard reject. The live editor owns those keys.
 - On the **server** path (`blocks-insert` / PHP serialize), the same unknown
   keys are `unknown_block_attributes`. Do not send Spectra through PHP.
-- Unregistered names fail both paths with `block_not_registered` /
-  `stonewright_block_not_registered`. Re-list. Do not guess.
+- Unregistered names fail both paths with `block_not_registered`. Re-list. Do not guess.
 
 The Queue iframe lets the editor assign identity during mount-settle
 (unique IDs). Do **not** invent identity values in the queued spec. Omit
@@ -117,26 +116,25 @@ comes from the **active theme**:
   that `theme` id. Patch only `writable` keys. Dry-run first.
 - Spectra One or any block theme: `stonewright-fse-get-theme-json` and
   `gutenberg-fse-builder`. Do not invent a parallel Spectra One playbook.
-- On the introspection site Blocksy, Kadence, and GeneratePress all
-  returned `active: false` with empty buckets. There are no verified chrome
-  tokens to copy.
+- A theme adapter that is not active returns `active: false` with empty
+  buckets, so there are no chrome tokens to copy.
 
 Page body still stays on the finalizer.
 
 ## Composition recipes
 
-These sketches use verified `core/*` attributes from
-`stonewright-blocks-get-schema` on the introspection site. They are the
-fallback while `uagb/` is empty. When Spectra is live, swap the outer
-`core/group` / `core/columns` for registered `uagb/*` containers after a
-schema read. Keep the same `{name, attributes, innerBlocks}` shape.
+These sketches use `core/*` attributes; confirm each with
+`stonewright-blocks-get-schema` on the target. They are the fallback while
+`uagb/` is empty. When Spectra is live, swap the outer `core/group` /
+`core/columns` for registered `uagb/*` containers after a schema read. Keep the
+same `{name, attributes, innerBlocks}` shape.
 
 `core/column` parent is `core/columns`. `core/button` parent is
 `core/buttons`. Do not insert those children at the root.
 
-On this WordPress, `core/heading`, `core/cover`, `core/image`, and
-`core/button` reported `is_dynamic: true` because they have render
-callbacks. That is **not** `save:null`. Still queue them.
+Some visual core blocks (for example `core/heading`, `core/cover`,
+`core/image`, and `core/button`) can report `is_dynamic: true` because they
+have render callbacks. That is **not** `save:null`. Still queue them.
 
 ### 1. Hero
 
@@ -273,11 +271,12 @@ the live attachment. Do not invent media ids.
 
 | Symptom | Code / signal | What you do |
 |---|---|---|
-| Name not in the live list | `block_not_registered` / `stonewright_block_not_registered` | Re-run `list-blocks`. Stop inventing names. |
+| Name not in the live list | `block_not_registered` | Re-run `list-blocks`. Stop inventing names. |
 | Queue rejected unknown keys on PHP insert | `unknown_block_attributes` | You used the server path. Re-queue on the finalizer. |
 | Warning only, queue accepted | `likely_partial_schema` | Expected for `uagb/`. Leave the keys. Let the editor save. |
 | Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Console tab is offline or the iframe never serialized. Open the block queue console (Stonewright → Activity → Block queue). Wait. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Queue again with a fresh `expected_content_hash`. |
+| Spec carries a style, script, iframe, event handler, or `javascript:` URL | `stonewright_custom_code_approval_required` | Use block supports and preset slugs. Show the `approval_url` and stop; open it or use a grant only when the user explicitly asks you to do that approval step. |
 | Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize Spectra. Ask the operator to keep the console tab open. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard that serialized blob. Re-queue. Never persist unverified HTML. |
 | `check-setup.active` false | `status: unavailable` | This pack does not apply. Use `gutenberg-fse-builder` with core blocks, or install Spectra. |

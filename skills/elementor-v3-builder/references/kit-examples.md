@@ -6,16 +6,17 @@ Each kit mutation takes its own snapshot and returns `snapshot_id`. In
 
 ## Update kit colors
 
+`update-kit-colors` merges into the custom colors (`custom_colors`) by `id`; it
+does not change the system colors (`primary`, `secondary`, `text`, `accent`).
+
 ```json
 {
   "ability": "stonewright/elementor-v3-update-kit-colors",
   "args": {
     "colors": [
-      { "id": "primary", "title": "Primary", "color": "#0057FF" },
-      { "id": "secondary", "title": "Secondary", "color": "#1A1A2E" },
-      { "id": "accent",    "title": "Accent",    "color": "#FF6B35" },
-      { "id": "text",      "title": "Text",       "color": "#1A1A1A" },
-      { "id": "background","title": "Background", "color": "#FFFFFF" }
+      { "id": "brand-blue", "title": "Brand blue", "color": "#0057FF" },
+      { "id": "brand-ink",  "title": "Brand ink",  "color": "#1A1A2E" },
+      { "id": "brand-warm", "title": "Brand warm", "color": "#FF6B35" }
     ]
   }
 }
@@ -23,25 +24,51 @@ Each kit mutation takes its own snapshot and returns `snapshot_id`. In
 
 ## Update kit typography
 
+Writes the custom typography (`custom_typography`) by `id`.
+
 ```json
 {
   "ability": "stonewright/elementor-v3-update-kit-typography",
   "args": {
     "fonts": [
       {
-        "id": "primary",
-        "title": "Primary",
+        "id": "body-text",
+        "title": "Body text",
         "font_family": "Inter",
         "font_size": { "size": 16, "unit": "px" },
         "font_weight": "400"
       },
       {
-        "id": "h1",
-        "title": "Heading 1",
+        "id": "display",
+        "title": "Display",
         "font_family": "Inter",
         "font_size": { "size": 56, "unit": "px" },
         "font_weight": "700"
       }
+    ]
+  }
+}
+```
+
+## Change system colors, fonts and layout together
+
+`stonewright/elementor-v3-kit-batch-mutate` writes the system lists
+(`bucket: "system"`; the default is `custom`) and kit layout settings in one
+transaction. Dry-run first, then repeat with `dry_run: false`; undo with
+`rollback: true` and the write's `snapshot_id` as `rollback_snapshot`.
+
+```json
+{
+  "ability": "stonewright/elementor-v3-kit-batch-mutate",
+  "args": {
+    "dry_run": true,
+    "operations": [
+      {
+        "group": "colors",
+        "bucket": "system",
+        "colors": [ { "id": "primary", "title": "Primary", "color": "#0057FF" } ]
+      },
+      { "group": "layout", "container_width": { "size": 1200, "unit": "px" } }
     ]
   }
 }

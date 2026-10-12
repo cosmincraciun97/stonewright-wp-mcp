@@ -22,6 +22,9 @@ already have a matching section to copy with an `insert_section` operation of
 the same batch (skip it when `agent_preferences.section_reuse` is `off`). When
 such a copy is refused for settings the live schema rejects, stop and follow
 that skill: tell the user, and send `drop_settings` only with their agreement.
+V3 documents stay on the typed `elementor-v3-*` writers; Elementor's own
+`elementor/*` abilities (`stonewright-elementor-native-execute`) are for Atomic
+documents, see `elementor-v4-atomic`.
 
 ## Pre-flight
 
@@ -104,7 +107,8 @@ If an ability returns no `snapshot_id`, call
 Never write raw `_elementor_data` with `update_post_meta()` or create revision
 meta manually. Every container, section, column, and widget node must have a
 non-empty ID unique across the tree. Prefer typed Elementor abilities. For an
-explicit runtime repair through `stonewright/php-execute` (`full` profile only), call
+explicit runtime repair through `stonewright/php-execute` (`full` profile only,
+which only an administrator chooses in wp-admin; never switch to it yourself), call
 `Backup::snapshot_post( $post_id )`, generate missing IDs with
 `ElementorData::generate_id()`, and persist only through
 `ElementorData::write()`. Stop when its tree validator rejects the payload.
@@ -374,10 +378,24 @@ user has approved site-wide design changes, call `update-kit-colors` and
 reuse global tokens instead of repeating raw values. If approval is missing or
 the design is one-off, keep those values local in widget/container controls.
 Mutation abilities do not take a post_id; they write to the active kit post.
+
 Colour values must be real colours: hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`, a
 CSS colour name, `transparent`, or a global reference. Font families are plain
 names and sizes are numbers with a unit. Any other value is refused with
 `stonewright_elementor_settings_invalid` and the key.
+
+The kit keeps its global colors and fonts in four lists and nowhere else:
+`system_colors`, `custom_colors`, `system_typography`, `custom_typography`;
+`get-kit-globals` returns them as `colors` and `typography` with `system` and
+`custom` entries. `update-kit-colors` and `update-kit-typography` write the
+custom lists only, merging by `id` (`mode: "replace"` replaces the list); the
+ids `primary`, `secondary`, `text` and `accent` belong to the system list, so
+give custom entries their own ids. To change the system colors or fonts, or the
+container width and other kit settings, use `stonewright/elementor-v3-kit-batch-mutate`:
+`operations` with `group` `colors`, `typography`, `layout` or `settings`, and
+`bucket` `system` or `custom` (default `custom`). Dry-run it first; it snapshots,
+reads back and can undo with `rollback: true` and `rollback_snapshot`. Run
+`stonewright/elementor-css-regenerate` on the kit after a kit write.
 
 ## Save as template
 
@@ -425,9 +443,10 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-list-widgets` | List all registered widgets |
 | `stonewright/design-native-plan` | Validate DesignEvidence and return the deterministic native-first plan without writing |
 | `stonewright/elementor-schema` | List/search live widgets; use `mode: "summary"`, `control`, or paginated `full` without guessing keys |
-| `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
-| `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
-| `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
+| `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography (system and custom lists) |
+| `stonewright/elementor-v3-update-kit-colors` | Merge custom kit colors |
+| `stonewright/elementor-v3-update-kit-typography` | Merge custom kit typography |
+| `stonewright/elementor-v3-kit-batch-mutate` | Transactional kit write: colors and typography (system or custom list), layout, settings; rollback |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |
 | `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
 | `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
@@ -440,9 +459,9 @@ arguments with `stonewright-security-issue-confirmation-token`: every
 `batch-mutate` write that is not a dry run (an `insert_section` copy included),
 `apply-bundle` (one token for the whole call, passed at the top level; there is
 no per-write token), and every `build-page-from-spec` write that is not a dry
-run, in every `mode` (`append` too). The kit writes `update-kit-colors` and
-`update-kit-typography` need one too. Dry runs of `batch-mutate` and
-`build-page-from-spec` need no token, and a token issued for a dry run does not
+run, in every `mode` (`append` too). The kit writes `update-kit-colors`,
+`update-kit-typography` and `kit-batch-mutate` (a dry run included) need one too.
+Dry runs of `batch-mutate` and `build-page-from-spec` need no token, and a token issued for a dry run does not
 authorize the write. Before calling any of them, emit:
 
 ```

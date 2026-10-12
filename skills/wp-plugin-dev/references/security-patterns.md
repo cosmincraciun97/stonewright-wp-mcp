@@ -6,7 +6,8 @@ Always use the `Stonewright\WpMcp\Security\Permissions` helpers. Never write
 raw capability checks inline and never pass a literal `true` return.
 
 ```php
-// Read-only ability: require edit_posts
+// Read-only ability: require edit_posts (the kernel default is the weaker
+// Permissions::read(); override it)
 public function permission_callback( array $args ): bool|\WP_Error {
     return Permissions::edit_posts();
 }
@@ -50,11 +51,10 @@ callers can display it in confirmation tokens.
 ```php
 use Stonewright\WpMcp\DesignSpec\Validator;
 
-$result = Validator::validate( $spec );
-if ( ! $result['valid'] ) {
-    return $this->error( 'invalid_spec', __( 'Spec failed validation.', 'stonewright' ), $result['errors'] );
+$normalized = Validator::validate( $spec );
+if ( $normalized instanceof \WP_Error ) {
+    return $normalized; // code stonewright_spec_invalid, details in the error data
 }
-$normalized = $result['normalized'];
 // Pass $normalized to the renderer, not the raw $spec.
 ```
 
@@ -103,11 +103,12 @@ public function execute( array $args ): array|\WP_Error {
 ```php
 return $this->error( 'error_code', __( 'Human message.', 'stonewright' ) );
 // With extra data:
-return $this->error( 'invalid_spec', __( 'Spec invalid.', 'stonewright' ), $result['errors'] );
+return $this->error( 'invalid_input', __( 'Input invalid.', 'stonewright' ), [ 'status' => 400 ] );
 ```
 
-`$this->error()` returns a `WP_Error` instance. The ability kernel converts it
-to a structured JSON error response for the MCP client.
+`$this->error()` returns a `WP_Error` whose code is `stonewright_` plus the
+code you pass. The ability kernel converts it to a structured JSON error
+response for the MCP client.
 
 ## What NOT to do
 

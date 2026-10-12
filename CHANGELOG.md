@@ -11,6 +11,53 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Refresh the Direct built-in skills when the companion updates. The companion
+  package lists the hash of every text it has shipped for each built-in skill in
+  `skills-builtin/manifest.json` (`npm run skills:manifest` rewrites it). On
+  startup, a copy in `~/.stonewright/skills/_builtin/` that still holds an earlier
+  shipped text is replaced with the current one; a copy you edited is left as it
+  is, and a missing one is copied. Without a readable manifest nothing is replaced.
+- Check the tool names in the bundled skills, the Direct built-in skills, the
+  expertise packs and the specializations against the ability and Direct tool
+  contracts in a unit test, and check that no skill asks an agent to activate the
+  `full` profile.
+
+### Changed
+
+- Bring the bundled skills, playbooks and Direct built-in skills up to date with
+  the current abilities and rules. They name the change history and Rescue steps
+  (`stonewright-change-history-list`, `-change-diff-get`, `-change-rollback`
+  with `force_drift` and `expected_current_sha256`), the `approval_url` stop for
+  code approvals and code undo, the Direct `confirmation_id`, and the refusal of
+  Direct writes on a site where the plugin is active. They state that
+  `stonewright/php-execute` is on the `full` profile only, which an
+  administrator chooses in wp-admin. The Elementor V3 skill and its examples use
+  the kit lists `system_colors`, `custom_colors`, `system_typography` and
+  `custom_typography` and `stonewright/elementor-v3-kit-batch-mutate` for the
+  system lists. The V4 skill names the Stonewright > Setup > Settings switch and
+  the `elementor_mcp_enabled` option. The block-builder skills use the Block queue
+  console and its `url`. The skill pack README lists the playbooks and the Claude
+  Code install path. The WooCommerce skill lists the typed `wc-*` abilities and
+  the delete behaviour of each.
+- Remove the instructions for `stonewright-acf-options-page`,
+  `stonewright-forms-save`, `stonewright-cf7-update`,
+  `stonewright-seo-schema-update`, `stonewright/elementor-add` and
+  `stonewright/backups`, which are not abilities, and the descriptions of one
+  inspected site from the block-builder skills.
+- Offer the expertise packs for V3 documents (`elementor-v3`, `theme-builder`,
+  `elementor-pro-dynamic`) on Elementor 3.20 up to 5.0 instead of below 4.0, and
+  require WordPress 6.7 or later in every bundled pack. The scoped-snippet pack
+  lists `stonewright/custom-code-provider` instead of `stonewright/php-execute`,
+  and the write-recovery pack lists `stonewright/change-history-list` and
+  `stonewright/change-rollback`.
+- Name the typed `wc-*` abilities in the WooCommerce specialization and the typed
+  `acf-field-group-*`, `acf-values-get` and `acf-value-update` abilities in the
+  ACF specialization before REST or WP-CLI.
+- Call the block finalizer page "Block queue" in the connect prompt and in the
+  description of `stonewright/blocks-finalizer-runtime`.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added

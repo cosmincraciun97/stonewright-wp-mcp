@@ -99,10 +99,26 @@ final class ExpertiseEngineTest extends TestCase {
 	}
 
 	public function test_version_mismatch_blocks_activation_instead_of_falling_back(): void {
-		$runtime = self::runtime();
-		$runtime['versions']['elementor_core'] = '4.1.0';
-		$matches = ExpertiseResolver::resolve( 'Edit Elementor V3 widgets', 'elementor', [], $runtime );
-		self::assertNotContains( 'elementor-v3', array_column( $matches, 'id' ) );
+		// One release below the pack's floor and one major above its ceiling; PackSupportRangesTest
+		// covers the supported range itself, Elementor 4 included.
+		foreach ( [ '3.19.0', '5.0.0' ] as $elementor ) {
+			$runtime = self::runtime();
+			$runtime['versions']['elementor_core'] = $elementor;
+			$matches = ExpertiseResolver::resolve( 'Edit Elementor V3 widgets', 'elementor', [], $runtime );
+			self::assertNotContains( 'elementor-v3', array_column( $matches, 'id' ), 'Elementor ' . $elementor );
+		}
+	}
+
+	public function test_code_and_recovery_packs_name_the_approval_gated_and_rescue_abilities(): void {
+		$packs = array_column( BundledPacks::all(), null, 'id' );
+
+		// Scoped snippets go through the custom-code provider (dry run, approval, rollback); php-execute is on the Full profile only.
+		self::assertContains( 'stonewright/custom-code-provider', $packs['shortcodes-snippets']['required_capabilities'] );
+		self::assertNotContains( 'stonewright/php-execute', $packs['shortcodes-snippets']['required_capabilities'] );
+		// Rollback of a recorded change runs through the change history.
+		foreach ( [ 'stonewright/change-history-list', 'stonewright/change-rollback' ] as $ability ) {
+			self::assertContains( $ability, $packs['security-write-recovery']['required_capabilities'] );
+		}
 	}
 
 	public function test_verified_runtime_fingerprint_mismatch_blocks_compatibility(): void {
