@@ -13,7 +13,8 @@
   production-safe confirmation token stay where they apply.
   `stonewright-task-start` stays in the list while the Elementor architecture blocks
   the write, and `stonewright-tool-profile` while a needed tool is not callable yet.
-  An empty `elementor.status.native_hint` is left out of the compact response.
+  Empty `matched_skills`, `memory_refs` and `elementor.status.native_hint` are left out
+  of the compact response.
 - `composer tokens:measure` checks the bootstrap profile: more than 12 tools or more
   than 3500 estimated tokens each fail the gate on their own. The budgets are
   unchanged.

@@ -529,6 +529,12 @@ final class WorkflowPreflight extends AbilityKernel {
 			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 			'learning'         => AgentHints::LEARNING_TRIGGER,
 		];
+		// Empty lists carry nothing; the required actions name them when they apply.
+		foreach ( [ 'matched_skills', 'memory_refs' ] as $empty_key ) {
+			if ( [] === $compact_context[ $empty_key ] ) {
+				unset( $compact_context[ $empty_key ] );
+			}
+		}
 		if ( [] !== $compact_context['expertise_refs'] ) {
 			// The body tool is the same for every ref, so it is named once here
 			// instead of repeated inside each entry.
