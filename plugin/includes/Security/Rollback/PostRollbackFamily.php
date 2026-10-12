@@ -44,7 +44,10 @@ final class PostRollbackFamily implements RollbackFamilyHandler {
 		if ( ! is_array( $image ) ) {
 			return [ 'status' => 'failed', 'detail' => 'image_invalid' ];
 		}
-		return FamilySupport::answer( PostAdapter::restore( $post_id, $image ) );
+		$restored = PostAdapter::restore( $post_id, $image );
+		$css      = is_array( $restored ) && is_array( $restored['css_regeneration'] ?? null ) ? $restored['css_regeneration'] : null;
+		// The generated CSS of an Elementor page is regenerated with the restore; the engine puts how that went into its answer.
+		return FamilySupport::answer( $restored, null === $css ? [] : [ 'css_regeneration' => $css ] );
 	}
 
 	public function describe( array $row, string|array|null $image ): string {

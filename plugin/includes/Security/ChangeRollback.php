@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\Rollback\FamilySupport;
 use Stonewright\WpMcp\Security\Rollback\LiveState;
@@ -546,6 +547,13 @@ final class ChangeRollback {
 			'limits'              => $limits,
 			'restorable_again'    => '' !== $child_id,
 		];
+		if ( is_array( $restore['css_regeneration'] ?? null ) ) {
+			$out['css_regeneration'] = $restore['css_regeneration'];
+			$note                    = RestoredCss::warning( $restore['css_regeneration'] );
+			if ( '' !== $note ) {
+				$out['warnings'][] = $note;
+			}
+		}
 		return $out;
 	}
 

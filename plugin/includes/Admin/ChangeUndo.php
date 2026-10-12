@@ -249,10 +249,12 @@ final class ChangeUndo {
 			return [ 'code' => self::error_code( (string) $result->get_error_code() ), 'change_id' => $id, 'new_id' => self::valid_id( (string) ( $data['rollback_change_id'] ?? '' ) ) ];
 		}
 
-		$code = 'noop' === ( $result['rollback_status'] ?? '' )
+		// The content is back either way; a page whose generated CSS was not regenerated says so instead of "the site loads".
+		$css_pending = 'not_regenerated' === ( is_array( $result['css_regeneration'] ?? null ) ? ( $result['css_regeneration']['status'] ?? '' ) : '' );
+		$code        = 'noop' === ( $result['rollback_status'] ?? '' )
 			? 'unchanged'
 			: ( 'redo' === $result['kind'] ? 'redone' : 'undone' ) . match ( (string) ( $result['site_status'] ?? '' ) ) {
-				'healthy'       => '',
+				'healthy'       => $css_pending ? '_css_pending' : '',
 				'still_failing' => '_still_failing',
 				default         => '_unverified',
 			};
@@ -311,6 +313,8 @@ final class ChangeUndo {
 		return [
 			'undone'                => [ 'ok', __( 'The change was undone', 'stonewright' ), __( 'The item is as it was before the change, and the site loads.', 'stonewright' ) ],
 			'redone'                => [ 'ok', __( 'The change was redone', 'stonewright' ), __( 'The change is in effect again, and the site loads.', 'stonewright' ) ],
+			'undone_css_pending'    => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The content is back as it was before the change, but the generated CSS of the page was not regenerated, so the page may still load the old stylesheet. Ask your assistant to run stonewright/elementor-css-regenerate for this page, or save the page once in Elementor.', 'stonewright' ) ],
+			'redone_css_pending'    => [ 'warn', __( 'The change was redone', 'stonewright' ), __( 'The change is in effect again, but the generated CSS of the page was not regenerated, so the page may still load the old stylesheet. Ask your assistant to run stonewright/elementor-css-regenerate for this page, or save the page once in Elementor.', 'stonewright' ) ],
 			'undone_unverified'     => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The health check afterwards was unavailable, so it is not confirmed that the site loads.', 'stonewright' ) ],
 			'redone_unverified'     => [ 'warn', __( 'The change was redone', 'stonewright' ), __( 'The health check afterwards was unavailable, so it is not confirmed that the site loads.', 'stonewright' ) ],
 			'undone_still_failing'  => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The site was failing before and still fails to load, so the fault may not come from this change.', 'stonewright' ) ],
