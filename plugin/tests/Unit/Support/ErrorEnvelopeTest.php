@@ -307,7 +307,7 @@ final class ErrorEnvelopeTest extends TestCase {
 				'status'            => 400,
 				'rejected_settings' => [ [ 'operation_index' => 0, 'setting' => 'title_color', 'example' => [ 'title_color' => '#1a73e8' ] ] ],
 				'rejected_total'    => 1,
-				'password'          => 'must-not-leak',
+				'password'          => 'fixture-password-1',
 			]
 		);
 		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
