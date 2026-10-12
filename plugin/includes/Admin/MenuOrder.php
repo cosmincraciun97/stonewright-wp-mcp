@@ -45,9 +45,19 @@ final class MenuOrder {
 	 * @return list<array<int, mixed>>
 	 */
 	public static function order( array $items ): array {
+		// A page that is another page's own tab has an address and a registration, but no entry of its own.
+		$views = [];
+		foreach ( MenuRegistry::entries() as $entry ) {
+			if ( '' !== $entry['parent'] ) {
+				$views[ $entry['slug'] ] = true;
+			}
+		}
 		$by_slug = [];
 		foreach ( $items as $item ) {
-			$by_slug[ (string) ( $item[2] ?? '' ) ] = $item;
+			$slug = (string) ( $item[2] ?? '' );
+			if ( ! isset( $views[ $slug ] ) ) {
+				$by_slug[ $slug ] = $item;
+			}
 		}
 
 		$ordered = [];
@@ -71,7 +81,28 @@ final class MenuOrder {
 	 */
 	private static function title( array $entry ): string {
 		$label = MenuRegistry::menu_label( $entry );
+		$title = $entry['beta'] ? AdminShell::beta_menu_title( $label ) : $label;
 
-		return $entry['beta'] ? AdminShell::beta_menu_title( $label ) : $label;
+		return $title . self::menu_count( $entry );
+	}
+
+	/**
+	 * The count beside a sidebar entry, for a page that asks for it: the number and its words for assistive technology,
+	 * in the bubble WordPress draws beside its own entries. Empty when there is nothing to show.
+	 *
+	 * @param Entry $entry
+	 */
+	private static function menu_count( array $entry ): string {
+		if ( ! MenuRegistry::shows_menu_count( $entry['slug'] ) ) {
+			return '';
+		}
+		$count = MenuRegistry::page_count( $entry['slug'] );
+		if ( null === $count ) {
+			return '';
+		}
+		$words = MenuRegistry::page_count_label( $entry['slug'] );
+
+		return ' <span class="awaiting-mod sw-menu-count"><span class="sw-menu-count__n" aria-hidden="true">' . esc_html( (string) $count ) . '</span>'
+			. '<span class="screen-reader-text"> ' . esc_html( (string) $count . ( '' !== $words ? ' ' . $words : '' ) ) . '</span></span>';
 	}
 }

@@ -334,4 +334,89 @@ final class MenuRegistryTest extends TestCase {
 
 		self::assertSame( 'crash-recovery', MenuRegistry::requested_tab() );
 	}
+
+	// ---- A page that is another page's own tab ---------------------------------------------------------------
+
+	/** Changes with two tabs, and Rescue at its own address as a view of the second one. */
+	private function changes_and_rescue( int $attention = 2 ): void {
+		MenuRegistry::add( 'stonewright-changes', 'History', 'activity', [ 'tab' => 'history', 'default' => true, 'order' => 30, 'title' => 'Changes', 'menu_label' => 'Changes', 'beta' => true ] );
+		MenuRegistry::add( 'stonewright-changes', 'Rescue', 'activity', [ 'tab' => 'rescue', 'order' => 31, 'title' => 'Rescue', 'menu_label' => 'Changes', 'beta' => true, 'menu_count' => true, 'count' => static fn (): int => $attention, 'count_label' => 'needing attention' ] );
+		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 32, 'in_menu' => false, 'parent' => 'stonewright-changes', 'parent_tab' => 'rescue', 'count' => static fn (): int => $attention ] );
+	}
+
+	public function test_a_view_of_another_pages_tab_has_no_entry_of_its_own_in_the_sidebar_or_the_band(): void {
+		$this->changes_and_rescue();
+
+		self::assertNotContains( 'stonewright-rescue', array_column( MenuRegistry::menu_entries(), 'slug' ) );
+		self::assertContains( 'stonewright-changes', array_column( MenuRegistry::menu_entries(), 'slug' ) );
+		$labels = [];
+		foreach ( MenuRegistry::band_groups( 'stonewright-status' ) as $group ) {
+			foreach ( $group['links'] as $link ) {
+				$labels[] = $link['label'];
+			}
+		}
+		self::assertContains( 'Changes', $labels );
+		self::assertNotContains( 'Rescue', $labels );
+		self::assertSame( 1, count( array_keys( $labels, 'Changes', true ) ), 'One Changes link.' );
+		self::assertSame( 'Changes', MenuRegistry::menu_label( (array) MenuRegistry::entry( 'stonewright-changes' ) ), 'The sidebar says Changes, not the name of the first tab.' );
+	}
+
+	public function test_the_band_marks_the_parent_current_on_the_view_and_counts_its_tabs_once(): void {
+		$this->changes_and_rescue( 3 );
+
+		foreach ( [ 'stonewright-changes', 'stonewright-rescue' ] as $current ) {
+			$link = null;
+			foreach ( MenuRegistry::band_groups( $current ) as $group ) {
+				foreach ( $group['links'] as $candidate ) {
+					if ( 'Changes' === $candidate['label'] ) {
+						$link = $candidate;
+					}
+				}
+			}
+			self::assertIsArray( $link );
+			self::assertTrue( $link['current'], $current );
+			self::assertSame( 3, $link['count'], 'The count of the Rescue tab is on the Changes link; the view repeats it and is not added.' );
+			self::assertSame( 'needing attention', $link['count_label'] );
+		}
+		$other = [];
+		foreach ( MenuRegistry::band_groups( 'stonewright-status' ) as $group ) {
+			foreach ( $group['links'] as $candidate ) {
+				$other[ $candidate['label'] ] = $candidate['current'];
+			}
+		}
+		self::assertFalse( $other['Changes'] );
+	}
+
+	public function test_a_count_of_zero_shows_no_number(): void {
+		$this->changes_and_rescue( 0 );
+
+		self::assertNull( MenuRegistry::page_count( 'stonewright-changes' ) );
+		self::assertTrue( MenuRegistry::shows_menu_count( 'stonewright-changes' ), 'The Rescue tab asks for its count to be in the sidebar.' );
+		self::assertFalse( MenuRegistry::shows_menu_count( 'stonewright-audit-log' ) );
+		self::assertFalse( MenuRegistry::shows_menu_count( 'stonewright-rescue' ), 'The view does not: its parent does.' );
+	}
+
+	public function test_the_view_shows_the_tab_bar_of_its_parent_with_the_tab_it_is_a_view_of_current(): void {
+		$this->changes_and_rescue();
+
+		self::assertSame( [ 'stonewright-changes', 'rescue' ], MenuRegistry::resolve( 'stonewright-rescue' ) );
+		self::assertSame( [ 'stonewright-changes', 'history' ], MenuRegistry::resolve( 'stonewright-changes', 'history' ), 'A page that is not a view resolves to itself.' );
+		self::assertSame( [ 'stonewright-status', '' ], MenuRegistry::resolve( 'stonewright-status' ) );
+
+		foreach ( [ MenuRegistry::tab_links( 'stonewright-rescue', '' ), MenuRegistry::tab_links( 'stonewright-changes', 'rescue' ) ] as $links ) {
+			self::assertSame( [ 'History', 'Rescue' ], array_column( $links, 'label' ) );
+			self::assertSame( [ false, true ], array_column( $links, 'current' ) );
+			self::assertSame( [ null, 2 ], array_column( $links, 'count' ), 'The attention count is on the tab.' );
+			self::assertStringEndsWith( 'page=stonewright-changes&tab=rescue', $links[1]['url'] );
+		}
+		$history = MenuRegistry::tab_links( 'stonewright-changes', '' );
+		self::assertSame( [ true, false ], array_column( $history, 'current' ), 'History is the default tab.' );
+	}
+
+	public function test_a_view_whose_parent_is_not_registered_is_a_page_of_its_own(): void {
+		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 32, 'in_menu' => false, 'parent' => 'stonewright-changes', 'parent_tab' => 'rescue' ] );
+
+		self::assertSame( [ 'stonewright-rescue', '' ], MenuRegistry::resolve( 'stonewright-rescue' ) );
+		self::assertSame( [], MenuRegistry::tab_links( 'stonewright-rescue', '' ) );
+	}
 }
