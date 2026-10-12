@@ -29,13 +29,18 @@ use Stonewright\WpMcp\Support\Logger;
  *   response is limited to MAXIMUM_BYTES within TIMEOUT seconds.
  * - The document's client_id must equal the URL, it must describe a public client
  *   (token_endpoint_auth_method "none" or omitted, no shared secret) and pass the same
- *   metadata rules as a registration, including the callback rules.
+ *   metadata rules as a registration, including the callback rules. A document describes
+ *   the client for every server it talks to, so grant and response types this server does
+ *   not support (for example jwt-bearer) and fields it does not know are left out of the
+ *   stored client instead of refusing the document; authorization_code must remain.
  * - The client is stored in the clients table under RowKeys::client_document() and
  *   reused until its cached copy ends: Cache-Control max-age clamped to 300 through
  *   86400 seconds, 300 for no-store or no-cache, 3600 without a directive. An expired
  *   copy that can no longer be fetched is refused.
  *
- * Every refusal is invalid_client.
+ * Every refusal is invalid_client. The browser page stays generic; the specific reason is
+ * logged (oauth_client_document_refused) and kept in ClientDocumentRefusals for the
+ * Troubleshoot page.
  */
 final class ClientDocuments {
 
@@ -80,16 +85,16 @@ final class ClientDocuments {
 	/** @var \Closure(string): list<string> */
 	private \Closure $resolve;
 
-	/** @var \Closure(string, string): (array{status: int, body: string, cache_control: string}|null) */
+	/** @var \Closure(string, string): (array{status: int, body: string, cache_control: string, error?: string}|null) */
 	private \Closure $fetch;
 
 	/**
 	 * @param (\Closure(string): list<string>)|null                                                       $resolve Host => its addresses.
-	 * @param (\Closure(string, string): (array{status: int, body: string, cache_control: string}|null))|null $fetch   URL and pinned address => response, or null on a transport failure.
+	 * @param (\Closure(string, string): (array{status: int, body: string, cache_control: string, error?: string}|null))|null $fetch   URL and pinned address => response, or null on a transport failure; a transport failure may name its WP_Error code in error.
 	 */
 	public function __construct( private ClientStore $clients, private Clock $clock, ?\Closure $resolve = null, ?\Closure $fetch = null ) {
 		$this->resolve = $resolve ?? static fn ( string $host ): array => self::dns_addresses( $host );
-		$this->fetch = $fetch ?? static fn ( string $url, string $address ): ?array => self::http_fetch( $url, $address );
+		$this->fetch = $fetch ?? static fn ( string $url, string $address ): array => self::http_fetch( $url, $address );
 	}
 
 	/** Whether a client_id names a metadata document (an https URL with a path). */
@@ -157,6 +162,7 @@ final class ClientDocuments {
 		}
 		[ $profile, $lifetime ] = $this->fetch_document( $url );
 		$this->clients->save_document( $key, $profile, $now + $lifetime );
+		ClientDocumentRefusals::forget( (string) parse_url( $url, PHP_URL_HOST ) );
 		$client = $this->clients->find( $key );
 		if ( null === $client ) {
 			throw new StorageFailure( 'The client metadata document could not be read back.' );
@@ -171,23 +177,39 @@ final class ClientDocuments {
 	private function fetch_document( string $url ): array {
 		$addresses = ( $this->resolve )( (string) parse_url( $url, PHP_URL_HOST ) );
 		if ( [] === $addresses ) {
-			throw new OAuthFault( 'invalid_client' );
+			throw $this->refuse( $url, 'dns_empty' );
 		}
 		foreach ( $addresses as $address ) {
 			if ( ! is_string( $address ) || ! self::public_address( $address ) ) {
-				throw new OAuthFault( 'invalid_client' );
+				throw $this->refuse( $url, 'non_public_address' );
 			}
 		}
 		$ipv4 = array_values( array_filter( $addresses, static fn ( string $address ): bool => ! str_contains( $address, ':' ) ) );
 		$response = ( $this->fetch )( $url, $ipv4[0] ?? $addresses[0] );
-		if ( null === $response || 200 !== $response['status'] || strlen( $response['body'] ) > self::MAXIMUM_BYTES ) {
-			throw new OAuthFault( 'invalid_client' );
+		if ( null === $response ) {
+			throw $this->refuse( $url, 'fetch_failed' );
+		}
+		if ( isset( $response['error'] ) && '' !== $response['error'] ) {
+			throw $this->refuse( $url, 'fetch_failed', $response['error'] );
+		}
+		if ( 200 !== $response['status'] ) {
+			throw $this->refuse( $url, 'http_status', (string) $response['status'] );
+		}
+		if ( strlen( $response['body'] ) > self::MAXIMUM_BYTES ) {
+			throw $this->refuse( $url, 'too_large' );
 		}
 		try {
 			$document = ( new RequestDecoder() )->registration( $response['body'], self::MAXIMUM_BYTES );
-			if ( $url !== ( $document['client_id'] ?? null ) || array_key_exists( 'client_secret', $document ) || array_key_exists( 'client_secret_expires_at', $document ) ) {
-				throw new OAuthFault( 'invalid_client' );
-			}
+		} catch ( OAuthFault $refused ) {
+			throw $this->refuse( $url, 'invalid_document' );
+		}
+		if ( $url !== ( $document['client_id'] ?? null ) ) {
+			throw $this->refuse( $url, 'client_id_mismatch' );
+		}
+		if ( array_key_exists( 'client_secret', $document ) || array_key_exists( 'client_secret_expires_at', $document ) ) {
+			throw $this->refuse( $url, 'has_secret' );
+		}
+		try {
 			$accepted = ( new ClientMetadataRules( new TransportPolicy() ) )->accept(
 				$document,
 				[
@@ -195,18 +217,40 @@ final class ClientDocuments {
 					'omitted_authentication_method' => 'none',
 					'grant_types'                   => [ 'authorization_code', 'refresh_token' ],
 					'response_types'                => [ 'code' ],
+					'substitute_unsupported_types'  => true,
 					'native_clients'                => true,
 					'maximum_redirects'             => 10,
 					'maximum_text_bytes'            => 1024,
 				]
 			);
 		} catch ( OAuthFault $refused ) {
-			throw new OAuthFault( 'invalid_client' );
+			throw $this->refuse( $url, 'metadata_refused', $refused->detail() );
 		}
 		$accepted['client_id_metadata_document'] = $url;
 		return [ $accepted, self::lifetime( $response['cache_control'] ) ];
 	}
 
+	/**
+	 * Log and record why a document was refused; the caller throws what this returns, which
+	 * the browser sees only as invalid_client.
+	 */
+	private function refuse( string $url, string $reason, string $detail = '' ): OAuthFault {
+		$host = (string) parse_url( $url, PHP_URL_HOST );
+		Logger::warning(
+			'oauth_client_document_refused',
+			[
+				'host'   => $host,
+				'reason' => $reason,
+				'detail' => $detail,
+			]
+		);
+		try {
+			ClientDocumentRefusals::record( $host, $reason, $detail, $this->clock->now() );
+		} catch ( \Throwable $failure ) {
+			Logger::warning( 'oauth_client_document_refusal_not_recorded', [ 'error_class' => get_class( $failure ) ] );
+		}
+		return new OAuthFault( 'invalid_client' );
+	}
 	private static function lifetime( string $cache_control ): int {
 		$directives = strtolower( $cache_control );
 		if ( preg_match( '/(?:^|[\s,])(?:no-store|no-cache)(?:$|[\s,=])/', $directives ) ) {
@@ -256,12 +300,11 @@ final class ClientDocuments {
 	 * One GET pinned to a checked address, without redirects, bounded in size and time.
 	 * Pinning needs the cURL transport; without it nothing is fetched.
 	 *
-	 * @return array{status: int, body: string, cache_control: string}|null
+	 * @return array{status: int, body: string, cache_control: string, error?: string}
 	 */
-	private static function http_fetch( string $url, string $address ): ?array {
+	private static function http_fetch( string $url, string $address ): array {
 		if ( ! function_exists( 'curl_init' ) || ! defined( 'CURLOPT_RESOLVE' ) ) {
-			Logger::warning( 'oauth_client_document_unavailable', [ 'reason' => 'curl_missing' ] );
-			return null;
+			return [ 'status' => 0, 'body' => '', 'cache_control' => '', 'error' => 'curl_missing' ];
 		}
 		$host = (string) parse_url( $url, PHP_URL_HOST );
 		$pin = static function ( $handle, $request, $requested ) use ( $url, $host, $address ): void {
@@ -284,7 +327,7 @@ final class ClientDocuments {
 			remove_action( 'http_api_curl', $pin, 10 );
 		}
 		if ( is_wp_error( $response ) ) {
-			return null;
+			return [ 'status' => 0, 'body' => '', 'cache_control' => '', 'error' => (string) $response->get_error_code() ];
 		}
 		$cache_control = wp_remote_retrieve_header( $response, 'cache-control' );
 		return [

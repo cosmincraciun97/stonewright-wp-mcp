@@ -39,7 +39,16 @@ A client may identify itself with a Client ID Metadata Document: an HTTPS URL
 which serves a JSON document of at most 5 KB that lists its callback URLs and
 describes a public client. Stonewright fetches the document from a public
 address only, does not follow redirects, and caches it for the time its
-`Cache-Control` header allows: 5 minutes to 24 hours, 1 hour by default.
+`Cache-Control` header allows: 5 minutes to 24 hours, 1 hour by default. A document
+describes the client for every server it works with, so Stonewright keeps the grant
+and response types it supports (`authorization_code`, `refresh_token`, `code`)
+and leaves out the rest, such as `urn:ietf:params:oauth:grant-type:jwt-bearer`;
+the document must still list `authorization_code`. Dynamic client registration
+treats the same lists the same way, and the registration answer shows what was
+kept. When a document is refused, the browser shows a general page; the reason
+(for example the host answered HTTP 403, or the host name did not resolve) is
+written to the PHP error log as `stonewright.oauth_client_document_refused` and
+shown by the **OAuth client metadata documents** check on the Troubleshoot page.
 
 A native client may use an HTTP callback on `127.0.0.1`, `[::1]`, or
 `localhost` and choose a different port than the one it registered; scheme,

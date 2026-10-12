@@ -181,6 +181,22 @@ and endpoint only) and a **Copy hosting request** button you can paste to hostin
 support. Ask them to allow those User-Agents, or to allow the `/wp-json/mcp/`
 path.
 
+## OAuth client metadata documents
+
+A client such as Claude identifies itself with an HTTPS address that serves a JSON
+document, and Stonewright fetches that document from the server. If the fetch is
+refused, the person at the browser only sees that the application is not
+registered with this site. This check reads the latest reason Stonewright
+recorded for each client host: the host name did not resolve, it resolves to an
+address that is not public, the request failed (with the WordPress error code), the
+host answered an HTTP status (`403` usually means a firewall or WAF blocks the
+site's own outbound request), the document was too large or not a JSON object,
+its `client_id` did not match its address, it contained a shared secret, or one
+metadata field was not acceptable (the field is named). It is information when
+nothing has been refused, and a warning with a remedy otherwise. A later
+successful fetch from the same host clears its entry, and at most five hosts are
+kept.
+
 ## OAuth dynamic registration
 
 The same HTTP run `POST`s to the local OAuth dynamic-registration endpoint

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Authorization\WordPress;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Authorization\Model\OAuthFault;
+use Stonewright\WpMcp\Authorization\WordPress\ClientDocumentRefusals;
 use Stonewright\WpMcp\Authorization\WordPress\ClientDocuments;
 use Stonewright\WpMcp\Authorization\WordPress\ClientStore;
 use Stonewright\WpMcp\Authorization\WordPress\RowKeys;
@@ -13,11 +14,14 @@ use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
 
 /**
  * @covers \Stonewright\WpMcp\Authorization\WordPress\ClientDocuments
+ * @covers \Stonewright\WpMcp\Authorization\WordPress\ClientDocumentRefusals
  * @covers \Stonewright\WpMcp\Authorization\WordPress\ClientStore
  */
 final class ClientDocumentsTest extends TestCase {
 
 	private const URL = 'https://client.example.test/oauth/client.json';
+	private const CLAUDE_URL = 'https://claude.ai/oauth/mcp-oauth-client-metadata';
+	private const CLAUDE_DOCUMENT = '{"client_id":"https://claude.ai/oauth/mcp-oauth-client-metadata","client_name":"Claude","client_uri":"https://claude.ai","redirect_uris":["https://claude.ai/api/mcp/auth_callback"],"grant_types":["authorization_code","refresh_token","urn:ietf:params:oauth:grant-type:jwt-bearer"],"response_types":["code"],"token_endpoint_auth_method":"none"}';
 
 	private HttpRig $http;
 
@@ -156,7 +160,8 @@ final class ClientDocumentsTest extends TestCase {
 			'plain http redirect'    => [ $ok( self::document( [ 'redirect_uris' => [ 'http://client.example.test/cb' ] ] ) ) ],
 			'private key client'     => [ $ok( self::document( [ 'token_endpoint_auth_method' => 'private_key_jwt' ] ) ) ],
 			'shared secret'          => [ $ok( self::document( [ 'client_secret' => 'sentinel-secret-value' ] ) ) ],
-			'unsupported grant'      => [ $ok( self::document( [ 'grant_types' => [ 'client_credentials' ] ] ) ) ],
+			'only unsupported grant' => [ $ok( self::document( [ 'grant_types' => [ 'client_credentials' ] ] ) ) ],
+			'refresh grant only'     => [ $ok( self::document( [ 'grant_types' => [ 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ] ] ) ) ],
 			'script link'            => [ $ok( self::document( [ 'logo_uri' => 'javascript:alert(1)' ] ) ) ],
 			'repeated member'        => [ [ 'status' => 200, 'body' => '{"client_id":"' . self::URL . '","client_id":"' . self::URL . '","redirect_uris":["http://127.0.0.1/callback"]}', 'cache_control' => '' ] ],
 		];
@@ -207,17 +212,154 @@ final class ClientDocumentsTest extends TestCase {
 		$this->assert_refused();
 	}
 
+	public function test_the_client_metadata_document_claude_publishes_is_accepted(): void {
+		$this->http->addresses['claude.ai'] = [ '160.79.104.10' ];
+		$this->http->responses[ self::CLAUDE_URL ] = [ 'status' => 200, 'body' => self::CLAUDE_DOCUMENT, 'cache_control' => 'public, max-age=300' ];
+
+		$client = $this->http->documents->resolve( self::CLAUDE_URL );
+
+		self::assertSame( ClientDocuments::client_key( self::CLAUDE_URL ), $client['client_id'] );
+		self::assertSame( 'Claude', $client['client_name'] );
+		self::assertSame( [ 'https://claude.ai/api/mcp/auth_callback' ], $client['redirect_uris'] );
+		self::assertSame( 'none', $client['token_endpoint_auth_method'] );
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $client['grant_types'] );
+		self::assertSame( [ 'code' ], $client['response_types'] );
+		self::assertSame( [], ClientDocumentRefusals::all() );
+	}
+
+	public function test_the_stored_client_keeps_only_the_grant_types_this_server_supports(): void {
+		$this->http->addresses['claude.ai'] = [ '160.79.104.10' ];
+		$this->http->responses[ self::CLAUDE_URL ] = [ 'status' => 200, 'body' => self::CLAUDE_DOCUMENT, 'cache_control' => '' ];
+
+		$this->http->documents->resolve( self::CLAUDE_URL );
+
+		$row = $this->http->rig->row( 'clients', 'client_id', ClientDocuments::client_key( self::CLAUDE_URL ) );
+		$metadata = json_decode( (string) $row['client_metadata'], true );
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $metadata['grant_types'] );
+		self::assertStringNotContainsString( 'jwt-bearer', (string) $row['client_metadata'] );
+		$reread = $this->http->storage->clients()->find( ClientDocuments::client_key( self::CLAUDE_URL ) );
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $reread['grant_types'] );
+	}
+
+	public function test_unknown_response_types_and_extra_metadata_do_not_refuse_a_document(): void {
+		$this->http->publish_document( self::URL, self::document( [ 'grant_types' => [ 'authorization_code', 'device_code' ], 'response_types' => [ 'code', 'id_token' ], 'jwks_uri' => 'https://client.example.test/jwks', 'software_id' => 'x', 'contacts' => [ 'a@example.test' ] ] ) );
+
+		$client = $this->http->documents->resolve( self::URL );
+
+		self::assertSame( [ 'authorization_code' ], $client['grant_types'] );
+		self::assertSame( [ 'code' ], $client['response_types'] );
+		self::assertArrayNotHasKey( 'jwks_uri', $client );
+	}
+
+	public function test_a_document_without_the_authorization_code_grant_is_still_refused(): void {
+		$this->http->addresses['claude.ai'] = [ '160.79.104.10' ];
+		$document = (array) json_decode( self::CLAUDE_DOCUMENT, true );
+		$document['grant_types'] = [ 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ];
+		$this->http->responses[ self::CLAUDE_URL ] = [ 'status' => 200, 'body' => (string) json_encode( $document, JSON_UNESCAPED_SLASHES ), 'cache_control' => '' ];
+
+		$log = $this->assert_refused( self::CLAUDE_URL );
+
+		self::assertSame( [], $this->http->rig->rows( 'clients' ) );
+		self::assertSame( [ 'reason' => 'metadata_refused', 'detail' => 'grant_types' ], self::logged_reason( $log ) );
+	}
+
+	public function test_a_document_whose_client_id_differs_from_its_url_is_still_refused(): void {
+		$this->http->addresses['claude.ai'] = [ '160.79.104.10' ];
+		$document = (array) json_decode( self::CLAUDE_DOCUMENT, true );
+		$document['client_id'] = 'https://claude.ai/oauth/another-document';
+		$this->http->responses[ self::CLAUDE_URL ] = [ 'status' => 200, 'body' => (string) json_encode( $document, JSON_UNESCAPED_SLASHES ), 'cache_control' => '' ];
+
+		$log = $this->assert_refused( self::CLAUDE_URL );
+
+		self::assertSame( [], $this->http->rig->rows( 'clients' ) );
+		self::assertSame( [ 'reason' => 'client_id_mismatch', 'detail' => '' ], self::logged_reason( $log ) );
+	}
+
+	/** @dataProvider refusal_reasons */
+	public function test_every_refusal_logs_its_reason_and_records_it_for_the_troubleshoot_page( ?array $response, array $addresses, array $reason ): void {
+		$this->http->addresses['client.example.test'] = $addresses;
+		$this->http->responses[ self::URL ] = $response;
+
+		$log = $this->assert_refused();
+
+		self::assertSame( $reason, self::logged_reason( $log ) );
+		$recorded = ClientDocumentRefusals::all();
+		self::assertSame( [ 'client.example.test' ], array_keys( $recorded ) );
+		self::assertSame( $reason['reason'], $recorded['client.example.test']['reason'] );
+		self::assertSame( $reason['detail'], $recorded['client.example.test']['detail'] );
+		self::assertSame( StorageRig::T, $recorded['client.example.test']['at'] );
+		self::assertStringNotContainsString( 'sentinel-secret-value', $log );
+	}
+
+	public function refusal_reasons(): array {
+		$public = [ '93.184.216.34' ];
+		$ok = static fn ( array $document ): array => [ 'status' => 200, 'body' => (string) json_encode( $document, JSON_UNESCAPED_SLASHES ), 'cache_control' => '' ];
+		return [
+			'dns empty'                  => [ null, [], [ 'reason' => 'dns_empty', 'detail' => '' ] ],
+			'non public address'         => [ null, [ '93.184.216.34', '10.0.0.1' ], [ 'reason' => 'non_public_address', 'detail' => '' ] ],
+			'transport failure'          => [ [ 'status' => 0, 'body' => '', 'cache_control' => '', 'error' => 'http_request_failed' ], $public, [ 'reason' => 'fetch_failed', 'detail' => 'http_request_failed' ] ],
+			'transport failure, no code' => [ null, $public, [ 'reason' => 'fetch_failed', 'detail' => '' ] ],
+			'blocked by a firewall'      => [ [ 'status' => 403, 'body' => '<html>blocked</html>', 'cache_control' => '' ], $public, [ 'reason' => 'http_status', 'detail' => '403' ] ],
+			'redirect'                   => [ [ 'status' => 302, 'body' => '', 'cache_control' => '' ], $public, [ 'reason' => 'http_status', 'detail' => '302' ] ],
+			'too large'                  => [ $ok( self::document( [ 'client_name' => str_repeat( 'n', 6000 ) ] ) ), $public, [ 'reason' => 'too_large', 'detail' => '' ] ],
+			'not json'                   => [ [ 'status' => 200, 'body' => '<html></html>', 'cache_control' => '' ], $public, [ 'reason' => 'invalid_document', 'detail' => '' ] ],
+			'other client id'            => [ $ok( self::document( [ 'client_id' => 'https://other.example.test/c.json' ] ) ), $public, [ 'reason' => 'client_id_mismatch', 'detail' => '' ] ],
+			'shared secret'              => [ $ok( self::document( [ 'client_secret' => 'sentinel-secret-value' ] ) ), $public, [ 'reason' => 'has_secret', 'detail' => '' ] ],
+			'unsafe link'                => [ $ok( self::document( [ 'client_uri' => 'javascript:alert(1)' ] ) ), $public, [ 'reason' => 'metadata_refused', 'detail' => 'client_uri' ] ],
+			'bad callback'               => [ $ok( self::document( [ 'redirect_uris' => [ 'http://client.example.test/cb' ] ] ) ), $public, [ 'reason' => 'metadata_refused', 'detail' => 'redirect_uris' ] ],
+			'confidential client'        => [ $ok( self::document( [ 'token_endpoint_auth_method' => 'private_key_jwt' ] ) ), $public, [ 'reason' => 'metadata_refused', 'detail' => 'token_endpoint_auth_method' ] ],
+		];
+	}
+
+	public function test_a_later_success_clears_the_recorded_refusal_of_that_host(): void {
+		$this->http->addresses['client.example.test'] = [ '93.184.216.34' ];
+		$this->http->responses[ self::URL ] = [ 'status' => 403, 'body' => '', 'cache_control' => '' ];
+		$this->assert_refused();
+		self::assertCount( 1, ClientDocumentRefusals::all() );
+
+		$this->http->publish_document( self::URL, self::document() );
+		$this->http->documents->resolve( self::URL );
+
+		self::assertSame( [], ClientDocumentRefusals::all() );
+	}
+
+	public function test_only_the_latest_refusals_are_remembered(): void {
+		foreach ( range( 1, ClientDocumentRefusals::LIMIT + 3 ) as $number ) {
+			ClientDocumentRefusals::record( 'host' . $number . '.example.test', 'http_status', '403', 1000 + $number );
+		}
+
+		$recorded = ClientDocumentRefusals::all();
+
+		self::assertCount( ClientDocumentRefusals::LIMIT, $recorded );
+		self::assertArrayHasKey( 'host' . ( ClientDocumentRefusals::LIMIT + 3 ) . '.example.test', $recorded );
+		self::assertArrayNotHasKey( 'host1.example.test', $recorded );
+	}
+
 	public function test_a_registered_client_id_is_not_a_document(): void {
 		$this->assert_refused( '0123456789abcdef0123456789abcdef' );
 		self::assertSame( [], $this->http->fetches );
 	}
 
-	private function assert_refused( string $url = self::URL ): void {
-		try {
-			$this->http->documents->resolve( $url );
-			self::fail( 'The client metadata document must be refused.' );
-		} catch ( OAuthFault $fault ) {
-			self::assertSame( 'invalid_client', $fault->error() );
-		}
+	/** Resolve a document that must be refused; returns what the refusal logged. */
+	private function assert_refused( string $url = self::URL ): string {
+		return HttpRig::quietly(
+			function () use ( $url ): void {
+				try {
+					$this->http->documents->resolve( $url );
+					self::fail( 'The client metadata document must be refused.' );
+				} catch ( OAuthFault $fault ) {
+					self::assertSame( 'invalid_client', $fault->error() );
+				}
+			}
+		);
+	}
+
+	/** @return array{reason: string, detail: string} The reason of the one refusal in a log. */
+	private static function logged_reason( string $log ): array {
+		$lines = array_values( array_filter( explode( "\n", trim( $log ) ), static fn ( string $line ): bool => str_contains( $line, 'stonewright.oauth_client_document_refused' ) ) );
+		self::assertCount( 1, $lines, $log );
+		$entry = json_decode( substr( $lines[0], (int) strpos( $lines[0], '{' ) ), true ); // The log line starts with a timestamp.
+		self::assertSame( 'warning', $entry['level'] );
+		return [ 'reason' => (string) $entry['context']['reason'], 'detail' => (string) ( $entry['context']['detail'] ?? '' ) ];
 	}
 }

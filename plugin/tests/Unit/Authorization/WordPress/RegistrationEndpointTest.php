@@ -78,6 +78,16 @@ final class RegistrationEndpointTest extends TestCase {
 		self::assertSame( [ 'authorization_code' ], $reply->body['grant_types'] );
 	}
 
+	public function test_grant_and_response_types_this_server_does_not_support_are_left_out_of_the_registration(): void {
+		$reply = $this->register( self::document( [ 'grant_types' => [ 'authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer' ], 'response_types' => [ 'code', 'id_token' ] ] ) );
+
+		self::assertSame( 201, $reply->status );
+		self::assertSame( [ 'authorization_code', 'refresh_token' ], $reply->body['grant_types'] );
+		self::assertSame( [ 'code' ], $reply->body['response_types'] );
+		$row = $this->http->rig->row( 'clients', 'client_id', $reply->body['client_id'] );
+		self::assertStringNotContainsString( 'jwt-bearer', (string) $row['client_metadata'] );
+	}
+
 	public function test_callbacks_of_real_clients_register(): void {
 		$redirects = [ 'http://localhost:8787/callback', 'http://127.0.0.1:33418', 'http://[::1]:8123/callback', 'https://editor.example.test/redirect', 'http://localhost:54321/oauth/callback' ];
 
@@ -106,6 +116,8 @@ final class RegistrationEndpointTest extends TestCase {
 			'no callbacks'           => [ $json( [ 'redirect_uris' => [] ] ), 'invalid_redirect_uri' ],
 			'confidential client'    => [ $json( [ 'token_endpoint_auth_method' => 'client_secret_basic' ] ), 'invalid_client_metadata' ],
 			'implicit grant'         => [ $json( [ 'grant_types' => [ 'implicit' ] ] ), 'invalid_client_metadata' ],
+			'no authorization code'  => [ $json( [ 'grant_types' => [ 'refresh_token', 'implicit' ] ] ), 'invalid_client_metadata' ],
+			'token response only'    => [ $json( [ 'response_types' => [ 'token' ] ] ), 'invalid_client_metadata' ],
 			'unknown scope'          => [ $json( [ 'scope' => 'mcp admin' ] ), 'invalid_client_metadata' ],
 			'script link'            => [ $json( [ 'client_uri' => 'javascript:alert(1)' ] ), 'invalid_client_metadata' ],
 			'not json'               => [ 'client_name=x', 'invalid_request' ],
