@@ -127,7 +127,7 @@ test.describe('Connect wizard interactions', () => {
 			'`--profile discover-execute` exposes the three protocol tools plus the startup and confirmation-token tools.',
 		);
 		expect(fullPrompt).toContain(
-			'Static or third-party block writes finalize through the Block Editor Queue page; keep it open when asked.',
+			'Static or third-party block writes finalize through the Block queue page; keep it open when asked.',
 		);
 		expect(fullPrompt).toContain(
 			'stonewright connect repair <alias> --client <client> --mode plugin-only',

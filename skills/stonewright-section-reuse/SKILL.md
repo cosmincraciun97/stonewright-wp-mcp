@@ -45,8 +45,8 @@ sections. Give it:
 - `target_post_id`: the page you are building, so its own sections are never
   offered.
 - the sections the page needs, as `sections` (a `role` of `hero`, `features`,
-  `testimonials`, `pricing`, `faq`, `cta`, `gallery` or `contact`, and
-  optionally the `layout` wanted: `columns`, `items`, `depth`), or as one short
+  `testimonials`, `pricing`, `faq`, `cta`, `gallery`, `contact` or `other`, and
+  optionally the `layout` wanted: `columns`, `items`, `depth`, `types`), or as one short
   `outline` such as `hero, 3 feature cards, testimonials, contact form`.
 
 The answer lists up to three candidates per role by default. A candidate says
@@ -227,7 +227,8 @@ After the apply:
 1. Elementor: run `stonewright-elementor-css-regenerate` for the page, then
    `stonewright-elementor-post-write-verify` with the new element ids. Never
    clear CSS site-wide. In production-safe, `stonewright-elementor-css-regenerate`
-   and a rollback with `stonewright-change-restore` each need a
+   and a rollback (`stonewright-change-rollback`, dry run first, or
+   `stonewright-change-restore` from a snapshot) each need a
    `confirmation_token` issued for the exact call.
 2. Check the `change_set`: `reuse_source` names the page each section came
    from, `verification.status` must be `verified`, `unexpected` must be empty.

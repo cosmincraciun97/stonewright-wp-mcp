@@ -12,7 +12,7 @@ enable_prompt: true
 2. Inventory pages/CPTs that need translation.
 3. Avoid hard-coded language strings in widgets; use content fields.
 4. Document slug strategy; do not invent hreflang without plugin support.
-5. Use WP-CLI discover for the active multilingual plugin commands.
+5. Use `stonewright-wp-cli-discover` (`commandFilter`) for the active multilingual plugin commands.
 
 ## Rules
 - Never bulk-delete untranslated content.

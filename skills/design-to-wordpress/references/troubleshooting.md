@@ -25,16 +25,18 @@ sideload. In production-safe mode a call that sideloads needs a
 
 `design-spec-to-elementor-v4` errored with `renderer_missing`.
 
-- This build does not include the V4 renderer. Fall back to `elementor_v3` or
-  `gutenberg`.
+- This build does not include the V4 renderer. Tell the user, and move to
+  `elementor_v3` or `gutenberg` only after they agree.
 - Check `stonewright/site-capabilities` to confirm available renderers.
 
 ## stonewright_feature_disabled (V4)
 
 The `stonewright_elementor_v4_atomic` option is off.
 
-- Either enable it in wp-options or use the V3/Gutenberg path.
-- Never enable it on production without testing on staging first.
+- Ask the user to turn on **Elementor V4 atomic abilities** in Stonewright >
+  Setup > Settings, or use the V3/Gutenberg path.
+- Never enable it on production without testing on staging first. In
+  `production-safe` mode V4 writes stay refused either way.
 
 ## write_failed (Elementor)
 

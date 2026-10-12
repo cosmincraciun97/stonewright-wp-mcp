@@ -56,7 +56,8 @@ bodies on every task.
   **only** via approval-gated tools (`theme-custom-css`, Gutenberg HTML with
   `allow_raw_html` + `custom_code_grant`, FSE `styles.css` with grant, Elementor
   `custom_css` with the same grant).
-- `stonewright_custom_code_approval_required` means stop: show `approval_url`,
+- `stonewright_custom_code_approval_required` or
+  `stonewright_custom_code_grant_required` means stop: show `approval_url`,
   path, byte counts, and summary. Never strip the CSS. Never open the approval
   page unless the user explicitly asks.
 - If native implementation is impossible, stop and explain the proven native gap
@@ -108,6 +109,10 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   the same human grant, bound to the code it restores. Call
   `stonewright-custom-code-provider` with `action: "rollback"` and
   `dry_run: true` to stage it for approval, show the approval handoff, and stop.
+- Undoing a verified change to code (theme file, custom code, sandbox file,
+  Customizer CSS) is also an administrator's step, on **Stonewright > Activity >
+  Rescue** or **Changes**. The answer is `stonewright_rescue_approval_required`
+  with an `approval_url`: show it and stop. A confirmation token does not lift it.
 - Generic content create, update, duplicate, and bulk tools reject
   executable-code post types (`stonewright_custom_code_provider_required`).
   Use `stonewright-custom-code-provider`, which only the `full` profile lists
@@ -189,7 +194,8 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 
 ### Temporary code lifecycle
 
-- Sandbox is for review and recovery, not permanent ownership.
+- A Custom code draft (sandbox file, **Stonewright > Custom code**) is for review
+  and recovery, not permanent ownership.
 - Move approved durable code through the supported typed workflow to the
   appropriate operator-owned theme/plugin/MU location.
 - Deactivate the temporary copy and verify behavior plus rollback.

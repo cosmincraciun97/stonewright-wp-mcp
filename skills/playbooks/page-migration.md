@@ -10,7 +10,7 @@ enable_prompt: true
 ## Steps
 1. `stonewright-task-start` with migration intent.
 2. Read source via `stonewright/content-get-page` and builder-specific structure tools.
-3. Snapshot with backup abilities before any write.
+3. Snapshot before any write (`stonewright/site-backup-page`, or `stonewright/elementor-v3-backup-page` for Elementor).
 4. Map sections to a design spec; validate with `stonewright/design-validate-spec`.
 5. Build target with dry_run when available; compare structure.
 6. Re-check media IDs — reuse library assets (`stonewright/media-list`) instead of re-uploading.

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
 	copyFileSync,
 	existsSync,
@@ -239,13 +240,63 @@ export function matchSkills(input: {
 	return hits.slice(0, input.limit ?? 5);
 }
 
+/** Hash of a skill file as shipped: line endings are normalized so a checkout setting never changes it. */
+export function hashSkillText(text: string): string {
+	return createHash('sha256').update(text.replace(/\r\n/g, '\n')).digest('hex');
+}
+
+type BuiltinManifest = Map<string, Set<string>>;
+
+const MANIFEST_FILE = 'manifest.json';
+const BUILTIN_FILE_RE = /^[a-z0-9][a-z0-9-]{0,63}\.md$/;
+const SHA256_RE = /^[0-9a-f]{64}$/;
+
 /**
- * Copy packaged built-in skills into `<state>/skills/_builtin/` only when missing.
- * User-edited files are never overwritten; deleted files are restored on next seed.
+ * The hashes of the texts earlier releases shipped for each built-in skill, or an empty map when the
+ * package carries no usable manifest. Only well-formed entries for plain file names are read.
  */
-export function seedBuiltinSkills(baseDir?: string, env: NodeJS.ProcessEnv = process.env): {
+function readBuiltinManifest(srcDir: string): BuiltinManifest {
+	const earlier: BuiltinManifest = new Map();
+	try {
+		const parsed = JSON.parse(readFileSync(join(srcDir, MANIFEST_FILE), 'utf8')) as {
+			version?: unknown;
+			files?: Record<string, { previous?: unknown }>;
+		};
+		if (parsed.version !== 1 || typeof parsed.files !== 'object' || parsed.files === null) {
+			return earlier;
+		}
+		for (const [name, entry] of Object.entries(parsed.files)) {
+			if (!BUILTIN_FILE_RE.test(name) || !Array.isArray(entry?.previous)) {
+				continue;
+			}
+			earlier.set(name, new Set(entry.previous.filter((h): h is string => typeof h === 'string' && SHA256_RE.test(h))));
+		}
+	} catch {
+		// No manifest, or one that cannot be read: copies are only ever added, never replaced.
+	}
+	return earlier;
+}
+
+/**
+ * Bring packaged built-in skills into `<state>/skills/_builtin/`.
+ *
+ * - A missing file is copied (a deleted one comes back).
+ * - A copy that matches a text an earlier release shipped (the package manifest lists those hashes)
+ *   was never edited, so it is replaced with the current text.
+ * - Any other copy was edited by the user and is never touched; it is listed under `edited`.
+ * Without a readable manifest nothing is replaced.
+ *
+ * `sourceDir` overrides where the packaged files are read from (tests).
+ */
+export function seedBuiltinSkills(
+	baseDir?: string,
+	env: NodeJS.ProcessEnv = process.env,
+	sourceDir?: string,
+): {
 	seeded: string[];
 	skipped: string[];
+	refreshed: string[];
+	edited: string[];
 } {
 	const rootDir = root(baseDir, env);
 	const destDir = join(rootDir, 'skills', '_builtin');
@@ -257,21 +308,41 @@ export function seedBuiltinSkills(baseDir?: string, env: NodeJS.ProcessEnv = pro
 		join(process.cwd(), 'skills-builtin'),
 		join(process.cwd(), 'companion', 'skills-builtin'),
 	];
-	const srcDir = candidates.find((d) => existsSync(d));
+	const srcDir = sourceDir ?? candidates.find((d) => existsSync(d));
 	const seeded: string[] = [];
 	const skipped: string[] = [];
+	const refreshed: string[] = [];
+	const edited: string[] = [];
 	if (!srcDir) {
-		return { seeded, skipped };
+		return { seeded, skipped, refreshed, edited };
 	}
+	const earlier = readBuiltinManifest(srcDir);
 	for (const name of readdirSync(srcDir)) {
 		if (!name.endsWith('.md')) continue;
 		const dest = join(destDir, name);
-		if (existsSync(dest)) {
-			skipped.push(name);
+		if (!existsSync(dest)) {
+			copyFileSync(join(srcDir, name), dest);
+			seeded.push(name);
 			continue;
 		}
-		copyFileSync(join(srcDir, name), dest);
-		seeded.push(name);
+		try {
+			const shipped = readFileSync(join(srcDir, name), 'utf8');
+			const installed = hashSkillText(readFileSync(dest, 'utf8'));
+			const current = hashSkillText(shipped);
+			if (installed !== current && earlier.get(name)?.has(installed)) {
+				const tmp = `${dest}.${process.pid}.tmp`;
+				writeFileSync(tmp, shipped, { encoding: 'utf8', mode: 0o600 });
+				renameSync(tmp, dest);
+				refreshed.push(name);
+				continue;
+			}
+			if (installed !== current) {
+				edited.push(name);
+			}
+		} catch {
+			// An unreadable copy is left as it is.
+		}
+		skipped.push(name);
 	}
-	return { seeded, skipped };
+	return { seeded, skipped, refreshed, edited };
 }

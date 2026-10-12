@@ -111,7 +111,7 @@ final class SpecializationCatalog {
 					'handle repeaters, groups, and flexible content by schema, not by guessed meta keys',
 					'audit unused or drifting field definitions before schema edits',
 				],
-				'write_surface' => 'Prefer ACF REST field objects when enabled. For simple post meta edits, use Stonewright content abilities only after schema discovery. Use WP-CLI discovery before any plugin command.',
+				'write_surface' => 'Use the typed acf-field-group-list, acf-field-group-get, and acf-field-group-save abilities for schema, and acf-values-get and acf-value-update for values on a post. Use ACF REST field objects when enabled for targets the typed abilities do not cover. For simple post meta edits, use Stonewright content abilities only after schema discovery. Use WP-CLI discovery before any plugin command.',
 			]
 		);
 	}
@@ -258,7 +258,7 @@ final class SpecializationCatalog {
 					'manage categories, tags, global attributes, terms, and shipping classes',
 					'soft-delete catalog objects by default and require explicit force for permanent deletion',
 				],
-				'write_surface' => 'Prefer WooCommerce REST v3 or wp wc commands. Validate SKU uniqueness and read back parent, attributes, variations, and default attributes after writes.',
+				'write_surface' => 'Call stonewright/wc-status first. Prefer the typed wc-product, wc-variation, wc-term, wc-attribute, and wc-catalog-audit abilities; use tokenized wp wc only for a missing typed operation or a long batch. Validate SKU uniqueness and read back parent, attributes, variations, and default attributes after writes.',
 			]
 		);
 	}
