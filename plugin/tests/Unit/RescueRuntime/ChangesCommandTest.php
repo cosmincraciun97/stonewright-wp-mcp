@@ -308,7 +308,22 @@ final class ChangesCommandTest extends ChangeHistoryTestCase {
 		self::assertStringContainsString( 'stonewright_change_drift', $exit->getMessage() );
 		self::assertSame( 'Edited by hand', $this->post_field( 'post_content' ) );
 
-		$this->run_rollback( [ $id ], [ 'yes' => true, 'force-drift' => true ] );
+		// Without the state it was given for, an override is refused, and the message names the state.
+		$bare = $this->failure( fn () => $this->run_rollback( [ $id ], [ 'yes' => true, 'force-drift' => true ] ) );
+		self::assertStringContainsString( 'stonewright_change_drift_hash_required', $bare->getMessage() );
+		self::assertSame( 'Edited by hand', $this->post_field( 'post_content' ) );
+		self::assertSame( 1, preg_match( '/--expected-sha256=([a-f0-9]{64})/', $bare->getMessage(), $found ) );
+
+		// The dry run prints the same state.
+		$plan = $this->run_rollback( [ $id ], [ 'dry-run' => true ] );
+		self::assertStringContainsString( '--expected-sha256 for --force-drift', implode( "\n", $plan->lines ) );
+		self::assertStringContainsString( $found[1], implode( "\n", $plan->lines ) );
+
+		$stale = $this->failure( fn () => $this->run_rollback( [ $id ], [ 'yes' => true, 'force-drift' => true, 'expected-sha256' => str_repeat( '0', 64 ) ] ) );
+		self::assertStringContainsString( 'stonewright_change_changed_since_preview', $stale->getMessage() );
+		self::assertSame( 'Edited by hand', $this->post_field( 'post_content' ) );
+
+		$this->run_rollback( [ $id ], [ 'yes' => true, 'force-drift' => true, 'expected-sha256' => $found[1] ] );
 		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
 	}
 

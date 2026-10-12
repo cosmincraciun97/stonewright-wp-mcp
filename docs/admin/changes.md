@@ -133,7 +133,10 @@ If someone, or another tool, changed the item after Stonewright's change, the di
 **changed since** and the diff shows the edit that the undo would overwrite. The confirm button then
 needs a box ticked: **I understand that this overwrites changes made since.** Without it nothing is
 written. The overwritten state is kept in the rollback row, so **Redo** brings it back. If the item
-changes while the dialog is open, the run is refused and asks you to open the change again.
+changes while the dialog is open, the run is refused and asks you to open the change again. The same
+box applies to a change that was never verified and to an incident that is long past; a site that is
+failing at that moment, with an incident or a failed rollback recorded for the change, is recovered
+without it.
 
 ### Code needs you
 

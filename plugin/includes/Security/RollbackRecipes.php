@@ -339,10 +339,16 @@ final class RollbackRecipes {
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return [ 'status' => 'failed', 'detail' => 'post_missing' ];
 		}
+		// What the recipe overwrites is what the snapshot it restores covers: save the current state over the same surfaces.
+		// A snapshot that is gone writes nothing when the recipe runs (it fails with snapshot_missing), so the post and its
+		// tracked meta are saved as they always were.
+		$source = '' !== $snapshot_id ? Backup::get_snapshot( $post_id, $snapshot_id ) : null;
 		// The snapshot the recipe restores must outlive the one that is saved now.
-		$saved = Backup::snapshot_post( $post_id, '' !== $snapshot_id ? [ $snapshot_id ] : [], false );
+		$saved = null === $source
+			? Backup::snapshot_post( $post_id, '' !== $snapshot_id ? [ $snapshot_id ] : [], false )
+			: Backup::snapshot_covering( $post_id, $source, [ $snapshot_id ] );
 		if ( '' === $saved ) {
-			return [ 'status' => 'failed', 'detail' => 'snapshot_failed' ];
+			return [ 'status' => 'failed', 'detail' => null === $source || Backup::surfaces_readable( $source ) ? 'snapshot_failed' : 'capture_incomplete' ];
 		}
 		return self::captured( 'post_snapshot', $saved, [ 'post_id' => $post_id, 'snapshot_id' => $saved ], 'post', (string) $post_id );
 	}

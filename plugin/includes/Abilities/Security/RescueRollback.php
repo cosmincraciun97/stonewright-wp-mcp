@@ -38,7 +38,7 @@ final class RescueRollback extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" only probes again and closes the incident when the site loads, after a manual fix; dry_run returns the plan, which says how old the change is and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. An undo of a verified change saves the current state first and probes the site before and after: when the undo makes a working site fail, it is put back and the answer is stonewright_rescue_undo_reverted; when the current state cannot be saved, the answer is stonewright_rescue_undo_capture_failed and nothing changes. A verified change to code (theme file, custom code, sandbox file, Customizer CSS) is not undone on a call: the answer is stonewright_rescue_approval_required with approval_url, and the administrator rolls it back at Stonewright > Activity > Rescue. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
+		return __( 'Rolls back a rescue incident, an armed change or a verified change (any of the last 50 the journal keeps) by incident_id, then probes the site. action "rollback" (default) runs the recorded recipe; "recheck" probes again and closes the incident only when every check that passed before the change passes again, after a manual fix (verification_reason says why it did not close: not_started, transport_unavailable, check_lost or site_failed); dry_run returns the plan, which says how old the change is, whether the item was edited after the change (drift, newer_changes, current_sha256) and warns when a newer change to the same item would be overwritten. Call it when a response carries pending_incident. A rollback does not overwrite a later edit: when the item changed after the change the answer is stonewright_change_drift and nothing is changed; run again with force_drift true and the expected_current_sha256 of the dry run to overwrite it (force_drift without expected_current_sha256 is refused with stonewright_change_drift_hash_required). A site that fails now, with an incident or a failed rollback recorded for the change, is recovered without that confirmation. A rollback saves the current state first and probes the site before and after: when it makes a working site fail, it is put back and the answer is stonewright_rescue_undo_reverted; when the current state cannot be saved, the answer is stonewright_rescue_undo_capture_failed and nothing changes. A rollback that works is recorded under the change in the change history, where stonewright-change-rollback can redo it (history says when it could not be recorded). A verified change to code (theme file, custom code, sandbox file, Customizer CSS) is not undone on a call: the answer is stonewright_rescue_approval_required with approval_url, and the administrator rolls it back at Stonewright > Activity > Rescue. Requires confirmation_token in production-safe mode (not for a dry_run of the rollback).', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -64,7 +64,17 @@ final class RescueRollback extends AbilityKernel {
 					'type'    => 'boolean',
 					'default' => false,
 				],
-				'confirmation_token' => [
+				'force_drift'             => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Roll back even though the item was edited after the change, overwriting those edits. Only after a dry_run showed drift or newer_changes and the person agreed. Needs expected_current_sha256. A site that fails now, with a fault recorded against the change, needs no force.',
+				],
+				'expected_current_sha256' => [
+					'type'        => 'string',
+					'pattern'     => '^[a-fA-F0-9]{32,64}$',
+					'description' => 'The current_sha256 of the dry_run. Required with force_drift. The rollback stops when the item is not in that state any more.',
+				],
+				'confirmation_token'      => [
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode, except for a dry_run of the rollback action.',
 				],
@@ -92,6 +102,7 @@ final class RescueRollback extends AbilityKernel {
 				'detail'              => [ 'type' => 'string' ],
 				'site_status'         => [ 'type' => 'string' ],
 				'verification_status' => [ 'type' => 'string' ],
+				'verification_reason' => [ 'type' => 'string', 'enum' => [ 'verified', 'not_started', 'transport_unavailable', 'check_lost', 'site_failed' ], 'description' => 'Why the probe proves what it does: verified; not_started (no request could be made); transport_unavailable (requests were made and none reached a verdict); check_lost (a check that passed before the change did not answer); site_failed (the site answered with a failure).' ],
 				'resolved'            => [ 'type' => 'boolean' ],
 				'recipe'              => [ 'type' => [ 'string', 'object' ] ],
 				'probe'               => [ 'type' => [ 'object', 'null' ] ],
@@ -114,6 +125,17 @@ final class RescueRollback extends AbilityKernel {
 					'type'  => 'array',
 					'items' => [ 'type' => 'string' ],
 				],
+				'drift'               => [ 'type' => 'boolean' ],
+				'drift_known'         => [ 'type' => 'boolean' ],
+				'requires_force'      => [ 'type' => 'boolean' ],
+				'current_sha256'      => [ 'type' => 'string' ],
+				'expected_sha256'     => [ 'type' => 'string' ],
+				'redo_available'      => [ 'type' => 'boolean' ],
+				'mode'                => [ 'type' => 'string', 'enum' => [ 'normal', 'emergency' ] ],
+				'drift_forced'        => [ 'type' => 'boolean' ],
+				'rollback_change_id'  => [ 'type' => 'string' ],
+				'restorable_again'    => [ 'type' => 'boolean' ],
+				'history'             => [ 'type' => 'string', 'enum' => [ 'recorded', 'ledger_unavailable', 'no_ledger_row', 'not_restorable', 'not_recorded' ] ],
 			],
 			'required'   => [ 'ok', 'incident_id' ],
 		];
@@ -130,10 +152,22 @@ final class RescueRollback extends AbilityKernel {
 				$incident_id = (string) ( $a['incident_id'] ?? '' );
 				// A verified change to code is undone by an administrator at the Rescue page. Say so before
 				// asking for a token that would not change that.
+				$options = [
+					'by'                      => 'ability',
+					'dry_run'                 => ! empty( $a['dry_run'] ),
+					'force_drift'             => ! empty( $a['force_drift'] ),
+					'expected_current_sha256' => isset( $a['expected_current_sha256'] ) && is_string( $a['expected_current_sha256'] ) ? $a['expected_current_sha256'] : '',
+				];
 				if ( 'rollback' === $action && empty( $a['dry_run'] ) ) {
 					$approval = RescueRollbackService::approval_refusal( $incident_id );
 					if ( $approval instanceof \WP_Error ) {
 						return $approval;
+					}
+					// A rollback over a later edit, or of a state that is not the one the dry run showed, is refused here,
+					// before the token below is looked at, so that the refusal does not use it up.
+					$preflight = RescueRollbackService::preflight_refusal( $incident_id, $options );
+					if ( $preflight instanceof \WP_Error ) {
+						return $preflight;
 					}
 				}
 				// Only the plan of a rollback is free. A recheck changes the incident (it can close it), so
@@ -150,7 +184,7 @@ final class RescueRollback extends AbilityKernel {
 				if ( 'recheck' === $action ) {
 					return RescueRollbackService::recheck( $incident_id );
 				}
-				return RescueRollbackService::run( $incident_id, [ 'by' => 'ability', 'dry_run' => ! empty( $a['dry_run'] ) ] );
+				return RescueRollbackService::run( $incident_id, $options );
 			}
 		);
 	}
