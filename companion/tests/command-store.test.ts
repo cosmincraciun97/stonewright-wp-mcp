@@ -14,6 +14,7 @@ import {
 import { CommandError } from '../src/commands/risk.js';
 import { parseCommandRecipe } from '../src/commands/schema.js';
 import type { CommandRecipeV1 } from '../src/commands/types.js';
+import { requireSymlinks } from './helpers/symlinks.js';
 
 function recipe(slug: string): CommandRecipeV1 {
 	const parsed = parseCommandRecipe({
@@ -81,7 +82,8 @@ describe('command store', () => {
 		expect(() => getRecipe('SITE1', 'gone', env)).toThrow(CommandError);
 	});
 
-	it('refuses symlinked stored files', () => {
+	it('refuses symlinked stored files', (context) => {
+		requireSymlinks(context);
 		saveRecipe('SITE1', recipe('link'), saveOpts());
 		const paths = storePaths(env);
 		const real = join(paths.commandsDir, 'SITE1', 'link.json');
