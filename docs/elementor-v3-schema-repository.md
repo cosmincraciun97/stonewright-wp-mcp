@@ -136,7 +136,7 @@ A refusal lists every rejected setting in `violations`, and each entry carries:
 
 `elementor-v3-batch-mutate` adds to each entry the `operation_index`, `action`,
 `op_id`, the `element_id` or `parent_id` and the `widget_type`, and returns them
-in `rejected_settings` (up to 40; `rejected_total` counts all of them). The
+in `rejected_settings` (up to 25; `rejected_total` counts all of them). The
 message names the first three, and the Audit Log row keeps the same message and
 a `rejected_summary` with the operation, widget, setting and received type of
 each.

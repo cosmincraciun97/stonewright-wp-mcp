@@ -1891,7 +1891,7 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	/** Most rejected settings a refusal lists; the count of all of them is `rejected_total`. */
-	private const REJECTED_MAX = 40;
+	private const REJECTED_MAX = 25;
 
 	/** Fields of a rejected setting that the refusal keeps. */
 	private const REJECTED_FIELDS = [ 'operation_index', 'action', 'op_id', 'element_id', 'parent_id', 'widget_type', 'setting', 'path', 'code', 'expected', 'received_value', 'control', 'allowed_values', 'requires', 'example', 'suggestions', 'hint', 'sent_as', 'group_controls' ];
