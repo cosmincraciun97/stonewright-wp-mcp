@@ -793,8 +793,13 @@ test.describe('The shell on Stonewright pages', () => {
 
 	test('the sidebar lists the pages in hub order and the top-level link opens the Overview', async ({ page }) => {
 		await page.goto('/wp-admin/admin.php?page=stonewright-status', { waitUntil: 'domcontentloaded' });
+		// The count of changes needing attention, when there is one, is a bubble beside the entry: the names are compared without it. The item of Rescue, which has its own address, is kept in the menu for WordPress and hidden.
 		const entries = await page.evaluate(() =>
-			Array.from(document.querySelectorAll('#toplevel_page_stonewright .wp-submenu li:not(.wp-submenu-head) a')).map((link) => (link.textContent ?? '').replace(/\s+/g, ' ').trim()),
+			Array.from(document.querySelectorAll('#toplevel_page_stonewright .wp-submenu li:not(.wp-submenu-head):not(.sw-menu-hidden) a')).map((link) => {
+				const copy = link.cloneNode(true) as HTMLElement;
+				copy.querySelectorAll('.sw-menu-count').forEach((count) => count.remove());
+				return (copy.textContent ?? '').replace(/\s+/g, ' ').trim();
+			}),
 		);
 		expect(entries).toEqual([...STONEWRIGHT_SIDEBAR]);
 

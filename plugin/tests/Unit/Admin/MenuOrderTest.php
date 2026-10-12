@@ -22,6 +22,7 @@ final class MenuOrderTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [];
 		MenuRegistry::reset_for_tests();
 		unset( $GLOBALS['submenu'] );
 		$GLOBALS['stonewright_test_actions'] = [];
@@ -163,5 +164,63 @@ final class MenuOrderTest extends TestCase {
 		MenuOrder::apply();
 
 		self::assertSame( $once, $GLOBALS['submenu']['stonewright'] );
+	}
+
+	// ---- One Changes entry ---------------------------------------------------------------------------------
+
+	/** Changes with its two tabs and Rescue at its own address, as the pages register them. */
+	private function changes_entries( int $attention ): void {
+		MenuRegistry::reset_for_tests();
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		MenuRegistry::add( 'stonewright-changes', 'History', 'activity', [ 'tab' => 'history', 'default' => true, 'order' => 30, 'title' => 'Changes', 'menu_label' => 'Changes', 'beta' => true ] );
+		MenuRegistry::add( 'stonewright-changes', 'Rescue', 'activity', [ 'tab' => 'rescue', 'order' => 31, 'title' => 'Rescue', 'menu_label' => 'Changes', 'beta' => true, 'menu_count' => true, 'count' => static fn (): int => $attention, 'count_label' => 'needing attention' ] );
+		MenuRegistry::add( 'stonewright-rescue', 'Rescue', 'activity', [ 'order' => 32, 'beta' => true, 'in_menu' => false, 'parent' => 'stonewright-changes', 'parent_tab' => 'rescue' ] );
+		$GLOBALS['submenu'] = [
+			'stonewright' => [
+				[ 'Overview', 'manage_options', 'stonewright-status', 'Overview' ],
+				[ 'Rescue', 'manage_options', 'stonewright-rescue', 'Rescue' ],
+				[ 'Changes', 'manage_options', 'stonewright-changes', 'Changes' ],
+			],
+		];
+	}
+
+	public function test_the_sidebar_has_one_changes_entry_and_rescue_keeps_its_item_hidden_at_the_end(): void {
+		$this->changes_entries( 0 );
+
+		MenuOrder::apply();
+
+		self::assertSame( [ 'stonewright-status', 'stonewright-changes', 'stonewright-rescue' ], array_column( $GLOBALS['submenu']['stonewright'], 2 ), 'The item stays: WordPress opens the Stonewright menu on the page by finding it.' );
+		self::assertSame( 'sw-menu-hidden', $GLOBALS['submenu']['stonewright'][2][4], 'And it is not shown.' );
+		self::assertArrayNotHasKey( 4, $GLOBALS['submenu']['stonewright'][1], 'No other item is hidden.' );
+		self::assertSame(
+			'<span class="sw-menu-label">Changes</span> <span class="sw-menu-exp" aria-hidden="true" data-sw-tip="This feature is experimental.">EXP</span><span class="screen-reader-text"> This feature is experimental.</span>',
+			$GLOBALS['submenu']['stonewright'][1][0],
+			'The EXP marker stays and there is no count while nothing needs attention.'
+		);
+	}
+
+	public function test_the_sidebar_entry_carries_the_attention_count_with_words_for_assistive_technology(): void {
+		$this->changes_entries( 2 );
+
+		MenuOrder::apply();
+
+		$title = (string) $GLOBALS['submenu']['stonewright'][1][0];
+		self::assertStringContainsString( 'EXP</span>', $title );
+		self::assertStringEndsWith( ' <span class="awaiting-mod sw-menu-count"><span class="sw-menu-count__n" aria-hidden="true">2</span><span class="screen-reader-text"> 2 needing attention</span></span>', $title );
+	}
+
+	public function test_no_other_sidebar_entry_gets_a_count(): void {
+		$this->changes_entries( 2 );
+		MenuRegistry::add( 'stonewright-audit-log', 'Audit log', 'activity', [ 'order' => 10, 'count' => static fn (): int => 5, 'count_label' => 'open incidents' ] );
+		$GLOBALS['submenu']['stonewright'][] = [ 'Audit Log', 'manage_options', 'stonewright-audit-log', 'Audit Log' ];
+
+		MenuOrder::apply();
+
+		$by_slug = [];
+		foreach ( $GLOBALS['submenu']['stonewright'] as $item ) {
+			$by_slug[ $item[2] ] = (string) $item[0];
+		}
+		self::assertStringNotContainsString( 'awaiting-mod', $by_slug['stonewright-audit-log'], 'Only a page that asks for it shows its count in the sidebar.' );
+		self::assertStringNotContainsString( 'awaiting-mod', $by_slug['stonewright-status'] );
 	}
 }

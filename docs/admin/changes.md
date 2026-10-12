@@ -1,12 +1,19 @@
 # Changes
 
-The Changes page (**Stonewright → Activity → Changes**) lists the changes Stonewright recorded in
-its change history, newest first, shows what each one changed as a diff, and undoes or redoes a
-change. It is marked **EXP** like the other pages that are still changing.
+The Changes page (**Stonewright → Activity → Changes**) has two tabs. **History** (the default,
+`page=stonewright-changes&tab=history`) lists the changes Stonewright recorded in its change
+history, newest first, shows what each one changed as a diff, and undoes or redoes a change.
+**Rescue** (`page=stonewright-changes&tab=rescue`) is the page for a change that stopped the site
+from loading, for a change no health check reported back on, and for safe mode (see
+[Rescue](../rescue.md#the-rescue-page)). The Changes entry of the sidebar and of the band is marked
+**EXP** like the other pages that are still changing, and it shows the number of changes that need
+attention (open incidents and changes that were never verified), on the entry and on the Rescue tab.
 
-Rescue stays the page for a change that stopped the site from loading and for safe mode. The
-header of Changes has a **Rescue** button; the header of Rescue links back (**View changes**), and
-each change Rescue lists that has a history record links to its diff (**View diff**).
+Rescue keeps its own address too, `page=stonewright-rescue`. It is a page that works by itself, with
+the same tab bar and the Rescue tab marked, and it does not need the change history: the Rescue tab
+is chosen before the history is read, so it opens when the history table is missing or fails. Each
+change Rescue lists that has a history record links to its diff (**View diff**), and a change the
+history can undo is on the History tab, not listed a second time on Rescue.
 
 The page needs the `manage_options` capability. The list and the drawer only read, with no
 background request. The one thing that writes is **Undo** and **Redo** (below). What the change
@@ -28,6 +35,9 @@ writer gave. The last column has **View diff**.
   or that it held a secret that was masked, or that Stonewright keeps no copy of that kind of
   content.
 - The list shows 25 changes a page. **Newer changes** and **Older changes** keep the filters.
+- Closing the drawer (**Close**, **Escape** or a click outside it) takes only the drawer out of the
+  address. The filters, the search and the page of the list stay, so a reload or Back shows the same
+  list.
 
 With no history yet the page says so; with filters that match nothing it offers **Reset filters**.
 
@@ -39,7 +49,9 @@ how it matches:
 - **Family**, **Status** and **User** (an ID or a login), **Resource** (a post ID, an option name
   or a file path) and **Ability** match exactly. The `stonewright/` prefix of an ability may be
   left out.
-- **From** and **To** are whole days in UTC.
+- **From** and **To** are whole days in UTC. `from` is always the start date of the list; the change
+  an Undo acted on is named in `source_change`, and an old address that holds a change id in `from`
+  is read as that change.
 - **Status** groups: Verified; Rolled back (including a change that a later rollback undid);
   Incident (including a failed rollback); Failed; Not verified.
 - **Restorable only** hides changes that cannot be undone.
@@ -100,8 +112,10 @@ before anything is written:
 
 **Cancel** has the first focus, **Escape** closes the dialog and focus goes back to the Undo
 button. The dialog fits a 400 px screen, and the confirm button names the action. Without script,
-**Undo this change** is a link to the same page with the dialog printed open, and the form posts as
-it is.
+**Undo this change** is a link to the same page with the dialog printed open: a review that changes
+nothing. **Cancel** is a link back to the change, and the confirm button is enabled, because the
+server, not the script, checks what the dialog asks for (the typed phrase, the confirmation token,
+the state you saw and the box for a drift).
 
 Pressing the confirm button posts the form to `admin-post.php` with a nonce. Only an administrator
 (`manage_options`) can send it. The page then opens the new row and says what happened at the top:
@@ -125,7 +139,8 @@ rolled back and not redone cannot be rolled back a second time.
 
 In **production-safe** mode the dialog also asks you to type `ROLL BACK`, and the form carries a
 confirmation token bound to this change and to the state you saw, valid for five minutes. A token
-that is for another change, or that was issued without the overwrite choice, is refused.
+that is for another change, or that was issued without the overwrite choice, is refused, and so is a
+post without the phrase: nothing runs, and the review comes back with the reason.
 
 ### Drift
 
@@ -183,7 +198,7 @@ by the change history with its own probe and revert, and Rescue then lists it as
   escaped and shown as text.
 
 Sources:
-- `plugin/includes/Admin/ChangesPage.php` (the list, the filters and the address)
+- `plugin/includes/Admin/ChangesPage.php` (the tabs, the list, the filters and the address)
 - `plugin/includes/Admin/ChangeDetail.php` (the drawer)
 - `plugin/includes/Admin/ChangeUndo.php` (the Undo and Redo dialog, its post action and the result)
 - `plugin/includes/Admin/ChangeLabels.php` (family, status and reason labels)

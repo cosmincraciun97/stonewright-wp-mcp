@@ -26,6 +26,40 @@ development builds were never stable releases.
 
 ### Changed
 
+- Changes and Rescue are one entry in the sidebar and in the band. The Changes
+  page has two tabs: History (the list, the drawer, Undo and Redo; the default,
+  `page=stonewright-changes&tab=history`) and Rescue
+  (`page=stonewright-changes&tab=rescue`). The number of changes that need
+  attention is on the Changes entry and on the Rescue tab. Rescue keeps its own
+  address, `page=stonewright-rescue`, which still works by itself (the health
+  probe, the safe-boot redirect, approval links and old links go to it) and shows
+  the same tab bar. The Rescue tab is chosen before the change history is read,
+  so it opens when the history is missing or fails.
+- Each change on the Rescue page shows the object that changed and what was done
+  first. The ability, the client, the ids, the health check evidence and the
+  rollback recipe are under Details. The list of recent changes shows only the
+  changes the history cannot undo, with their Roll back; the others are on the
+  History tab, and the page says how many.
+- Open in safe mode stays in the header of the Rescue page, as a row with its help
+  text under the button. The Roll back, Check again and View diff actions of a change, and the
+  Cancel and confirm buttons of a dialog, are one row of equal buttons that wraps
+  on a narrow screen.
+- The first press of Roll back on the Rescue page and of Undo or Redo on the
+  Changes page opens a confirmation that changes nothing, with or without script.
+  Cancel is a link. On the Rescue page the confirmation is a page of its own
+  (`page=stonewright-rescue&review=<change set>`) that a dialog replaces when the
+  browser supports it. In production-safe mode the server checks the typed phrase
+  ROLL BACK as well as the confirmation token, before the token is used. The
+  rollback engine decides when a rollback needs the person's confirmation (a later
+  edit to the item): the review then has a box and the state it shows, and the page
+  passes both on. A refusal says that nothing was changed and returns to the review
+  with the current state filled in. A post returns to the page it came from, the
+  Rescue tab or the page at its own address.
+- The Rescue page says what a health check did in four different ways: it could
+  not start, it got no answer it could judge, a check that passed before the
+  change no longer answers, or it found the site failing. Not verified no longer
+  reads as a broken site or a host problem; the code of the check is under
+  Details. Check again reports each of the four.
 - The compact `stonewright-task-start` response lists the next tools for the task in
   `fast_path.ordered_tools`, without `stonewright-context-bootstrap`,
   `stonewright-task-start` and `stonewright-tool-profile` for the goal it just
@@ -143,6 +177,14 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Closing the diff drawer on the Changes page keeps the From and To dates, the
+  status, the family, the search, Restorable only and the page of the list in the
+  address. The change an Undo acted on is named in `source_change`; `from` is the
+  start date again, and an old address that holds a change id in `from` is read
+  as that change.
+- The Undo and Redo dialog of the Changes page works without script: its confirm
+  button is not disabled in production-safe mode, the server checks the typed
+  phrase, and a refusal that ran nothing returns to the confirmation.
 - `stonewright-elementor-css-regenerate` accepts a Windows drive path that Elementor
   reports behind a scheme (`file:///C:/...`) when the target is on the same drive.
   Another drive, a host and path, a drive-relative path and a UNC path are still

@@ -113,10 +113,14 @@ final class BootTranslationTimingTest extends TestCase {
 		self::assertSame( 'needing attention', $rescue['count_label'] );
 		self::assertIsCallable( $rescue['count'] );
 
+		self::assertSame( 'stonewright-changes', $rescue['parent'], 'Rescue is a view of the Rescue tab of the Changes page.' );
+
 		self::assertSame(
-			[ 'stonewright-audit-log', 'stonewright-block-finalizer', 'stonewright-rescue' ],
-			array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' )
+			[ 'stonewright-audit-log', 'stonewright-block-finalizer', 'stonewright-changes', 'stonewright-changes', 'stonewright-rescue' ],
+			array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ),
+			'The Changes page registers its two tabs, and Rescue at its own address after them.'
 		);
+		self::assertSame( [ 'History', 'Rescue' ], array_column( array_filter( MenuRegistry::hub_entries( 'activity' ), static fn ( array $entry ): bool => 'stonewright-changes' === $entry['slug'] ), 'label' ) );
 	}
 
 	private static function boot_plugin(): void {

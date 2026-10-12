@@ -70,12 +70,14 @@ final class AdminShell {
 		);
 		$nav    = '';
 		if ( null !== $entry ) {
-			$nav = HubNav::render(
+			// A page that is a view of another page's tab (Rescue, at its own address) shows that page's tab bar.
+			$home = MenuRegistry::entry( MenuRegistry::resolve( $current_slug, $tab )[0] ) ?? $entry;
+			$nav  = HubNav::render(
 				MenuRegistry::tab_links( $current_slug, $tab ),
 				sprintf(
 					/* translators: %s: name of a page that has tabs of its own, for example Custom code */
 					__( '%s sections', 'stonewright' ),
-					$entry['title']
+					$home['title']
 				)
 			);
 		}

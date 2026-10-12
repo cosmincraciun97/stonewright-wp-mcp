@@ -293,7 +293,13 @@ Rules of a row of controls (`sw-ui-toolbar`, `sw-ui-control-row`, `sw-ui-actions
 - A button, an input and a select of the same row have the same height; use the same size tier for all of them.
 - A control never runs past its box and two controls never overlap. A label too long for its button wraps inside it and the button grows; shorten the label.
 
-`e2e/tests/admin-layout.spec.ts` measures all of this on every page of the admin menu (see `e2e/README.md`), and `scripts/check-admin-control-sizing.mjs` fails the docs job when a page stylesheet sizes a button or an input.
+Rules of an action group, the one row a page puts its buttons in (the actions of a table row, a panel, a dialog footer; `Button::group()`, `sw-ui-actions`):
+
+- It is a flex row with the gap of the layer (`--sw-space-2`) that wraps on a narrow screen. Its controls are the height of their size tier, level on one top, one gap apart; they sit on one line whenever they fit on one. A form inside the row is `display: contents`, so its button is a member of the row and not a block that stacks under the others.
+- Help text for an action is under the row, or a note the button points at with `aria-describedby`; it never sits beside the button and never moves it. A note about an action that is not offered goes under the row as well.
+- A destructive action is a `danger` button; the button that confirms it, in a dialog or on a review, is `danger-solid`. The order of a row is the same on every row: the action, the check, the link to the diff.
+
+`e2e/tests/admin-layout.spec.ts` measures all of this on every page of the admin menu and, for the action groups, on populated fixtures of Rescue and Changes (see `e2e/README.md`), and `scripts/check-admin-control-sizing.mjs` fails the docs job when a page stylesheet sizes a button or an input, or lays out a row of actions.
 
 Run both before a pull request that touches admin UI:
 
@@ -302,7 +308,7 @@ node scripts/check-admin-control-sizing.mjs
 cd e2e && WP_BASE_URL=http://127.0.0.1:8888 npx playwright test admin-layout.spec.ts
 ```
 
-The layout check needs a test site with the plugin active (`WP_BASE_URL`, `WP_USERNAME` and `WP_PASSWORD` as in `e2e/README.md`). It reads the pages from the admin menu of the signed-in administrator, so a new page is measured without editing the test. Each page is measured as loaded, with each tab selected and with each dialog open, at 1440, 782 and 390px; the other widths skip it. Controls that share a row must have the same height and centre line within 1px, no control or text may run past its box, and no two controls may overlap. An element that must break a rule on purpose carries `data-sw-layout-ignore`; none does today, and a new mark needs a reason in review.
+The layout check needs a test site with the plugin active (`WP_BASE_URL`, `WP_USERNAME` and `WP_PASSWORD` as in `e2e/README.md`). It reads the pages from the admin menu of the signed-in administrator, so a new page is measured without editing the test. Each page is measured as loaded, with each tab selected and with each dialog open, at 1440, 782 and 390px; the other widths skip it. Controls that share a row must have the same height and centre line within 1px, no control or text may run past its box, and no two controls may overlap. An element that must break a rule on purpose carries `data-sw-layout-ignore`; none does today, and a new mark needs a reason in review. A second part of the file measures the action groups on populated fixtures (`plugin/tests/fixtures/admin-ui/rescue-page.html`, `rescue-review.html`, `changes-page.html`, `changes-page-review.html`, rendered by the page classes and kept in step by their snapshot tests): every group holds controls of the height of their size, level on one top, one gap apart (the group's own gap), on one line when they fit, with the help text under the row, and the check proves it sees a row that has gone wrong. Without a site, run that part alone with a Playwright config that has no global setup.
 
 ### Buttons
 
@@ -535,7 +541,7 @@ This is the release checklist for every Stonewright-owned wp-admin surface that 
 The measurable gates run in `e2e/` (see `e2e/README.md`):
 
 - **Page loop** (`admin-ui.spec.ts`): every page loads with the shared shell, no console error and no horizontal overflow at 1440, 1024, 782, 390 and 320px, and axe (WCAG 2.0, 2.1 and 2.2 A and AA) reports no serious or critical finding at 1440 and 390px beyond the page's allowance.
-- **Layout check** (`admin-layout.spec.ts`): on every page of the admin menu, in its loaded state, with each tab selected and with each dialog open, at 1440, 782 and 390px: controls that share a row have the same height and the same centre line (within 1px), no control or text runs past its box, and no two controls overlap.
+- **Layout check** (`admin-layout.spec.ts`): on every page of the admin menu, in its loaded state, with each tab selected and with each dialog open, at 1440, 782 and 390px: controls that share a row have the same height and the same centre line (within 1px), no control or text runs past its box, and no two controls overlap. On populated fixtures of Rescue and Changes, every action group has controls of one height, level, one gap apart, on one line when they fit, with its help text under the row.
 - **UI contract** (`ui-contract.spec.ts`): no visible text under 12px; no target under 24px except links inside a sentence; no plugin-owned notice in the "other WordPress notices" drawer; the first `h1` starts within 120px of the band's bottom edge at 1440 and 200px at 390; every primary button is painted with the accent fill; no duplicate id and no unnamed control or field; sticky chrome covers at most 25% of the viewport.
 - **Colour schemes:** the accent contrast table in section 2, for all nine schemes and for the brighter earlier palette.
 - **Reduced motion and forced colours:** no animation runs under reduced motion; under forced colours badges keep their borders and icons, a selection is drawn in the system highlight pair, the focus ring uses the system highlight and the switch keeps its border.

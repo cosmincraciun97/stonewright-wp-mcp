@@ -37,6 +37,9 @@ final class ChangesPageSnapshotTest extends TestCase {
 
 	private const FIXTURE = '/fixtures/admin-ui/changes-page.html';
 
+	/** The same page at the address of the Undo link, which prints the confirmation open: what a browser without script shows. */
+	private const REVIEW = '/fixtures/admin-ui/changes-page-review.html';
+
 	private const OPEN = 'cs-aaaaaaaaaaaaaaaaaaaaaaaa';
 
 	protected function setUp(): void {
@@ -88,11 +91,12 @@ final class ChangesPageSnapshotTest extends TestCase {
 		MenuRegistry::reset_for_tests();
 	}
 
-	private static function path(): string {
-		return dirname( __DIR__, 2 ) . self::FIXTURE;
+	private static function path( string $fixture = self::FIXTURE ): string {
+		return dirname( __DIR__, 2 ) . $fixture;
 	}
 
-	private function document(): string {
+	/** @param array<string, string> $get */
+	private function document( array $get = [ 'change' => self::OPEN ] ): string {
 		$long_old = "\$wide = 'old-value-" . str_repeat( 'abcdefghij', 14 ) . "';";
 		$long_new = "\$wide = 'new-value-" . str_repeat( 'abcdefghij', 14 ) . "';";
 		$old      = "<?php\n// Example theme functions\nadd_action( 'init', 'example_old' );\n" . $long_old . "\n\$count = 1;\n";
@@ -104,7 +108,7 @@ final class ChangesPageSnapshotTest extends TestCase {
 		$this->seed_change( [ 'change_id' => 'cs-cccccccccccccccccccccccc', 'kind' => 'rollback', 'parent_id' => self::OPEN, 'family' => 'theme_file', 'resource_type' => 'theme_file', 'resource_id' => 'example-theme/functions.php', 'ability' => 'stonewright/change-rollback', 'summary' => 'Rolled back the setup hook change.' ], $new, $old );
 		$this->seed_change( [ 'change_id' => 'cs-dddddddddddddddddddddddd', 'family' => 'post', 'resource_id' => '42', 'summary' => 'Changed the page title.' ], [ 'post_title' => 'Home' ], [ 'post_title' => 'Home page' ] );
 
-		$_GET = [ 'change' => self::OPEN ];
+		$_GET = $get;
 		ob_start();
 		try {
 			ChangesPage::render();
@@ -138,19 +142,43 @@ final class ChangesPageSnapshotTest extends TestCase {
 			. '</html>' . "\n";
 	}
 
-	public function test_the_checked_in_page_is_what_the_page_class_renders(): void {
-		$html = $this->document();
+	/**
+	 * @dataProvider fixtures
+	 * @param array<string, string> $get
+	 */
+	public function test_the_checked_in_page_is_what_the_page_class_renders( string $fixture, array $get ): void {
+		$html = $this->document( $get );
 		if ( '1' === getenv( 'STONEWRIGHT_UPDATE_FIXTURES' ) ) {
-			$dir = dirname( self::path() );
+			$dir = dirname( self::path( $fixture ) );
 			if ( ! is_dir( $dir ) ) {
 				mkdir( $dir, 0777, true );
 			}
-			file_put_contents( self::path(), $html );
+			file_put_contents( self::path( $fixture ), $html );
 		}
 
-		self::assertFileExists( self::path() );
-		self::assertSame( file_get_contents( self::path() ), $html, 'Regenerate with STONEWRIGHT_UPDATE_FIXTURES=1 after changing the page.' );
+		self::assertFileExists( self::path( $fixture ) );
+		self::assertSame( file_get_contents( self::path( $fixture ) ), $html, 'Regenerate with STONEWRIGHT_UPDATE_FIXTURES=1 after changing the page.' );
 		self::assertStringNotContainsString( "\r", $html );
+	}
+
+	/** @return array<string, array{0: string, 1: array<string, string>}> */
+	public static function fixtures(): array {
+		return [
+			'the drawer'      => [ self::FIXTURE, [ 'change' => self::OPEN ] ],
+			'the Undo review' => [ self::REVIEW, [ 'change' => self::OPEN, 'undo' => '1' ] ],
+		];
+	}
+
+	public function test_the_review_prints_the_confirmation_open_with_a_cancel_that_is_a_link_and_a_confirm_that_posts(): void {
+		$dom = new DOMDocument();
+		libxml_use_internal_errors( true );
+		$dom->loadHTML( $this->document( [ 'change' => self::OPEN, 'undo' => '1' ] ) );
+		libxml_clear_errors();
+		$xpath = new DOMXPath( $dom );
+
+		self::assertSame( 1, $xpath->query( '//dialog[@id="sw-changes-undo-dialog" and @open]' )->length );
+		self::assertSame( 1, $xpath->query( '//dialog[@id="sw-changes-undo-dialog"]//a[normalize-space(.)="Cancel" and contains(@href, "change=' . self::OPEN . '") and not(contains(@href, "undo=1"))]' )->length, 'Cancel is a link.' );
+		self::assertSame( 1, $xpath->query( '//dialog[@id="sw-changes-undo-dialog"]//form[@method="post"]//button[@type="submit" and not(@disabled)]' )->length );
 	}
 
 	public function test_the_fixture_carries_what_the_browser_spec_measures(): void {
