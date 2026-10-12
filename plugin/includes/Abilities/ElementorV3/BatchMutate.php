@@ -434,7 +434,7 @@ final class BatchMutate extends AbilityKernel {
 					$cause_code = (string) ( $first_failed['error']['code'] ?? '' );
 					return $this->error(
 						'batch_operation_failed',
-						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ) . ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? ' ' . (string) ( $first_failed['error']['message'] ?? '' ) : self::rejection_sentences( self::flatten_rejections( $items ) ) ),
+						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ) . ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? ' ' . (string) ( $first_failed['error']['message'] ?? '' ) : self::failure_sentences( $items ) ),
 						self::batch_failure_data(
 							$items,
 							$applied,
@@ -1986,6 +1986,38 @@ final class BatchMutate extends AbilityKernel {
 		);
 	}
 
+	/**
+	 * What failed, for the message of a batch that was only validated: the rejected settings when the operations were
+	 * refused for their settings, otherwise the message of each of the first failed operations.
+	 *
+	 * @param list<array<string, mixed>> $items
+	 */
+	private static function failure_sentences( array $items ): string {
+		$rejections = self::flatten_rejections( $items );
+		if ( [] !== $rejections ) {
+			return self::rejection_sentences( $rejections );
+		}
+		$text   = '';
+		$listed = 0;
+		$failed = 0;
+		foreach ( $items as $item ) {
+			if ( ! empty( $item['ok'] ) ) {
+				continue;
+			}
+			++$failed;
+			if ( $listed >= 3 ) {
+				continue;
+			}
+			$message = (string) ( $item['error']['message'] ?? '' );
+			if ( '' === $message ) {
+				continue;
+			}
+			++$listed;
+			$text .= sprintf( ' Operation %1$d failed: %2$s', (int) ( $item['index'] ?? 0 ), rtrim( $message, ' ' ) );
+		}
+
+		return $failed > $listed && $listed > 0 ? $text . sprintf( ' %d more failed operations are listed in items.', $failed - $listed ) : $text;
+	}
 	/** One sentence per rejected setting for the first few, as the message of the refusal. */
 	private static function rejection_sentences( array $rejections ): string {
 		if ( [] === $rejections ) {

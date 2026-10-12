@@ -230,4 +230,21 @@ final class BatchMutateRefusalDetailTest extends TestCase {
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 0, $result['failed'] );
 	}
+
+	public function test_a_refusal_that_is_not_about_settings_still_says_why_in_the_message_and_the_audit_row(): void {
+		$error = $this->refuse(
+			[
+				[ 'action' => 'add_widget', 'parent_id' => 'root001', 'widget_type' => 'heading', 'settings' => [ 'title' => 'x', 'align_mobile' => 'center' ] ],
+				[ 'action' => 'update_element', 'element_id' => 'gone999', 'settings' => [ 'title' => 'y' ] ],
+			]
+		);
+		$message = $error->get_error_message();
+
+		self::assertStringContainsString( 'Operation 0 failed:', $message );
+		self::assertStringContainsString( 'align_mobile', $message );
+		self::assertStringContainsString( 'responsive_scope', $message );
+		self::assertStringContainsString( 'Operation 1 failed: Element not found.', $message );
+		self::assertStringContainsString( 'responsive_scope', (string) $error->get_error_data()['items'][0]['error']['data']['repair'] );
+		self::assertStringContainsString( 'Operation 0 failed:', $this->audit_details()['error_message'] );
+	}
 }
