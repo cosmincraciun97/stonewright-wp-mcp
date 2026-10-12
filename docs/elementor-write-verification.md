@@ -254,6 +254,20 @@ each requested schema once, for a setting that has no example. Repeated
 guess-and-retry writes are a process defect. See
 [Elementor V3 schema repository](elementor-v3-schema-repository.md#when-a-setting-is-refused).
 
+## Troubleshooting a failed call
+
+Every failed call carries a message that says what failed, and the Audit Log row
+keeps it. What to read, and what to send next:
+
+| Code | Read | Next call |
+|---|---|---|
+| `stonewright_batch_operation_failed` with cause `stonewright_elementor_settings_invalid` | `rejected_settings`: operation, element or parent, widget type, setting, received value, `allowed_values`, `units`, `requires`, `example` | The same batch with only the rejected values replaced, as a dry run first |
+| `stonewright_batch_operation_failed` with another cause | `items[].error` and the message (`Operation 0 failed: ...`); a breakpoint refusal says to add the breakpoint to `responsive_scope` | The batch with that operation corrected |
+| `stonewright_elementor_frontend_verification_failed` | `missing_elements` (element id, widget type, `reason`), `render_context`, `message` | The step the reason names: clear the Elementor cache for `cached_html_suspected`, verify in a logged-in browser for `password_protected`, re-read the tree for `not_in_document` |
+| `stonewright_elementor_css_delivery_protected`, `stonewright_elementor_css_delivery_unverified` (warnings of an `ok: true` result) | `delivery_cause`, the warning `message` and `repair` | Nothing in Elementor: check the stylesheet URL in a logged-out browser and the host, firewall, login or CDN rule in front of it |
+| `stonewright_elementor_css_probe_failed` | `rollback_status: succeeded` | Make the stylesheet URL answer 200 `text/css` to a logged-out request, then regenerate once |
+| `stonewright_not_found` from `section-reuse-extract` | `reason` and, for a user who may edit the post, `offered_statuses` | A `post_id` from `section-reuse-find` |
+| `stonewright_section_not_found` from `section-reuse-extract` | `valid_locators`, `closest` | One of the listed locators |
 ## Measurement contract
 
 Record source and live measurements in one compact table before applying

@@ -188,6 +188,8 @@ final class RealControlSettingsTest extends TestCase {
 			'custom with a rule break'      => [ [ 'unit' => 'custom', 'size' => '1px;}body{display:none}' ] ],
 			'custom with url()'             => [ [ 'unit' => 'custom', 'size' => 'url(//example.test/x.png)' ] ],
 			'custom with a comment'         => [ [ 'unit' => 'custom', 'size' => '1px/*' ] ],
+			'custom with a line break'      => [ [ 'unit' => 'custom', 'size' => "calc(1px)\nfoo" ] ],
+			'custom with unbalanced bracket' => [ [ 'unit' => 'custom', 'size' => 'calc(1px' ] ],
 			'custom with a long string'     => [ [ 'unit' => 'custom', 'size' => str_repeat( 'a', 300 ) ] ],
 			'text size under a real unit'   => [ [ 'unit' => 'px', 'size' => 'calc(1px + 2px)' ] ],
 			'text size without a unit'      => [ [ 'size' => 'big' ] ],

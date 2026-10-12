@@ -96,7 +96,7 @@ final class CssValueGuard {
 		if ( ! is_string( $value ) || '' === trim( $value ) || strlen( $value ) > 120 ) {
 			return false;
 		}
-		if ( 1 !== preg_match( '/^[A-Za-z0-9\s.,%()+*\/_-]+$/D', $value ) || self::contains_breakout( $value ) ) {
+		if ( 1 !== preg_match( '/^[A-Za-z0-9 .,%()+*\/_-]+$/D', $value ) || self::contains_breakout( $value ) ) {
 			return false;
 		}
 
