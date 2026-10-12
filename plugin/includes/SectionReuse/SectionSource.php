@@ -42,7 +42,7 @@ final class SectionSource {
 	public const SOURCE_STATUSES = [ 'publish', 'draft', 'pending', 'future', 'private' ];
 
 	/** Post types that are never a source. */
-	private const EXCLUDED_POST_TYPES = [ 'revision', 'attachment', 'auto-draft' ];
+	public const EXCLUDED_POST_TYPES = [ 'revision', 'attachment', 'auto-draft' ];
 
 	/** Whether a post is of a kind and in a status a source may have. Who may use it is {@see SourceScanner::may_use()}. */
 	public static function is_source( mixed $post ): bool {

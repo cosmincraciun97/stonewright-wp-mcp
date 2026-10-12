@@ -186,24 +186,28 @@ final class CssAssetTransaction {
 				return self::rollback_error( $location, $post_id, $before, $metadata_before, 'stonewright_elementor_css_lease_lost', 'The Elementor CSS transaction lease was lost during the protected asset check.', $lease );
 			}
 			$lease = $lease_check;
-			$probes_after = self::probe_protected_assets( $filename, $after, $location, $lease );
+			$probes_after = self::probe_protected_assets( $filename, $after, $location, $lease, false );
 			if ( $probes_after instanceof \WP_Error ) {
-				$code = sanitize_key( (string) $probes_after->get_error_code() );
+				$code  = sanitize_key( (string) $probes_after->get_error_code() );
+				$inner = (array) $probes_after->get_error_data();
 				return self::rollback_error(
 					$location,
 					$post_id,
 					$before,
 					$metadata_before,
 					$code,
-					'One or more protected Elementor CSS assets failed the post-write HTTP check.',
+					'One or more protected Elementor CSS assets failed the post-write HTTP check: ' . $probes_after->get_error_message() . ' The previous files were restored.',
 					$lease,
-					[
-						'root_error_code'              => $code,
-						'generation_status'            => 'verified',
-						'delivery_status'              => 'failed',
-						'frontend_verification_status' => 'not_checked',
-						'failed_check'                 => 'delivery',
-					]
+					array_merge(
+						array_intersect_key( $inner, array_flip( [ 'http_status', 'redirect_origin', 'redirect_kind', 'cause', 'repair' ] ) ),
+						[
+							'root_error_code'              => $code,
+							'generation_status'            => 'verified',
+							'delivery_status'              => 'failed',
+							'frontend_verification_status' => 'not_checked',
+							'failed_check'                 => 'delivery',
+						]
+					)
 				);
 			}
 
@@ -257,6 +261,9 @@ final class CssAssetTransaction {
 			if ( isset( $delivery['code'] ) && is_string( $delivery['code'] ) && '' !== $delivery['code'] ) {
 				$evidence['root_error_code'] = $delivery['code'];
 				$evidence['failed_check']    = 'delivery';
+			}
+			if ( isset( $delivery['cause'] ) && is_string( $delivery['cause'] ) && '' !== $delivery['cause'] ) {
+				$evidence['delivery_cause'] = $delivery['cause'];
 			}
 			return [
 				'ok'               => true,
@@ -428,8 +435,8 @@ final class CssAssetTransaction {
 		return [ 'files' => $files, 'file_count' => count( $files ), 'total_bytes' => $total ];
 	}
 
-	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string,classification:string,redirect_hops?:int}>|\WP_Error */
-	private static function probe_protected_assets( string $filename, array $manifest, array $location, array &$lease ): array|\WP_Error {
+	/** @param array{files:array<string,array{bytes:string,size:int,sha256:string,mode:int}>,file_count:int,total_bytes:int} $manifest @param array{dir:string,url:string,baseurl:string,canonical_scope:string,base_real:string,dir_real:string} $location @param array{key:string,scope:string,owner:string,acquired_at:int,expires_at:int,ttl:int} $lease @return list<array{asset:string,status:int,url_sha256:string,classification:string,cause?:string,redirect_hops?:int}>|\WP_Error */
+	private static function probe_protected_assets( string $filename, array $manifest, array $location, array &$lease, bool $before_write = true ): array|\WP_Error {
 		$valid = self::revalidate_location( $location );
 		if ( $valid instanceof \WP_Error ) {
 			return $valid;
@@ -447,12 +454,23 @@ final class CssAssetTransaction {
 			$lease = $lease_check;
 			$url = $location['url'] . '/' . rawurlencode( $asset );
 			if ( ! self::same_origin( home_url( '/' ), $url ) ) {
-				return self::error( 'stonewright_elementor_css_probe_unsafe_origin', 'A protected Elementor CSS URL is not same-origin.' );
+				// The uploads URL is on another origin than the site (a CDN or an offload plugin). Stonewright
+				// never sends a request to a foreign origin, so this asset is not probed; the file on disk is
+				// still verified by the manifest.
+				$probes[] = [
+					'asset'          => $asset,
+					'status'         => 0,
+					'url_sha256'     => hash( 'sha256', $url ),
+					'classification' => 'not_probed',
+					'cause'          => 'other_origin_not_probed',
+				];
+				continue;
 			}
 			$probe = self::probe_url( $url, (string) $manifest['files'][ $asset ]['bytes'] );
 			if ( 'unsafe_redirect' === $probe['classification'] ) {
 				// Name the HTTP status and only the scheme and host of the target, never its path or query.
 				$origin = (string) ( $probe['redirect_origin'] ?? '' );
+				$kind   = (string) ( $probe['redirect_kind'] ?? '' );
 				return self::error(
 					'stonewright_elementor_css_probe_unsafe_redirect',
 					sprintf(
@@ -463,7 +481,9 @@ final class CssAssetTransaction {
 					[
 						'http_status'     => (int) $probe['status'],
 						'redirect_origin' => $origin,
-						'redirect_kind'   => (string) ( $probe['redirect_kind'] ?? '' ),
+						'redirect_kind'   => $kind,
+						'cause'           => $kind,
+						'repair'          => self::unsafe_redirect_repair( $kind, $before_write ),
 					]
 				);
 			}
@@ -473,6 +493,9 @@ final class CssAssetTransaction {
 				'url_sha256'     => hash( 'sha256', $url ),
 				'classification' => $probe['classification'],
 			];
+			if ( ! empty( $probe['cause'] ) ) {
+				$row['cause'] = (string) $probe['cause'];
+			}
 			if ( ! empty( $probe['redirect_hops'] ) ) {
 				$row['redirect_hops'] = (int) $probe['redirect_hops'];
 			}
@@ -487,7 +510,7 @@ final class CssAssetTransaction {
 	 * written file. Every hop is classified before it is requested, so a cross-origin, downgraded,
 	 * login or repeated location is never fetched.
 	 *
-	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string,redirect_hops?:int}
+	 * @return array{status:int,classification:string,content_type_kind:string,cause?:string,redirect_kind?:string,redirect_origin?:string,redirect_hops?:int}
 	 */
 	private static function probe_url( string $url, string $expected_bytes ): array {
 		$probe = self::probe_first_request( $url );
@@ -514,7 +537,7 @@ final class CssAssetTransaction {
 				];
 			}
 			if ( $hops >= self::MAX_REDIRECT_HOPS ) {
-				return self::unverified_redirect( $first_status, $mime, $hops );
+				return self::unverified_redirect( $first_status, $mime, $hops, 'redirect_to_other_page' );
 			}
 			++$hops;
 			$seen[]   = self::url_key( $next );
@@ -538,19 +561,22 @@ final class CssAssetTransaction {
 				];
 			}
 		}
-		return self::unverified_redirect( $first_status, $mime, $hops );
+		// A chain that ends at a login page or an access-control answer keeps that cause; any other end is another page.
+		$cause = 'protected' === $probe['classification'] && ! empty( $probe['cause'] ) ? (string) $probe['cause'] : 'redirect_to_other_page';
+		return self::unverified_redirect( $first_status, $mime, $hops, $cause );
 	}
 
 	/**
 	 * A redirect chain that does not end in the written CSS: public delivery is not verified.
 	 *
-	 * @return array{status:int,classification:string,content_type_kind:string,redirect_hops:int}
+	 * @return array{status:int,classification:string,content_type_kind:string,cause:string,redirect_hops:int}
 	 */
-	private static function unverified_redirect( int $status, string $mime, int $hops ): array {
+	private static function unverified_redirect( int $status, string $mime, int $hops, string $cause ): array {
 		return [
 			'status'            => $status,
 			'classification'    => 'protected',
 			'content_type_kind' => $mime,
+			'cause'             => $cause,
 			'redirect_hops'     => $hops,
 		];
 	}
@@ -597,10 +623,11 @@ final class CssAssetTransaction {
 
 	/**
 	 * A same-origin redirect that is not a login page is reported as `redirect` with its raw
-	 * location, so the caller can follow it under the hop limits.
+	 * location, so the caller can follow it under the hop limits. `cause` names why a probe is not
+	 * verified delivery, from the evidence alone (status, content type kind, redirect kind).
 	 *
 	 * @param array<string,mixed>|\WP_Error $response
-	 * @return array{status:int,classification:string,content_type_kind:string,redirect_kind?:string,redirect_origin?:string,location?:string}
+	 * @return array{status:int,classification:string,content_type_kind:string,cause?:string,redirect_kind?:string,redirect_origin?:string,location?:string}
 	 */
 	private static function classify_response( string $request_url, array|\WP_Error $response, bool $inspect_body ): array {
 		if ( $response instanceof \WP_Error ) {
@@ -608,12 +635,13 @@ final class CssAssetTransaction {
 				'status'            => 0,
 				'classification'    => 'unavailable',
 				'content_type_kind' => 'unknown',
+				'cause'             => 'no_response',
 			];
 		}
-		$status      = (int) wp_remote_retrieve_response_code( $response );
-		$redirect    = self::header_string( $response, 'location' );
+		$status       = (int) wp_remote_retrieve_response_code( $response );
+		$redirect     = self::header_string( $response, 'location' );
 		$content_type = self::header_string( $response, 'content-type' );
-		$mime        = self::mime_kind( $content_type );
+		$mime         = self::mime_kind( $content_type );
 		if ( '' !== $redirect ) {
 			$redirect_kind = self::classify_redirect( $request_url, $redirect );
 			// A login page in front of the file means the CSS is delivered behind access control.
@@ -622,6 +650,7 @@ final class CssAssetTransaction {
 					'status'            => $status,
 					'classification'    => 'protected',
 					'content_type_kind' => $mime,
+					'cause'             => 'login_redirect',
 				];
 			}
 			if ( 'unexpected' === $redirect_kind ) {
@@ -645,6 +674,7 @@ final class CssAssetTransaction {
 				'status'            => $status,
 				'classification'    => 'protected',
 				'content_type_kind' => $mime,
+				'cause'             => 'http_' . $status,
 			];
 		}
 		if ( 200 === $status ) {
@@ -652,10 +682,12 @@ final class CssAssetTransaction {
 				$body = (string) wp_remote_retrieve_body( $response );
 				$body = substr( $body, 0, 4096 );
 				if ( self::looks_like_html( $body ) || 'html' === $mime ) {
+					$login = self::looks_like_login( $body );
 					return [
 						'status'            => $status,
-						'classification'    => self::looks_like_login( $body ) ? 'protected' : 'invalid_body',
+						'classification'    => $login ? 'protected' : 'invalid_body',
 						'content_type_kind' => 'html',
+						'cause'             => $login ? 'login_page' : 'other_page_html',
 					];
 				}
 				if ( '' === trim( $body ) || 'css' !== $mime ) {
@@ -663,6 +695,7 @@ final class CssAssetTransaction {
 						'status'            => $status,
 						'classification'    => 'failed',
 						'content_type_kind' => $mime,
+						'cause'             => 'not_css',
 					];
 				}
 				return [
@@ -683,12 +716,14 @@ final class CssAssetTransaction {
 					'status'            => $status,
 					'classification'    => 'invalid_body',
 					'content_type_kind' => 'html',
+					'cause'             => 'other_page_html',
 				];
 			}
 			return [
 				'status'            => 200,
 				'classification'    => 'unverified',
 				'content_type_kind' => $mime,
+				'cause'             => 'not_css',
 			];
 		}
 		if ( $status >= 500 || 0 === $status ) {
@@ -696,12 +731,14 @@ final class CssAssetTransaction {
 				'status'            => $status,
 				'classification'    => 'unavailable',
 				'content_type_kind' => $mime,
+				'cause'             => 0 === $status ? 'no_response' : 'http_5xx',
 			];
 		}
 		return [
 			'status'            => $status,
 			'classification'    => 'failed',
 			'content_type_kind' => $mime,
+			'cause'             => $status >= 400 ? 'http_' . $status : 'unexpected_status',
 		];
 	}
 
@@ -888,9 +925,9 @@ final class CssAssetTransaction {
 	 * Delivery check when the target legitimately has no file: protected assets must stay available,
 	 * and there is nothing to deliver for the target itself.
 	 *
-	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $before
-	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $after
-	 * @return array{status:string,code?:string}|\WP_Error
+	 * @param list<array<string,mixed>> $before
+	 * @param list<array<string,mixed>> $after
+	 * @return array{status:string,code?:string,cause?:string}|\WP_Error
 	 */
 	private static function delivery_outcome_without_target_file( array $before, array $after, string $target ): array|\WP_Error {
 		$outcome = self::delivery_outcome( $before, $after, $target );
@@ -901,9 +938,9 @@ final class CssAssetTransaction {
 	}
 
 	/**
-	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $before
-	 * @param list<array{asset:string,status:int,url_sha256:string,classification?:string}> $after
-	 * @return array{status:string,code?:string}|\WP_Error
+	 * @param list<array<string,mixed>> $before
+	 * @param list<array<string,mixed>> $after
+	 * @return array{status:string,code?:string,cause?:string}|\WP_Error
 	 */
 	private static function delivery_outcome( array $before, array $after, string $target ): array|\WP_Error {
 		$before_map = [];
@@ -921,7 +958,7 @@ final class CssAssetTransaction {
 		foreach ( $after_map as $asset => $probe ) {
 			$previous = $before_map[ $asset ] ?? null;
 			$after_class = (string) ( $probe['classification'] ?? 'failed' );
-			if ( is_array( $previous ) && 'available' === ( $previous['classification'] ?? '' ) && 'available' !== $after_class ) {
+			if ( is_array( $previous ) && 'available' === ( $previous['classification'] ?? '' ) && 'available' !== $after_class && ! self::is_environment_answer( $probe ) ) {
 				return self::error( 'stonewright_elementor_css_probe_failed', 'A protected Elementor CSS URL did not return HTTP 200 without redirect.' );
 			}
 		}
@@ -930,18 +967,58 @@ final class CssAssetTransaction {
 			return [ 'status' => 'not_checked' ];
 		}
 		$class = (string) ( $target_probe['classification'] ?? 'failed' );
-		return match ( $class ) {
+		$cause = isset( $target_probe['cause'] ) && is_string( $target_probe['cause'] ) ? $target_probe['cause'] : '';
+		$out   = match ( $class ) {
 			'available' => [ 'status' => 'verified' ],
-			'protected' => [
+			// Access control, or another page where the stylesheet should be: the file is written, its public delivery is not shown.
+			'protected', 'invalid_body' => [
 				'status' => 'blocked',
 				'code'   => 'stonewright_elementor_css_delivery_protected',
 			],
-			'unavailable' => [ 'status' => 'not_checked' ],
+			// A 5xx, no answer, or a URL that is not requested at all: delivery is not checked.
+			'unavailable', 'not_probed' => [
+				'status' => 'not_checked',
+				'code'   => 'stonewright_elementor_css_delivery_unverified',
+			],
+			// A definite non-delivery (404, another 4xx, a non-CSS answer) that was not there before the write either.
 			default => [
 				'status' => 'failed',
-				'code'   => 'stonewright_elementor_css_probe_failed',
+				'code'   => 'stonewright_elementor_css_delivery_unverified',
 			],
 		};
+		if ( '' !== $cause && 'available' !== $class ) {
+			$out['cause'] = $cause;
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether an after-write answer is a change of the environment rather than evidence that the file just written is bad:
+	 * access control (login, 401, 403), a 5xx or no answer, or another HTML page (maintenance, coming soon, a security
+	 * page). A 404, a non-CSS answer or a redirect to another page after delivery that worked still reads as damage.
+	 *
+	 * @param array<string,mixed> $probe
+	 */
+	private static function is_environment_answer( array $probe ): bool {
+		$class = (string) ( $probe['classification'] ?? '' );
+		if ( in_array( $class, [ 'unavailable', 'invalid_body', 'not_probed' ], true ) ) {
+			return true;
+		}
+		return 'protected' === $class && in_array( (string) ( $probe['cause'] ?? '' ), [ 'login_redirect', 'login_page', 'http_401', 'http_403' ], true );
+	}
+
+	/**
+	 * What to do about a redirect that is never followed, by its kind.
+	 */
+	private static function unsafe_redirect_repair( string $kind, bool $before_write ): string {
+		$state = $before_write ? 'Nothing was written. ' : 'The write was rolled back. ';
+		$what  = match ( $kind ) {
+			'http_downgrade' => 'The stylesheet URL redirects from https to http, which is never followed.',
+			'loop'           => 'The stylesheet URL redirects to itself or around in a loop.',
+			'disallowed'     => 'The stylesheet URL redirects to an address that is not a public http or https URL.',
+			default          => 'The stylesheet URL redirects to another origin (another host, port or scheme), which is never followed.',
+		};
+		return $state . $what . ' Fix the redirect rule in front of the uploads folder (for example make the site URL and the uploads URL use the same scheme and host, or exclude the uploads/elementor/css path from the redirect), then call this ability again.';
 	}
 
 	private static function same_origin( string $left, string $right ): bool {

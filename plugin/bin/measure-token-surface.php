@@ -10,6 +10,7 @@
  * - essential mode tools ≤ 20
  * - default profile cap ≤ 20 tools
  * - strict/low-tools cap ≤ 12 tools
+ * - bootstrap profile ≤ 12 tools and ≤ 3500 estimated tokens
  * - task-start non-visual compact < 800 estimated tokens
  * - task-start visual compact < 1200 estimated tokens
  *
@@ -49,6 +50,8 @@ if ( 'over-budget' === $fixture ) {
 			'essential_max_tools'              => TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
 			'default_max_tools'                => TokenSurfaceBudgets::DEFAULT_MAX_TOOLS,
 			'strict_max_tools'                 => TokenSurfaceBudgets::STRICT_MAX_TOOLS,
+			'bootstrap_max_tools'              => TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS,
+			'bootstrap_max_tokens'             => TokenSurfaceBudgets::BOOTSTRAP_MAX_TOKENS,
 			'task_start_non_visual_max_tokens' => TokenSurfaceBudgets::TASK_START_NON_VISUAL_MAX_TOKENS,
 			'task_start_visual_max_tokens'     => TokenSurfaceBudgets::TASK_START_VISUAL_MAX_TOKENS,
 		],
@@ -102,6 +105,18 @@ function stonewright_visible_rows( bool $essential ): array {
 }
 
 /**
+ * The tools/list rows of the bootstrap surface, as a client connecting on it sees them.
+ *
+ * @return list<array<string, mixed>>
+ */
+function stonewright_bootstrap_rows(): array {
+	$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'bootstrap';
+	$rows = AbilityRegistry::enabled_abilities();
+	unset( $GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] );
+	return $rows;
+}
+
+/**
  * @param list<array<string, mixed>> $all_rows
  * @return array<string, mixed>
  * @throws RuntimeException When the tool profile ability returns WP_Error.
@@ -137,8 +152,10 @@ function stonewright_profile_metrics( string $profile, int $max_tools, array $al
 
 $full_rows       = stonewright_visible_rows( false );
 $essential_rows  = stonewright_visible_rows( true );
+$bootstrap_rows  = stonewright_bootstrap_rows();
 $full_tools      = stonewright_tool_documents( $full_rows );
 $essential_tools = stonewright_tool_documents( $essential_rows );
+$bootstrap_tools = stonewright_tool_documents( $bootstrap_rows );
 
 $GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 $nonvisual_bootstrap = ( new TaskStart() )->execute(
@@ -171,6 +188,10 @@ $report = [
 			'tool_count' => count( $essential_tools ),
 			'tools_list' => stonewright_token_metrics( $essential_tools ),
 		],
+		'bootstrap'  => [
+			'tool_count' => count( $bootstrap_tools ),
+			'tools_list' => stonewright_token_metrics( $bootstrap_tools ),
+		],
 		'default_20' => stonewright_profile_metrics( 'elementor-design', TokenSurfaceBudgets::DEFAULT_MAX_TOOLS, $full_rows ),
 		'strict_12'  => stonewright_profile_metrics( 'low-tools', TokenSurfaceBudgets::STRICT_MAX_TOOLS, $full_rows ),
 	],
@@ -182,6 +203,8 @@ $report = [
 		'essential_max_tools'              => TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
 		'default_max_tools'                => TokenSurfaceBudgets::DEFAULT_MAX_TOOLS,
 		'strict_max_tools'                 => TokenSurfaceBudgets::STRICT_MAX_TOOLS,
+		'bootstrap_max_tools'              => TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS,
+		'bootstrap_max_tokens'             => TokenSurfaceBudgets::BOOTSTRAP_MAX_TOKENS,
 		'task_start_non_visual_max_tokens' => TokenSurfaceBudgets::TASK_START_NON_VISUAL_MAX_TOKENS,
 		'task_start_visual_max_tokens'     => TokenSurfaceBudgets::TASK_START_VISUAL_MAX_TOKENS,
 	],
@@ -189,6 +212,8 @@ $report = [
 
 $report['budgets'] = TokenSurfaceBudgets::evaluate(
 	[
+		'bootstrap_tool_count'         => $report['surfaces']['bootstrap']['tool_count'],
+		'bootstrap_token_estimate'     => $report['surfaces']['bootstrap']['tools_list']['estimated_tokens'],
 		'essential_tool_count'         => $report['surfaces']['essential']['tool_count'],
 		'default_tool_count'           => $report['surfaces']['default_20']['tool_count'],
 		'strict_tool_count'            => $report['surfaces']['strict_12']['tool_count'],

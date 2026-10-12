@@ -55,8 +55,17 @@ count.
 
 ## Rows, views, and counters
 
-- Failed, blocked, and retryable rows always carry a readable message. When the
-  caller supplied none, it names the outcome and the error code.
+- Failed, blocked, and retryable rows always carry a readable message: the
+  message of the error (up to 500 characters, with credentials redacted); for a
+  result that reports a failure without a message, one built from its own fields
+  (the failed check, the statuses that are not good, the first warning and the
+  first sentence of the repair); and only when there is nothing to build it
+  from, the outcome and the error code.
+- A refused Elementor batch also records the element (or the parent it goes
+  into), the widget type and the first rejected setting (`element_id`,
+  `widget_type`, `setting_path`, `expected_type`, `actual_type`), the number of
+  rejected settings (`rejected_total`) and a `rejected_summary` with the
+  operation, widget, setting and received type of each.
 - Successful rows carry no error code, repair hint, or incident link, and the
   page shows no error cause, repair hint, or incident link for successful rows
   stored earlier.

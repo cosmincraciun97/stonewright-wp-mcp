@@ -51,6 +51,60 @@
   change no longer answers, or it found the site failing. Not verified no longer
   reads as a broken site or a host problem; the code of the check is under
   Details. Check again reports each of the four.
+- The compact `stonewright-task-start` response lists the next tools for the task in
+  `fast_path.ordered_tools`, without `stonewright-context-bootstrap`,
+  `stonewright-task-start` and `stonewright-tool-profile` for the goal it just
+  started. An Elementor build names the live schema and the design evidence plan
+  before the write and the result check after it; a text change reads one page or a
+  bounded outline and does not load the design flow; skills loading and the
+  production-safe confirmation token stay where they apply.
+  `stonewright-task-start` stays in the list while the Elementor architecture blocks
+  the write, and `stonewright-tool-profile` while a needed tool is not callable yet.
+  Empty `matched_skills`, `memory_refs` and `elementor.status.native_hint` are left out
+  of the compact response.
+- `composer tokens:measure` checks the bootstrap profile: more than 12 tools or more
+  than 3500 estimated tokens each fail the gate on their own. The budgets are
+  unchanged.
+- A refused Elementor batch names every rejected setting. For each one,
+  `elementor-v3-batch-mutate` returns the operation, action, `op_id`, element or
+  parent, widget type, setting and path, what was received (type and a short
+  redacted preview), the live control (type, units, responsive keys, options,
+  default), the allowed values, the settings that must be sent with it
+  (`requires`) and an example, in `rejected_settings` (`rejected_total` counts
+  them). The message names the first three, and a failed operation that is not
+  about settings (an unknown element, a breakpoint outside the scope) says why in
+  the message. A breakpoint refusal says to add the breakpoint to
+  `responsive_scope`. The same detail comes back from the typed Elementor
+  writers.
+- The Audit Log row of a failed call keeps the message of the failure (up to 500
+  characters, credentials redacted). A result that reports a failure without a
+  message gets one built from its failed check, its statuses, its first warning
+  and the first sentence of its repair. A refused Elementor batch adds the
+  element, widget type, setting, expected and received types, `rejected_total`
+  and a `rejected_summary` to the row.
+- `stonewright-elementor-post-write-verify` finds Elementor V4 elements by the
+  markers each kind renders (`data-id`, the `elementor-element-<id>` class,
+  `data-interaction-id` for V4 leaf widgets), matching the whole id. Each missing
+  element gets a `reason` (`not_in_document`, `not_rendered`, `render_empty`,
+  `password_protected`, `not_built_with_elementor`, `no_elementor_data`,
+  `cached_html_suspected`, `renderer_failed`), the result lists `missing_elements`
+  and a `render_context`, and a failure carries a `message`. A post that is not
+  published is still verified, with a note.
+- `stonewright-elementor-css-regenerate` answers `ok: true` with a warning that
+  names the cause (`delivery_cause`) and the next step when the stylesheet is
+  written and verified on disk but an anonymous request to it gets a login
+  redirect or page, HTTP 401 or 403, another HTML page, a redirect to another
+  page, a 5xx, no answer or another 4xx. A stylesheet URL on another origin (a
+  CDN or an offload plugin) is not requested and no longer refuses the call: it
+  regenerates and reports `other_origin_not_probed`. A stylesheet that was
+  delivered before the write and answers with a 404, a non-CSS body or a redirect
+  to another page after it is still rolled back, and an unsafe redirect still
+  refuses before any write, now with the kind of redirect and the next step.
+- `stonewright-section-reuse-extract` says why a source is refused. A post that
+  does not exist and a post the user may not edit get the same answer; a user who
+  may edit the post learns `status_not_offered` or `post_type_not_offered` with the
+  offered statuses. A locator that matches nothing returns `valid_locators` (up to
+  20), `locators_total`, `locators_truncated` and, for a near miss, `closest`.
 - A rollback from Rescue, from the `stonewright-rescue-rollback` ability or from
   Changes stops with `stonewright_change_drift` when the item was edited after the
   change, whether the change was verified, never verified or recorded as an
@@ -122,6 +176,29 @@
 - The Undo and Redo dialog of the Changes page works without script: its confirm
   button is not disabled in production-safe mode, the server checks the typed
   phrase, and a refusal that ran nothing returns to the confirmation.
+- `stonewright-elementor-css-regenerate` accepts a Windows drive path that Elementor
+  reports behind a scheme (`file:///C:/...`) when the target is on the same drive.
+  Another drive, a host and path, a drive-relative path and a UNC path are still
+  refused.
+- Contributor tests: the symlink fixtures skip with a named reason on a Windows
+  account that cannot create symbolic links, the `CLAUDE.md` symlink check reads the
+  git index when the working tree holds a plain file, and the Direct audit and
+  incident privacy checks read the Windows ACL instead of POSIX modes.
+- The Elementor settings check accepts valid values it refused: a control that
+  hides itself at its default (the heading `size` set to `default`); a font weight
+  sent as a number; the empty string, `null` or an empty list for an unset
+  control, including a select whose options do not list the empty string; a
+  slider or dimensions object with the `custom` unit holding `calc()`, `clamp()`,
+  `min()`, `max()` or `var()`; a slider object with only a `unit`; links to
+  `tel:`, `mailto:`, app schemes, relative paths, queries and addresses with
+  non-ASCII characters, and link objects with only the options being changed;
+  media values with an empty `id` or `url`; and `__globals__` and `__dynamic__`
+  inside a repeater row. A section copied with `insert_section` is no longer
+  refused for those settings.
+- A control that is inactive for the settings sent says which settings to send
+  with it (`typography_typography` set to `custom` for a font size, `content_width`
+  set to `full` for a container width, `_element_width` set to `initial` for a
+  custom widget width).
 - The state saved before an undo of a kit change covers the same surfaces as the
   snapshot being restored: the V4 global variables, the legacy class list, the
   global classes and default styles read through Elementor's repositories, and
