@@ -8,7 +8,7 @@ shown as tabs under the page header:
 | View | What it holds | Address |
 | --- | --- | --- |
 | **Get started** | The numbered steps: 1 turn on AI abilities (a status, with a link to Settings), 2 choose OAuth or an Application Password, 3 connect an AI client, 4 verify the connection | `page=stonewright` |
-| **Settings** | The settings form (master enable, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
+| **Settings** | The settings form (master enable, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the change history limits, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
 | **Connections** | The OAuth sign-in status with its copyable addresses, and the connected OAuth clients with a disconnect each | `page=stonewright&tab=connections` |
 | **Updates** | How to keep the plugin and the companion current | `page=stonewright&tab=updates` |
 
@@ -205,6 +205,14 @@ One row of the settings form, after **Elementor V4 atomic abilities**. The switc
 The info callout under the switch follows the switch as you toggle it, before you save, and a screen reader announces it when it appears (the callout sits in one polite live region). It shows what the setting will mean once saved: the setting itself changes only when you save the form, and without JavaScript the callout shows the saved value. It says what the setting does: an agent building a page may offer to copy a section that already exists on another page you can read and edit, the source page is never changed, and the copy is written with the same snapshot, readback, and audit as any other change. In `production-safe` mode the help adds that an Elementor V3 or Gutenberg copy needs a confirmation token like any other write, and that copying an Elementor V4 section stays blocked.
 
 Turning it off removes `stonewright-section-reuse-find` and `stonewright-section-reuse-extract` from the tool lists (over MCP they cannot be called at all) and from the profiles, stops `stonewright-task-start` from offering the section reuse skill, makes an insert operation refuse, and tells agents so: the value is in `agent_preferences.section_reuse` of `stonewright-task-start`, and for fifteen minutes after the change every response carries one `notices` line. A client that keeps an old tool list is still safe, because each reuse ability and insert operation checks the live option; the refusal is not retried and does not appear under recurring errors. The row stacks label above control at narrow widths.
+
+### Change history
+
+A card of the settings form, after **Stock images** (`#stonewright-change-history`), with three number fields: **Keep finished changes for (days)** (1 to 3,650, default 90), **Keep at most (changes)** (1 to 100,000, default 500) and **Keep at most (MB of stored copies)** (1 to 10,240, default 100). They write the options `stonewright_change_ledger_days`, `stonewright_change_ledger_max_changes` and `stonewright_change_ledger_max_bytes` (the size is shown in MB and stored in bytes) through the same Settings API form as the other settings, so a save needs `manage_options` and the form's nonce, and a request without either is answered with 403.
+
+The server checks each value against the same bounds the cleanup uses: a whole number from 1 up to the largest value above. A value outside them, a fraction or text is refused with a message above the form and the stored value stays; the other settings of the same save are still saved. A field that was never saved and is left at its default stays unset. A filter on the site that overrides a limit is named under the fields, and the fields keep showing the saved option.
+
+Under the fields the card says that the first limit reached decides, that open incidents and linked Undo and Redo are always kept, that a lower limit takes effect at the next daily cleanup, and how many finished changes the limits in force would remove at the next cleanup (the same read-only plan the cleanup runs). There is no unlimited value: the size limit protects the disk of the host, and the upper limits already allow very long retention. See [Changes](changes.md#how-long-the-history-is-kept) and [Rescue](../rescue.md#retention).
 
 ### Safe mode on the MCP route
 

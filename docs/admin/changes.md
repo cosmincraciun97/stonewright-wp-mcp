@@ -59,6 +59,12 @@ how it matches:
 A value that is not understood is dropped, and an unknown user or ability matches nothing; it
 never means "any".
 
+## How long the history is kept
+
+A line at the top of the History tab, always visible, says how long Stonewright keeps finished changes: the limits in force (days, changes and MB of stored copies, whichever is reached first), that older finished changes are removed automatically each day, that open incidents and linked Undo and Redo are kept, and the last cleanup (its date and the number of changes it removed, or **none yet**). Administrators see a **Change limits** link to the setting in **Setup → Settings → Change history**. The defaults are 90 days, 500 changes and 100 MB.
+
+A warning notice (a warning, not an error) appears above the line when the next cleanups will remove changes. It says how many finished changes will be removed and by which date, or that the finished changes or the stored copies are at 80% or more of their limit. It appears when the finished changes or the stored copies are at or over 80% of their limit, or when finished changes will pass the age limit within the next seven days. The number is computed with the plan the cleanup itself runs, read-only, so it matches what would be removed. Open incidents are never counted.
+
 ## The drawer
 
 **View diff** opens one drawer for that change. The address names the change
