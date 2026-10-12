@@ -193,6 +193,8 @@ final class ChangeRollback {
 			if ( $refused instanceof \WP_Error ) {
 				return $refused;
 			}
+		} elseif ( $plan['requires_force'] && $options['force_drift'] && '' === $options['expected_current_sha256'] && '' !== $plan['current_sha256'] ) {
+			return self::error( LiveState::HASH_REQUIRED, LiveState::hash_required_message(), 409, [ 'current_sha256' => $plan['current_sha256'] ] );
 		} elseif ( $plan['requires_force'] && ! $options['force_drift'] ) {
 			return self::error( 'stonewright_change_drift', __( 'This item has changed since the recorded change, so undoing it would overwrite those later edits. Review the plan, and run again with force_drift to overwrite them.', 'stonewright' ), 409, [ 'drift' => true, 'warnings' => $plan['warnings'], 'current_sha256' => $plan['current_sha256'], 'expected_sha256' => $plan['expected_sha256'] ] );
 		}

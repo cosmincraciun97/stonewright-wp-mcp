@@ -22,6 +22,8 @@ use Stonewright\WpMcp\Security\RescueRollback;
 use Stonewright\WpMcp\Security\Rollback\PostRollbackFamily;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
+use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\CliExit;
+use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\RecordingRescueCommand;
 use Stonewright\WpMcp\Tests\Unit\Security\Adapters\PostLedgerWpdb;
 
 /**
@@ -244,6 +246,157 @@ final class ManualRestoreSafetyTest extends RollbackTestCase {
 		$hash = $this->current_hash( $id );
 		self::assertNull( RescueRollback::preflight_refusal( $id, [ 'user_id' => 7, 'force_drift' => true, 'expected_current_sha256' => $hash ] ) );
 		self::assertSame( 'stonewright_change_changed_since_preview', RescueRollback::preflight_refusal( $id, [ 'user_id' => 7, 'force_drift' => true, 'expected_current_sha256' => str_repeat( '0', 64 ) ] )->get_error_code() );
+	}
+
+	// -- An override needs the state it was given for ----------------------------------------------------
+
+	/** @dataProvider states_and_entry_points */
+	public function test_a_drift_override_without_the_hash_is_refused_and_changes_nothing( string $state, string $entry_point ): void {
+		$id = $this->chain( $state );
+		$this->external_edit();
+		$before = $this->world( $id );
+
+		$error = $this->via( $entry_point, $id, [ 'force_drift' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_drift_hash_required', $error->get_error_code(), $error->get_error_message() );
+		self::assertSame( 409, $error->get_error_data()['status'] );
+		self::assertSame( 64, strlen( (string) $error->get_error_data()['current_sha256'] ), 'The refusal names the state to confirm.' );
+		self::assertSame( 'C body', $this->post_field( 'post_content' ) );
+		self::assertSame( $before, $this->world( $id ) );
+	}
+
+	/** @dataProvider states_and_entry_points */
+	public function test_a_drift_override_with_a_hash_that_no_longer_matches_is_refused_and_changes_nothing( string $state, string $entry_point ): void {
+		$id = $this->chain( $state );
+		$this->external_edit();
+		$hash = $this->current_hash( $id );
+		$this->external_edit( 'D body' );
+		$before = $this->world( $id );
+
+		$error = $this->via( $entry_point, $id, [ 'force_drift' => true, 'expected_current_sha256' => $hash ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_changed_since_preview', $error->get_error_code() );
+		self::assertSame( 'D body', $this->post_field( 'post_content' ) );
+		self::assertSame( $before, $this->world( $id ) );
+	}
+
+	/** @dataProvider entry_points */
+	public function test_a_drift_override_accepts_the_start_of_the_hash_the_pages_print( string $entry_point ): void {
+		$id = $this->chain( 'armed' );
+		$this->external_edit();
+		$hash = substr( $this->current_hash( $id ), 0, 32 );
+
+		$result = $this->via( $entry_point, $id, [ 'force_drift' => true, 'expected_current_sha256' => $hash ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 'A body', $this->post_field( 'post_content' ) );
+	}
+
+	/** @dataProvider entry_points */
+	public function test_force_drift_without_a_hash_is_ignored_when_nothing_drifted( string $entry_point ): void {
+		$id = $this->chain( 'verified' );
+
+		$result = $this->via( $entry_point, $id, [ 'force_drift' => true ] );
+
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+		self::assertSame( 'A body', $this->post_field( 'post_content' ) );
+	}
+
+	public function test_a_failing_site_does_not_make_an_override_without_the_hash_acceptable(): void {
+		$id = $this->chain( 'rollback_failed' );
+		$this->external_edit( 'C body FATAL' );
+		$before = $this->world( $id );
+
+		$error = RescueRollback::run( $id, [ 'by' => 'admin-page', 'user_id' => 7, 'human_approved' => true, 'force_drift' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_drift_hash_required', $error->get_error_code() );
+		self::assertSame( $before, $this->world( $id ) );
+	}
+
+	public function test_the_refusal_for_a_missing_hash_does_not_spend_the_confirmation_token(): void {
+		$id = $this->chain( 'armed' );
+		$this->external_edit();
+		$this->production_safe();
+		$token = ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $id, 'force_drift' => true ] );
+
+		$error = ( new RescueRollbackAbility() )->execute( [ 'incident_id' => $id, 'force_drift' => true, 'confirmation_token' => $token ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_drift_hash_required', $error->get_error_code() );
+		// The same token still works for the same call once the edit is gone.
+		$this->edit_post( 'post_content', 'B body' );
+		$result = ( new RescueRollbackAbility() )->execute( [ 'incident_id' => $id, 'force_drift' => true, 'confirmation_token' => $token ] );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+	}
+
+	public function test_the_changes_path_refuses_a_missing_hash_before_the_token_is_looked_at(): void {
+		$id = $this->chain( 'verified' );
+		$this->external_edit();
+		$this->production_safe();
+		$token = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $id, [ 'force_drift' => true ] ) );
+
+		$error = ChangeRollback::run( $id, [ 'force_drift' => true, 'confirmation_token' => $token ] );
+
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'stonewright_change_drift_hash_required', $error->get_error_code() );
+		$this->edit_post( 'post_content', 'B body' );
+		$result = ChangeRollback::run( $id, [ 'force_drift' => true, 'confirmation_token' => $token ] );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
+	}
+
+	// -- The command line ---------------------------------------------------------------------------------
+
+	/** @param array<string, mixed> $assoc */
+	private function cli( string $id, array $assoc = [] ): ?CliExit {
+		try {
+			( new RecordingRescueCommand() )->rollback( [ $id ], $assoc );
+		} catch ( CliExit $exit ) {
+			return $exit;
+		}
+		return null;
+	}
+
+	public function test_wp_cli_rescue_rollback_confirms_an_override_with_the_flags_and_refuses_it_without(): void {
+		$id = $this->chain( 'armed' );
+		$this->external_edit();
+
+		$drift = $this->cli( $id );
+		self::assertNotNull( $drift );
+		self::assertStringContainsString( 'stonewright_change_drift', $drift->getMessage() );
+		self::assertSame( 1, preg_match( '/--expected-sha256=([a-f0-9]{64})/', $drift->getMessage(), $found ), 'The message names the state to confirm.' );
+
+		$bare = $this->cli( $id, [ 'force-drift' => true ] );
+		self::assertNotNull( $bare );
+		self::assertStringContainsString( 'stonewright_change_drift_hash_required', $bare->getMessage() );
+		self::assertSame( 'C body', $this->post_field( 'post_content' ) );
+
+		$stale = $this->cli( $id, [ 'force-drift' => true, 'expected-sha256' => str_repeat( '0', 64 ) ] );
+		self::assertNotNull( $stale );
+		self::assertStringContainsString( 'stonewright_change_changed_since_preview', $stale->getMessage() );
+		self::assertSame( 'C body', $this->post_field( 'post_content' ) );
+
+		self::assertNull( $this->cli( $id, [ 'force-drift' => true, 'expected-sha256' => $found[1] ] ) );
+		self::assertSame( 'A body', $this->post_field( 'post_content' ) );
+		self::assertCount( 1, ChangeLedger::children( $id ) );
+	}
+
+	public function test_wp_cli_rescue_rollback_cannot_approve_code(): void {
+		$path = $this->theme . '/functions.php';
+		file_put_contents( $path, "<?php\n// older\n" );
+		$write = \Stonewright\WpMcp\Security\ThemeWriteTransaction::apply( [ 'absolute' => $path, 'relative' => 'functions.php', 'before' => "<?php\n// older\n", 'after' => "<?php\n// newer\n", 'language' => 'php', 'skip_smoke' => true ] );
+		self::assertIsArray( $write );
+		$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/theme-file-patch', 'resource_type' => 'theme_file', 'resource_key' => 'functions.php', 'recipe' => [ 'type' => 'theme_backup', 'ref' => (string) $write['backup_ref'] ], 'recipe_detail' => [ 'absolute' => $path ], 'scope' => 'site' ] );
+		self::assertIsArray( $entry );
+		ChangeJournal::settle( $entry['id'], 'verified' );
+
+		$exit = $this->cli( $entry['id'], [ 'force-drift' => true, 'expected-sha256' => str_repeat( 'a', 64 ) ] );
+
+		self::assertNotNull( $exit );
+		self::assertStringContainsString( 'stonewright_rescue_approval_required', $exit->getMessage() );
+		self::assertSame( "<?php\n// newer\n", file_get_contents( $path ), 'The file was not touched.' );
 	}
 
 	// -- The confirmed restore -----------------------------------------------------------------------

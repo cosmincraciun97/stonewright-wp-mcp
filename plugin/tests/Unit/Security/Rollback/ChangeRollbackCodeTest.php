@@ -253,7 +253,9 @@ final class ChangeRollbackCodeTest extends RollbackTestCase {
 		file_put_contents( $this->theme . '/functions.php', "<?php\nobfuscated = array(1);\n" );
 
 		$this->assert_refused( ChangeRollback::run( $id, [ 'human_approved' => true ] ), 'stonewright_change_drift' );
-		$done = $this->ok( ChangeRollback::run( $id, [ 'human_approved' => true, 'force_drift' => true ] ) );
+		$this->assert_refused( ChangeRollback::run( $id, [ 'human_approved' => true, 'force_drift' => true ] ), 'stonewright_change_drift_hash_required' );
+		$hash = ChangeRollback::run( $id, [ 'dry_run' => true ] )['current_sha256'];
+		$done = $this->ok( ChangeRollback::run( $id, [ 'human_approved' => true, 'force_drift' => true, 'expected_current_sha256' => $hash ] ) );
 
 		self::assertTrue( $done['drift_forced'] );
 		self::assertSame( self::V1, $this->live( 'theme_change' ) );

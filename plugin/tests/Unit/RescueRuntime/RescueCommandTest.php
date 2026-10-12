@@ -64,6 +64,7 @@ final class RescueCommandTest extends TestCase {
 		RescueCommand::$rollback_runner = null;
 		RescueCommand::$audit_runner    = null;
 		RescueCommand::$incident_source = null;
+		RescueCommand::$preflight_runner = null;
 		putenv( 'STONEWRIGHT_CONFIRMATION_TOKEN' );
 		$GLOBALS['stonewright_test_options']         = $this->saved_options;
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
@@ -220,11 +221,121 @@ final class RescueCommandTest extends TestCase {
 	public function test_rollback_runs_the_rollback_of_the_incident_as_the_current_user_and_audits_it(): void {
 		$command = $this->run_rollback( [ self::INCIDENT ] );
 
-		self::assertSame( [ [ self::INCIDENT, [ 'by' => 'wp-cli', 'user_id' => 7 ] ] ], $this->rollbacks );
+		self::assertSame( [ [ self::INCIDENT, [ 'by' => 'wp-cli', 'user_id' => 7, 'force_drift' => false, 'expected_current_sha256' => '' ] ] ], $this->rollbacks );
 		self::assertSame( [ [ self::INCIDENT, $this->rollback_result, 'wp-cli', 'rollback' ] ], $this->audits );
 		self::assertCount( 1, $command->successes );
 		self::assertStringContainsString( self::INCIDENT, $command->successes[0] );
 		self::assertStringContainsString( 'loads', $command->successes[0] );
+	}
+
+	// -----------------------------------------------------------------------
+	// --force-drift and --expected-sha256.
+	// -----------------------------------------------------------------------
+
+	private const HASH = 'ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12';
+
+	public function test_the_flags_reach_the_rollback_and_the_command_line_never_approves_code(): void {
+		$this->run_rollback( [ self::INCIDENT ], [ 'force-drift' => true, 'expected-sha256' => strtoupper( self::HASH ) ] );
+
+		self::assertCount( 1, $this->rollbacks );
+		$options = $this->rollbacks[0][1];
+		self::assertTrue( $options['force_drift'] );
+		self::assertSame( self::HASH, $options['expected_current_sha256'], 'The hash is lower case.' );
+		self::assertSame( 'wp-cli', $options['by'] );
+		self::assertArrayNotHasKey( 'human_approved', $options, 'The command line is not an administrator pressing Roll back.' );
+	}
+
+	/** @return array<string, array{0: string}> */
+	public static function bad_hashes(): array {
+		return [ 'not hex' => [ 'nope' ], 'too short' => [ 'abcdef' ], 'too long' => [ str_repeat( 'a', 65 ) ], 'a path' => [ '../../etc' ] ];
+	}
+
+	/** @dataProvider bad_hashes */
+	public function test_a_hash_that_is_not_a_hash_stops_the_command_before_anything_runs( string $hash ): void {
+		try {
+			$this->run_rollback( [ self::INCIDENT ], [ 'force-drift' => true, 'expected-sha256' => $hash ] );
+			self::fail( 'The command must stop.' );
+		} catch ( CliExit $exit ) {
+			self::assertSame( 1, $exit->getCode() );
+			self::assertStringContainsString( 'expected-sha256', $exit->getMessage() );
+		}
+		self::assertSame( [], $this->rollbacks );
+	}
+
+	public function test_a_refusal_before_the_run_is_printed_with_the_state_to_confirm_and_runs_nothing(): void {
+		RescueCommand::$preflight_runner = static fn (): \WP_Error => new \WP_Error( 'stonewright_change_drift', 'This item has changed since the recorded change.', [ 'status' => 409, 'current_sha256' => self::HASH ] );
+
+		try {
+			$this->run_rollback( [ self::INCIDENT ] );
+			self::fail( 'The command must stop.' );
+		} catch ( CliExit $exit ) {
+			self::assertSame( 1, $exit->getCode() );
+			self::assertStringContainsString( 'stonewright_change_drift', $exit->getMessage() );
+			self::assertStringContainsString( '--force-drift --expected-sha256=' . self::HASH, $exit->getMessage() );
+		}
+		self::assertSame( [], $this->rollbacks );
+		self::assertSame( [], $this->audits );
+	}
+
+	public function test_an_override_without_the_hash_is_refused_with_its_own_code_and_the_hash_to_use(): void {
+		RescueCommand::$preflight_runner = static fn (): \WP_Error => new \WP_Error( 'stonewright_change_drift_hash_required', 'Overwriting a later edit needs the state you saw.', [ 'status' => 409, 'current_sha256' => self::HASH ] );
+
+		try {
+			$this->run_rollback( [ self::INCIDENT ], [ 'force-drift' => true ] );
+			self::fail( 'The command must stop.' );
+		} catch ( CliExit $exit ) {
+			self::assertStringContainsString( 'stonewright_change_drift_hash_required', $exit->getMessage() );
+			self::assertStringContainsString( '--expected-sha256=' . self::HASH, $exit->getMessage() );
+		}
+		self::assertSame( [], $this->rollbacks );
+	}
+
+	public function test_a_refusal_from_the_rollback_itself_carries_the_same_words(): void {
+		$this->rollback_result = new \WP_Error( 'stonewright_change_changed_since_preview', 'The item is not in the state that was previewed.', [ 'status' => 409, 'current_sha256' => self::HASH ] );
+
+		try {
+			$this->run_rollback( [ self::INCIDENT ], [ 'force-drift' => true, 'expected-sha256' => self::HASH ] );
+			self::fail( 'The command must stop.' );
+		} catch ( CliExit $exit ) {
+			self::assertStringContainsString( 'stonewright_change_changed_since_preview', $exit->getMessage() );
+		}
+	}
+
+	public function test_a_refusal_before_the_run_does_not_use_up_the_token(): void {
+		self::production_safe();
+		$token = ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => self::INCIDENT ], 300 );
+		RescueCommand::$preflight_runner = static fn (): \WP_Error => new \WP_Error( 'stonewright_change_drift', 'This item has changed.', [ 'status' => 409, 'current_sha256' => self::HASH ] );
+		try {
+			$this->run_rollback( [ self::INCIDENT ], [ 'confirmation-token' => $token ] );
+			self::fail( 'The command must stop.' );
+		} catch ( CliExit $exit ) {
+			self::assertSame( 1, $exit->getCode(), 'A drift, not a request for a token.' );
+		}
+
+		RescueCommand::$preflight_runner = static fn (): mixed => null;
+		$this->run_rollback( [ self::INCIDENT ], [ 'confirmation-token' => $token ] );
+
+		self::assertCount( 1, $this->rollbacks, 'The same token still works.' );
+	}
+
+	public function test_the_token_is_issued_and_checked_over_the_flags(): void {
+		self::production_safe();
+		$json = $this->run_rollback( [ self::INCIDENT ], [ 'issue-token' => true, 'force-drift' => true, 'expected-sha256' => self::HASH, 'format' => 'json' ] );
+		$data = json_decode( $json->lines[0], true );
+		self::assertTrue( ConfirmationToken::verify( $data['confirmation_token'], 'stonewright/rescue-rollback', [ 'incident_id' => self::INCIDENT, 'force_drift' => true, 'expected_current_sha256' => self::HASH ] ) );
+
+		$token = ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => self::INCIDENT ], 300 );
+		try {
+			$this->run_rollback( [ self::INCIDENT ], [ 'confirmation-token' => $token, 'force-drift' => true, 'expected-sha256' => self::HASH ] );
+			self::fail( 'A token for the plain rollback does not confirm an override.' );
+		} catch ( CliExit $exit ) {
+			self::assertSame( 2, $exit->getCode() );
+		}
+		self::assertSame( [], $this->rollbacks );
+
+		$own = ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => self::INCIDENT, 'force_drift' => true, 'expected_current_sha256' => self::HASH ], 300 );
+		$this->run_rollback( [ self::INCIDENT ], [ 'confirmation-token' => $own, 'force-drift' => true, 'expected-sha256' => self::HASH ] );
+		self::assertCount( 1, $this->rollbacks );
 	}
 
 	public function test_a_rollback_that_leaves_the_site_failing_ends_with_exit_code_one(): void {

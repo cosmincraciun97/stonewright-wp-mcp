@@ -10,7 +10,9 @@
   incident earlier. Nothing is saved, written or claimed, and a confirmation token
   is not used up. Run it again with `force_drift` and the `current_sha256` of the
   dry run as `expected_current_sha256` (both are new inputs of
-  `stonewright-rescue-rollback`) to overwrite the edit. A change with an incident
+  `stonewright-rescue-rollback`) to overwrite the edit. `force_drift` without
+  `expected_current_sha256` is refused with `stonewright_change_drift_hash_required`
+  and changes nothing, in the ability, Changes, Rescue and WP-CLI alike. A change with an incident
   or a failed rollback recorded against it is still recovered without that
   confirmation while a health check fails, and without the change history.
 - A rollback of a change that was never verified saves the current state first,
@@ -27,6 +29,10 @@
   change passes again, with the same single retry of a silent check that a probe
   after a write gets. The answer carries `verification_reason`: `verified`,
   `not_started`, `transport_unavailable`, `check_lost` or `site_failed`.
+- `wp stonewright rescue rollback` and `wp stonewright changes rollback` take
+  `--force-drift` and `--expected-sha256=<hash>` (a drift override needs both). A
+  refused rollback prints the current hash and the flags to use; the command line
+  still does not approve a change to code.
 
 ### Fixed
 
@@ -39,6 +45,9 @@
 - The health probe asks for a page at the root of the site, whose address has no
   path, with a token bound to `/`. A page address that is not on the site's own
   origin is skipped before a token is issued for it.
+- A restore of options and theme mods reads every value back and is reported as
+  failed when it does not match the restore point; a rollback that depends on it
+  is not marked rolled back.
 
 ## [1.0.0-beta.15] - 2026-10-12
 

@@ -266,17 +266,20 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		$id    = $this->changed_page();
 		$other = $this->post_change( fn () => $this->edit_post( 'post_title', 'Other title' ) );
 		$this->production_safe();
+		$plan = ChangeRollback::run( $id, [ 'dry_run' => true ] );
+		self::assertIsArray( $plan );
+		$hash = $plan['current_sha256'];
 
 		$for_other = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $other, [] ) );
-		$this->assert_refused( ChangeRollback::run( $id, [ 'confirmation_token' => $for_other, 'force_drift' => true ] ), 'stonewright_confirmation_args_mismatch' );
+		$this->assert_refused( ChangeRollback::run( $id, [ 'confirmation_token' => $for_other, 'force_drift' => true, 'expected_current_sha256' => $hash ] ), 'stonewright_confirmation_args_mismatch' );
 
-		$plain = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $id, [] ) );
-		$this->assert_refused( ChangeRollback::run( $id, [ 'confirmation_token' => $plain, 'force_drift' => true ] ), 'stonewright_confirmation_args_mismatch' );
+		$plain = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $id, [ 'expected_current_sha256' => $hash ] ) );
+		$this->assert_refused( ChangeRollback::run( $id, [ 'confirmation_token' => $plain, 'force_drift' => true, 'expected_current_sha256' => $hash ] ), 'stonewright_confirmation_args_mismatch' );
 
 		self::assertSame( 'Changed body', $this->post_field( 'post_content' ), 'Nothing ran.' );
 
-		$forced = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $id, [ 'force_drift' => true ] ) );
-		$result = ChangeRollback::run( $id, [ 'confirmation_token' => $forced, 'force_drift' => true ] );
+		$forced = ConfirmationToken::issue( ChangeRollback::ABILITY, ChangeRollback::confirmation_args( $id, [ 'force_drift' => true, 'expected_current_sha256' => $hash ] ) );
+		$result = ChangeRollback::run( $id, [ 'confirmation_token' => $forced, 'force_drift' => true, 'expected_current_sha256' => $hash ] );
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 	}
 
@@ -330,8 +333,9 @@ final class ChangeRollbackTest extends RollbackTestCase {
 	public function test_force_drift_rolls_back_over_the_edit_and_keeps_the_edit_for_a_redo(): void {
 		$id = $this->changed_page();
 		$this->edit_post( 'post_content', 'Edited by hand' );
+		$hash = ChangeRollback::run( $id, [ 'dry_run' => true ] )['current_sha256'];
 
-		$result = ChangeRollback::run( $id, [ 'force_drift' => true ] );
+		$result = ChangeRollback::run( $id, [ 'force_drift' => true, 'expected_current_sha256' => $hash ] );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
@@ -348,8 +352,10 @@ final class ChangeRollbackTest extends RollbackTestCase {
 		$this->edit_post( 'post_content', 'Half written' );
 
 		$this->assert_refused( ChangeRollback::run( $id ), 'stonewright_change_drift' );
+		$this->assert_refused( ChangeRollback::run( $id, [ 'force_drift' => true ] ), 'stonewright_change_drift_hash_required' );
 
-		$result = ChangeRollback::run( $id, [ 'force_drift' => true ] );
+		$hash   = ChangeRollback::run( $id, [ 'dry_run' => true ] )['current_sha256'];
+		$result = ChangeRollback::run( $id, [ 'force_drift' => true, 'expected_current_sha256' => $hash ] );
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
 		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
 	}

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-12T10:45:46+00:00",
+    "generated_at": "2026-10-12T11:03:41+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -87,7 +87,8 @@
             "stonewright/theme-builder-apply-template",
             "stonewright/theme-builder-create-template",
             "stonewright/theme-json-handoff",
-            "stonewright/rescue-rollback"
+            "stonewright/rescue-rollback",
+            "stonewright/change-rollback"
         ]
     },
     "abilities": [
@@ -775,7 +776,7 @@
             "ability_name": "stonewright/change-rollback",
             "mcp_name": "stonewright-change-rollback",
             "kind": "Write",
-            "input_schema_hash": "70a856264293aa83aeda3017e4fd62fbdc33c2e15c19dc85ec55e317b20468a4",
+            "input_schema_hash": "892a45979a1e283f4c83a821b3306d28e31069f6bfe282dec0a9c3ed7feb918f",
             "output_schema_hash": "6cd5c48fcd05e7f5cfbcb2b69ffc1e67bcc6c45bea5dc0abed8124e82624ac3c",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -6095,7 +6096,7 @@
             "ability_name": "stonewright/rescue-rollback",
             "mcp_name": "stonewright-rescue-rollback",
             "kind": "Write",
-            "input_schema_hash": "5c36729d6ac5b02a74680eb0491b22165930364c6e1f0a4eb4a840a0c0632675",
+            "input_schema_hash": "1a54f1674af2f4af4a812b17e2db1bf6858212fc36cbbf232a5542a8454fe6fb",
             "output_schema_hash": "768bbdda825201a525bb585a097b190208f5bd97dcdd9d9811008d690f4c8b92",
             "permission_class": "Permissions::manage_options()",
             "gates": {

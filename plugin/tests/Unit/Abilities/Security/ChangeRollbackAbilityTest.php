@@ -247,7 +247,12 @@ final class ChangeRollbackAbilityTest extends ChangeHistoryTestCase {
 		self::assertSame( 'stonewright_change_drift', $refused->get_error_code() );
 		self::assertSame( 'Edited by hand', $this->post_field( 'post_content' ) );
 
-		$done = $this->ok_result( $this->run_ability( $id, [ 'force_drift' => true ] ) );
+		$unconfirmed = $this->run_ability( $id, [ 'force_drift' => true ] );
+		self::assertInstanceOf( \WP_Error::class, $unconfirmed );
+		self::assertSame( 'stonewright_change_drift_hash_required', $unconfirmed->get_error_code() );
+		self::assertSame( 'Edited by hand', $this->post_field( 'post_content' ) );
+
+		$done = $this->ok_result( $this->run_ability( $id, [ 'force_drift' => true, 'expected_current_sha256' => $plan['current_sha256'] ] ) );
 		self::assertTrue( $done['drift_forced'] );
 		self::assertSame( 'Original body', $this->post_field( 'post_content' ) );
 	}

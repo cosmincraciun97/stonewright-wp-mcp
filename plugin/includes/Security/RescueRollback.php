@@ -714,6 +714,25 @@ final class RescueRollback {
 		}
 		$newer = ChangeJournal::newer_changes( $entry );
 		$needs = self::needs_confirmation( $inspection, $newer );
+		// An override is given for one state: without its hash it is not an override. When the state cannot be read there is
+		// no hash to give, and force_drift alone confirms what the journal says is newer.
+		if ( $needs && $force && '' === $expected && '' !== $inspection['current_sha256'] ) {
+			return new \WP_Error(
+				LiveState::HASH_REQUIRED,
+				LiveState::hash_required_message(),
+				[
+					'status'              => 409,
+					'retryable'           => false,
+					'incident_id'         => (string) $entry['id'],
+					'change_set_id'       => (string) $entry['id'],
+					'current_sha256'      => $inspection['current_sha256'],
+					'execution_status'    => 'blocked',
+					'verification_status' => 'not_applied',
+					'rollback_status'     => 'not_attempted',
+					'resource_type'       => (string) $entry['resource_type'],
+				]
+			);
+		}
 		$proof = null;
 		if ( $needs && ! $force ) {
 			if ( $fault ) {

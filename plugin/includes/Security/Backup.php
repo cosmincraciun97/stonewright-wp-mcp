@@ -97,7 +97,10 @@ final class Backup {
 	}
 
 	/**
-	 * Restore a previously captured option/theme_mod snapshot.
+	 * Restore a previously captured option/theme_mod snapshot, then read every key back.
+	 *
+	 * @return bool True only when each option and theme mod now holds what the restore point captured, absence included.
+	 *              Every key is still written when one does not read back, so the answer says the restore is partial, not that it stopped.
 	 */
 	public static function restore_options( string $restore_id ): bool {
 		$restore_id = (string) $restore_id;
@@ -134,7 +137,7 @@ final class Backup {
 			}
 		}
 
-		return true;
+		return false === self::options_differ_from_snapshot( $restore_id );
 	}
 
 	/**

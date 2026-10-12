@@ -50,6 +50,14 @@ final class LiveState {
 		];
 	}
 
+	/** Error code of an override of a drift that did not say which state it was given for. */
+	public const HASH_REQUIRED = 'stonewright_change_drift_hash_required';
+
+	/** The sentence that goes with HASH_REQUIRED. */
+	public static function hash_required_message(): string {
+		return __( 'Overwriting a later edit needs the state you saw. Nothing was changed. Run a dry run, then run again with force_drift and expected_current_sha256 set to its current_sha256.', 'stonewright' );
+	}
+
 	/** A hash as a caller sent it: lower case, without space. */
 	public static function clean_hash( mixed $value ): string {
 		return is_string( $value ) ? strtolower( trim( $value ) ) : '';

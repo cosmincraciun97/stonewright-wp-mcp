@@ -58,6 +58,14 @@ class RescueCommand {
 	public static $rollback_runner = null;
 
 	/**
+	 * Asks what a rollback would refuse before it saves, writes or claims anything: callable( string $incident_id, array $options ): ?WP_Error.
+	 * Replaced in tests; by default RescueRollback::preflight_refusal().
+	 *
+	 * @var (callable(string, array<string, mixed>): mixed)|null
+	 */
+	public static $preflight_runner = null;
+
+	/**
 	 * Records the outcome in the audit log: callable( string $id, mixed $result, string $by, string $action ).
 	 * Replaced in tests; by default RescueRollback::audit_outcome().
 	 *
@@ -117,9 +125,12 @@ class RescueCommand {
 	/**
 	 * Roll back an open rescue incident.
 	 *
-	 * Runs the recorded rollback for the incident, probes the site and records the outcome. In production-safe
-	 * mode it needs a confirmation token: run the command with --issue-token, then run it again with
-	 * --confirmation-token. Exit code 2 means a token is required.
+	 * Runs the recorded rollback for the incident, probes the site and records the outcome. A rollback over an
+	 * edit made after the change is refused (stonewright_change_drift) until it is run again with --force-drift and
+	 * --expected-sha256 set to the current_sha256 of the dry run (`wp stonewright changes rollback <change> --dry-run`
+	 * prints it). In production-safe mode it needs a confirmation token: run the command with --issue-token (and the same
+	 * --force-drift and --expected-sha256), then run it again with --confirmation-token. Exit code 2 means a token is
+	 * required. The command line never approves a change to code.
 	 *
 	 * ## OPTIONS
 	 *
@@ -130,8 +141,14 @@ class RescueCommand {
 	 * : The token to confirm the rollback in production-safe mode. When the option is not given, the
 	 * STONEWRIGHT_CONFIRMATION_TOKEN environment variable is used.
 	 *
+	 * [--force-drift]
+	 * : Roll back even though the item was edited after the change, overwriting those edits. Needs --expected-sha256.
+	 *
+	 * [--expected-sha256=<hash>]
+	 * : The current_sha256 of the dry run, 32 to 64 hexadecimal characters. The rollback stops when the item is not in that state any more.
+	 *
 	 * [--issue-token]
-	 * : Print a confirmation token for this rollback and stop. Nothing is rolled back.
+	 * : Print a confirmation token for this rollback (and these options) and stop. Nothing is rolled back.
 	 *
 	 * [--format=<format>]
 	 * : Print the result as text or as JSON.
@@ -146,6 +163,7 @@ class RescueCommand {
 	 *
 	 *     wp stonewright rescue rollback cs-0123456789abcdef01234567 --user=admin
 	 *     wp stonewright rescue rollback cs-0123456789abcdef01234567 --user=admin --issue-token
+	 *     wp stonewright rescue rollback cs-0123456789abcdef01234567 --user=admin --force-drift --expected-sha256=<hash>
 	 *     wp stonewright rescue rollback cs-0123456789abcdef01234567 --user=admin --confirmation-token=<token>
 	 *
 	 * @param list<string>         $args       The incident id.
@@ -157,18 +175,36 @@ class RescueCommand {
 		if ( 1 !== preg_match( '/^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}$/D', $id ) ) {
 			$this->fail( 'Give the id of an open incident. List them with: wp stonewright rescue status' );
 		}
-		$json   = 'json' === ( $assoc_args['format'] ?? 'text' );
-		$signed = [ 'incident_id' => $id ];
+		$json = 'json' === ( $assoc_args['format'] ?? 'text' );
+		$hash = isset( $assoc_args['expected-sha256'] ) && is_string( $assoc_args['expected-sha256'] ) ? $assoc_args['expected-sha256'] : '';
+		if ( '' !== $hash && 1 !== preg_match( '/^[a-fA-F0-9]{32,64}$/D', $hash ) ) {
+			$this->fail( '--expected-sha256 must be the current_sha256 of the dry run: 32 to 64 hexadecimal characters.' );
+		}
+		$force   = ! empty( $assoc_args['force-drift'] );
+		$hash    = strtolower( $hash );
+		$signed  = [ 'incident_id' => $id ];
+		$options = [ 'by' => 'wp-cli', 'user_id' => (int) get_current_user_id(), 'force_drift' => $force, 'expected_current_sha256' => $hash ];
+		if ( $force ) {
+			$signed['force_drift'] = true;
+		}
+		if ( '' !== $hash ) {
+			$signed['expected_current_sha256'] = $hash;
+		}
 
 		if ( ! empty( $assoc_args['issue-token'] ) ) {
 			$token = ConfirmationToken::issue( self::ABILITY_ROLLBACK, $signed, self::TOKEN_TTL );
 			$this->line( $json ? (string) wp_json_encode( [ 'confirmation_token' => $token, 'expires_in' => self::TOKEN_TTL ] ) : $token );
 			return;
 		}
+		// A refusal that needs no token is answered before one is looked at, so it does not use one up.
+		$refusal = self::preflight( $id, $options );
+		if ( is_wp_error( $refusal ) ) {
+			$this->fail( self::refusal_text( $refusal ) );
+		}
 		$this->require_confirmation( $id, $signed, $assoc_args );
 
 		try {
-			$result = self::run_rollback( $id, [ 'by' => 'wp-cli', 'user_id' => (int) get_current_user_id() ] );
+			$result = self::run_rollback( $id, $options );
 		} catch ( \Throwable $failure ) {
 			unset( $failure );
 			$this->fail( 'The rollback stopped on an error. Check the Stonewright audit log.' );
@@ -176,7 +212,7 @@ class RescueCommand {
 		self::audit( $id, $result );
 
 		if ( is_wp_error( $result ) ) {
-			$this->fail( sprintf( '%1$s (%2$s)', $result->get_error_message(), (string) $result->get_error_code() ) );
+			$this->fail( self::refusal_text( $result ) );
 		}
 		if ( ! is_array( $result ) ) {
 			$this->fail( 'The rollback returned an answer that is not understood.' );
@@ -311,6 +347,35 @@ class RescueCommand {
 			return ( self::$rollback_runner )( $id, $options );
 		}
 		return RescueRollback::run( $id, $options );
+	}
+
+	/**
+	 * The words for an error of the rollback. A refusal that names a state to confirm says how to confirm it.
+	 */
+	private static function refusal_text( \WP_Error $error ): string {
+		$code = (string) $error->get_error_code();
+		$text = sprintf( '%1$s (%2$s)', $error->get_error_message(), $code );
+		$data = is_array( $error->get_error_data() ) ? $error->get_error_data() : [];
+		$hash = isset( $data['current_sha256'] ) && is_string( $data['current_sha256'] ) && 1 === preg_match( '/^[a-f0-9]{64}$/D', $data['current_sha256'] ) ? $data['current_sha256'] : '';
+		if ( '' !== $hash && in_array( $code, [ 'stonewright_change_drift', 'stonewright_change_drift_hash_required' ], true ) ) {
+			$text .= sprintf( ' The item is now %1$s. To overwrite the later edit, run again with --force-drift --expected-sha256=%1$s.', $hash );
+		}
+		return $text;
+	}
+
+	/**
+	 * @param array<string, mixed> $options
+	 */
+	private static function preflight( string $id, array $options ): mixed {
+		try {
+			if ( null !== self::$preflight_runner ) {
+				return ( self::$preflight_runner )( $id, $options );
+			}
+			return RescueRollback::preflight_refusal( $id, $options );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return null;
+		}
 	}
 
 	private static function audit( string $id, mixed $result ): void {

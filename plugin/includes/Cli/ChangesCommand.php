@@ -256,10 +256,10 @@ class ChangesCommand {
 	 * : Print the plan and change nothing.
 	 *
 	 * [--force-drift]
-	 * : Undo even though the item was edited after the change, overwriting those edits.
+	 * : Undo even though the item was edited after the change, overwriting those edits. Needs --expected-sha256.
 	 *
 	 * [--expected-sha256=<hash>]
-	 * : The current_sha256 of the plan. The run stops when the item is not in that state any more.
+	 * : The current_sha256 of the plan (printed by --dry-run when the item drifted). The run stops when the item is not in that state any more.
 	 *
 	 * [--permanent]
 	 * : For families that can remove for good, for example an upload that the change created.
@@ -518,6 +518,9 @@ class ChangesCommand {
 		if ( ! empty( $plan['approval_required'] ) && isset( $plan['approval_url'] ) ) {
 			$out[] = 'Approval page: ' . (string) $plan['approval_url'];
 		}
+		if ( ! empty( $plan['drift'] ) && isset( $plan['current_sha256'] ) && is_string( $plan['current_sha256'] ) && '' !== $plan['current_sha256'] ) {
+			$out[] = 'Current state (--expected-sha256 for --force-drift): ' . $plan['current_sha256'];
+		}
 		$out[] = 'Needs a confirmation token: ' . ( ! empty( $plan['confirmation_required'] ) ? 'yes' : 'no' );
 		if ( $hint && ! empty( $plan['confirmation_required'] ) ) {
 			$out[] = 'Get one with: wp stonewright changes rollback ' . (string) ( $plan['change_id'] ?? '<change>' ) . ' --issue-token';
@@ -559,6 +562,10 @@ class ChangesCommand {
 				),
 				self::EXIT_APPROVAL
 			);
+		}
+		$hash = isset( $data['current_sha256'] ) && is_string( $data['current_sha256'] ) && 1 === preg_match( '/^[a-f0-9]{64}$/D', $data['current_sha256'] ) ? $data['current_sha256'] : '';
+		if ( '' !== $hash && in_array( $code, [ 'stonewright_change_drift', 'stonewright_change_drift_hash_required' ], true ) ) {
+			$this->fail( sprintf( '%1$s (%2$s) The item is now %3$s. To overwrite the later edit, run again with --force-drift --expected-sha256=%3$s.', $error->get_error_message(), $code, $hash ) );
 		}
 		$this->fail( sprintf( '%1$s (%2$s)', $error->get_error_message(), $code ) );
 	}
