@@ -45,7 +45,7 @@
 
 /* The ids, the ability, the client and the codes of the health check: there when they are wanted, not in the way. */
 .sw-rescue-details, .sw-rescue-prompt { margin-top: var(--sw-space-2); font-weight: 400; }
-.sw-rescue-details summary, .sw-rescue-prompt summary { cursor: pointer; color: var(--sw-text-secondary); font-size: var(--sw-text-sm); }
+.sw-rescue-details summary, .sw-rescue-prompt summary { cursor: pointer; color: var(--sw-text-secondary); font-size: var(--sw-text-sm); min-height: 24px; line-height: 24px; }
 .sw-rescue-details .sw-rescue-kv { margin-top: var(--sw-space-2); }
 .sw-rescue-prompt textarea, .sw-rescue-dialog input[type="text"], .sw-rescue-review input[type="text"] { box-sizing: border-box; width: 100%; }
 
