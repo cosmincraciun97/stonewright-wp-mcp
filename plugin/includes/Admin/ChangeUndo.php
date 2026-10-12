@@ -29,9 +29,11 @@ use Stonewright\WpMcp\Security\ProbeToken;
  * is the approval that undoing code needs, so the handler passes human_approved. Everything else the engine
  * (ChangeRollback) decides: drift, the preview the person saw, the claim, the probe and the rows.
  *
- * Without script the Undo control is a link to the same page with `undo=1`, which prints the dialog open. With script
- * the layer opens the dialog as a modal. In production-safe mode the form carries a token issued for this change
- * and these options, and asks for the phrase ROLL BACK.
+ * Without script the Undo control is a link to the same page with `undo=1`, which prints the dialog open: a review that
+ * changes nothing, with a Cancel that is a link back to the change and a confirm button that posts. With script the layer
+ * opens the dialog as a modal and holds the confirm button back until the phrase is typed. The script only improves
+ * this: the server checks everything the dialog asks for. In production-safe mode the form carries a token issued for
+ * this change and these options, and asks for the phrase ROLL BACK, which the server compares before anything runs.
  *
  * A redo is the same dialog for the rollback row. The result is shown after the redirect, with a link to the new row.
  */
@@ -41,8 +43,14 @@ final class ChangeUndo {
 	public const DIALOG_ID = 'sw-changes-undo-dialog';
 	public const PHRASE    = 'ROLL BACK';
 
+	/** The address argument that names the change an Undo acted on. `from` is the start date of the list's filter. */
+	public const ORIGIN_PARAM = 'source_change';
+
 	private const CAPABILITY = 'manage_options';
 	private const TOKEN_TTL  = 300;
+
+	/** Outcomes that ran nothing and can be fixed on the review itself. */
+	private const RETRYABLE = [ 'drift', 'changed_since_preview', 'confirmation_required', 'confirmation_invalid', 'confirmation_phrase' ];
 
 	public static function register(): void {
 		add_action( 'admin_post_' . self::ACTION, [ self::class, 'handle' ] );
@@ -77,7 +85,7 @@ final class ChangeUndo {
 			]
 		);
 
-		return [ 'control' => $link, 'dialog' => self::dialog( $row, $target, $plan, $label, $open ) ];
+		return [ 'control' => $link, 'dialog' => self::dialog( $row, $target, $plan, $label, $open, $carry ) ];
 	}
 
 	/** Why there is no Undo, as a sentence next to where it would be. */
@@ -95,8 +103,9 @@ final class ChangeUndo {
 	 * @param array<string, mixed> $row    The change in the drawer.
 	 * @param array<string, mixed> $target The row the run acts on.
 	 * @param array<string, mixed> $plan   From ChangeRollback::plan().
+	 * @param array<string, string> $carry The filters of the list, kept in the Cancel link.
 	 */
-	private static function dialog( array $row, array $target, array $plan, string $label, bool $open ): string {
+	private static function dialog( array $row, array $target, array $plan, string $label, bool $open, array $carry ): string {
 		$id      = (string) $target['change_id'];
 		$redo    = 'redo' === $plan['kind'];
 		$guarded = Permissions::is_production_safe() && ! ProbeToken::is_probe_request();
@@ -161,15 +170,15 @@ final class ChangeUndo {
 			. Html::element( 'div', [ 'class' => 'sw-ui-dialog__body' ], $body )
 			. Html::element(
 				'div',
-				[ 'class' => 'sw-ui-dialog__footer' ],
-				Button::render( __( 'Cancel', 'stonewright' ), [ 'attrs' => [ 'data-sw-ui-dialog-close' => true, 'autofocus' => true ] ] )
+				[ 'class' => 'sw-ui-dialog__footer', 'data-sw-actions' => true ],
+				// A link, so Cancel works without script: it goes back to the change. With script the layer closes the dialog in place.
+				Button::render( __( 'Cancel', 'stonewright' ), [ 'href' => ChangesPage::url( $carry + [ 'change' => (string) $row['change_id'] ] ), 'attrs' => [ 'data-sw-ui-dialog-close' => true, 'autofocus' => true ] ] )
 				. Button::render(
 					$label,
 					[
 						'type'    => 'submit',
 						'variant' => 'danger-solid',
-						'disabled' => $guarded,
-						'attrs'   => array_merge( [ 'data-sw-changes-submit' => true, 'data-sw-busy-label' => $redo ? __( 'Redoing and checking the site...', 'stonewright' ) : __( 'Undoing and checking the site...', 'stonewright' ) ], $guarded ? [ 'data-sw-ui-confirm-submit' => true ] : [] ),
+						'attrs'  => array_merge( [ 'data-sw-changes-submit' => true, 'data-sw-busy-label' => $redo ? __( 'Redoing and checking the site...', 'stonewright' ) : __( 'Undoing and checking the site...', 'stonewright' ) ], $guarded ? [ 'data-sw-ui-confirm-submit' => true ] : [] ),
 					]
 				)
 			)
@@ -229,6 +238,10 @@ final class ChangeUndo {
 		if ( ! ChangeLedger::is_valid_id( $id ) ) {
 			return [ 'code' => 'not_found', 'change_id' => '', 'new_id' => '' ];
 		}
+		// The dialog asks for the phrase in production-safe mode. The script that holds the button back is not what enforces it.
+		if ( Permissions::is_production_safe() && self::PHRASE !== self::posted( 'confirm_phrase' ) ) {
+			return [ 'code' => 'confirmation_phrase', 'change_id' => $id, 'new_id' => '' ];
+		}
 		$force = '1' === self::posted( 'force_drift' );
 		$token = $force && '' !== self::posted( 'confirmation_token_force' ) ? self::posted( 'confirmation_token_force' ) : self::posted( 'confirmation_token' );
 
@@ -249,10 +262,12 @@ final class ChangeUndo {
 			return [ 'code' => self::error_code( (string) $result->get_error_code() ), 'change_id' => $id, 'new_id' => self::valid_id( (string) ( $data['rollback_change_id'] ?? '' ) ) ];
 		}
 
-		$code = 'noop' === ( $result['rollback_status'] ?? '' )
+		// The content is back either way; a page whose generated CSS was not regenerated says so instead of "the site loads".
+		$css_pending = 'not_regenerated' === ( is_array( $result['css_regeneration'] ?? null ) ? ( $result['css_regeneration']['status'] ?? '' ) : '' );
+		$code        = 'noop' === ( $result['rollback_status'] ?? '' )
 			? 'unchanged'
 			: ( 'redo' === $result['kind'] ? 'redone' : 'undone' ) . match ( (string) ( $result['site_status'] ?? '' ) ) {
-				'healthy'       => '',
+				'healthy'       => $css_pending ? '_css_pending' : '',
 				'still_failing' => '_still_failing',
 				default         => '_unverified',
 			};
@@ -267,8 +282,13 @@ final class ChangeUndo {
 	 */
 	public static function redirect_url( array $outcome ): string {
 		$shown = '' !== $outcome['new_id'] ? $outcome['new_id'] : $outcome['change_id'];
+		$args  = [ 'change' => $shown, 'undone' => $outcome['code'], self::ORIGIN_PARAM => $outcome['change_id'] ];
+		if ( in_array( $outcome['code'], self::RETRYABLE, true ) ) {
+			// Nothing ran: the review comes back, so a missing phrase or an unticked box is one step to fix.
+			$args['undo'] = '1';
+		}
 
-		return ChangesPage::url( [ 'change' => $shown, 'undone' => $outcome['code'], 'from' => $outcome['change_id'] ] );
+		return ChangesPage::url( $args );
 	}
 
 	private static function posted( string $key ): string {
@@ -311,6 +331,8 @@ final class ChangeUndo {
 		return [
 			'undone'                => [ 'ok', __( 'The change was undone', 'stonewright' ), __( 'The item is as it was before the change, and the site loads.', 'stonewright' ) ],
 			'redone'                => [ 'ok', __( 'The change was redone', 'stonewright' ), __( 'The change is in effect again, and the site loads.', 'stonewright' ) ],
+			'undone_css_pending'    => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The content is back as it was before the change, but the generated CSS of the page was not regenerated, so the page may still load the old stylesheet. Ask your assistant to run stonewright/elementor-css-regenerate for this page, or save the page once in Elementor.', 'stonewright' ) ],
+			'redone_css_pending'    => [ 'warn', __( 'The change was redone', 'stonewright' ), __( 'The change is in effect again, but the generated CSS of the page was not regenerated, so the page may still load the old stylesheet. Ask your assistant to run stonewright/elementor-css-regenerate for this page, or save the page once in Elementor.', 'stonewright' ) ],
 			'undone_unverified'     => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The health check afterwards was unavailable, so it is not confirmed that the site loads.', 'stonewright' ) ],
 			'redone_unverified'     => [ 'warn', __( 'The change was redone', 'stonewright' ), __( 'The health check afterwards was unavailable, so it is not confirmed that the site loads.', 'stonewright' ) ],
 			'undone_still_failing'  => [ 'warn', __( 'The change was undone', 'stonewright' ), __( 'The site was failing before and still fails to load, so the fault may not come from this change.', 'stonewright' ) ],
@@ -323,6 +345,7 @@ final class ChangeUndo {
 			'changed_since_preview' => [ 'warn', __( 'Nothing was changed', 'stonewright' ), __( 'The item changed while the dialog was open. Open the change again and review the diff.', 'stonewright' ) ],
 			'confirmation_required' => [ 'danger', __( 'Nothing was changed', 'stonewright' ), __( 'Production-safe mode needs the confirmation on the form. Open the change again and try again.', 'stonewright' ) ],
 			'confirmation_invalid'  => [ 'danger', __( 'Nothing was changed', 'stonewright' ), __( 'The confirmation expired or does not match. Open the change again and try again.', 'stonewright' ) ],
+			'confirmation_phrase'   => [ 'warn', __( 'Nothing was changed', 'stonewright' ), __( 'Production-safe mode asks you to type ROLL BACK to confirm. Type it in the box and press the button again.', 'stonewright' ) ],
 			'already_rolled_back'   => [ 'info', __( 'Nothing was changed', 'stonewright' ), __( 'This change was already rolled back. Redo the rollback instead.', 'stonewright' ) ],
 			'already_restored'      => [ 'info', __( 'Nothing was changed', 'stonewright' ), __( 'The item already is as it was before the change.', 'stonewright' ) ],
 			'in_progress'           => [ 'info', __( 'Nothing was changed', 'stonewright' ), __( 'A rollback of this item is already running. Reload this page in a minute.', 'stonewright' ) ],
@@ -331,6 +354,23 @@ final class ChangeUndo {
 			'unreadable'            => [ 'danger', __( 'Nothing was changed', 'stonewright' ), __( 'The current state or the stored content of this change cannot be read.', 'stonewright' ) ],
 			'not_found'             => [ 'danger', __( 'Nothing was changed', 'stonewright' ), __( 'No change in the history has that id.', 'stonewright' ) ],
 		];
+	}
+
+	/**
+	 * The change an Undo acted on, from the address: `source_change`, or the older `from` when (and only when) it is a
+	 * change id. A date in `from` is the filter of the list and never an origin.
+	 *
+	 * @param array<string, mixed> $query
+	 */
+	public static function origin( array $query ): string {
+		foreach ( [ self::ORIGIN_PARAM, 'from' ] as $key ) {
+			$id = self::valid_id( isset( $query[ $key ] ) && is_scalar( $query[ $key ] ) ? trim( (string) wp_unslash( (string) $query[ $key ] ) ) : '' );
+			if ( '' !== $id ) {
+				return $id;
+			}
+		}
+
+		return '';
 	}
 
 	/**
@@ -345,7 +385,7 @@ final class ChangeUndo {
 			return '';
 		}
 		[ $variant, $title, $text ] = $messages[ $code ];
-		$from  = self::valid_id( isset( $query['from'] ) && is_scalar( $query['from'] ) ? trim( (string) wp_unslash( (string) $query['from'] ) ) : '' );
+		$from  = self::origin( $query );
 		$shown = self::valid_id( isset( $query['change'] ) && is_scalar( $query['change'] ) ? trim( (string) wp_unslash( (string) $query['change'] ) ) : '' );
 		$new   = '' !== $shown && $shown !== $from ? $shown : '';
 

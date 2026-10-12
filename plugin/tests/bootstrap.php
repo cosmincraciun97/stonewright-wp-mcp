@@ -401,6 +401,12 @@ $GLOBALS['stonewright_test_transient_ttls'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {
 	function set_transient( string $transient, mixed $value, int $expiration = 0 ): bool {
+		// A test lists the transient names (or name prefixes) that cannot be stored, to see what the code does when a write fails.
+		foreach ( (array) ( $GLOBALS['stonewright_test_set_transient_fails'] ?? [] ) as $prefix ) {
+			if ( is_string( $prefix ) && str_starts_with( $transient, $prefix ) ) {
+				return false;
+			}
+		}
 		$GLOBALS['stonewright_test_transients'][ $transient ]     = $value;
 		$GLOBALS['stonewright_test_transient_ttls'][ $transient ] = $expiration;
 		return true;
@@ -1957,7 +1963,7 @@ if ( ! function_exists( 'get_edit_post_link' ) ) {
 if ( ! function_exists( 'get_preview_post_link' ) ) {
 	function get_preview_post_link( int|object|null $post = null, array $query_args = [], string $preview_link = '' ): string {
 		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
-		return 'https://example.test/?p=' . $id . '&preview=true';
+		return $GLOBALS['stonewright_test_preview_links'][ $id ] ?? 'https://example.test/?p=' . $id . '&preview=true';
 	}
 }
 
@@ -1978,7 +1984,7 @@ if ( ! function_exists( 'get_post_type' ) ) {
 if ( ! function_exists( 'get_permalink' ) ) {
 	function get_permalink( int|object $post = 0, bool $leavename = false ): string|false {
 		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
-		return 'https://example.test/?p=' . $id;
+		return $GLOBALS['stonewright_test_permalinks'][ $id ] ?? 'https://example.test/?p=' . $id;
 	}
 }
 

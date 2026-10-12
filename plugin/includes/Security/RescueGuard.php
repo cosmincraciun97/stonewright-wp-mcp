@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Security\Adapters\FamilyRecorder;
 use Stonewright\WpMcp\Security\Adapters\OtherFamilies;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
@@ -857,6 +858,13 @@ final class RescueGuard {
 		if ( $original instanceof \WP_Error ) {
 			$data['original_error_code'] = (string) $original->get_error_code();
 		}
+		// A rolled back Elementor page has its generated CSS regenerated with the restore; say so when that did not complete.
+		$css_note = '';
+		$css      = $ok ? ( RestoredCss::unfinished()[0] ?? null ) : null;
+		if ( null !== $css ) {
+			$data['css_regeneration'] = $css;
+			$css_note                 = ' ' . RestoredCss::warning( $css );
+		}
 		$evidence = RescueRollback::evidence_json( $data );
 
 		if ( $ok ) {
@@ -865,7 +873,7 @@ final class RescueGuard {
 				'still_failing' => __( 'Stonewright rolled this change back, but the site still fails to load, so the fault may not come from this change. Check the site, then call stonewright-rescue-status.', 'stonewright' ),
 				default         => __( 'Stonewright rolled this change back because the site stopped loading after it. The check afterwards was unavailable, so recovery is not confirmed.', 'stonewright' ),
 			};
-			return new \WP_Error( 'stonewright_rescue_write_rolled_back', $message . ' ' . $evidence, $data );
+			return new \WP_Error( 'stonewright_rescue_write_rolled_back', $message . $css_note . ' ' . $evidence, $data );
 		}
 		return new \WP_Error(
 			'stonewright_rescue_rollback_failed',

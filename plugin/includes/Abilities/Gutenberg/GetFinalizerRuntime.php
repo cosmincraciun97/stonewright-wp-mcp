@@ -24,7 +24,7 @@ final class GetFinalizerRuntime extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns whether the Block Editor Queue tab is online, the queued-change count, the finalizer URL, and per-target editor frame URLs.', 'stonewright' );
+		return __( 'Returns whether the Block queue tab is online, the queued-change count, the finalizer URL, and per-target editor frame URLs.', 'stonewright' );
 	}
 
 	public function category(): string {

@@ -115,6 +115,8 @@ final class AdminBootstrap {
 			. '#adminmenu .wp-submenu a .sw-menu-exp{position:relative;display:inline-block;margin-inline-start:10px;color:#fff;font-size:9px;font-weight:600;letter-spacing:.06em;line-height:18px;text-transform:uppercase;cursor:help;}'
 			. '#adminmenu .wp-submenu a .sw-menu-exp::after{content:attr(data-sw-tip);display:none;position:absolute;inset-inline-start:calc(100% + 8px);top:50%;transform:translateY(-50%);z-index:100000;padding:5px 8px;border-radius:3px;background:#1d2327;box-shadow:0 2px 8px rgba(0,0,0,.28);color:#fff;font-size:11px;font-weight:400;letter-spacing:0;line-height:14.3px;text-transform:none;white-space:nowrap;pointer-events:none;}'
 			. '#adminmenu .wp-submenu a .sw-menu-exp:hover::after{display:block;}'
+			. '#adminmenu .wp-submenu a .sw-menu-count{margin-inline-start:8px;}'
+			. '#adminmenu .wp-submenu li.sw-menu-hidden{display:none;}'
 			. '</style>' . "\n";
 	}
 

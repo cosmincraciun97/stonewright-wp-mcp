@@ -83,6 +83,31 @@ final class CssValueGuard {
 		return null === $value || '' === $value || is_int( $value ) || is_float( $value ) || ( is_string( $value ) && is_numeric( $value ) );
 	}
 
+	/** Whether a slider or dimensions object uses the custom unit, whose values are CSS length expressions. */
+	public static function is_custom_unit( array $value ): bool {
+		return isset( $value['unit'] ) && is_string( $value['unit'] ) && 'custom' === strtolower( $value['unit'] );
+	}
+
+	/**
+	 * A CSS length expression for the custom unit: calc(), clamp(), min(), max() and var() over numbers, units and
+	 * custom property names. It carries nothing that could end a declaration or start another rule.
+	 */
+	public static function is_css_length_expression( mixed $value ): bool {
+		if ( ! is_string( $value ) || '' === trim( $value ) || strlen( $value ) > 120 ) {
+			return false;
+		}
+		if ( 1 !== preg_match( '/^[A-Za-z0-9 .,%()+*\/_-]+$/D', $value ) || self::contains_breakout( $value ) ) {
+			return false;
+		}
+
+		return substr_count( $value, '(' ) === substr_count( $value, ')' );
+	}
+
+	/** A side or size of a unit object: a number, or for the custom unit a CSS length expression. */
+	private static function is_unit_value( mixed $value, bool $custom ): bool {
+		return self::is_css_number( $value ) || ( $custom && self::is_css_length_expression( $value ) );
+	}
+
 	/**
 	 * Safety of the parts of a slider object: unit, size and ranged sizes.
 	 *
@@ -92,7 +117,7 @@ final class CssValueGuard {
 		if ( array_key_exists( 'unit', $value ) && ! self::is_unit( $value['unit'] ) ) {
 			return false;
 		}
-		if ( array_key_exists( 'size', $value ) && ! self::is_css_number( $value['size'] ) ) {
+		if ( array_key_exists( 'size', $value ) && ! self::is_unit_value( $value['size'], self::is_custom_unit( $value ) ) ) {
 			return false;
 		}
 		if ( array_key_exists( 'sizes', $value ) ) {
@@ -114,8 +139,9 @@ final class CssValueGuard {
 	 * @param array<mixed> $value
 	 */
 	public static function dimensions_parts_safe( array $value ): bool {
+		$custom = self::is_custom_unit( $value );
 		foreach ( [ 'top', 'right', 'bottom', 'left' ] as $side ) {
-			if ( array_key_exists( $side, $value ) && ! self::is_css_number( $value[ $side ] ) ) {
+			if ( array_key_exists( $side, $value ) && ! self::is_unit_value( $value[ $side ], $custom ) ) {
 				return false;
 			}
 		}
@@ -161,6 +187,9 @@ final class CssValueGuard {
 			return self::is_font_family( $value );
 		}
 		if ( 1 === preg_match( '/(?:^|_)font_weight$/', $key ) ) {
+			if ( is_int( $value ) || ( is_float( $value ) && is_finite( $value ) && floor( $value ) === $value ) ) {
+				$value = (string) (int) $value;
+			}
 			return is_string( $value ) && ( in_array( $value, self::WEIGHT_KEYWORDS, true ) || 1 === preg_match( '/^(?:[1-9]\d{0,2}|1000)$/D', $value ) );
 		}
 		if ( 1 === preg_match( '/(?:^|_)text_transform$/', $key ) ) {

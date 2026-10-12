@@ -1,8 +1,6 @@
 ---
 name: wp-plugin-dev
-description: >
-  Stonewright WordPress plugin development helper. Scaffold abilities, register
-  MCP server hooks, apply security patterns, and run the test suite.
+description: Use when writing or extending Stonewright abilities, including scaffolding, registration, security patterns, and tests.
 ---
 
 # WordPress Plugin Development
@@ -25,10 +23,13 @@ implement:
 - `label(): string` - short human label (translated)
 - `description(): string` - one-line description (translated)
 - `category(): string` - groups abilities in the kernel
+- `execute( array $args ): array|\WP_Error` - business logic
+
+It also overrides these, whose kernel defaults fit only a no-argument read:
 - `input_schema(): array` - JSON Schema for accepted args
 - `output_schema(): array` - JSON Schema for returned data
-- `permission_callback( array $args ): bool|\WP_Error` - gates execution
-- `execute( array $args ): array|\WP_Error` - business logic
+- `permission_callback( array $args ): bool|\WP_Error` - gates execution (the
+  default is `Permissions::read()`)
 
 ## Security rules
 
@@ -44,6 +45,10 @@ implement:
   in `$this->audit_read( $args, fn )`. Both record the audit row; `audit_write`
   also checks the production-safe confirmation token and declares the call a
   write.
+- An ability that writes or runs code (theme files, snippets, custom CSS, PHP)
+  is gated by a human-issued `custom_code_grant` (`Security\CustomCodeGrant`);
+  its refusal carries the `approval_url`, and the agent shows it and stops.
+  List it in `Core\FullProfileOnlyAbilities` when it runs or loads code.
 
 ## Confirmation token for destructive abilities
 

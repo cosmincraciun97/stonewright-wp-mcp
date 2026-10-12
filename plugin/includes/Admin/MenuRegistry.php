@@ -22,7 +22,7 @@ use Stonewright\WpMcp\Security\IncidentStore;
  * The pages that shipped before this registry are listed here. A page added later calls add() from its own class,
  * before the `admin_menu` pass of MenuOrder runs, and needs no change to this file.
  *
- * @phpstan-type Entry array{slug: string, tab: string, hub: string, label: string, title: string, lede: string, order: int, beta: bool, in_menu: bool, menu_label: string, capability: string, count: (callable(): int)|null, count_label: string, default: bool}
+ * @phpstan-type Entry array{slug: string, tab: string, hub: string, label: string, title: string, lede: string, order: int, beta: bool, in_menu: bool, menu_label: string, capability: string, count: (callable(): int)|null, count_label: string, default: bool, parent: string, parent_tab: string, menu_count: bool}
  * @phpstan-type Link array{label: string, url: string, current: bool, count: int|null, count_label: string}
  * @phpstan-type BandGroup array{hub: string, label: string, links: list<array{label: string, url: string, current: bool, count: int|null, count_label: string, beta: bool}>}
  */
@@ -64,14 +64,21 @@ final class MenuRegistry {
 	 *     capability?: string,
 	 *     count?: (callable(): int)|null,
 	 *     count_label?: string,
-	 *     default?: bool
+	 *     default?: bool,
+	 *     parent?: string,
+	 *     parent_tab?: string,
+	 *     menu_count?: bool
 	 * } $args "label" is the tab text. "title" is the page heading and defaults to the label. "in_menu" is false for a
 	 *         page that is reached by URL and never listed in the sidebar. "menu_label" overrides the sidebar text, which
 	 *         is otherwise the hub name on the first page of a hub and the label on the others, and the text of the
 	 *         band link, which is otherwise the title of a page with several tabs and the label of any other. "capability" is what the
 	 *         page needs (manage_options by default): the band and the tab bar list only what the user can open. "count"
 	 *         returns a number shown beside the link, described for assistive technology by "count_label". "beta" marks a
-	 *         page that is still changing with the EXP marker, in the band and in the sidebar.
+	 *         page that is still changing with the EXP marker, in the band and in the sidebar. "parent" (and "parent_tab") name a
+	 *         page that is another registered page's own tab, reached by its own address as well: it is not listed in the
+	 *         sidebar or the band, the band marks its parent as the current link and counts it there, and its tab bar is the
+	 *         parent's, with that tab current. "menu_count" shows the count of the page, all its tabs together, beside its
+	 *         sidebar entry too.
 	 */
 	public static function add( string $slug, string $label, string $hub, array $args = [] ): void {
 		self::load();
@@ -95,6 +102,9 @@ final class MenuRegistry {
 			'count'       => $args['count'] ?? null,
 			'count_label' => (string) ( $args['count_label'] ?? '' ),
 			'default'     => ! empty( $args['default'] ),
+			'parent'      => sanitize_key( (string) ( $args['parent'] ?? '' ) ),
+			'parent_tab'  => sanitize_key( (string) ( $args['parent_tab'] ?? '' ) ),
+			'menu_count'  => ! empty( $args['menu_count'] ),
 		];
 	}
 
@@ -174,7 +184,7 @@ final class MenuRegistry {
 		$seen = [];
 		$list = [];
 		foreach ( self::entries() as $entry ) {
-			if ( ! $entry['in_menu'] || isset( $seen[ $entry['slug'] ] ) ) {
+			if ( ! $entry['in_menu'] || '' !== $entry['parent'] || isset( $seen[ $entry['slug'] ] ) ) {
 				continue;
 			}
 			$seen[ $entry['slug'] ] = true;
@@ -226,7 +236,8 @@ final class MenuRegistry {
 	 * @return list<Link>
 	 */
 	public static function tab_links( string $slug, string $current_tab ): array {
-		$own = array_values( array_filter( self::entries(), static fn ( array $entry ): bool => $slug === $entry['slug'] ) );
+		[ $slug, $current_tab ] = self::resolve( $slug, $current_tab );
+		$own                    = array_values( array_filter( self::entries(), static fn ( array $entry ): bool => $slug === $entry['slug'] ) );
 		if ( count( $own ) < 2 ) {
 			return [];
 		}
@@ -265,7 +276,7 @@ final class MenuRegistry {
 		$groups  = [];
 		$seen    = [];
 		foreach ( $entries as $entry ) {
-			if ( isset( $seen[ $entry['slug'] ] ) || ! current_user_can( $entry['capability'] ) ) {
+			if ( isset( $seen[ $entry['slug'] ] ) || '' !== $entry['parent'] || ! current_user_can( $entry['capability'] ) ) {
 				continue;
 			}
 			$seen[ $entry['slug'] ] = true;
@@ -279,9 +290,9 @@ final class MenuRegistry {
 			$link = [
 				'label'       => $text,
 				'url'         => add_query_arg( [ 'page' => $entry['slug'] ], admin_url( 'admin.php' ) ),
-				'current'     => $current_slug === $entry['slug'],
-				'count'       => self::count( $entry ),
-				'count_label' => $entry['count_label'],
+				'current'     => $current_slug === $entry['slug'] || $entry['slug'] === self::resolve( $current_slug )[0],
+				'count'       => self::page_count( $entry['slug'] ),
+				'count_label' => self::page_count_label( $entry['slug'] ),
 				'beta'        => $entry['beta'],
 			];
 
@@ -298,6 +309,20 @@ final class MenuRegistry {
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * The page and tab whose tab bar a page shows: its own, or its parent's with the tab it is a view of.
+	 *
+	 * @return array{0: string, 1: string}
+	 */
+	public static function resolve( string $slug, string $tab = '' ): array {
+		$entry = self::entry( $slug, $tab );
+		if ( null !== $entry && '' !== $entry['parent'] && null !== self::entry( $entry['parent'] ) ) {
+			return [ $entry['parent'], $entry['parent_tab'] ];
+		}
+
+		return [ $slug, $tab ];
 	}
 
 	/** The `tab` value of the current request, cleaned. */
@@ -333,6 +358,43 @@ final class MenuRegistry {
 		}
 
 		return $on_page[0]['slug'] . '|' . $on_page[0]['tab'];
+	}
+
+	/**
+	 * The number beside a page: the counts of all its tabs together. A view of the page that has an address of its own
+	 * (see "parent" in {@see add()}) repeats the count of its tab, so it is not added again. Null when there is nothing to show.
+	 */
+	public static function page_count( string $slug ): ?int {
+		$total = 0;
+		foreach ( self::entries() as $entry ) {
+			if ( $slug === $entry['slug'] && '' === $entry['parent'] && current_user_can( $entry['capability'] ) ) {
+				$total += (int) self::count( $entry );
+			}
+		}
+
+		return $total > 0 ? $total : null;
+	}
+
+	/** Whether a page shows its count in the sidebar too: any of its tabs asks for it with "menu_count". */
+	public static function shows_menu_count( string $slug ): bool {
+		foreach ( self::entries() as $entry ) {
+			if ( $slug === $entry['slug'] && '' === $entry['parent'] && $entry['menu_count'] ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** The words that go with the number of {@see page_count()}: those of the first tab that has some. */
+	public static function page_count_label( string $slug ): string {
+		foreach ( self::entries() as $entry ) {
+			if ( $slug === $entry['slug'] && '' !== $entry['count_label'] && null !== $entry['count'] ) {
+				return $entry['count_label'];
+			}
+		}
+
+		return '';
 	}
 
 	/**

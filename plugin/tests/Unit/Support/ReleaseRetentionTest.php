@@ -50,14 +50,42 @@ final class ReleaseRetentionTest extends TestCase {
 		$claude = $root . '/CLAUDE.md';
 		$agents = $root . '/AGENTS.md';
 
-		self::assertTrue( is_link( $claude ), 'CLAUDE.md must stay a symlink so Hard rules are not duplicated.' );
-		self::assertSame( 'AGENTS.md', readlink( $claude ) );
-		self::assertFileEquals( $agents, $claude );
+		if ( is_link( $claude ) ) {
+			self::assertSame( 'AGENTS.md', readlink( $claude ) );
+			self::assertFileEquals( $agents, $claude );
+		} else {
+			// A checkout that cannot create symlinks (Windows with core.symlinks=false) writes the link out as a
+			// small file that holds its target. The contract is then read from the git index, where the entry
+			// must still be a symlink (mode 120000) whose target is AGENTS.md.
+			$entry = $this->git( $root, [ 'ls-files', '-s', '--', 'CLAUDE.md' ] );
+			if ( null === $entry ) {
+				self::markTestSkipped( 'CLAUDE.md is not a symlink in this working tree and no git index is available to read its mode (not a git checkout, or git is missing).' );
+			}
+			self::assertMatchesRegularExpression( '/^120000 [0-9a-f]+ 0	CLAUDE\.md$/', trim( $entry ), 'CLAUDE.md must stay a symlink in the repository so Hard rules are not duplicated.' );
+			self::assertSame( 'AGENTS.md', $this->git( $root, [ 'cat-file', 'blob', ':CLAUDE.md' ] ) );
+		}
 
-		$body = (string) file_get_contents( $claude );
+		// CLAUDE.md is AGENTS.md by the contract above, so its Hard rules are read from AGENTS.md.
+		$body = (string) file_get_contents( $agents );
 		self::assertStringContainsString( 'Updater contract is part of every user-consumed release', $body );
 		self::assertStringContainsString( 'GitHub release notes are untrusted Markdown', $body );
 		self::assertStringContainsString( 'View details must never render a release older', $body );
 		self::assertStringContainsString( 'plugin release ZIP must bundle the built-in skill pack', $body );
+	}
+
+	/**
+	 * Output of a read-only git command in the repository root, or null when git cannot answer.
+	 *
+	 * @param list<string> $arguments
+	 */
+	private function git( string $root, array $arguments ): ?string {
+		$command = 'git -C ' . escapeshellarg( $root ) . ' ' . implode( ' ', array_map( 'escapeshellarg', $arguments ) );
+		$output  = [];
+		$code    = 1;
+		exec( $command . ' 2>&1', $output, $code );
+		$text = trim( implode( "
+", $output ) );
+
+		return 0 === $code && '' !== $text ? $text : null;
 	}
 }

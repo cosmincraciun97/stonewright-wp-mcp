@@ -21,13 +21,11 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class CssRegenerate extends AbilityKernel {
 
-	private const PROTECTED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. ';
+	private const PROTECTED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and verified on disk, and the page stylesheet version (css_version, the ?ver= of the page link) changed. Do not rebuild or re-save the layout because of this result. ';
 
-	private const PROTECTED_DELIVERY_REPAIR_TAIL = ' and check the stylesheet URL in a logged-out browser; an access-control or redirect rule in front of the uploads folder is a hosting setting, not an Elementor change.';
+	private const UNCHECKED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and verified on disk, and the page stylesheet version changed, but public delivery of the file could not be checked. Do not rebuild the layout. ';
 
-	private const UNCHECKED_DELIVERY_REPAIR_HEAD = 'The CSS file was written and the page stylesheet version changed, but the anonymous HTTP check got no usable answer. Do not rebuild the layout. ';
-
-	private const UNCHECKED_DELIVERY_REPAIR_TAIL = 'Check the stylesheet URL in a logged-out browser, and call this ability again once if the page still looks unstyled.';
+	private const DELIVERY_REPAIR_TAIL = ' Then check the stylesheet URL in a logged-out browser: what sits in front of the uploads folder is a hosting or plugin setting, not an Elementor change. Call this ability again only once, and only if the page still looks unstyled.';
 
 	public function name(): string {
 		return 'stonewright/elementor-css-regenerate';
@@ -38,7 +36,7 @@ final class CssRegenerate extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), purges the cached page HTML of that one post in the page cache plugins it finds (cache_purge reports which ran), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away from the CSS, the write still counts: delivery_status is blocked with a warning, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
+		return __( 'Regenerates one Elementor post or loop CSS file through the official Elementor update API inside a guarded asset transaction, advances the stylesheet version (the ?ver= of the page link), purges the cached page HTML of that one post in the page cache plugins it finds (cache_purge reports which ran), then returns hashed health evidence. A page whose styles are empty has no CSS file; the result then reports css_file_status not_produced instead of a file check. When an anonymous request to the file is redirected away, refused, answered by another page or a 5xx, or its URL is on another origin that is never requested, the write still counts: delivery_status says what was found, delivery_cause names the cause, a warning gives the next step, and the layout must not be rebuilt because of it. Call after an Elementor apply and before post-write-verify.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -96,6 +94,11 @@ final class CssRegenerate extends AbilityKernel {
 					'enum' => [ 'verified', 'blocked', 'failed', 'not_checked' ],
 				],
 				'root_error_code'              => [ 'type' => 'string' ],
+				'delivery_cause'               => [
+					'type'        => 'string',
+					'description' => 'Why public delivery of the written stylesheet was not verified: login_redirect, login_page, http_401, http_403, other_page_html, redirect_to_other_page, http_5xx, no_response, http_<4xx>, not_css or other_origin_not_probed. Absent when delivery was verified.',
+				],
+				'message'                      => [ 'type' => 'string', 'description' => 'Present only when the call did not complete: the human reason.' ],
 				'failed_check'                 => [ 'type' => 'string' ],
 				'retryable'                    => [ 'type' => 'boolean' ],
 				'css_version'                  => [ 'type' => 'integer' ],
@@ -217,21 +220,20 @@ final class CssRegenerate extends AbilityKernel {
 					if ( 'not_checked' === $generation ) {
 						$generation = (bool) ( $operation['ok'] ?? false ) ? 'verified' : 'failed';
 					}
-					$no_file_ok = 'not_produced' === $file_status && 'not_applicable' === $delivery;
 					$root       = sanitize_key( (string) ( $evidence['root_error_code'] ?? '' ) );
 					$failed     = sanitize_key( (string) ( $evidence['failed_check'] ?? '' ) );
-					// Anonymous requests that are redirected or refused are access control in front of the
-					// file, not a failed write: the file is written and the page version has moved on.
-					$delivery_unverified = 'blocked' === $delivery && 'stonewright_elementor_css_delivery_protected' === $root;
-					$complete            = 'verified' === $generation && ( 'verified' === $delivery || $no_file_ok || $delivery_unverified );
+					$cause      = sanitize_key( (string) ( $evidence['delivery_cause'] ?? '' ) );
+					// The file is written and verified on disk, and the page version has moved on. What an anonymous
+					// request to its URL got (a login redirect, 401, another page, a 5xx, a CDN origin that is never
+					// requested) says where the file is not shown to the public; it never turns the write into a failure.
+					$delivery_unverified = 'present' === $file_status && in_array( $delivery, [ 'blocked', 'not_checked', 'failed' ], true );
+					$complete            = 'verified' === $generation;
 					if ( ! $complete ) {
 						if ( '' === $root ) {
-							$root = 'blocked' === $delivery
-								? 'stonewright_elementor_css_delivery_protected'
-								: ( 'verified' !== $generation ? 'stonewright_elementor_css_empty_target' : 'stonewright_elementor_css_probe_failed' );
+							$root = 'stonewright_elementor_css_empty_target';
 						}
 						if ( '' === $failed ) {
-							$failed = 'verified' !== $generation ? 'generation' : 'delivery';
+							$failed = 'generation';
 						}
 					}
 					$receipt   = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] )
@@ -276,28 +278,33 @@ final class CssRegenerate extends AbilityKernel {
 						$result['warnings'] = self::purge_failure_warnings( $purge['failed'] );
 					}
 					if ( $delivery_unverified ) {
-						$result['warnings'] = array_merge(
+						$status = self::probe_status( $probes, $resolved->filename() );
+						$result['delivery_cause'] = $cause;
+						$result['warnings']       = array_merge(
 							[
 								[
-									'code'    => 'stonewright_elementor_css_delivery_protected',
-									'message' => 'The stylesheet was written and its page version changed, but an anonymous request to its URL does not end in the CSS file, so public delivery was not verified. An access-control layer or the host may sit in front of the uploads folder.',
+									'code'    => 'blocked' === $delivery ? 'stonewright_elementor_css_delivery_protected' : 'stonewright_elementor_css_delivery_unverified',
+									'cause'   => $cause,
+									'message' => self::delivery_sentence( $cause, $status ),
 								],
 							],
 							$result['warnings'] ?? []
 						);
-						$purged             = self::purged_sentence( $purge );
-						$result['repair']   = self::PROTECTED_DELIVERY_REPAIR_HEAD . $purged
-							. ( '' === $purged ? 'If the page still looks unstyled, purge the host or page cache' : 'If the page still looks unstyled, purge any other host, CDN or page cache by hand' )
-							. self::PROTECTED_DELIVERY_REPAIR_TAIL;
+						$purged           = self::purged_sentence( $purge );
+						$result['repair'] = ( 'blocked' === $delivery ? self::PROTECTED_DELIVERY_REPAIR_HEAD : self::UNCHECKED_DELIVERY_REPAIR_HEAD )
+							. self::delivery_next_step( $cause )
+							. ' ' . $purged
+							. ( '' === $purged ? 'If the page still looks unstyled, purge the host or page cache (and the CDN, if one is in use) by hand.' : 'If the page still looks unstyled, purge any other host, CDN or page cache by hand.' )
+							. self::DELIVERY_REPAIR_TAIL;
 					} elseif ( ! $complete ) {
 						$result['root_error_code'] = $root;
 						$result['failed_check']    = $failed;
-						if ( 'delivery' === $failed && 'verified' === $generation && 'not_checked' === $delivery ) {
-							$purged           = self::purged_sentence( $purge );
-							$result['repair'] = self::UNCHECKED_DELIVERY_REPAIR_HEAD . $purged
-								. ( '' === $purged ? '' : 'If the page still looks unstyled, purge any other host, CDN or page cache by hand. ' )
-								. self::UNCHECKED_DELIVERY_REPAIR_TAIL;
-						}
+						$result['message']         = sprintf(
+							/* translators: 1: failed check, 2: root error code */
+							__( 'CSS regeneration did not complete (%1$s check failed: %2$s). The previous files were kept or restored; read rollback_status.', 'stonewright' ),
+							'' !== $failed ? $failed : 'unknown',
+							$root
+						);
 					}
 					return $result;
 				} finally {
@@ -305,6 +312,57 @@ final class CssRegenerate extends AbilityKernel {
 				}
 			}
 		);
+	}
+
+	/**
+	 * HTTP status the anonymous probe of the target stylesheet got, or 0 when it was not requested.
+	 *
+	 * @param array<int,mixed> $probes Probe rows of the transaction.
+	 */
+	private static function probe_status( array $probes, string $filename ): int {
+		foreach ( $probes as $probe ) {
+			if ( is_array( $probe ) && ( $probe['asset'] ?? null ) === $filename && isset( $probe['status'] ) && is_numeric( $probe['status'] ) ) {
+				return (int) $probe['status'];
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * What the anonymous check of the stylesheet URL found, from the evidence alone (status, kind of answer).
+	 * It never names a plugin: it cannot know which one answered.
+	 */
+	private static function delivery_sentence( string $cause, int $status ): string {
+		$head = 'The stylesheet was written and verified on disk and its page version changed, but ';
+		return match ( $cause ) {
+			'login_redirect'         => $head . 'an anonymous request to its URL was redirected to the login page, so a login or membership rule sits in front of the uploads folder.',
+			'login_page'             => $head . 'an anonymous request to its URL was answered with a login page, so a login or membership rule sits in front of the uploads folder.',
+			'http_401'               => $head . 'an anonymous request to its URL was answered with HTTP 401, so authentication (such as basic auth on the host) sits in front of the uploads folder.',
+			'http_403'               => $head . 'an anonymous request to its URL was answered with HTTP 403, so a firewall, hotlink or security rule refuses the file.',
+			'other_page_html'        => $head . 'an anonymous request to its URL was answered with an HTML page instead of CSS (a maintenance or coming-soon page, a security challenge, or a rewrite rule).',
+			'redirect_to_other_page' => $head . 'an anonymous request to its URL was redirected to a page that is not the stylesheet.',
+			'http_5xx'               => $head . sprintf( 'an anonymous request to its URL was answered with HTTP %d (a maintenance mode, or the host is busy), so public delivery was not verified.', $status > 0 ? $status : 503 ),
+			'no_response'            => $head . 'an anonymous request to its URL got no answer (a timeout or a connection error), so public delivery was not verified.',
+			'other_origin_not_probed' => $head . 'its URL is on another origin than the site (a CDN or an offload plugin), which Stonewright never requests, so public delivery was not checked.',
+			'not_css'                => $head . 'an anonymous request to its URL was answered with something that is not CSS.',
+			default                  => 0 !== $status && str_starts_with( $cause, 'http_' )
+				? $head . sprintf( 'an anonymous request to its URL was answered with HTTP %d, so the file is not served at that address.', $status )
+				: $head . 'an anonymous request to its URL does not end in the CSS file, so public delivery was not verified.',
+		};
+	}
+
+	/** The next step for a cause of unverified delivery. */
+	private static function delivery_next_step( string $cause ): string {
+		return match ( $cause ) {
+			'login_redirect', 'login_page' => 'Allow anonymous requests to wp-content/uploads/elementor/css in the login or membership plugin (or ignore this when visitors see the page styled).',
+			'http_401'                     => 'Exclude wp-content/uploads/elementor/css from the host-level authentication (or ignore it when it only guards a staging copy).',
+			'http_403'                     => 'Allow anonymous GET requests to wp-content/uploads/elementor/css in the firewall or security plugin.',
+			'other_page_html'              => 'If a maintenance or coming-soon mode is on, the page is not public yet; otherwise exclude wp-content/uploads/elementor/css from the rewrite or challenge rule.',
+			'redirect_to_other_page'       => 'Remove the redirect in front of wp-content/uploads/elementor/css.',
+			'http_5xx', 'no_response'      => 'Try the stylesheet URL again in a logged-out browser once the host answers normally.',
+			'other_origin_not_probed'      => 'Purge the CDN or offload cache of this stylesheet by hand.',
+			default                        => 'Make the stylesheet URL answer HTTP 200 text/css to a logged-out request.',
+		};
 	}
 
 	/**

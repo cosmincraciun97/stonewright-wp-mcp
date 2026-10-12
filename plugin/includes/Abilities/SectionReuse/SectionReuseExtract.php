@@ -19,6 +19,7 @@ use Stonewright\WpMcp\SectionReuse\ReferenceCatalog;
 use Stonewright\WpMcp\SectionReuse\ReuseWarnings;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\SectionReuse\SectionSource;
+use Stonewright\WpMcp\SectionReuse\SourceLocators;
 use Stonewright\WpMcp\SectionReuse\SourceScanner;
 use Stonewright\WpMcp\SectionReuse\SourceWarnings;
 use Stonewright\WpMcp\Security\Permissions;
@@ -109,15 +110,19 @@ final class SectionReuseExtract extends AbilityKernel {
 				}
 				$post_id = (int) ( $args['post_id'] ?? 0 );
 				$post    = get_post( $post_id );
-				// A post that exists but may not be edited answers like one that does not exist.
-				if ( ! SectionSource::is_source( $post ) || ! SourceScanner::may_use( $post_id ) ) {
-					return $this->error( 'not_found', self::source_not_found(), [ 'status' => 404, 'repair' => self::source_repair() ] );
+				// A post that exists but may not be edited answers like one that does not exist: the same words, the
+				// same data, nothing about its status, type or title. Only a user who may use the post learns why it is refused.
+				if ( ! is_object( $post ) || ! SourceScanner::may_use( $post_id ) ) {
+					return $this->source_error( 'not_found_or_not_permitted', null );
+				}
+				if ( ! SectionSource::is_source( $post ) ) {
+					return $this->source_error( in_array( SectionSource::field( $post, 'post_type' ), SectionSource::EXCLUDED_POST_TYPES, true ) ? 'post_type_not_offered' : 'status_not_offered', $post );
 				}
 				$locator = $this->locator( is_array( $args['locator'] ?? null ) ? $args['locator'] : [], $post );
 				$found   = SectionSource::resolve( $post, $locator );
 				$section = $found['section'];
 				if ( null === $section ) {
-					return $this->locator_error( $found['problem'] ?? [ 'code' => 'not_found', 'reason' => 'no_match' ], $locator );
+					return $this->locator_error( $found['problem'] ?? [ 'code' => 'not_found', 'reason' => 'no_match' ], $locator, $post );
 				}
 				$requested = (string) ( $args['builder'] ?? '' );
 				if ( '' !== $requested && $requested !== $section['builder'] ) {
@@ -167,12 +172,59 @@ final class SectionReuseExtract extends AbilityKernel {
 		);
 	}
 
-	private static function source_not_found(): string {
-		return __( 'The source post was not found, or you may not edit it. A source is a page, post, Elementor template or Gutenberg pattern that you can edit, with the status publish, draft, pending, future or private. Trashed posts, revisions and attachments are not sources.', 'stonewright' );
-	}
+	/**
+	 * The refusal of a source post, by reason. `not_found_or_not_permitted` is the one answer for a post that does
+	 * not exist and for one the user may not edit; the others are only given for a post the user may use, so they
+	 * confirm nothing a user could not read.
+	 *
+	 * @param 'not_found_or_not_permitted'|'status_not_offered'|'post_type_not_offered' $reason
+	 */
+	private function source_error( string $reason, ?object $post ): \WP_Error {
+		$statuses = implode( ', ', SectionSource::SOURCE_STATUSES );
+		$data     = [
+			'status'              => 404,
+			'reason'              => $reason,
+			'offered_statuses'    => SectionSource::SOURCE_STATUSES,
+			'excluded_post_types' => SectionSource::EXCLUDED_POST_TYPES,
+			'repair'              => __( 'Use a post_id from stonewright-section-reuse-find. A private, pending or scheduled post is extracted as it is: never change the status of a post to extract from it.', 'stonewright' ),
+		];
+		if ( null === $post ) {
+			return $this->error(
+				'not_found',
+				sprintf(
+					/* translators: %s: list of post statuses */
+					__( 'The source post does not exist, or you may not edit it. A source is a page, post, Elementor template or Gutenberg pattern that you can edit, with the status %s. Use a post_id from stonewright-section-reuse-find.', 'stonewright' ),
+					$statuses
+				),
+				$data
+			);
+		}
+		$type = SectionSource::field( $post, 'post_type' );
+		$stat = SectionSource::field( $post, 'post_status' );
+		$data = [ 'post_status' => $stat, 'post_type' => $type ] + $data;
+		if ( 'post_type_not_offered' === $reason ) {
+			return $this->error(
+				'not_found',
+				sprintf(
+					/* translators: 1: post type, 2: list of post types */
+					__( 'The source post has the post type "%1$s", which is never a source (%2$s). Use a post_id from stonewright-section-reuse-find.', 'stonewright' ),
+					$type,
+					implode( ', ', SectionSource::EXCLUDED_POST_TYPES )
+				),
+				$data
+			);
+		}
 
-	private static function source_repair(): string {
-		return __( 'Use a post_id from stonewright-section-reuse-find. A private, pending or scheduled post is extracted as it is: never change the status of a post to extract from it.', 'stonewright' );
+		return $this->error(
+			'not_found',
+			sprintf(
+				/* translators: 1: post status, 2: list of post statuses */
+				__( 'The source post exists but has the status "%1$s". A source has one of the statuses %2$s. Use a post_id from stonewright-section-reuse-find, or ask the user to bring this post back to one of those statuses; never change a status to extract from a post.', 'stonewright' ),
+				$stat,
+				$statuses
+			),
+			$data
+		);
 	}
 
 	private static function locator_repair(): string {
@@ -187,7 +239,7 @@ final class SectionReuseExtract extends AbilityKernel {
 	 * @param array<string, string> $problem From {@see SectionSource::resolve()}.
 	 * @param array<string, mixed>  $locator
 	 */
-	private function locator_error( array $problem, array $locator ): \WP_Error {
+	private function locator_error( array $problem, array $locator, object $post ): \WP_Error {
 		$reason = (string) ( $problem['reason'] ?? '' );
 		$data   = [ 'reason' => $reason, 'locator' => $locator ];
 		if ( 'no_document' === $problem['code'] ) {
@@ -204,11 +256,48 @@ final class SectionReuseExtract extends AbilityKernel {
 			return $this->error( 'section_not_found', __( 'This Elementor template is not a section or container template, so it holds no section to copy. Only saved templates of the type section or container are sources; pick another source.', 'stonewright' ), $data + [ 'status' => 404 ] );
 		}
 
-		return $this->error(
-			'section_not_found',
-			__( 'No section of that source matches the locator.', 'stonewright' ) . ' ' . self::locator_repair() . ' ' . __( 'Candidates of stonewright-section-reuse-find list their nested containers under inner; other ids come from the element tree of the page.', 'stonewright' ),
-			$data + [ 'status' => 404, 'repair' => self::locator_repair() ]
+		$valid = SourceLocators::of( $post );
+		$data += [
+			'status'             => 404,
+			'valid_locators'     => $valid['items'],
+			'locators_total'     => $valid['total'],
+			'locators_truncated' => $valid['truncated'],
+			'repair'             => self::locator_repair(),
+		];
+		$closest = SourceLocators::closest( $post, $locator );
+		if ( null !== $closest ) {
+			$data['closest'] = $closest;
+		}
+
+		return $this->error( 'section_not_found', self::section_not_found_text( $valid, $closest ), $data );
+	}
+
+	/**
+	 * The words of a locator that matched nothing: what was asked, how many sections the source has, which locator
+	 * to use. A client that flattens errors to their message still gets a locator it can send.
+	 *
+	 * @param array{items:list<array<string,mixed>>,total:int,truncated:bool} $valid
+	 * @param array{locator:array<string,mixed>,reason:string}|null           $closest
+	 */
+	private static function section_not_found_text( array $valid, ?array $closest ): string {
+		$text = __( 'No section of that source matches the locator.', 'stonewright' );
+		if ( 0 === $valid['total'] ) {
+			return $text . ' ' . __( 'The source holds no section that can be copied; pick another source with stonewright-section-reuse-find.', 'stonewright' );
+		}
+		$show    = null !== $closest ? [ $closest['locator'] ] : array_column( array_slice( $valid['items'], 0, 3 ), 'locator' );
+		$encoded = implode( ' or ', array_map( static fn( array $item ): string => (string) wp_json_encode( $item ), $show ) );
+		$text   .= ' ' . sprintf(
+			/* translators: 1: number of locators, 2: most locators listed */
+			__( 'The source has %1$d sections to copy; valid_locators lists up to %2$d of them.', 'stonewright' ),
+			$valid['total'],
+			SourceLocators::MAX
 		);
+
+		$text .= ' ' . ( null !== $closest
+			? sprintf( /* translators: %s: locator as JSON */ __( 'You probably meant %s.', 'stonewright' ), $encoded )
+			: sprintf( /* translators: %s: locators as JSON */ __( 'Pick one of them as locator, for example %s.', 'stonewright' ), $encoded ) );
+
+		return $text . ' ' . __( 'An element id is the id of a top-level element or of a nested container, as stonewright-section-reuse-find lists them.', 'stonewright' );
 	}
 
 	private static function no_document_text( string $reason ): string {

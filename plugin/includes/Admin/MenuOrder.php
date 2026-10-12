@@ -26,6 +26,9 @@ final class MenuOrder {
 	/** Runs after every page has added its entry. */
 	private const PRIORITY = 999;
 
+	/** The class of a sidebar item that is kept for WordPress, which opens the right menu on its page, and not shown. */
+	public const HIDDEN_CLASS = 'sw-menu-hidden';
+
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'apply' ], self::PRIORITY );
 	}
@@ -45,9 +48,24 @@ final class MenuOrder {
 	 * @return list<array<int, mixed>>
 	 */
 	public static function order( array $items ): array {
+		// A page that is another page's own tab has an address and a registration, but no entry of its own. Its item stays
+		// in the menu, at the end and hidden, because WordPress finds the menu to open on a page by looking for its item.
+		$views = [];
+		foreach ( MenuRegistry::entries() as $entry ) {
+			if ( '' !== $entry['parent'] ) {
+				$views[ $entry['slug'] ] = true;
+			}
+		}
 		$by_slug = [];
+		$hidden  = [];
 		foreach ( $items as $item ) {
-			$by_slug[ (string) ( $item[2] ?? '' ) ] = $item;
+			$slug = (string) ( $item[2] ?? '' );
+			if ( isset( $views[ $slug ] ) ) {
+				$item[4]  = trim( (string) ( $item[4] ?? '' ) . ' ' . self::HIDDEN_CLASS );
+				$hidden[] = $item;
+				continue;
+			}
+			$by_slug[ $slug ] = $item;
 		}
 
 		$ordered = [];
@@ -61,7 +79,7 @@ final class MenuOrder {
 			unset( $by_slug[ $entry['slug'] ] );
 		}
 
-		return array_merge( $ordered, array_values( $by_slug ) );
+		return array_merge( $ordered, array_values( $by_slug ), $hidden );
 	}
 
 	/**
@@ -71,7 +89,28 @@ final class MenuOrder {
 	 */
 	private static function title( array $entry ): string {
 		$label = MenuRegistry::menu_label( $entry );
+		$title = $entry['beta'] ? AdminShell::beta_menu_title( $label ) : $label;
 
-		return $entry['beta'] ? AdminShell::beta_menu_title( $label ) : $label;
+		return $title . self::menu_count( $entry );
+	}
+
+	/**
+	 * The count beside a sidebar entry, for a page that asks for it: the number and its words for assistive technology,
+	 * in the bubble WordPress draws beside its own entries. Empty when there is nothing to show.
+	 *
+	 * @param Entry $entry
+	 */
+	private static function menu_count( array $entry ): string {
+		if ( ! MenuRegistry::shows_menu_count( $entry['slug'] ) ) {
+			return '';
+		}
+		$count = MenuRegistry::page_count( $entry['slug'] );
+		if ( null === $count ) {
+			return '';
+		}
+		$words = MenuRegistry::page_count_label( $entry['slug'] );
+
+		return ' <span class="awaiting-mod sw-menu-count"><span class="sw-menu-count__n" aria-hidden="true">' . esc_html( (string) $count ) . '</span>'
+			. '<span class="screen-reader-text"> ' . esc_html( (string) $count . ( '' !== $words ? ' ' . $words : '' ) ) . '</span></span>';
 	}
 }

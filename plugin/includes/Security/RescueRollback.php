@@ -11,12 +11,24 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Elementor\RestoredCss;
+use Stonewright\WpMcp\Security\Rollback\LiveState;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
 
 /**
  * Runs a journal entry's rollback recipe, probes the site afterwards, and records the outcome
  * on the entry. The automatic rollback after a failed probe (RescueGuard) and the manual one
  * (the rescue-rollback ability, the Rescue page, `wp stonewright rescue rollback`) share these
  * steps, so the journal tells the same story whichever path ran.
+ *
+ * A manual rollback is one of two things. The normal one replaces what is live now with an older state, so it
+ * refuses to overwrite a later edit until the person confirmed the state they saw (force_drift, with
+ * expected_current_sha256), saves the state it replaces before it writes, and puts that state back when the
+ * restore breaks a site that worked. The emergency one recovers a site that fails now: the journal recorded a
+ * fault against the change (an incident, or a rollback that failed) and a probe fails at this moment. It needs no
+ * confirmation and is never put back, because the cure is the point. An entry that is only armed, or an incident
+ * that is long past on a site that loads, is the normal kind.
  */
 final class RescueRollback {
 
@@ -25,6 +37,9 @@ final class RescueRollback {
 
 	/** States in which an entry can be rolled back: the open ones, and a verified change that is undone on request. */
 	public const ROLLBACK_STATES = [ 'incident', 'rollback_failed', 'armed', 'verified' ];
+
+	/** States that record a fault against the change. They are history: alone they do not prove that the site fails now. */
+	public const FAULT_STATES = [ 'incident', 'rollback_failed' ];
 
 	/** Resource types that are code: undoing a verified change to one needs an administrator, not an agent. */
 	private const CODE_RESOURCE_TYPES = [ 'theme_file', 'custom_code', 'sandbox' ];
@@ -152,6 +167,21 @@ final class RescueRollback {
 	 * @return array<string, mixed>
 	 */
 	public static function judge( array $probe, array $entries, array $context, bool $retry = false ): array {
+		$passed = self::passed_before( $entries, $context );
+		if ( $retry ) {
+			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
+		}
+		return HealthProbe::compare( $probe, $passed );
+	}
+
+	/**
+	 * The legs that passed in the baselines the entries took before their writes.
+	 *
+	 * @param list<array<string, mixed>> $entries
+	 * @param array<string, mixed>       $context
+	 * @return list<string>
+	 */
+	private static function passed_before( array $entries, array $context ): array {
 		$passed  = [];
 		$post_id = (int) ( $context['post_id'] ?? 0 );
 		foreach ( $entries as $entry ) {
@@ -168,11 +198,7 @@ final class RescueRollback {
 				$passed[ $name ] = true;
 			}
 		}
-		$passed = array_keys( $passed );
-		if ( $retry ) {
-			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
-		}
-		return HealthProbe::compare( $probe, $passed );
+		return array_keys( $passed );
 	}
 
 	/**
@@ -243,10 +269,16 @@ final class RescueRollback {
 	 * What a rollback of this entry would do, and what to know before it: how old the change is and
 	 * whether a newer change to the same item exists, which the rollback would overwrite.
 	 *
-	 * @param array<string, mixed> $entry
+	 * It also says whether the item is as the change left it: drift (it is not), drift_known (it could be compared
+	 * with the history row of the change), requires_force (a rollback needs the person's confirmation first) and the
+	 * current and expected hashes. current_sha256 is what expected_current_sha256 confirms.
+	 *
+	 * @param array<string, mixed>      $entry
+	 * @param array<string, mixed>|null $inspection The answer of inspect() when the caller has it already.
 	 * @return array<string, mixed>
 	 */
-	public static function plan( array $entry ): array {
+	public static function plan( array $entry, ?array $inspection = null ): array {
+		$inspection            = $inspection ?? self::inspect( $entry );
 		$plan                  = self::summarize( $entry );
 		$newer                 = ChangeJournal::newer_changes( $entry );
 		$plan['age_seconds']   = max( 0, ChangeJournal::now() - (int) $entry['armed_at'] );
@@ -258,21 +290,96 @@ final class RescueRollback {
 			],
 			$newer
 		);
+		$plan['drift']           = $inspection['drift'];
+		$plan['drift_known']     = $inspection['known'];
+		$plan['requires_force']  = self::needs_confirmation( $inspection, $newer );
+		$plan['current_sha256']  = $inspection['current_sha256'];
+		$plan['expected_sha256'] = $inspection['expected_sha256'];
+		$plan['redo_available']  = 'row' === $inspection['ledger'] && $inspection['known'];
 		if ( self::needs_human_approval( $entry ) ) {
 			$plan['approval_required'] = true;
 			$plan['approval_url']      = self::approval_url();
 		}
+		$warnings = [];
 		if ( [] !== $newer ) {
-			$ids = implode( ', ', array_map( static fn ( array $other ): string => (string) $other['id'], array_slice( $newer, 0, 3 ) ) );
-			$plan['warnings'] = [
-				sprintf(
-					/* translators: %s: change set ids */
-					__( 'A newer change to the same item exists (%s). Rolling this one back also overwrites it.', 'stonewright' ),
-					$ids
-				),
-			];
+			$ids        = implode( ', ', array_map( static fn ( array $other ): string => (string) $other['id'], array_slice( $newer, 0, 3 ) ) );
+			$warnings[] = sprintf(
+				/* translators: %s: change set ids */
+				__( 'A newer change to the same item exists (%s). Rolling this one back also overwrites it.', 'stonewright' ),
+				$ids
+			);
+		}
+		if ( $inspection['drift'] ) {
+			$warnings[] = __( 'This item has changed since the recorded change (it was edited, or another tool wrote to it). Rolling this one back overwrites those later edits.', 'stonewright' );
+		}
+		if ( [] !== $warnings ) {
+			$plan['warnings'] = $warnings;
 		}
 		return $plan;
+	}
+
+	/**
+	 * Whether a rollback needs the person's confirmation: the item is not as the change left it, or the history cannot say
+	 * and the journal knows of a newer change to the same item.
+	 *
+	 * @param array<string, mixed>       $inspection
+	 * @param list<array<string, mixed>> $newer
+	 */
+	private static function needs_confirmation( array $inspection, array $newer ): bool {
+		return $inspection['drift'] || ( ! $inspection['known'] && [] !== $newer );
+	}
+
+	/**
+	 * What the item is now, set against the history row of the same change: the live state, its hash, the hash the
+	 * change left, and whether they differ. The history is read, never required: when it is unavailable, has no row for
+	 * the change, or cannot compare the item, `known` is false and a rollback judges by the journal alone.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @return array{ledger:string,row:?array<string,mixed>,handler:?RollbackFamilyHandler,known:bool,unreadable:bool,live:string|array<mixed>|null,current_sha256:string,expected_sha256:string,drift:bool}
+	 *         ledger is row (the change can be compared and restored from the history), not_restorable (a row the history cannot restore or compare), no_row or unavailable.
+	 */
+	private static function inspect( array $entry ): array {
+		$none = [
+			'ledger'          => 'no_row',
+			'row'             => null,
+			'handler'         => null,
+			'known'           => false,
+			'unreadable'      => false,
+			'live'            => null,
+			'current_sha256'  => '',
+			'expected_sha256' => '',
+			'drift'           => false,
+		];
+		$id = (string) ( $entry['id'] ?? '' );
+		if ( ! ChangeLedger::is_valid_id( $id ) ) {
+			return $none;
+		}
+		try {
+			$row = ChangeLedger::get( $id );
+			if ( null === $row ) {
+				return $none;
+			}
+			$handler = RollbackFamilies::handler_for( (string) $row['family'] );
+			if ( null === $handler || ! $row['restorable'] || ! in_array( (string) $row['kind'], [ 'change', 'redo' ], true ) || in_array( (string) $row['status'], [ 'rolled_back', 'rolled_back_by' ], true ) ) {
+				return array_merge( $none, [ 'ledger' => 'not_restorable' ] );
+			}
+			$state = LiveState::read( $row, $handler );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return array_merge( $none, [ 'ledger' => 'unavailable' ] );
+		}
+		$known = $state['supported'] && ! $state['unreadable'];
+		return [
+			'ledger'          => 'row',
+			'row'             => $row,
+			'handler'         => $handler,
+			'known'           => $known,
+			'unreadable'      => $state['unreadable'],
+			'live'            => $state['live'],
+			'current_sha256'  => $state['current_sha256'],
+			'expected_sha256' => (string) $row['after_sha256'],
+			'drift'           => $known && $state['current_sha256'] !== (string) $row['after_sha256'],
+		];
 	}
 
 	private static function not_open_error( string $id, string $state ): \WP_Error {
@@ -411,12 +518,27 @@ final class RescueRollback {
 	}
 
 	/**
-	 * Roll a change back by hand, then probe. An open change (an incident, or one never verified) can
-	 * always be rolled back; a verified change can be undone on request, except a verified change to
-	 * code, which needs `human_approved`: only the Rescue page, where an administrator presses the
-	 * button, passes it.
+	 * Roll a change back by hand, then probe. The rules, in the order they are applied (every refusal comes before anything
+	 * is saved, written, claimed or probed for the first time, and before a confirmation token is spent by the callers
+	 * that ask for one, see preflight_refusal()):
 	 *
-	 * @param array{by?:string,dry_run?:bool,user_id?:int,human_approved?:bool} $options
+	 * 1. The entry exists and can be rolled back: it is open (an incident, or one never verified), or verified.
+	 * 2. A verified change to code needs `human_approved`: only the Rescue page, where an administrator presses the
+	 *    button, passes it.
+	 * 3. A recipe that can run, with the snapshot or restore point it restores from still there.
+	 * 4. The confirmation. A rollback over a later edit (the item is not as the change left it, or the journal knows of
+	 *    a newer change and the history cannot compare) is refused unless `force_drift` is set. `expected_current_sha256`,
+	 *    the current_sha256 of the plan, binds the run to the state the person saw. A site that fails now needs no
+	 *    confirmation when the journal recorded a fault against the change (an emergency, see the class comment).
+	 * 5. The entry is claimed, and the live state is read once more under the claim: a state that is not the one
+	 *    judged is refused.
+	 * 6. The state about to be replaced is saved. A normal rollback stops when it cannot be saved; an emergency one goes on.
+	 * 7. The recipe runs and the site is probed. A normal rollback that breaks a site that worked is put back.
+	 * 8. With a history row for the change, the restore is recorded under it as a rollback row, which is what a Redo acts on.
+	 *
+	 * Options: by, dry_run, user_id, human_approved, force_drift, expected_current_sha256.
+	 *
+	 * @param array{by?:string,dry_run?:bool,user_id?:int,human_approved?:bool,force_drift?:bool,expected_current_sha256?:string} $options
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function run( string $incident_id, array $options = [] ): array|\WP_Error {
@@ -431,7 +553,8 @@ final class RescueRollback {
 		if ( ! in_array( $entry['state'], self::ROLLBACK_STATES, true ) ) {
 			return self::not_open_error( $entry['id'], (string) $entry['state'] );
 		}
-		$plan = self::plan( $entry );
+		$inspection = self::inspect( $entry );
+		$plan       = self::plan( $entry, $inspection );
 		if ( ! empty( $options['dry_run'] ) ) {
 			return array_merge( [ 'ok' => true, 'dry_run' => true ], $plan );
 		}
@@ -445,6 +568,10 @@ final class RescueRollback {
 				[ 'status' => 409, 'incident_id' => $entry['id'], 'rollback_status' => 'not_available' ]
 			);
 		}
+		$verdict = self::judge_restore( $entry, $options, $inspection );
+		if ( $verdict instanceof \WP_Error ) {
+			return $verdict;
+		}
 
 		// Claim the entry before anything runs: a double click, or the page and an agent together, run the recipe once.
 		$by = (string) ( $options['by'] ?? 'ability' );
@@ -455,38 +582,53 @@ final class RescueRollback {
 				: self::in_progress_error( $entry['id'] );
 		}
 
-		$undo = 'verified' === (string) $entry['state'];
+		// A normal rollback replaces something that works with something older, so it is judged against the site as it is
+		// and put back when it breaks it. A change with a fault recorded against it is the cure itself and is never put back.
+		$guard    = ! in_array( (string) $entry['state'], self::FAULT_STATES, true );
+		$css_post = self::css_post_id( $entry );
 		try {
-			$user     = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
-			$context  = self::probe_context( $entry, $user );
-			$restore  = [];
+			$user    = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+			$context = self::probe_context( $entry, $user );
+			// The state judged above is the one that is replaced: a run that waited for the claim, or a second submit, finds another.
+			$again = self::inspect( $entry );
+			if ( $inspection['known'] && ( ! $again['known'] || $again['current_sha256'] !== $inspection['current_sha256'] ) ) {
+				return self::changed_error( $entry, $again );
+			}
+			// Save what the recipe is about to replace. Without that there is no way back, and a normal rollback does not go on;
+			// an emergency one does, because the site is failing and the cure comes first. A change with a fault recorded against
+			// it that nothing came after leaves nothing to save: the item is as the change made it.
+			$saved = $guard || $verdict['needs'] ? self::save_current_state( $entry, ! $verdict['emergency'] ) : [];
+			if ( $saved instanceof \WP_Error ) {
+				return $saved;
+			}
+			$restore  = $saved;
 			$baseline = [];
-			if ( $undo ) {
-				// The site works and the recipe is about to replace what works with something older. Save what it
-				// replaces first, and ask the site how it is now: without both there is no way back to judge by.
-				$saved = self::save_current_state( $entry );
-				if ( $saved instanceof \WP_Error ) {
-					return $saved;
-				}
-				$restore  = $saved;
+			if ( $guard ) {
+				// Ask the site how it is now: without it there is no way to judge what the rollback did to it.
 				$baseline = HealthProbe::run( $context );
+			}
+			if ( $css_post > 0 ) {
+				RestoredCss::forget( $css_post );
 			}
 			$rollback         = self::apply_recipe( $entry, $by );
 			$rollback['user'] = $user;
-			// An undo is judged against the probe taken just before it, not the one from when the change was made.
-			$judged = $undo ? [ [ 'baseline' => $baseline, 'resource_key' => $entry['resource_key'] ] ] : [ $entry ];
-			$after  = self::judge( HealthProbe::run( $context ), $judged, $context, $undo );
-			$guard  = $undo ? self::undo_guard( $baseline, $after ) : '';
-			if ( 'reverted' === $guard ) {
+			// A rollback that is put back is judged against the probe taken just before it, not the one from when the change was made.
+			$judged = $guard ? [ [ 'baseline' => $baseline, 'resource_key' => $entry['resource_key'] ] ] : [ $entry ];
+			$after  = self::judge( HealthProbe::run( $context ), $judged, $context, $guard );
+			$undo_guard = $guard ? self::undo_guard( $baseline, $after ) : '';
+			if ( 'reverted' === $undo_guard ) {
 				return self::put_back( $entry, $restore, $rollback, $after, $judged, $context, $plan );
 			}
-			$concluded = self::conclude( $entry['id'], $rollback, [], $after, $undo ? 'undone_after_verified' : '' );
+			$concluded = self::conclude( $entry['id'], $rollback, [], $after, 'verified' === (string) $entry['state'] ? 'undone_after_verified' : '' );
+			$link      = self::succeeded( $rollback )
+				? self::link_history( $again, $user, self::site_status( $after ) )
+				: [ 'rollback_change_id' => '', 'restorable_again' => false, 'history' => 'not_recorded' ];
 		} finally {
 			// conclude() settles the entry and clears the claim; this covers anything that threw before it.
 			ChangeJournal::release_claim( $entry['id'] );
 		}
-		$ok   = self::succeeded( $rollback );
-		$site = self::site_status( $after );
+		$ok    = self::succeeded( $rollback );
+		$site  = self::site_status( $after );
 
 		$result = [
 			'ok'                  => $ok,
@@ -498,16 +640,34 @@ final class RescueRollback {
 			'verification_status' => 'healthy' === $site ? 'verified' : ( 'still_failing' === $site ? 'failed' : 'unverified' ),
 			'recipe'              => (string) $rollback['recipe'],
 			'detail'              => (string) $rollback['detail'],
+			'verification_reason' => HealthProbe::verdict( $after ),
 			'probe'               => self::compact_probe( $after ),
 			'resource_type'       => (string) $entry['resource_type'],
+			'mode'                => $verdict['emergency'] ? 'emergency' : 'normal',
+			'drift_forced'        => $verdict['confirmed'],
+			'rollback_change_id'  => $link['rollback_change_id'],
+			'restorable_again'    => $link['restorable_again'],
+			'history'             => $link['history'],
 		];
 		if ( isset( $plan['warnings'] ) ) {
 			$result['warnings'] = $plan['warnings'];
 		}
-		if ( $ok && '' !== $guard ) {
-			$result['undo_guard'] = $guard;
-			if ( 'site_already_failing' === $guard ) {
+		if ( $ok && '' !== $undo_guard ) {
+			$result['undo_guard'] = $undo_guard;
+			if ( 'site_already_failing' === $undo_guard ) {
 				$result['warnings'][] = __( 'The site was already failing before this undo, so the undo was kept and not put back.', 'stonewright' );
+			}
+		}
+		if ( $ok && 'recorded' !== $link['history'] ) {
+			$result['warnings'][] = self::history_limit( $link['history'] );
+		}
+		// A restore of an Elementor page regenerates the generated CSS of that page; the answer says how that went.
+		$css = $ok && $css_post > 0 ? RestoredCss::last( $css_post ) : null;
+		if ( null !== $css ) {
+			$result['css_regeneration'] = $css;
+			$note                       = RestoredCss::warning( $css );
+			if ( '' !== $note ) {
+				$result['warnings'][] = $note;
 			}
 		}
 		if ( ! $ok ) {
@@ -522,6 +682,187 @@ final class RescueRollback {
 			);
 		}
 		return $result;
+	}
+
+	/**
+	 * The refusal a rollback would answer with before it saves, writes or claims anything, or null when it may go on. For the
+	 * callers that look at a confirmation token (the ability, the Rescue page, the Changes engine): they ask this first, so
+	 * that a drift, a state that changed since the preview, or a state that cannot be read does not use a token up. It
+	 * writes nothing. When the journal recorded a fault against the change it may make one request to the site, to see
+	 * whether the site fails now.
+	 *
+	 * @param array{force_drift?:bool,expected_current_sha256?:string,user_id?:int} $options The same options as run().
+	 */
+	public static function preflight_refusal( string $incident_id, array $options = [] ): ?\WP_Error {
+		$entry = ChangeJournal::get( $incident_id );
+		if ( null === $entry || ! in_array( $entry['state'], self::ROLLBACK_STATES, true ) || ! RollbackRecipes::available( $entry ) ) {
+			// run() has its own answers for these, in its own order.
+			return null;
+		}
+		$verdict = self::judge_restore( $entry, $options, self::inspect( $entry ) );
+		return $verdict instanceof \WP_Error ? $verdict : null;
+	}
+
+	/**
+	 * Whether the rollback may go on, and as what.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @param array<string, mixed> $options
+	 * @param array<string, mixed> $inspection From inspect().
+	 * @return array{emergency:bool,confirmed:bool,needs:bool}|\WP_Error needs: a later edit may be replaced; confirmed: the person confirmed that.
+	 */
+	private static function judge_restore( array $entry, array $options, array $inspection ): array|\WP_Error {
+		$fault    = in_array( (string) $entry['state'], self::FAULT_STATES, true );
+		$force    = ! empty( $options['force_drift'] );
+		$expected = LiveState::clean_hash( $options['expected_current_sha256'] ?? '' );
+		if ( '' !== $expected && $inspection['known'] && ! LiveState::hash_matches( $expected, $inspection['current_sha256'] ) ) {
+			return self::changed_error( $entry, $inspection );
+		}
+		// A normal rollback cannot be judged, saved or put back for an item it cannot read. A failing site is recovered anyway.
+		if ( $inspection['unreadable'] && ! $fault ) {
+			return new \WP_Error(
+				'stonewright_change_live_unreadable',
+				__( 'The current state of this item cannot be read, so a rollback cannot be checked. Nothing was changed.', 'stonewright' ),
+				[ 'status' => 409, 'retryable' => false, 'incident_id' => (string) $entry['id'], 'change_set_id' => (string) $entry['id'], 'execution_status' => 'blocked', 'verification_status' => 'not_applied', 'rollback_status' => 'not_attempted', 'resource_type' => (string) $entry['resource_type'] ]
+			);
+		}
+		$newer = ChangeJournal::newer_changes( $entry );
+		$needs = self::needs_confirmation( $inspection, $newer );
+		// An override is given for one state: without its hash it is not an override. When the state cannot be read there is
+		// no hash to give, and force_drift alone confirms what the journal says is newer.
+		if ( $needs && $force && '' === $expected && '' !== $inspection['current_sha256'] ) {
+			return new \WP_Error(
+				LiveState::HASH_REQUIRED,
+				LiveState::hash_required_message(),
+				[
+					'status'              => 409,
+					'retryable'           => false,
+					'incident_id'         => (string) $entry['id'],
+					'change_set_id'       => (string) $entry['id'],
+					'current_sha256'      => $inspection['current_sha256'],
+					'execution_status'    => 'blocked',
+					'verification_status' => 'not_applied',
+					'rollback_status'     => 'not_attempted',
+					'resource_type'       => (string) $entry['resource_type'],
+				]
+			);
+		}
+		$proof = null;
+		if ( $needs && ! $force ) {
+			if ( $fault ) {
+				$user  = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+				$proof = HealthProbe::run( self::probe_context( $entry, $user ) );
+			}
+			// An armed change, or an incident that is long past on a site that loads, is not an emergency.
+			if ( null === $proof || 'failed' !== ( $proof['status'] ?? '' ) ) {
+				return self::drift_error( $entry, $inspection, $newer );
+			}
+		}
+		return [
+			'emergency' => $fault && ( ! $needs || null !== $proof ),
+			'confirmed' => $needs && $force,
+			'needs'     => $needs,
+		];
+	}
+
+	/**
+	 * @param array<string, mixed>       $entry
+	 * @param array<string, mixed>       $inspection
+	 * @param list<array<string, mixed>> $newer
+	 */
+	private static function drift_error( array $entry, array $inspection, array $newer ): \WP_Error {
+		$plan = self::plan( $entry, $inspection );
+		return new \WP_Error(
+			'stonewright_change_drift',
+			__( 'This item has changed since the recorded change, so rolling it back would overwrite those later edits. Nothing was changed. Review the plan, and run again with force_drift and the expected_current_sha256 of the plan to overwrite them.', 'stonewright' ),
+			[
+				'status'              => 409,
+				'retryable'           => false,
+				'drift'               => true,
+				'incident_id'         => (string) $entry['id'],
+				'change_set_id'       => (string) $entry['id'],
+				'warnings'            => $plan['warnings'] ?? [],
+				'newer_changes'       => $plan['newer_changes'],
+				'current_sha256'      => $inspection['current_sha256'],
+				'expected_sha256'     => $inspection['expected_sha256'],
+				'execution_status'    => 'blocked',
+				'verification_status' => 'not_applied',
+				'rollback_status'     => 'not_attempted',
+				'resource_type'       => (string) $entry['resource_type'],
+			]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @param array<string, mixed> $inspection The state found now.
+	 */
+	private static function changed_error( array $entry, array $inspection ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_change_changed_since_preview',
+			__( 'The item is not in the state that was previewed. Nothing was changed. Review the plan again.', 'stonewright' ),
+			[
+				'status'              => 409,
+				'retryable'           => false,
+				'incident_id'         => (string) $entry['id'],
+				'change_set_id'       => (string) $entry['id'],
+				'current_sha256'      => $inspection['current_sha256'],
+				'execution_status'    => 'blocked',
+				'verification_status' => 'not_applied',
+				'rollback_status'     => 'not_attempted',
+				'resource_type'       => (string) $entry['resource_type'],
+			]
+		);
+	}
+
+	/**
+	 * Record the restore under the history row of the change, so that the Changes screen lists it and a Redo can act on
+	 * it. Nothing is recorded, and nothing is promised, when the history has no row it can restore from, or the state that
+	 * was replaced could not be read: a Redo needs that image.
+	 *
+	 * @param array<string, mixed> $before inspect() as it was when the restore began.
+	 * @return array{rollback_change_id:string,restorable_again:bool,history:string} history is recorded, ledger_unavailable, no_ledger_row, not_restorable or not_recorded.
+	 */
+	private static function link_history( array $before, int $user, string $site ): array {
+		$none = static fn ( string $why ): array => [ 'rollback_change_id' => '', 'restorable_again' => false, 'history' => $why ];
+		if ( 'unavailable' === $before['ledger'] ) {
+			return $none( 'ledger_unavailable' );
+		}
+		if ( 'no_row' === $before['ledger'] ) {
+			return $none( 'no_ledger_row' );
+		}
+		if ( ! $before['known'] || ! is_array( $before['row'] ) || ! $before['handler'] instanceof RollbackFamilyHandler ) {
+			return $none( 'not_restorable' );
+		}
+		try {
+			$after = $before['handler']->live_image( $before['row'] );
+			$id    = ChangeRollback::record_journal_restore( $before['row'], $before['live'], $after instanceof \WP_Error ? null : $after, 'healthy' === $site ? 'verified' : 'probe_unavailable', $user );
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+			return $none( 'not_recorded' );
+		}
+		return '' === $id ? $none( 'not_recorded' ) : [ 'rollback_change_id' => $id, 'restorable_again' => true, 'history' => 'recorded' ];
+	}
+
+	/**
+	 * The post a recipe puts back, or 0 when the recipe does not restore a post. Only a post can have generated CSS to regenerate.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function css_post_id( array $entry ): int {
+		if ( 'post_snapshot' !== (string) ( $entry['recipe']['type'] ?? '' ) ) {
+			return 0;
+		}
+		return (int) ( $entry['recipe_detail']['post_id'] ?? $entry['resource_key'] ?? 0 );
+	}
+
+	/** A sentence for what the history could not do, shown next to a rollback that worked. */
+	private static function history_limit( string $history ): string {
+		return match ( $history ) {
+			'ledger_unavailable' => __( 'The change history is unavailable, so this rollback is not listed there and cannot be redone from it.', 'stonewright' ),
+			'no_ledger_row'      => __( 'The change history has no entry for this change, so this rollback is not listed there and cannot be redone from it.', 'stonewright' ),
+			default              => __( 'The change history could not record this rollback, so it cannot be redone from there.', 'stonewright' ),
+		};
 	}
 
 	/**
@@ -547,12 +888,13 @@ final class RescueRollback {
 	}
 
 	/**
-	 * Save what the recipe of a verified change is about to overwrite, with the way to put it back.
+	 * Save what the recipe of an entry is about to overwrite, with the way to put it back.
 	 *
 	 * @param array<string, mixed> $entry
-	 * @return array<string, mixed>|\WP_Error The entry-shaped recipe that restores the saved state, or the refusal.
+	 * @param bool                 $required True for a normal rollback, which does not go on without the saved state. False for an emergency one, which saves what it can and goes on.
+	 * @return array<string, mixed>|\WP_Error The entry-shaped recipe that restores the saved state ([] when an emergency rollback could not save it), or the refusal.
 	 */
-	private static function save_current_state( array $entry ): array|\WP_Error {
+	private static function save_current_state( array $entry, bool $required = true ): array|\WP_Error {
 		$saved = [ 'status' => 'failed', 'detail' => 'exception' ];
 		self::with_stored_selection(
 			static function () use ( $entry, &$saved ): array {
@@ -562,6 +904,9 @@ final class RescueRollback {
 		);
 		if ( 'ok' === ( $saved['status'] ?? '' ) && is_array( $saved['restore'] ?? null ) ) {
 			return $saved['restore'];
+		}
+		if ( ! $required ) {
+			return [];
 		}
 		return new \WP_Error(
 			'stonewright_rescue_undo_capture_failed',
@@ -685,9 +1030,19 @@ final class RescueRollback {
 			// A probe now would judge a site in the middle of being put back.
 			return self::in_progress_error( $entry['id'] );
 		}
-		$user  = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
-		$probe = HealthProbe::run( self::probe_context( $entry, $user ) );
-		$site  = self::site_status( $probe );
+		$user    = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
+		$context = self::probe_context( $entry, $user );
+		// The probe is judged against the one taken before the change, as the probe after a write is: a check that passed
+		// then and does not answer now is a failure, not a pass that happens to be partial.
+		$probe  = self::judge( HealthProbe::run( $context ), [ $entry ], $context, ! HealthProbe::loopback_cooling_down() );
+		$site   = self::site_status( $probe );
+		$reason = HealthProbe::verdict( $probe );
+		$lost   = 'healthy' === $site ? self::lost_checks( $entry, $probe, $context ) : [];
+		if ( [] !== $lost ) {
+			// The probe passed, but a check that passed before the change could not be made or did not pass: recovery is not shown.
+			$site   = 'unknown';
+			$reason = [] === array_diff( array_column( $lost, 'reason' ), [ 'token_unavailable' ] ) ? 'not_started' : 'check_lost';
+		}
 		if ( 'healthy' === $site ) {
 			$entry = ChangeJournal::settle( $entry['id'], 'verified', [ 'probe' => $probe, 'note' => 'confirmed_by_probe' ] ) ?? $entry;
 		} else {
@@ -701,9 +1056,35 @@ final class RescueRollback {
 			'resolved'            => 'verified' === $entry['state'],
 			'site_status'         => $site,
 			'verification_status' => 'healthy' === $site ? 'verified' : ( 'still_failing' === $site ? 'failed' : 'unverified' ),
+			'verification_reason' => $reason,
 			'probe'               => self::compact_probe( $probe ),
 			'resource_type'       => (string) $entry['resource_type'],
 		];
+	}
+
+	/**
+	 * The checks that passed before the change and did not pass in this probe, though it passed as a whole: a check that
+	 * could not be asked for (no token, no user, no time left) or got no verdict. A check that is not asked for because
+	 * the page it names is gone or foreign is not lost.
+	 *
+	 * @param array<string, mixed> $entry
+	 * @param array<string, mixed> $probe
+	 * @param array<string, mixed> $context
+	 * @return list<array{leg:string,reason:string}>
+	 */
+	private static function lost_checks( array $entry, array $probe, array $context ): array {
+		$before = self::passed_before( [ $entry ], $context );
+		$lost   = [];
+		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
+			if ( ! is_array( $leg ) || ! in_array( (string) ( $leg['leg'] ?? '' ), $before, true ) || 'passed' === ( $leg['status'] ?? '' ) ) {
+				continue;
+			}
+			if ( 'skipped' === ( $leg['status'] ?? '' ) && in_array( (string) ( $leg['reason'] ?? '' ), [ 'not_viewable', 'foreign_host' ], true ) ) {
+				continue;
+			}
+			$lost[] = [ 'leg' => (string) $leg['leg'], 'reason' => (string) ( $leg['reason'] ?? '' ) ];
+		}
+		return $lost;
 	}
 
 	/**

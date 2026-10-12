@@ -308,7 +308,7 @@ final class ChangeRollbackOtherFamiliesTest extends OtherRollbackTestCase {
 		self::assertTrue( $error->get_error_data()['drift'] );
 		self::assertSame( 'Edited by hand', $this->user( 21 )['display_name'], 'Nothing was written.' );
 
-		$done = $this->ok( ChangeRollback::run( $id, [ 'force_drift' => true ] ) );
+		$done = $this->ok( ChangeRollback::run( $id, [ 'force_drift' => true, 'expected_current_sha256' => $plan['current_sha256'] ] ) );
 		self::assertTrue( $done['drift_forced'] );
 		self::assertSame( 'Alice 21', $this->user( 21 )['display_name'] );
 	}

@@ -3,12 +3,14 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
+use Elementor\Core\Files\CSS\Post;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\RescuePage;
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
@@ -17,6 +19,8 @@ use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\HealthProbe;
 use Stonewright\WpMcp\Security\ProbeToken;
+use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
+use Stonewright\WpMcp\Tests\Unit\Security\Rollback\FakeFamilyHandler;
 use Stonewright\WpMcp\Tests\Unit\Security\Fixtures\LedgerWpdb;
 
 /**
@@ -53,6 +57,8 @@ final class RescuePageTest extends TestCase {
 		$_GET  = [];
 		$_POST = [];
 		ChangeJournal::reset_for_tests();
+		RescuePage::reset_for_tests();
+		MenuRegistry::reset_for_tests();
 		RescuePage::set_safe_mode_resolver( false );
 		$this->site( static fn (): string => 'healthy' );
 	}
@@ -66,6 +72,8 @@ final class RescuePageTest extends TestCase {
 		ChangeLedger::reset_schema_health_cache_for_tests();
 		HealthProbe::set_transport( null );
 		RescuePage::set_safe_mode_resolver( null );
+		RescuePage::reset_for_tests();
+		MenuRegistry::reset_for_tests();
 		ProbeToken::reset_for_tests();
 		unset( $_SERVER['HTTP_X_STONEWRIGHT_PROBE'], $_SERVER['REQUEST_URI'] );
 		ChangeJournal::reset_for_tests();
@@ -177,7 +185,7 @@ final class RescuePageTest extends TestCase {
 		$page = $GLOBALS['stonewright_test_submenu_pages'][ RescuePage::SLUG ] ?? null;
 		self::assertIsArray( $page );
 		self::assertSame( 'stonewright-rescue', RescuePage::SLUG );
-		self::assertSame( ConfigurationPage::SLUG, $page['parent'] );
+		self::assertSame( ConfigurationPage::SLUG, $page['parent'], 'Registered like any page of the menu, so WordPress opens the Stonewright menu on it; MenuOrder hides the item.' );
 		self::assertSame( 'manage_options', $page['capability'] );
 		self::assertSame( 'Rescue', $page['menu_title'] );
 		self::assertSame( [ RescuePage::class, 'render' ], $page['callback'] );
@@ -186,7 +194,17 @@ final class RescuePageTest extends TestCase {
 		}
 	}
 
-	public function test_rescue_registers_itself_in_the_activity_hub_through_the_menu_registry(): void {
+	public function test_the_address_marks_the_changes_entry_in_the_open_menu(): void {
+		RescuePage::register();
+		$_GET = [ 'page' => 'stonewright-rescue' ];
+
+		self::assertSame( 'stonewright-changes', RescuePage::highlight_submenu( 'stonewright-rescue' ) );
+
+		$_GET = [ 'page' => 'stonewright-status' ];
+		self::assertSame( 'stonewright-status', RescuePage::highlight_submenu( 'stonewright-status' ) );
+	}
+
+	public function test_rescue_registers_itself_as_a_view_of_the_rescue_tab_of_the_changes_page(): void {
 		MenuRegistry::reset_for_tests();
 		RescuePage::register();
 		self::assertNull( MenuRegistry::entry( 'stonewright-rescue' ), 'The entry is registered on init, where labels can be translated.' );
@@ -194,11 +212,16 @@ final class RescuePageTest extends TestCase {
 
 		self::assertSame( 'Rescue', AdminShell::pages()['stonewright-rescue'] );
 		self::assertSame( 'activity', MenuRegistry::hub_for( 'stonewright-rescue' ) );
-		self::assertSame( [ 'stonewright-audit-log', 'stonewright-rescue' ], array_column( MenuRegistry::hub_entries( 'activity' ), 'slug' ) );
 		$entry = MenuRegistry::entry( 'stonewright-rescue' );
 		self::assertSame( 'manage_options', $entry['capability'] ?? '' );
-		self::assertTrue( $entry['beta'] ?? false, 'Rescue carries the EXP marker in the band and the sidebar.' );
+		self::assertTrue( $entry['beta'] ?? false, 'Rescue carries the EXP marker.' );
+		self::assertSame( 'stonewright-changes', $entry['parent'] ?? '', 'It is a view of the Changes page...' );
+		self::assertSame( 'rescue', $entry['parent_tab'] ?? '', '...of its Rescue tab.' );
+		self::assertFalse( $entry['in_menu'] ?? true );
 		self::assertStringContainsString( 'Roll back a change that stopped the site from loading', $entry['lede'] ?? '' );
+		self::assertSame( [ 'stonewright-changes', 'rescue' ], MenuRegistry::resolve( 'stonewright-rescue' ) );
+		$slugs = array_map( static fn ( array $link ): string => $link['label'], MenuRegistry::tab_links( 'stonewright-rescue', '' ) );
+		self::assertSame( [ 'History', 'Rescue' ], $slugs, 'Its tab bar is the Changes page tab bar.' );
 	}
 
 	public function test_the_stylesheet_comes_from_the_shared_page_style_map_and_the_script_from_the_page(): void {
@@ -233,9 +256,10 @@ final class RescuePageTest extends TestCase {
 
 		self::assertStringContainsString( '<h1 class="sw-ui-page-title">Rescue</h1><p class="sw-ui-page-lede">Roll back a change that stopped the site from loading', $html );
 		self::assertSame( 1, substr_count( $html, '<h1' ) );
-		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link sw-ui-band__link--exp" href="[^"]*page=stonewright-rescue" aria-current="page" data-sw-ui-tip="This feature is experimental\.">Rescue<span class="sw-ui-band__exp" aria-hidden="true">EXP<\/span>/', $html, 'Rescue is the current link of the band, in the Activity group, with the EXP marker.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-band__link sw-ui-band__link--exp" href="[^"]*page=stonewright-changes" aria-current="page" data-sw-ui-tip="This feature is experimental\.">Changes<span class="sw-ui-band__exp" aria-hidden="true">EXP<\/span>/', $html, 'Changes is the current link of the band, in the Activity group, with the EXP marker: Rescue is its tab.' );
+		self::assertStringNotContainsString( 'page=stonewright-rescue" aria-current', $html );
 		self::assertStringContainsString( '<span class="sw-ui-band__label" aria-hidden="true">Activity</span>', $html );
-		self::assertStringNotContainsString( 'sw-ui-hubnav', $html, 'Rescue has no tabs of its own.' );
+		self::assertMatchesRegularExpression( '#<nav aria-label="Changes sections"><ul class="sw-ui-hubnav"><li><a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=history">History</a></li><li><a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=rescue" aria-current="page">Rescue</a></li></ul></nav>#', $html, 'The tab bar of the Changes page, with Rescue current.' );
 	}
 
 	public function test_a_warning_callout_says_what_rescue_does_and_what_it_never_does(): void {
@@ -302,12 +326,12 @@ final class RescuePageTest extends TestCase {
 
 		self::assertSame( 1, preg_match( '/<table class="sw-rescue-table"[^>]*data-sw-rescue-table="attention"[^>]*>(.*?)<\/table>/s', $html, $table ) );
 		self::assertMatchesRegularExpression( '/<caption class="screen-reader-text">[^<]+<\/caption>/', $table[1], 'The table has a name.' );
-		foreach ( [ 'Change set', 'When', 'What changed', 'Status', 'Actions' ] as $heading ) {
+		foreach ( [ 'Change', 'When', 'Status', 'Actions' ] as $heading ) {
 			self::assertMatchesRegularExpression( '/<th scope="col">' . preg_quote( $heading, '/' ) . '<\/th>/', $table[1] );
 			self::assertStringContainsString( 'data-label="' . $heading . '"', $table[1], 'Each cell repeats its heading so a row reads alone at 400px.' );
 		}
 		self::assertStringContainsString( '<tr data-sw-rescue-row="' . $entry['id'] . '">', $table[1] );
-		self::assertMatchesRegularExpression( '/<th scope="row" data-label="Change set">/', $table[1], 'The id is the row header.' );
+		self::assertMatchesRegularExpression( '/<th scope="row" data-label="Change"><strong class="sw-rescue-object">/', $table[1], 'The object that changed is the row header.' );
 	}
 
 	public function test_the_change_set_is_named_by_its_short_id_and_can_be_copied_whole(): void {
@@ -316,12 +340,43 @@ final class RescuePageTest extends TestCase {
 
 		$html = $this->html();
 
-		self::assertStringContainsString( '<code class="sw-rescue-id">' . $short . '</code>', $html );
+		self::assertSame( 1, preg_match( '/<details class="sw-rescue-details"><summary>Details<\/summary>(.*?)<\/dl>/s', $html, $details ), 'The ids are in the details of the change, not in front of it.' );
+		self::assertStringContainsString( '<code class="sw-rescue-id">' . $short . '</code>', $details[1] );
 		self::assertMatchesRegularExpression(
-			'/<button type="button"[^>]*\shidden[^>]*data-sw-rescue-copy-text="' . preg_quote( $entry['id'], '/' ) . '"[^>]*aria-label="Copy change set id ' . $short . '"[^>]*>Copy<\/button>/',
-			$html,
-			'A script-only control that copies the full id; hidden until the script runs.'
+			'/<button type="button" class="sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs" hidden data-sw-rescue-copy-text="' . preg_quote( $entry['id'], '/' ) . '">Copy<span class="sw-ui-visually-hidden"> change set id ' . $short . '<\/span><\/button>/',
+			$details[1],
+			'A script-only control that copies the full id; hidden until the script runs, named by what it copies.'
 		);
+	}
+
+	public function test_the_object_and_what_was_done_come_first_and_the_ability_the_client_and_the_codes_are_in_the_details(): void {
+		$_SERVER['HTTP_USER_AGENT'] = 'claude-code/1.4.2 (cli)';
+		$entry = $this->incident();
+		unset( $_SERVER['HTTP_USER_AGENT'] );
+
+		$html = $this->html();
+
+		self::assertSame( 1, preg_match( '/<th scope="row"[^>]*>(.*?)<\/th>/s', $html, $cell ) );
+		$before = explode( '<details class="sw-rescue-details">', $cell[1] )[0];
+		$after  = explode( '<details class="sw-rescue-details">', $cell[1] )[1];
+		self::assertStringContainsString( 'Fixture', $before, 'The title of the post.' );
+		self::assertStringContainsString( 'Changed by elementor v3 batch mutate', $before, 'What was done, in words.' );
+		self::assertStringNotContainsString( 'stonewright/elementor-v3-batch-mutate', $before, 'The ability name is a detail.' );
+		self::assertStringNotContainsString( 'claude-code', $before );
+		self::assertStringNotContainsString( 'critical_error_page', $before, 'The code of the probe is a detail.' );
+		self::assertStringNotContainsString( $entry['id'], $before );
+		self::assertStringContainsString( '<code>stonewright/elementor-v3-batch-mutate</code>', $after );
+		self::assertStringContainsString( '<code>claude-code/1.4.2', $after );
+		self::assertStringContainsString( '<code>critical_error_page</code>', $after );
+		self::assertStringContainsString( $entry['id'], $after );
+	}
+
+	public function test_the_summary_the_history_recorded_is_the_line_under_the_title(): void {
+		$entry = $this->incident();
+		$this->ledger_row_for( (string) $entry['id'] );
+		$GLOBALS['wpdb']->tables[ $GLOBALS['wpdb']->prefix . 'stonewright_changes' ][0]['summary'] = 'Changed the heading of the page.';
+
+		self::assertStringContainsString( '<span class="sw-rescue-sub">Changed the heading of the page.</span>', $this->html() );
 	}
 
 	public function test_a_status_badge_names_the_state_in_words(): void {
@@ -353,7 +408,9 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( '<tr data-sw-rescue-row="' . $entry['id'] . '">', $html );
 		self::assertMatchesRegularExpression( '/<dt>Not verified<\/dt>\s*<dd>1<\/dd>/', $html );
 		self::assertStringContainsString( 'name="action" value="stonewright_rescue_recheck"', $html );
-		self::assertStringContainsString( 'blocks requests from the site to itself', $html, 'Why a change can stay unverified.' );
+		self::assertStringContainsString( 'Not verified means no health check has reported on the change yet. It does not mean the site is broken.', $html, 'What Not verified means, and what it does not.' );
+		self::assertStringNotContainsString( 'blocks requests', $html, 'Nothing blames the host.' );
+		self::assertStringNotContainsString( 'hosting', strtolower( $html ) );
 	}
 
 	public function test_recent_changes_are_listed_with_their_states(): void {
@@ -383,23 +440,92 @@ final class RescuePageTest extends TestCase {
 
 		$html = $this->html();
 
-		self::assertMatchesRegularExpression( '/<button[^>]*aria-label="Roll back change set ' . $short . '"[^>]*>Roll back<\/button>/', $html );
-		self::assertMatchesRegularExpression( '/<button[^>]*aria-label="Check change set ' . $short . ' again"[^>]*>Check again<\/button>/', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm" href="[^"]*page=stonewright-rescue&review=' . preg_quote( $entry['id'], '/' ) . '"[^>]*>Roll back<span class="sw-ui-visually-hidden"> change set ' . $short . '<\/span><\/a>/', $html );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--sm"[^>]*>Check again<span class="sw-ui-visually-hidden"> change set ' . $short . '<\/span><\/button>/', $html );
 	}
 
-	public function test_a_roll_back_form_carries_a_nonce_and_the_incident_and_needs_no_script(): void {
+	public function test_the_first_press_of_roll_back_is_a_link_to_a_review_and_the_form_that_writes_is_not_a_row_control(): void {
 		$entry = $this->incident( 'incident' );
 		$hash  = md5( $entry['id'] );
 
 		$html = $this->html();
 
-		self::assertStringContainsString( 'action="https://example.test/wp-admin/admin-post.php"', $html );
-		self::assertStringContainsString( 'name="action" value="stonewright_rescue_rollback"', $html );
-		self::assertStringContainsString( 'name="incident_id" value="' . $entry['id'] . '"', $html );
-		self::assertStringContainsString( 'name="_stonewright_nonce"', $html );
-		// The row button submits the very form that the dialog shows, so it works with no script.
-		self::assertMatchesRegularExpression( '/<button type="submit" form="sw-rescue-form-' . $hash . '"[^>]*data-sw-rescue-open="sw-rescue-dlg-' . $hash . '"/', $html );
-		self::assertStringContainsString( '<form method="post" action="https://example.test/wp-admin/admin-post.php" id="sw-rescue-form-' . $hash . '"', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm" href="https:\/\/example\.test\/wp-admin\/admin\.php\?page=stonewright-rescue&review=' . preg_quote( $entry['id'], '/' ) . '"[^>]*data-sw-rescue-open="sw-rescue-dlg-' . $hash . '"/', $html );
+		self::assertDoesNotMatchRegularExpression( '/<button[^>]*\sform="sw-rescue-form-/', $html, 'No button posts the form from the row: a press that works without script must not write.' );
+		self::assertSame( 1, preg_match( '/<dialog[^>]*>(.*?)<\/dialog>/s', $html, $dialog ) );
+		self::assertStringContainsString( 'action="https://example.test/wp-admin/admin-post.php"', $dialog[1] );
+		self::assertStringContainsString( 'name="action" value="stonewright_rescue_rollback"', $dialog[1] );
+		self::assertStringContainsString( 'name="incident_id" value="' . $entry['id'] . '"', $dialog[1] );
+		self::assertStringContainsString( 'name="_stonewright_nonce"', $dialog[1] );
+		self::assertStringContainsString( '<form method="post" action="https://example.test/wp-admin/admin-post.php" id="sw-rescue-form-' . $hash . '"', $dialog[1] );
+	}
+
+	// -- The review: the confirmation as a page, with no script ---------------------------------------
+
+	public function test_the_review_is_the_confirmation_as_a_page_and_changes_nothing(): void {
+		$entry = $this->incident( 'incident' );
+		$short = self::short( $entry['id'] );
+		$_GET  = [ 'review' => $entry['id'] ];
+
+		$html = $this->html();
+
+		self::assertStringContainsString( 'data-sw-rescue-probe="ok"', $html, 'It is still the page the health check looks for.' );
+		self::assertSame( 1, preg_match( '/<section class="sw-rescue-review"[^>]*data-sw-rescue-review>(.*?)<\/section>/s', $html, $review ) );
+		self::assertStringContainsString( '<h2 id="sw-rescue-review-title">Roll back change set ' . $short . '?</h2>', $review[1] );
+		self::assertStringContainsString( 'name="action" value="stonewright_rescue_rollback"', $review[1] );
+		self::assertStringContainsString( 'anything saved to it since is overwritten', $review[1] );
+		self::assertStringNotContainsString( '<dialog', $html, 'The review is the page, not a dialog.' );
+		self::assertStringNotContainsString( 'data-sw-rescue-table', $html, 'The list is not printed under it.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn" href="https:\/\/example\.test\/wp-admin\/admin\.php\?page=stonewright-rescue" data-sw-rescue-cancel>Cancel<\/a>/', $review[1], 'Cancel is a link, so it works without script.' );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--danger-solid"[^>]*data-sw-rescue-submit[^>]*>Roll back<\/button>/', $review[1] );
+		self::assertDoesNotMatchRegularExpression( '/<button type="submit"[^>]*\sdisabled/', $review[1], 'Without script the confirm is not held back; the server checks.' );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'Looking changed nothing.' );
+		self::assertSame( 'incident', ChangeJournal::get( $entry['id'] )['state'] );
+		self::assertSame( [], $this->receipts(), 'No receipt: nothing ran.' );
+	}
+
+	public function test_the_review_of_a_change_that_cannot_be_rolled_back_says_so_and_offers_a_way_back(): void {
+		$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/custom-code-provider', 'resource_type' => 'custom_code', 'resource_key' => 'wpcode:9', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $entry['id'], 'rollback_failed' );
+		$gone = $this->html_for( [ 'review' => 'cs-ffffffffffffffffffffffff' ] );
+		$none = $this->html_for( [ 'review' => $entry['id'] ] );
+
+		foreach ( [ $gone, $none ] as $html ) {
+			self::assertStringContainsString( 'Nothing to roll back here', $html );
+			self::assertStringNotContainsString( 'name="action" value="stonewright_rescue_rollback"', $html );
+			self::assertMatchesRegularExpression( '/<a class="sw-ui-btn" href="[^"]*page=stonewright-rescue">Back to Rescue<\/a>/', $html );
+		}
+	}
+
+	public function test_production_safe_review_carries_the_token_and_the_phrase_that_the_server_checks(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$entry = $this->incident( 'incident' );
+
+		$html = $this->html_for( [ 'review' => $entry['id'] ] );
+
+		self::assertSame( 1, preg_match( '/name="confirmation_token" value="(swc_[^"]+)"/', $html, $match ) );
+		self::assertTrue( ConfirmationToken::verify( html_entity_decode( $match[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ) );
+		self::assertMatchesRegularExpression( '/<input type="text" class="sw-ui-input" id="sw-rescue-phrase-[^"]+" name="confirm_phrase"[^>]*data-sw-rescue-phrase="ROLL BACK"/', $html );
+	}
+
+	/** @return list<array<string, mixed>> The receipts of the page's own rollbacks and re-checks. */
+	private function receipts(): array {
+		return array_values(
+			array_filter(
+				array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ),
+				static fn ( array $row ): bool => 'stonewright/rescue-rollback' === ( $row['ability_name'] ?? '' )
+			)
+		);
+	}
+
+	/** @param array<string, string> $get */
+	private function html_for( array $get ): string {
+		$_GET = $get;
+		try {
+			return $this->html();
+		} finally {
+			$_GET = [];
+		}
 	}
 
 	public function test_a_failed_rollback_offers_a_retry_named_as_one(): void {
@@ -408,7 +534,7 @@ final class RescuePageTest extends TestCase {
 
 		$html = $this->html();
 
-		self::assertMatchesRegularExpression( '/<button[^>]*aria-label="Roll back change set ' . $short . ' again"[^>]*>Try again<\/button>/', $html );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn sw-ui-btn--danger sw-ui-btn--sm"[^>]*>Try again<span class="sw-ui-visually-hidden"> to roll back change set ' . $short . '<\/span><\/a>/', $html );
 		self::assertStringContainsString( 'Last attempt: failed (snapshot_missing)', $html, 'The failure is shown on its own row.' );
 	}
 
@@ -436,7 +562,7 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 1, preg_match( '/<dialog class="sw-rescue-dialog" id="sw-rescue-dlg-' . $hash . '" aria-labelledby="sw-rescue-dlg-' . $hash . '-title" data-sw-rescue-dialog>(.*?)<\/dialog>/s', $html, $dialog ) );
 		self::assertStringContainsString( '<h2 id="sw-rescue-dlg-' . $hash . '-title">Roll back change set ' . $short . '?</h2>', $dialog[1] );
 		// A key-value preview of what is touched and how it comes back.
-		self::assertMatchesRegularExpression( '/<dt>What changed<\/dt>\s*<dd>Post 31<\/dd>/', $dialog[1] );
+		self::assertMatchesRegularExpression( '/<dt>What changed<\/dt>\s*<dd>Post 31<\/dd>/', $dialog[1], 'The dialog names the item and not its title: the title is in the row.' );
 		self::assertMatchesRegularExpression( '/<dt>Changed by<\/dt>\s*<dd><code>stonewright\/elementor-v3-batch-mutate<\/code><\/dd>/', $dialog[1] );
 		self::assertMatchesRegularExpression( '/<dt>Restores<\/dt>\s*<dd>Restore post 31/', $dialog[1] );
 		self::assertStringContainsString( 'anything saved to it since is overwritten', $dialog[1], 'The consequence, in one sentence.' );
@@ -446,8 +572,8 @@ final class RescuePageTest extends TestCase {
 		self::assertIsInt( $cancel );
 		self::assertIsInt( $submit );
 		self::assertLessThan( $submit, $cancel );
-		self::assertMatchesRegularExpression( '/<button type="button"[^>]*\sautofocus[^>]*data-sw-rescue-cancel[^>]*>Cancel<\/button>/', $dialog[1] );
-		self::assertMatchesRegularExpression( '/<button type="submit"[^>]*data-sw-rescue-submit[^>]*>Roll back<\/button>/', $dialog[1] );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn" href="[^"]*page=stonewright-rescue"[^>]*data-sw-rescue-cancel[^>]*\sautofocus[^>]*>Cancel<\/a>/', $dialog[1], 'Cancel is a link to the page, which the script turns into closing the dialog.' );
+		self::assertMatchesRegularExpression( '/<button type="submit" class="sw-ui-btn sw-ui-btn--danger-solid"[^>]*data-sw-rescue-submit[^>]*>Roll back<\/button>/', $dialog[1] );
 		self::assertStringContainsString( 'data-sw-busy-label="Rolling back and checking the site..."', $dialog[1] );
 	}
 
@@ -469,12 +595,12 @@ final class RescuePageTest extends TestCase {
 		$html = $this->html();
 
 		self::assertMatchesRegularExpression( '/<label for="sw-rescue-phrase-' . $hash . '">Type ROLL BACK to confirm<\/label>/', $html );
-		self::assertMatchesRegularExpression( '/<input type="text" id="sw-rescue-phrase-' . $hash . '" name="confirm_phrase"[^>]*autocomplete="off"[^>]*data-sw-rescue-phrase="ROLL BACK"/', $html );
+		self::assertMatchesRegularExpression( '/<input type="text" class="sw-ui-input" id="sw-rescue-phrase-' . $hash . '" name="confirm_phrase"[^>]*autocomplete="off"[^>]*data-sw-rescue-phrase="ROLL BACK"/', $html );
 		self::assertSame( 1, preg_match( '/<dialog[^>]*>(.*?)<\/dialog>/s', $html, $dialog ) );
 		self::assertSame( 1, preg_match( '/name="confirmation_token" value="(swc_[^"]+)"/', $dialog[1], $match ) );
 		self::assertTrue( ConfirmationToken::verify( html_entity_decode( $match[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ), 'The token is bound to this ability and this change set.' );
 		// The re-check form carries its own token, bound to that action.
-		self::assertSame( 1, preg_match( '/name="action" value="stonewright_rescue_recheck" \/><input type="hidden" name="incident_id"[^>]*\/><input type="hidden" name="_stonewright_nonce"[^>]*\/><input type="hidden" name="confirmation_token" value="(swc_[^"]+)"/', $html, $recheck ) );
+		self::assertSame( 1, preg_match( '/name="action" value="stonewright_rescue_recheck" \/><input type="hidden" name="incident_id"[^>]*\/><input type="hidden" name="return_to"[^>]*\/><input type="hidden" name="_stonewright_nonce"[^>]*\/><input type="hidden" name="confirmation_token" value="(swc_[^"]+)"/', $html, $recheck ) );
 		self::assertTrue( ConfirmationToken::verify( html_entity_decode( $recheck[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'], 'action' => 'recheck' ] ) );
 		self::assertFalse( ConfirmationToken::verify( html_entity_decode( $recheck[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ), 'A re-check token cannot roll anything back.' );
 	}
@@ -598,7 +724,7 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( 'rolled back', $match[1] );
 		self::assertStringContainsString( 'Receipt', $match[1] );
 		self::assertStringContainsString( '<code class="sw-rescue-id">cs-0123456789abcdef01234567</code>', $match[1] );
-		self::assertMatchesRegularExpression( '/<button type="button"[^>]*\shidden[^>]*data-sw-rescue-copy-text="cs-0123456789abcdef01234567"[^>]*>Copy<\/button>/', $match[1] );
+		self::assertMatchesRegularExpression( '/<button type="button"[^>]*\shidden[^>]*data-sw-rescue-copy-text="cs-0123456789abcdef01234567"[^>]*>Copy<span class="sw-ui-visually-hidden"> receipt id<\/span><\/button>/', $match[1] );
 		self::assertMatchesRegularExpression( '/<a href="[^"]*page=stonewright-audit-log[^"]*ability=stonewright%2Frescue-rollback[^"]*">View in Audit log<\/a>/', $match[1] );
 	}
 
@@ -670,6 +796,29 @@ final class RescuePageTest extends TestCase {
 		self::assertStringNotContainsString( '<dialog', $html );
 	}
 
+	public function test_a_rollback_whose_css_was_not_regenerated_is_a_warning_that_names_the_next_step(): void {
+		$entry = $this->incident();
+		$GLOBALS['stonewright_test_posts'][31]->meta['_elementor_data'] = '[{"id":"c0000001","elType":"container","settings":[],"elements":[]}]';
+		Post::$factory = static function (): object {
+			throw new \RuntimeException( 'generator failed' );
+		};
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		try {
+			$result = RescuePage::process_rollback_request();
+		} finally {
+			Post::$factory = null;
+			RestoredCss::reset();
+			$_POST = [];
+		}
+
+		self::assertSame( 'rolled_back_css_pending', $result['code'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The content is back.' );
+		$_GET = [ 'rescue' => $result['code'], 'incident' => $entry['id'] ];
+		$html = $this->html();
+		self::assertStringContainsString( 'was not regenerated', $html );
+		self::assertStringContainsString( 'stonewright/elementor-css-regenerate', $html );
+	}
+
 	public function test_a_second_roll_back_request_for_the_same_change_set_is_turned_away_and_changes_nothing(): void {
 		$entry = $this->incident();
 		ChangeJournal::claim( $entry['id'], 'ability' );
@@ -708,7 +857,8 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( self::short( $entry['id'] ), $table[1] );
 		self::assertStringContainsString( 'name="action" value="stonewright_rescue_rollback"', $table[1] );
 		self::assertStringContainsString( 'name="incident_id" value="' . $entry['id'] . '"', $table[1] );
-		self::assertStringContainsString( 'aria-label="Roll back change set ' . self::short( $entry['id'] ) . '"', $table[1] );
+		self::assertStringContainsString( 'review=' . $entry['id'], $table[1], 'The press is a link to the review.' );
+		self::assertStringContainsString( 'Roll back<span class="sw-ui-visually-hidden"> change set ' . self::short( $entry['id'] ) . '</span>', $table[1] );
 		self::assertStringContainsString( '<dialog', $table[1] );
 		self::assertStringNotContainsString( 'stonewright_rescue_recheck', $table[1], 'A verified change has nothing to check again.' );
 		self::assertSame( 1, substr_count( $html, 'data-sw-rescue-dialog' ), 'One dialog per change.' );
@@ -868,7 +1018,7 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( 'data-sw-rescue-phrase="ROLL BACK"', $html );
 		self::assertStringContainsString( 'name="confirmation_token"', $html );
 
-		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'], 'confirm_phrase' => 'ROLL BACK' ];
 		self::assertSame( 'confirmation_required', RescuePage::process_rollback_request()['code'] );
 		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
 		self::assertSame( 'verified', ChangeJournal::get( $entry['id'] )['state'] );
@@ -1022,12 +1172,29 @@ final class RescuePageTest extends TestCase {
 	public function test_production_safe_mode_refuses_a_rollback_without_its_token(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 		$entry = $this->incident();
-		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'], 'confirm_phrase' => 'ROLL BACK' ];
 
 		$result = RescuePage::process_rollback_request();
 
 		self::assertSame( 'confirmation_required', $result['code'] );
 		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_production_safe_mode_refuses_a_missing_or_wrong_phrase_on_the_server_and_runs_nothing(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$entry = $this->incident();
+		$token = ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] );
+
+		foreach ( [ [], [ 'confirm_phrase' => 'roll back' ], [ 'confirm_phrase' => 'ROLL BACK NOW' ] ] as $extra ) {
+			$_POST = array_merge( [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'], 'confirmation_token' => $token ], $extra );
+			self::assertSame( 'confirmation_phrase', RescuePage::process_rollback_request()['code'] );
+		}
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		self::assertSame( 'rollback_failed', ChangeJournal::get( $entry['id'] )['state'] );
+		self::assertSame( [], $this->receipts(), 'A refused confirmation is not a run and has no receipt.' );
+
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'], 'confirmation_token' => $token, 'confirm_phrase' => ' ROLL BACK ' ];
+		self::assertSame( 'rolled_back', RescuePage::process_rollback_request()['code'], 'The token was not spent by the refusals.' );
 	}
 
 	public function test_production_safe_mode_accepts_the_token_the_page_issued(): void {
@@ -1037,11 +1204,153 @@ final class RescuePageTest extends TestCase {
 			'_stonewright_nonce' => 'x',
 			'incident_id'        => $entry['id'],
 			'confirmation_token' => ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ),
+			'confirm_phrase'     => 'ROLL BACK',
 		];
 
 		$result = RescuePage::process_rollback_request();
 
 		self::assertSame( 'rolled_back', $result['code'] );
+	}
+
+	// -- A rollback over later edits needs the box ticked ---------------------------------------------
+
+	public function test_an_ordinary_rollback_over_a_newer_change_is_refused_until_the_box_is_ticked(): void {
+		$entry = $this->incident( 'verified' );
+		$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $newer['id'], 'verified' );
+		$html = $this->html_for( [ 'review' => $entry['id'] ] );
+
+		self::assertMatchesRegularExpression( '/<input type="checkbox" id="sw-rescue-review-drift" name="force_drift" value="1" required/', $html, 'The review asks the person to say they know.' );
+
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		self::assertSame( 'drift', RescuePage::process_rollback_request()['code'] );
+		self::assertSame( 'broken body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The later edit is kept.' );
+		self::assertSame( [], $this->receipts() );
+
+		$_POST['force_drift'] = '1';
+		self::assertSame( 'rolled_back', RescuePage::process_rollback_request()['code'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_the_box_is_shown_when_the_engine_says_a_confirmation_is_needed_and_not_otherwise(): void {
+		$with = $this->incident( 'verified', 31 );
+		$none = $this->incident( 'verified', 32 );
+		$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $newer['id'], 'verified' );
+
+		self::assertStringContainsString( 'name="force_drift"', $this->html_for( [ 'review' => $with['id'] ] ), 'A later change to the item: the engine asks.' );
+		self::assertStringNotContainsString( 'name="force_drift"', $this->html_for( [ 'review' => $none['id'] ] ), 'Nothing later: it does not.' );
+	}
+
+	public function test_the_refusals_that_ran_nothing_come_back_to_the_review_and_the_others_to_the_page(): void {
+		$where = static fn ( string $code ): string => RescuePage::outcome_url( [ 'code' => $code, 'incident_id' => 'cs-abc' ] );
+
+		foreach ( [ 'confirmation_phrase', 'confirmation_invalid', 'confirmation_required', 'drift', 'changed_since_preview' ] as $code ) {
+			self::assertStringContainsString( 'review=cs-abc', $where( $code ), $code );
+		}
+		foreach ( [ 'rolled_back', 'rollback_failed', 'in_progress', 'not_found' ] as $code ) {
+			self::assertStringNotContainsString( 'review=', $where( $code ), $code );
+		}
+	}
+
+	// -- What a health check said ----------------------------------------------------------------------
+
+	public function test_the_kinds_of_a_health_check_are_told_apart_and_only_one_of_them_says_the_site_failed(): void {
+		$leg = static fn ( string $status, string $reason ): array => [ 'status' => 'failed' === $status ? 'failed' : 'unavailable', 'coverage' => 'none', 'legs' => [ [ 'leg' => 'home', 'status' => $status, 'http' => 0, 'reason' => $reason ] ] ];
+
+		self::assertSame( 'healthy', RescuePage::verification_kind( [ 'status' => 'passed', 'legs' => [] ] ) );
+		self::assertSame( 'site_failed', RescuePage::verification_kind( [ 'status' => 'failed', 'legs' => [ [ 'leg' => 'home', 'status' => 'failed', 'http' => 500, 'reason' => 'http_500' ] ] ] ) );
+		self::assertSame( 'site_failed', RescuePage::verification_kind( $leg( 'failed', 'critical_error_page' ) ), 'A failed leg is the site failing, whatever the total says.' );
+		self::assertSame( 'not_started', RescuePage::verification_kind( $leg( 'unavailable', 'token_unavailable' ) ) );
+		self::assertSame( 'not_started', RescuePage::verification_kind( [ 'status' => 'unavailable', 'unavailable_reason' => 'token_unavailable' ] ) );
+		foreach ( [ 'no_response', 'redirect', 'http_403', 'http_404', 'login_required', 'unexpected_body', 'budget', 'degraded_no_response', 'a_code_nobody_has_met' ] as $reason ) {
+			self::assertSame( 'unreachable', RescuePage::verification_kind( $leg( 'unavailable', $reason ) ), $reason . ' is a check with no verdict, never a failed site.' );
+		}
+		self::assertSame( 'unknown', RescuePage::verification_kind( [] ) );
+		self::assertSame( 'unknown', RescuePage::verification_kind( [ 'status' => 'unavailable', 'legs' => [] ] ) );
+		self::assertSame( 'check_lost', RescuePage::verification_kind( [ 'status' => 'failed', 'coverage' => 'partial', 'legs' => [ [ 'leg' => 'admin', 'status' => 'failed', 'http' => 0, 'reason' => 'degraded_no_response' ] ] ] ), 'A check that passed before and does not answer now is not a failed site.' );
+	}
+
+	/** @return array<string, mixed> An unverified entry with the probe the journal would hold. */
+	private function unverified( array $probe ): array {
+		$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::record_probe( $entry['id'], $probe );
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] = static fn (): int => time() + 4000;
+		return $entry;
+	}
+
+	public function test_a_change_whose_check_could_not_start_says_so_and_does_not_say_the_site_is_broken(): void {
+		$this->post( 31, 'x' );
+		$this->unverified( [ 'status' => 'unavailable', 'coverage' => 'none', 'legs' => [ [ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'token_unavailable', 'ms' => 0 ] ], 'checked_at' => time() ] );
+
+		$html = $this->html();
+		unset( $GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] );
+
+		self::assertMatchesRegularExpression( '/data-sw-rescue-verification="not_started">The health check could not start, so this change has not been checked\. That says nothing about the site\.<\/span>/', $html );
+		self::assertSame( 1, preg_match( '/<th scope="row"[^>]*>(.*?)<details/s', $html, $cell ) );
+		self::assertStringNotContainsString( 'token_unavailable', $cell[1], 'The technical code is in the details.' );
+		self::assertStringContainsString( '<code>token_unavailable</code>', $html );
+		self::assertStringNotContainsString( 'broken', strtolower( $cell[1] ) );
+		self::assertStringNotContainsString( 'host', strtolower( $html ) );
+	}
+
+	public function test_a_change_whose_check_got_no_answer_says_the_result_is_unknown_and_the_site_may_be_fine(): void {
+		$this->post( 31, 'x' );
+		$this->unverified( [ 'status' => 'unavailable', 'coverage' => 'none', 'legs' => [ [ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'no_response', 'ms' => 10 ] ], 'checked_at' => time() ] );
+
+		$html = $this->html();
+		unset( $GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] );
+
+		self::assertMatchesRegularExpression( '/data-sw-rescue-verification="unreachable">The health check got no answer it could judge, so the result is unknown\. The site may be fine\.<\/span>/', $html );
+		self::assertStringContainsString( '<code>no_response</code>', $html );
+	}
+
+	public function test_a_change_with_no_result_at_all_says_none_was_recorded_yet(): void {
+		$this->post( 31, 'x' );
+		ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] = static fn (): int => time() + 4000;
+
+		$html = $this->html();
+		unset( $GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] );
+
+		self::assertStringContainsString( 'No health check has reported on this change yet. That says nothing about the site.', $html );
+	}
+
+	public function test_a_site_that_failed_says_so_with_the_words_for_it(): void {
+		$entry = $this->incident( 'incident' );
+		$html  = $this->html();
+
+		self::assertStringContainsString( 'A fatal error was recorded after this change.', $html );
+		self::assertStringContainsString( $entry['id'], $html );
+		$entry = $this->incident( 'rollback_failed', 32 );
+		self::assertStringContainsString( 'The site failed after this change and the automatic rollback did not finish.', $this->html() );
+	}
+
+	public function test_a_check_again_with_no_verdict_is_not_reported_as_a_site_that_failed(): void {
+		$entry = $this->incident( 'rollback_failed' );
+		HealthProbe::set_transport( static fn ( string $url, array $args ): array => [ 'response' => [ 'code' => 0 ], 'body' => '', 'headers' => [] ] );
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+
+		$result = RescuePage::process_recheck_request();
+
+		self::assertSame( 'rechecked_unreachable', $result['code'] );
+		self::assertSame( 'rollback_failed', ChangeJournal::get( $entry['id'] )['state'], 'The incident stays open.' );
+		$_GET = [ 'rescue' => 'rechecked_unreachable', 'incident' => $entry['id'] ];
+		$html = $this->html();
+		self::assertStringContainsString( 'no answer it could judge', $html );
+		self::assertStringContainsString( 'The site may be fine', $html );
+		self::assertStringNotContainsString( 'found the site failing', $html );
+	}
+
+	public function test_every_outcome_message_is_neutral_about_the_host_and_the_site_when_the_check_gave_no_verdict(): void {
+		foreach ( [ 'rolled_back_unverified', 'rechecked_open', 'rechecked_not_started', 'rechecked_unreachable' ] as $code ) {
+			$_GET = [ 'rescue' => $code, 'incident' => 'cs-abc' ];
+			$text = strtolower( $this->html() );
+			self::assertStringContainsString( 'data-sw-rescue-result', $text, $code );
+			self::assertStringNotContainsString( 'host', $text, $code );
+			self::assertStringNotContainsString( 'blocks requests', $text, $code );
+			self::assertStringNotContainsString( 'site is broken', $text, $code );
+		}
 	}
 
 	public function test_a_rollback_that_fails_is_reported_and_leaves_the_incident_open(): void {
@@ -1078,7 +1387,7 @@ final class RescuePageTest extends TestCase {
 		$this->site( static fn (): string => 'broken' );
 		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
 
-		self::assertSame( 'rechecked_open', RescuePage::process_recheck_request()['code'] );
+		self::assertSame( 'rechecked_site_failed', RescuePage::process_recheck_request()['code'] );
 	}
 
 	// -- Assets ------------------------------------------------------------------
@@ -1106,7 +1415,7 @@ final class RescuePageTest extends TestCase {
 		$raw = self::css();
 		$css = (string) preg_replace( '~/\*.*?\*/~s', '', $raw );
 
-		self::assertLessThan( 4096, strlen( $raw ), 'A page stylesheet stays small.' );
+		self::assertLessThan( 6144, strlen( $raw ), 'A page stylesheet stays small.' );
 		self::assertStringContainsString( 'var(--sw-', $css );
 		self::assertDoesNotMatchRegularExpression( '/#[0-9a-fA-F]{3,8}\b/', $css, 'No raw colours.' );
 		self::assertDoesNotMatchRegularExpression( '/\brgba?\s*\(|\bhsla?\s*\(/', $css, 'No colour functions.' );
@@ -1118,12 +1427,14 @@ final class RescuePageTest extends TestCase {
 		self::assertDoesNotMatchRegularExpression( '/border-radius:\s*\d/', $css, 'Radii come from tokens.' );
 	}
 
-	public function test_the_stylesheet_stacks_the_table_and_sizes_touch_targets_for_narrow_screens(): void {
+	public function test_the_stylesheet_stacks_the_table_and_leaves_the_size_of_every_control_to_the_layer(): void {
 		$css = self::css();
 
 		self::assertStringContainsString( '@media (max-width: 782px)', $css );
 		self::assertStringContainsString( 'content: attr(data-label)', $css, 'Cells repeat their heading when stacked.' );
-		self::assertStringContainsString( 'min-height: 44px', $css, 'Touch targets on narrow screens.' );
+		self::assertDoesNotMatchRegularExpression( '/(?:button|input|select|\.sw-btn|-btn)[^{]*\{[^}]*(?:min-|max-)?height\s*:/', $css, 'The layer sizes every control, at 44px on a narrow screen too.' );
+		self::assertDoesNotMatchRegularExpression( '/\.sw-btn|\.sw-rescue-solid/', $css, 'No button system of its own.' );
+		self::assertMatchesRegularExpression( '/\.sw-rescue-page \.sw-ui-actions > form \{ display: contents; \}/', $css, 'A form in an action row is not a box of its own: its button is a member of the row.' );
 		self::assertStringContainsString( 'overflow-wrap: anywhere', $css, 'Long ids wrap at 400px.' );
 		self::assertStringContainsString( '::backdrop', $css );
 		self::assertMatchesRegularExpression( '/\.sw-rescue-page \[hidden\][^{]*\{\s*display:\s*none/', $css, 'The hidden attribute must beat the button display rule.' );
@@ -1135,7 +1446,10 @@ final class RescuePageTest extends TestCase {
 		foreach ( [ 'showModal', 'data-sw-rescue-open', 'data-sw-rescue-cancel', 'data-sw-rescue-phrase', 'data-sw-rescue-copy', 'data-sw-rescue-copy-text', 'data-sw-rescue-form', 'navigator.clipboard', 'execCommand', "'close'" ] as $needle ) {
 			self::assertStringContainsString( $needle, $js, $needle );
 		}
-		self::assertStringContainsString( "typeof dialog.showModal !== 'function'", $js, 'Without dialog support the button posts the form directly.' );
+		self::assertStringContainsString( "typeof dialog.showModal !== 'function'", $js, 'Without dialog support the link is followed, to the review.' );
+		self::assertStringContainsString( 'initPhrases', $js, 'The typed phrase holds the button back on the review as well as in the dialog.' );
+		self::assertMatchesRegularExpression( '/event\.preventDefault\(\);\s*dialog\.close\(\);/', $js, 'Cancel is a link: closing the dialog in place stops the navigation.' );
+		self::assertDoesNotMatchRegularExpression( '/\.submit\(\)|form\.requestSubmit|dispatchEvent\( new Event\( [\'"]submit/', $js, 'The script never submits a form by itself.' );
 		self::assertStringContainsString( 'pageshow', $js, 'Back and forward must not leave a form stuck.' );
 		foreach ( [ 'eval(', 'innerHTML', 'setInterval', 'setTimeout( poll', 'window.confirm', 'window.alert', 'XMLHttpRequest', 'fetch(' ] as $forbidden ) {
 			self::assertStringNotContainsString( $forbidden, $js, $forbidden );
@@ -1154,8 +1468,12 @@ final class RescuePageTest extends TestCase {
 		self::assertIsArray( $row, is_wp_error( $row ) ? $row->get_error_message() : '' );
 	}
 
-	public function test_the_header_links_to_the_changes_page_for_history(): void {
-		self::assertMatchesRegularExpression( '/<a class="sw-btn sw-btn--secondary" href="[^"]*page=stonewright-changes">View changes<\/a>/', $this->html() );
+	public function test_the_history_is_one_tab_away_in_the_tab_bar_and_the_header_has_no_second_button_for_it(): void {
+		$html = $this->html();
+
+		self::assertMatchesRegularExpression( '#<a class="sw-ui-hubnav__link" href="[^"]*page=stonewright-changes&tab=history">History</a>#', $html );
+		self::assertStringNotContainsString( 'View changes', $html );
+		self::assertStringNotContainsString( 'sw-ui-page-header__aside', $html );
 	}
 
 	public function test_a_journal_row_with_a_ledger_row_links_to_its_diff_and_a_row_without_one_does_not(): void {
@@ -1165,8 +1483,8 @@ final class RescuePageTest extends TestCase {
 
 		$html = $this->html();
 
-		self::assertSame( 1, substr_count( $html, '>View diff</a>' ), 'Only the row that has a ledger row links.' );
-		self::assertMatchesRegularExpression( '/<a class="sw-btn sw-btn--secondary sw-btn--sm" href="[^"]*page=stonewright-changes&change=' . preg_quote( (string) $with['id'], '/' ) . '" aria-label="View diff of change set ' . self::short( (string) $with['id'] ) . '">View diff<\/a>/', $html );
+		self::assertSame( 1, substr_count( $html, '>View diff<' ), 'Only the row that has a ledger row links.' );
+		self::assertMatchesRegularExpression( '/<a class="sw-ui-btn sw-ui-btn--sm" href="[^"]*page=stonewright-changes&change=' . preg_quote( (string) $with['id'], '/' ) . '">View diff<span class="sw-ui-visually-hidden"> of change set ' . self::short( (string) $with['id'] ) . '<\/span><\/a>/', $html );
 		self::assertStringNotContainsString( 'change=' . $without['id'], $html );
 	}
 
@@ -1177,8 +1495,138 @@ final class RescuePageTest extends TestCase {
 		$html = $this->html();
 
 		self::assertStringContainsString( 'Roll back', $html );
-		self::assertStringNotContainsString( '>View diff</a>', $html );
-		self::assertStringContainsString( 'View changes', $html );
+		self::assertStringNotContainsString( '>View diff<', $html );
+		self::assertStringContainsString( 'data-sw-rescue-probe="ok"', $html );
+		self::assertStringContainsString( 'Recent changes only Rescue keeps', $html );
+	}
+
+	// -- Action rows ---------------------------------------------------------------------------------------
+
+	/** The first row of actions of a table row, as its controls in order. @return list<string> */
+	private static function row_controls( string $html, string $id ): array {
+		self::assertSame( 1, preg_match( '/<tr data-sw-rescue-row="' . preg_quote( $id, '/' ) . '">(.*?)<\/tr>/s', $html, $row ), 'The row is there.' );
+		self::assertSame( 1, preg_match( '/<td data-label="Actions">(.*)<\/td>/s', $row[1], $cell ) );
+		self::assertSame( 1, preg_match( '/<div class="sw-ui-actions" data-sw-actions>(.*?)<\/div>(?=<p class="sw-rescue-note">|<dialog|$)/s', $cell[1], $group ), 'The actions are one row of the layer.' );
+		preg_match_all( '/<(?:a|button) [^>]*>[^<]*(?:<span[^>]*>[^<]*<\/span>)?<\/(?:a|button)>/', $group[1], $controls );
+		return array_map( static fn ( string $control ): string => trim( (string) preg_replace( '/\s+/', ' ', strip_tags( $control ) ) ), $controls[0] );
+	}
+
+	public function test_a_not_verified_row_has_its_three_actions_in_one_row_in_one_order(): void {
+		$entry = $this->incident( 'armed' );
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] = static fn (): int => time() + 4000;
+		$this->ledger_row_for( (string) $entry['id'] );
+		$html = $this->html();
+		unset( $GLOBALS['stonewright_test_filters']['stonewright_rescue_now'] );
+		$short = self::short( $entry['id'] );
+
+		self::assertSame(
+			[ 'Roll back change set ' . $short, 'Check again change set ' . $short, 'View diff of change set ' . $short ],
+			self::row_controls( $html, $entry['id'] ),
+			'Roll back, Check again and View diff share one row: the same height, one gap, no stacking.'
+		);
+		// Every control of the row is a button of the layer, so the size tokens decide its height.
+		self::assertDoesNotMatchRegularExpression( '/class="sw-btn/', $html, 'No control of the older button system.' );
+		self::assertSame( 1, preg_match( '/<td data-label="Actions">.*?<\/td>/s', $html, $cell ) );
+		self::assertSame( 1, substr_count( $cell[0], 'class="sw-ui-actions"' ), 'One group per row.' );
+	}
+
+	public function test_a_note_about_a_missing_action_is_under_the_row_never_in_it(): void {
+		$entry = ChangeJournal::arm( [ 'ability' => 'stonewright/custom-code-provider', 'resource_type' => 'custom_code', 'resource_key' => 'wpcode:9', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $entry['id'], 'rollback_failed' );
+
+		$html = $this->html();
+
+		self::assertSame( 1, preg_match( '/<td data-label="Actions">(.*?)<\/td>/s', $html, $cell ) );
+		self::assertMatchesRegularExpression( '/<\/div><p class="sw-rescue-note">No automatic rollback is available for this change\. Undo it by hand, then check the site again\.<\/p>$/', $cell[1], 'The note follows the row.' );
+		self::assertStringNotContainsString( 'sw-rescue-note', (string) preg_replace( '/<\/div><p class="sw-rescue-note">.*$/s', '</div>', $cell[1] ), 'And nothing of it is inside.' );
+	}
+
+	public function test_open_in_safe_mode_is_in_the_header_as_a_row_with_the_help_under_it_and_described_by_it(): void {
+		RescuePage::set_safe_mode_resolver( static fn ( int $user_id ): ?string => 'https://example.test/x' );
+
+		$html = $this->html();
+
+		self::assertSame( 1, preg_match( '/<div class="sw-ui-page-header__aside">(.*?)<\/form><\/div><\/header>/s', $html, $aside ), 'Where it always was: the header.' );
+		self::assertStringContainsString( 'class="sw-rescue-header-action"', $aside[1] );
+		$button = strpos( $aside[1], '<div class="sw-ui-actions" data-sw-actions><button type="submit" class="sw-ui-btn" aria-describedby="sw-rescue-safe-help">Open in safe mode</button></div>' );
+		$help   = strpos( $aside[1], '<p class="sw-rescue-note" id="sw-rescue-safe-help">Loads WordPress with only Stonewright and a default theme. The link works once.</p>' );
+		self::assertIsInt( $button );
+		self::assertIsInt( $help );
+		self::assertLessThan( $help, $button, 'The help is under the row and described by the button, so a longer help moves nothing.' );
+		self::assertStringContainsString( 'name="return_to" value="rescue"', $aside[1] );
+		self::assertStringNotContainsString( 'sw-rescue-panel', $html );
+		self::assertStringNotContainsString( 'View changes', $html, 'The tab bar is the way to History.' );
+	}
+
+	// -- The history and the fallback -------------------------------------------------------------------
+
+	/** A ledger row for a change, with a before image, so that it is one the history can undo. */
+	private function undoable_row( string $change_id, string $family = 'elementor' ): void {
+		$db = new LedgerWpdb();
+		$db->unique[ $db->prefix . 'stonewright_changes' ] = [ 'change_id' ];
+		$GLOBALS['wpdb'] = $db;
+		ChangeLedger::reset_schema_health_cache_for_tests();
+		$row = ChangeLedger::record( [ 'change_id' => $change_id, 'ability' => 'stonewright/elementor-v3-batch-mutate', 'family' => $family, 'resource_type' => 'post', 'resource_id' => '31', 'before' => [ 'post_content' => 'x' ] ] );
+		self::assertIsArray( $row, is_wp_error( $row ) ? $row->get_error_message() : '' );
+	}
+
+	public function test_a_recent_change_the_history_can_undo_is_on_the_history_tab_and_not_listed_twice(): void {
+		$owned = $this->incident( 'verified', 31 );
+		$this->undoable_row( (string) $owned['id'] );
+		RollbackFamilies::register( new FakeFamilyHandler( 'elementor' ) );
+		try {
+			$html = $this->html();
+		} finally {
+			RollbackFamilies::reset_for_tests();
+		}
+
+		self::assertStringNotContainsString( '<tr data-sw-rescue-row="' . $owned['id'] . '">', $html );
+		self::assertStringContainsString( '1 recent change is on the History tab, with its diff and Undo.', $html );
+		self::assertMatchesRegularExpression( '#<a href="[^"]*page=stonewright-changes">Open History</a>#', $html );
+		self::assertStringContainsString( 'Every other recent change is in History, or none has been journaled yet.', $html );
+	}
+
+	public function test_a_recent_change_the_history_cannot_undo_stays_here_with_its_rollback(): void {
+		$no_row     = $this->incident( 'verified', 31 );
+		$no_handler = $this->incident( 'verified', 32 );
+		$this->undoable_row( (string) $no_handler['id'], 'family_without_a_handler' );
+
+		$html = $this->html();
+
+		self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $no_row['id'] . '">' ), 'No row in the history: the journal is the only record.' );
+		self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $no_handler['id'] . '">' ), 'A row nothing can restore: the rescue recipe is the only way back.' );
+		self::assertSame( 2, substr_count( $html, 'data-sw-rescue-dialog' ), 'Every recoverable action is kept.' );
+		self::assertStringNotContainsString( 'on the History tab', $html );
+	}
+
+	public function test_when_the_ledger_cannot_be_read_every_recent_change_stays_here(): void {
+		$one = $this->incident( 'verified', 31 );
+		$two = $this->incident( 'verified', 32 );
+		$GLOBALS['wpdb'] = new \stdClass();
+
+		$html = $this->html();
+
+		self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $one['id'] . '">' ) );
+		self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $two['id'] . '">' ) );
+		self::assertSame( 2, substr_count( $html, 'data-sw-rescue-dialog' ) );
+	}
+
+	public function test_a_ledger_that_throws_on_every_question_leaves_every_row_and_every_action(): void {
+		$one   = $this->incident( 'verified', 31 );
+		$two   = $this->incident( 'verified', 32 );
+		$three = $this->incident( 'verified', 33 );
+		$GLOBALS['wpdb'] = new class() extends LedgerWpdb {
+			public function get_row( $query = null, $output = OBJECT, $y = 0 ) {
+				throw new \RuntimeException( 'ledger down' );
+			}
+		};
+
+		$html = $this->html();
+
+		foreach ( [ $one, $two, $three ] as $entry ) {
+			self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $entry['id'] . '">' ) );
+		}
+		self::assertSame( 3, substr_count( $html, 'data-sw-rescue-dialog' ) );
 	}
 
 	private static function remove_tree( string $dir ): void {

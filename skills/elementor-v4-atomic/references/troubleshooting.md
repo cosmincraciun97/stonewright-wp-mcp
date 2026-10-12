@@ -2,14 +2,10 @@
 
 ## stonewright_feature_disabled
 
-`permission_callback` rejected the call because `stonewright_elementor_v4_atomic`
-is not set in wp-options.
+The call was refused because the `stonewright_elementor_v4_atomic` option is off.
 
-Resolution: ask the user to run in WP-CLI:
-```
-wp option update stonewright_elementor_v4_atomic 1
-```
-or toggle the option via the Stonewright settings screen.
+Resolution: ask the user to turn on **Elementor V4 atomic abilities** in
+Stonewright > Setup > Settings. Do not change the option yourself.
 
 ## renderer_missing
 
@@ -17,7 +13,8 @@ The `ElementorV4SpecRenderer` class is absent from this plugin build. This
 renderer is conditionally included. Check the plugin version and whether
 the V4 add-on was bundled.
 
-Resolution: downgrade to `design-spec-to-elementor-v3` for the same spec.
+Resolution: report V4 rendering as unavailable; use `design-spec-to-elementor-v3` for
+the same spec only after the user agrees.
 
 ## stonewright_v4_unknown_node
 

@@ -33,6 +33,8 @@ reported back), each with the rollback it would run, and the `recent` changes.
 | `stonewright_rescue_in_progress` | Another caller is already rolling this change set back | Wait a minute, then call `stonewright-rescue-status`; do not start a second rollback |
 | `stonewright_rescue_undo_reverted` | The undo of a verified change would have broken the site, so it was put back and the change is still in effect | Report it to the user with the evidence in the message. Do not retry the undo; the older state fails on this site |
 | `stonewright_rescue_undo_capture_failed` | The current state could not be saved first, so the undo was refused and nothing changed | Report it to the user. Do not work around it |
+| `stonewright_change_drift` | The item was edited after the change, so the rollback was refused and nothing changed | Show the user what changed since (`newer_changes`, `warnings`). Run again with `force_drift` true and `expected_current_sha256` from the dry run only when the user agreed to overwrite those edits. `force_drift` without the hash is refused with `stonewright_change_drift_hash_required` |
+| `stonewright_change_changed_since_preview` | The item is not in the state the dry run showed | Run the dry run again and ask the user again |
 | `stonewright_rescue_undo_revert_failed` | The undo broke the site and the earlier state could not be put back, so the site may be failing and an incident is open | Report it to the user with the evidence in the message. Point to safe mode at **Stonewright > Activity > Rescue**. Do not retry |
 | `stonewright_rescue_approval_required` | A verified change to code (theme file, custom code, sandbox file, Customizer CSS) can be undone only by an administrator | Show the user the change and `approval_url`, ask them to use **Stonewright > Activity > Rescue**, then stop. Do not retry |
 
@@ -40,9 +42,14 @@ reported back), each with the rollback it would run, and the `recent` changes.
 
 1. Call `stonewright-rescue-rollback` with `incident_id` and `dry_run` true. It
    returns the plan in `recipe.plan` and changes nothing. Tell the user what it
-   will restore, and how old the change is (`age_seconds`). When `warnings` is
-   present, a newer change to the same item exists (`newer_changes`) and the
-   rollback would overwrite it: stop and ask the user before going on.
+   will restore, and how old the change is (`age_seconds`). When `drift` or
+   `requires_force` is true, or `warnings` is present, the item changed after the
+   change (`newer_changes`) and the rollback would overwrite it: stop and ask the
+   user before going on. A rollback is refused with `stonewright_change_drift`
+   until `force_drift` true and `expected_current_sha256` (the `current_sha256` of
+   the dry run) confirm it, for a change that was never verified as for a
+   verified one. A site that is failing now, with an incident or a failed
+   rollback recorded for the change, is recovered without that.
 2. In production-safe mode, call `stonewright-security-issue-confirmation-token`
    with `ability` `stonewright/rescue-rollback` and `args` holding exactly the
    arguments of the call that follows. A token fits one call.
@@ -64,15 +71,17 @@ fail, it is put back and the answer is `stonewright_rescue_undo_reverted`.
 
 ## Find and undo a change from the history
 
-Stonewright keeps a history of changes to posts, Elementor documents, options,
-menus, widgets, theme and custom code, users, comments, media, WooCommerce, skills,
-design directions and memory. Use it when the user asks what changed, or wants one
+Stonewright keeps a history of changes to posts, Elementor documents, Gutenberg
+content, templates and global styles, options, menus, widgets, theme files and
+custom code, plugins, users, comments, media, WooCommerce, skills, design
+directions and memory. Use it when the user asks what changed, or wants one
 change undone or redone. It needs an administrator account, and it is separate from
 the incident flow above.
 
 1. **Find it.** Call `stonewright-change-history-list`. Filter with `resource` (a
-   post id, an option name, a file path), `family`, `ability`, `status`, `from` and
-   `to`, or `restorable` true. A row is short: `change_id`, `time`, `summary`,
+   post id, an option name, a file path), `family`, `ability`, `actor`, `status`,
+   `kind`, `from` and `to` (YYYY-MM-DD, UTC), or `restorable` true. A row is short:
+   `change_id`, `time`, `summary`,
    `status`, `restorable` and why not, `parent_id` and `children`. Page with `page`
    and `per_page`.
 2. **Read the diff.** Call `stonewright-change-diff-get` with the `change_id`. It
@@ -85,9 +94,10 @@ the incident flow above.
    `dry_run` true, and tell the user what it would restore. Stop and ask before
    going on when `drift` is true or newer changes exist: the undo overwrites them.
 4. **Run it** with `dry_run` false. Add `force_drift` true only when the user agreed
-   to overwrite later edits, and `expected_current_sha256` from the plan to undo
-   exactly the state the user saw. In production-safe mode call
-   `stonewright-security-issue-confirmation-token` with `ability`
+   to overwrite later edits, and `expected_current_sha256` (the plan's
+   `current_sha256`) to undo exactly the state the user saw. `permanent` true
+   removes an upload the change created for good; add it only when the user asks.
+   In production-safe mode call `stonewright-security-issue-confirmation-token` with `ability`
    `stonewright/change-rollback` and `args` set to the `confirmation_args` that the
    dry run returned, unchanged, then pass the token as `confirmation_token`. A token
    fits one call.
@@ -108,8 +118,10 @@ around it. `wp stonewright changes rollback` is not the administrator either.
 ## After a fix by hand
 
 When a person undid the change, call `stonewright-rescue-rollback` with
-`action` `recheck`. It probes again and closes the incident when the site loads.
-It never changes the site. In production-safe mode it needs a confirmation
+`action` `recheck`. It probes again and closes the incident when every check that
+passed before the change passes again; `verification_reason` says why it did not
+(`not_started`, `transport_unavailable`, `check_lost` or `site_failed`). It never
+changes the site. In production-safe mode it needs a confirmation
 token, even with `dry_run`, because it can close the incident.
 
 ## Forbidden

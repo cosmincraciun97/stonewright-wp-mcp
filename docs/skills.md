@@ -23,7 +23,7 @@ These are per-machine, not shared across operators like the plugin Admin UI skil
 ### Built-in Direct skills
 
 The companion package ships `companion/skills-builtin/` and seeds them into
-`~/.stonewright/skills/_builtin/` on Direct startup (**copy-if-missing**):
+`~/.stonewright/skills/_builtin/` on Direct startup:
 
 | Skill | Purpose |
 |---|---|
@@ -36,8 +36,15 @@ The companion package ships `companion/skills-builtin/` and seeds them into
 | `remote-direct-tool-path` | For remote or live Direct work, use remote REST and admin HTTP only, never local WP-CLI or MySQL |
 | `single-environment-scope` | Change only the site or environment the user named |
 
-User edits to a seeded skill file are **never overwritten** on upgrade. Deleting
-a builtin file restores it on the next seed.
+A seeded file is kept in step with the package. A missing file is copied, so
+deleting a built-in file restores it on the next seed. A copy that still holds a
+text an earlier release shipped, that is, one nobody edited, is replaced with the
+current text when the companion starts after an update. A copy you edited is
+**never overwritten**, and it stays as it is even when the package text changes.
+The package lists the hash of every text it has shipped for each skill in
+`skills-builtin/manifest.json`; `npm run skills:manifest` rewrites it when a
+packaged file changes. A package without a readable manifest only copies files
+that are missing.
 
 Each skill has a master active toggle and two exposure flags:
 
@@ -100,6 +107,26 @@ requirement never blocks saving, enabling, or exporting a skill. The constraint
 accepts only the expression `required`; skill lint reports an unknown provider
 id or any other expression as `invalid_provider_requirement:<component>`, which
 blocks activation.
+
+## Updating the built-in skills on a site
+
+The plugin keeps the built-in skills and playbooks on **Stonewright > Knowledge >
+Skills** in step with the plugin files. The first request after an update (the
+stored plugin version differs from the installed one) reads `skills/` from the
+plugin directory and brings the site's skill table in line:
+
+- a skill or playbook that is missing is added;
+- a changed one gets the new title, description, text, topic and version
+  constraints; its enable and exposure choices on the site are kept, and the
+  earlier text stays in its history;
+- one that no longer ships is retired, not deleted;
+- a skill from another source (created on the site, imported, or from another
+  plugin) is never replaced. A site skill that holds the slug of a built-in one is
+  taken back by the built-in after its own text is saved as a revision.
+
+Built-in skills cannot be edited or trashed on the page, so a built-in skill the
+site shows is always the text of the installed release. The expertise packs and
+specializations are read from the plugin code and need no seeding.
 
 ## Skill lifecycle in wp-admin
 

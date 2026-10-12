@@ -326,6 +326,10 @@ final class ResponsiveScope {
 					__( 'Elementor visibility setting %1$s must be empty or use its native value %2$s.', 'stonewright' ),
 					$key,
 					$expected
+				) . ' ' . sprintf(
+					/* translators: %s: received value type and a short preview */
+					__( 'Received %s.', 'stonewright' ),
+					ControlHints::received_phrase( $value )
 				),
 				[
 					'status'      => 400,
@@ -337,6 +341,10 @@ final class ResponsiveScope {
 							'expected'    => 'an empty value or ' . $expected,
 							'got_type'    => get_debug_type( $value ),
 							'suggestions' => [ '', $expected ],
+							'setting'        => $key,
+							'received_value' => ControlHints::received( $value ),
+							'allowed_values' => [ '', $expected ],
+							'example'        => [ $key => $expected ],
 						],
 					],
 					'retryable'   => true,
@@ -399,7 +407,7 @@ final class ResponsiveScope {
 					'stonewright_responsive_scope_violation',
 					sprintf(
 						/* translators: 1: setting key, 2: breakpoint, 3: allowed list */
-						__( 'Setting %1$s targets breakpoint %2$s which is outside allowed scope (%3$s).', 'stonewright' ),
+						__( 'Setting %1$s targets breakpoint %2$s which is outside allowed scope (%3$s). To change it, add "%2$s" to responsive_scope (or allowed_breakpoints) of this operation or of the batch.', 'stonewright' ),
 						$key,
 						$bp,
 						implode( ', ', $allowed )
@@ -407,10 +415,13 @@ final class ResponsiveScope {
 					[
 						'status'               => 400,
 						'setting'              => $key,
+						'setting_path'         => 'settings.' . $key,
 						'breakpoint'           => $bp,
 						'allowed_breakpoints'  => $allowed,
 						'widget_type'          => $widget_type,
 						'execution_status'     => 'blocked',
+						'repair'               => sprintf( 'Add "%s" to responsive_scope (or allowed_breakpoints) of the operation or of the batch, keep the same settings, and send the call again. The default scope is desktop only.', $bp ),
+						'example'              => [ 'responsive_scope' => array_values( array_unique( array_merge( $allowed, [ $bp ] ) ) ) ],
 					]
 				);
 			}

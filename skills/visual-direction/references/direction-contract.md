@@ -10,8 +10,8 @@ measured against.
 | --- | --- |
 | `stonewright-design-direction-get` | Read the active direction before planning anything visual. |
 | `stonewright-design-direction-list` | Show the user what already exists before proposing a new one. |
-| `stonewright-design-direction-capture` | Turn evidence and stated intent into a draft direction. |
-| `stonewright-design-direction-save` | Persist a draft or an edit. Creates a new revision; it does not overwrite history. |
+| `stonewright-design-direction-capture` | Turn compact Elementor kit evidence into a draft direction. Previews by default; stores a draft only with `save: true`, and refuses a slug that holds a non-draft direction unless `overwrite: true`. |
+| `stonewright-design-direction-save` | Persist a draft or an edit. Creates a new revision; it does not overwrite history. Saving a not-ready revision of the active direction switches it off (`active_cleared`). |
 | `stonewright-design-direction-activate` | Make a ready direction (`id`) the active one; `id` 0 clears it. Review with the user first. |
 | `stonewright-design-direction-restore` | Write an earlier revision (`id`, `revision`) back as a new revision when a change went wrong. |
 | `stonewright-design-direction-sync-plan` | Compute the diff between the direction and the live Elementor kit. |

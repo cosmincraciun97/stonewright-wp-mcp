@@ -298,4 +298,50 @@ final class ErrorEnvelopeTest extends TestCase {
 		self::assertStringNotContainsString( 'not', $message );
 		self::assertStringNotContainsString( str_repeat( 'b', 100 ), $message );
 	}
+
+	public function test_refusal_detail_reaches_an_mcp_client_in_the_data_and_in_the_message(): void {
+		$error = new \WP_Error(
+			'stonewright_batch_operation_failed',
+			'Elementor batch validation failed for 1 operation(s).',
+			[
+				'status'            => 400,
+				'rejected_settings' => [ [ 'operation_index' => 0, 'setting' => 'title_color', 'example' => [ 'title_color' => '#1a73e8' ] ] ],
+				'rejected_total'    => 1,
+				'password'          => 'fixture-password-1',
+			]
+		);
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		$data    = ErrorEnvelope::from_wp_error( $error )['error']['data'];
+
+		self::assertStringContainsString( '"rejected_settings"', $visible->get_error_message() );
+		self::assertStringContainsString( '#1a73e8', $visible->get_error_message() );
+		self::assertSame( 'title_color', $data['rejected_settings'][0]['setting'] );
+		self::assertArrayNotHasKey( 'password', $data );
+	}
+
+	public function test_a_source_refusal_keeps_its_valid_locators_for_an_mcp_client(): void {
+		$locators = [ [ 'locator' => [ 'kind' => 'element', 'id' => 'a1' ], 'type' => 'container' ], [ 'locator' => [ 'kind' => 'element', 'id' => 'b2' ], 'type' => 'container' ] ];
+		$error    = new \WP_Error(
+			'stonewright_section_not_found',
+			'No section of that source matches the locator.',
+			[
+				'status'             => 404,
+				'reason'             => 'no_match',
+				'valid_locators'     => $locators,
+				'locators_total'     => 2,
+				'locators_truncated' => false,
+				'closest'            => [ 'locator' => [ 'kind' => 'element', 'id' => 'a1' ], 'reason' => 'case' ],
+				'internal'           => 'must-not-leak',
+			]
+		);
+		$visible = ErrorEnvelope::with_agent_visible_payload( $error );
+		$data    = ErrorEnvelope::from_wp_error( $error )['error']['data'];
+
+		self::assertSame( $locators, $data['valid_locators'] );
+		self::assertSame( 2, $data['locators_total'] );
+		self::assertSame( 'a1', $data['closest']['locator']['id'] );
+		self::assertArrayNotHasKey( 'internal', $data );
+		self::assertStringContainsString( '"valid_locators"', $visible->get_error_message() );
+		self::assertStringContainsString( '"closest"', $visible->get_error_message() );
+	}
 }
