@@ -11,6 +11,28 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix Claude failing to connect over OAuth with "This application is not registered
+  with this site, or its client information could not be verified." Claude's
+  client metadata document now lists the `urn:ietf:params:oauth:grant-type:jwt-bearer`
+  grant, and the document was refused for listing a grant type Stonewright does not
+  offer. A client metadata document and a dynamic client registration now keep
+  only the grant and response types Stonewright supports (`authorization_code`,
+  `refresh_token`, `code`) and ignore the rest; the document must still list
+  `authorization_code`, and its `client_id` must still equal its address. The
+  stored client and the registration answer list only what is supported.
+
+### Changed
+
+- Say why a client metadata document was refused. The browser still shows the
+  general page, but the reason (the host name did not resolve, a non-public address,
+  the request failed with its WordPress error code, an HTTP status such as 403 from
+  a firewall, a document that is too large, not JSON, with another `client_id`, with
+  a shared secret, or an unacceptable metadata field) is logged as
+  `oauth_client_document_refused`, and Troubleshoot has a new **OAuth client
+  metadata documents** check that shows the latest reason per client host.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added

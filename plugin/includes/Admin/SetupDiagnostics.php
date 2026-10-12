@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\Diagnostics\ApplicationPasswordsState;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticCheck;
 use Stonewright\WpMcp\Admin\Diagnostics\DiagnosticGraph;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
+use Stonewright\WpMcp\Authorization\WordPress\ClientDocumentRefusals;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
@@ -246,6 +247,12 @@ final class SetupDiagnostics {
 				__( 'Check that WordPress REST is reachable and the site URL is set.', 'stonewright' )
 			),
 			__( 'OAuth discovery', 'stonewright' )
+		);
+		$graph->add(
+			'oauth_client_documents',
+			[ 'oauth_endpoint' ],
+			static fn() => self::oauth_client_documents_check( $scope ),
+			__( 'OAuth client metadata documents', 'stonewright' )
 		);
 
 		$probe_holder = [ 'result' => null ];
@@ -796,6 +803,104 @@ final class SetupDiagnostics {
 	/**
 	 * @param array{http?:callable} $args
 	 */
+	/**
+	 * The latest reason a client metadata document (the way Claude identifies itself) was refused.
+	 * The browser only shows a generic page, so this is where the specific reason is read.
+	 */
+	private static function oauth_client_documents_check( string $scope ): DiagnosticCheck {
+		$label    = __( 'OAuth client metadata documents', 'stonewright' );
+		$refusals = array_reverse( ClientDocumentRefusals::all(), true );
+		if ( [] === $refusals ) {
+			return DiagnosticCheck::info(
+				'oauth_client_documents',
+				$label,
+				__( 'No client metadata document has been refused.', 'stonewright' ),
+				[],
+				$scope
+			);
+		}
+
+		$lines    = [];
+		$remedy   = '';
+		$evidence = [];
+		foreach ( $refusals as $host => $refusal ) {
+			$lines[] = sprintf(
+				/* translators: 1: host name that serves the client metadata document, 2: why it was refused */
+				__( '%1$s: %2$s', 'stonewright' ),
+				(string) $host,
+				self::document_refusal_text( $refusal['reason'], $refusal['detail'] )
+			);
+			if ( '' === $remedy ) {
+				$remedy                 = self::document_refusal_remedy( $refusal['reason'], $refusal['detail'] );
+				$evidence['host']       = (string) $host;
+				$evidence['reason']     = $refusal['reason'];
+				$evidence['detail']     = $refusal['detail'];
+				$evidence['checked_at'] = gmdate( 'c', $refusal['at'] );
+			}
+		}
+
+		return DiagnosticCheck::warning(
+			'oauth_client_documents',
+			$label,
+			sprintf(
+				/* translators: %s: list of host names with the reason each client metadata document was refused */
+				__( 'A client metadata document was refused. %s', 'stonewright' ),
+				implode( '; ', $lines )
+			),
+			$remedy,
+			$evidence,
+			$scope
+		);
+	}
+
+	private static function document_refusal_text( string $reason, string $detail ): string {
+		switch ( $reason ) {
+			case 'dns_empty':
+				return __( 'the host name did not resolve from this server', 'stonewright' );
+			case 'non_public_address':
+				return __( 'the host name resolves to an address that is not public', 'stonewright' );
+			case 'fetch_failed':
+				return '' !== $detail
+					/* translators: %s: WordPress HTTP error code */
+					? sprintf( __( 'this server could not fetch the document (%s)', 'stonewright' ), $detail )
+					: __( 'this server could not fetch the document', 'stonewright' );
+			case 'http_status':
+				/* translators: %s: HTTP status code */
+				return sprintf( __( 'the document request returned HTTP %s', 'stonewright' ), $detail );
+			case 'too_large':
+				return __( 'the document is too large', 'stonewright' );
+			case 'invalid_document':
+				return __( 'the response is not a JSON object', 'stonewright' );
+			case 'client_id_mismatch':
+				return __( 'the client_id in the document does not match its address', 'stonewright' );
+			case 'has_secret':
+				return __( 'the document contains a shared secret', 'stonewright' );
+			case 'metadata_refused':
+				return '' !== $detail
+					/* translators: %s: name of the metadata field */
+					? sprintf( __( 'the metadata is not acceptable (%s)', 'stonewright' ), $detail )
+					: __( 'the metadata is not acceptable', 'stonewright' );
+		}
+
+		/* translators: %s: reason code */
+		return sprintf( __( 'refused (%s)', 'stonewright' ), $reason );
+	}
+
+	private static function document_refusal_remedy( string $reason, string $detail ): string {
+		switch ( $reason ) {
+			case 'dns_empty':
+			case 'non_public_address':
+			case 'fetch_failed':
+				return __( 'This server must be able to reach the client\'s host over HTTPS. Allow outbound HTTPS requests from the site to it (hosting firewall, proxy or DNS settings), then connect again.', 'stonewright' );
+			case 'http_status':
+				return in_array( $detail, [ '401', '403', '406', '429' ], true )
+					? __( 'The host answered but refused this server. A firewall or WAF may block requests from the site, or the document address may be wrong. Allow this server to request the document, then connect again.', 'stonewright' )
+					: __( 'The host did not serve the document. Try again later; if it keeps failing, report it to the client\'s vendor.', 'stonewright' );
+		}
+
+		return __( 'The client\'s metadata document was not acceptable. Check the plugin log for the reason, update Stonewright, or report it to the client\'s vendor.', 'stonewright' );
+	}
+
 	private static function oauth_challenge_check( array $args, string $url, string $scope ): DiagnosticCheck {
 		$label = __( 'OAuth challenge', 'stonewright' );
 		if ( '' === $url ) {

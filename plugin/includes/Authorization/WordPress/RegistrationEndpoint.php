@@ -36,7 +36,7 @@ final class RegistrationEndpoint {
 
 	private const DESCRIPTIONS = [
 		'invalid_redirect_uri'    => 'Every redirect URI must use HTTPS or be a loopback HTTP callback, without a fragment or user information.',
-		'invalid_client_metadata' => 'The client metadata is invalid or asks for an unsupported grant type, response type, scope or authentication method.',
+		'invalid_client_metadata' => 'The client metadata is invalid, does not include the authorization code flow, or asks for an unsupported scope or authentication method.',
 		'invalid_request'         => 'The registration must be one JSON object without repeated members.',
 		'server_error'            => 'The registration could not be stored.',
 	];
@@ -50,6 +50,7 @@ final class RegistrationEndpoint {
 			'omitted_authentication_method' => 'none',
 			'grant_types'                   => [ 'authorization_code', 'refresh_token' ],
 			'response_types'                => [ 'code' ],
+			'substitute_unsupported_types'  => true,
 			'scopes_supported'              => SiteProfile::SUPPORTED_SCOPES,
 			'native_clients'                => true,
 			'maximum_redirects'             => 10,

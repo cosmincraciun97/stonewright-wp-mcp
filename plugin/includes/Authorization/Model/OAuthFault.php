@@ -16,12 +16,15 @@ final class OAuthFault extends \RuntimeException {
 	private int $http_status;
 
 	/**
+	 * The optional detail names the field or rule behind the failure, for logs and diagnostics;
+	 * it is never request or credential text.
+	 *
 	 * The status defaults to 500 for server_error and 400 otherwise; server_error
 	 * and HTTP 500 always go together.
 	 *
 	 * @throws \InvalidArgumentException When server_error and HTTP 500 are not paired.
 	 */
-	public function __construct( private string $protocol_error, ?int $http_status = null ) {
+	public function __construct( private string $protocol_error, ?int $http_status = null, private string $detail = '' ) {
 		parent::__construct( 'The authorization request could not be completed.' );
 		$this->http_status = $http_status ?? ( 'server_error' === $protocol_error ? 500 : 400 );
 		if ( ( 'server_error' === $protocol_error ) !== ( 500 === $this->http_status ) ) {
@@ -31,6 +34,11 @@ final class OAuthFault extends \RuntimeException {
 
 	public function error(): string {
 		return $this->protocol_error;
+	}
+
+	/** The field or rule behind the failure, or an empty string. */
+	public function detail(): string {
+		return $this->detail;
 	}
 
 	public function status(): int {
