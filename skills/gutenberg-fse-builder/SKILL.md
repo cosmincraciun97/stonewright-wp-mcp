@@ -1,8 +1,6 @@
 ---
 name: gutenberg-fse-builder
-description: >
-  Stonewright Gutenberg and FSE builder. Inserts/updates blocks, manages
-  theme.json global styles, FSE templates, template parts, and synced patterns.
+description: Use when building Gutenberg block content, FSE templates and template parts, theme.json global styles, or synced patterns.
 ---
 
 # Gutenberg FSE Builder
@@ -60,8 +58,9 @@ load `spectra-build-page` for plugin blocks and keep FSE chrome here.
 
 AI block/theme builders are useful as rapid prototypes and prompt references,
 but Stonewright uses a prototype-to-production workflow: valid `theme.json`,
-valid block markup, readable template files, direct PHP runtime snippets only
-when they are the shorter correct path, and browser verification before
+valid block markup, readable template files, direct PHP runtime snippets (the
+`full` profile an administrator chooses in wp-admin) only when they are the
+shorter correct path, and browser verification before
 signoff.
 
 Companion page-body packs (load when `check-setup` is active):
@@ -88,8 +87,8 @@ third-party namespace.
 
 Server path (`stonewright-blocks-insert` / `stonewright-blocks-update` /
 `stonewright-blocks-serialize`): only when the registered type is
-`save:null` — PHP renders the saved markup. On the introspection site these
-were `is_dynamic: true` **and** are actually server-rendered:
+`save:null` — PHP renders the saved markup. These are `is_dynamic: true`
+**and** actually server-rendered:
 
 | Name | Use |
 |---|---|
@@ -108,9 +107,12 @@ were `is_dynamic: true` **and** are actually server-rendered:
 reported `is_dynamic: true` because they have render callbacks. Still queue
 those. PHP serialize will drop editor-owned HTML.
 
-When the registered type needs the finalizer, `stonewright-blocks-insert` and
+When the registered type needs the finalizer (for `stonewright-blocks-insert`,
+that includes any block inside the tree), `stonewright-blocks-insert` and
 `stonewright-blocks-update` queue the change themselves. They return
-`queued: true` and a `change_id` instead of writing the post.
+`queued: true`, a `change_id`, and a `finalizer_url` instead of writing the
+post. `stonewright-blocks-update` refuses `innerHTML` for such a block
+(`finalizer_inner_html_unsupported`); send `attrs` only.
 
 ## Native-first styling (both builders)
 
@@ -124,14 +126,18 @@ Climb this ladder. Do not skip rungs:
 3. **Custom CSS only through approval-gated tools** after a proven native gap.
    Run `dry_run`, show the user `approval_url`, exact path, byte counts, and a
    short summary, then **stop**. After the human returns `custom_code_grant`,
-   apply only that candidate. Never open the approval page unless asked.
+   apply only that candidate. Never open the approval page, issue or retrieve a
+   grant, or apply with one unless the user explicitly asks you to do that
+   approval step.
 
-Gutenberg raw HTML with style tags (named `core/html`, Classic/freeform, or any
-`innerHTML`) needs **both** `allow_raw_html:true` and a consumed
-`custom_code_grant`. An all-raw-HTML tree (every leaf is `core/html` or
-`core/freeform`, even inside group/columns) is refused without the flag
-(`stonewright_raw_html_refused`). theme.json `styles.css` and per-block `css`
-on `stonewright-fse-write-global-styles` need the same grant. Elementor
+A block payload that carries custom code (a style, script or iframe element, an
+inline event handler, or a `javascript:` URL) needs **both** `allow_raw_html:true`
+and a consumed `custom_code_grant`, wherever it sits: any attribute at any
+depth, `innerHTML`, a `core/html` or Classic/freeform block. An all-raw-HTML
+tree (every leaf is `core/html` or `core/freeform`, even inside group/columns)
+is refused without the flag (`stonewright_raw_html_refused`). theme.json
+`styles.css` and per-block `css` on `stonewright-fse-write-global-styles` and
+`stonewright-fse-update-global-styles` need the same grant. Elementor
 `custom_css` / `_custom_css` keys use the same grant pipeline.
 
 On `stonewright_custom_code_approval_required`: do not strip the CSS. Name the
@@ -139,9 +145,9 @@ offending block or JSON path, suggest the native alternative from the error,
 show `approval_url`, and wait for the human.
 
 `BlockQueue::requires_finalizer` treats `is_dynamic` as the PHP path, not
-the queue. On the introspection site that includes `core/cover`,
-`core/heading`, and `core/button` — the same names in the hero and CTA
-recipes. Calling `stonewright-blocks-insert` or `stonewright-blocks-update`
+the queue. That includes visual core blocks such as `core/cover`,
+`core/heading`, and `core/button` when they have render callbacks — the same
+names in the hero and CTA recipes. Calling `stonewright-blocks-insert` or `stonewright-blocks-update`
 for those blocks PHP-serializes and drops editor-owned HTML. For every
 visual section call `stonewright-blocks-queue-change` explicitly.
 
@@ -158,9 +164,10 @@ visual section call `stonewright-blocks-queue-change` explicitly.
    (`post_id`, `block_spec`, `action`, `path`, `position`,
    `expected_content_hash`). Spec shape: `{name, attributes, innerBlocks}`.
 5. `stonewright-blocks-finalizer-runtime`. Require `online: true`. If it is
-   false, tell the operator to open **Stonewright → Activity → Block queue** and
-   leave it open. `keep_open` is true on purpose.
-   `stonewright-blocks-finalizer-url` is the same link.
+   false, give the operator the `url` it returns (the **Stonewright → Activity →
+   Block queue** console with your queue session; opened without that link the
+   console only shows counts) and ask them to leave the tab open. `keep_open`
+   is true on purpose. `stonewright-blocks-finalizer-url` is the same link.
 6. Poll `stonewright-blocks-pending-batch` until ids are `serialized`. The
    list is compact — it never returns the full spec.
 7. Persist with `stonewright-blocks-finalize-batch`. Snapshot, production-safe
@@ -171,7 +178,9 @@ Do not hand-write block HTML. Do not PHP-serialize third-party blocks.
 
 Queue **one non-terminal change per post**. A second `queue-change` while an
 item is still `queued` or `serialized` returns `stonewright_finalizer_pending_change`.
-Drain serialize → finalize, then queue the next section.
+Drain serialize → finalize, then queue the next section. To drop a queued,
+serialized, or failed change instead, call `stonewright-blocks-finalizer-cancel`
+(`change_ids`; `dry_run` previews). It never deletes persisted content.
 
 Block addressing is one scheme everywhere. The index of a block in
 `stonewright-blocks-parse` (root list, then `innerBlocks`) is its `path` in
@@ -206,35 +215,30 @@ between root blocks has no index. A path that names no block fails with
 - the registered type has an editor script and fewer than three declared
   attributes.
 
-On the **finalizer** path, unknown keys become a `likely_partial_schema`
-warning. They are not stripped. The live editor owns them, including unique
-IDs assigned during mount-settle. Omit identity keys on insert unless a live
-readback on **update** already has them.
+On the **finalizer** path, unknown keys on a `likely_partial` schema become a
+`likely_partial_schema` warning. They are not stripped. The live editor owns
+them, including unique IDs assigned during mount-settle. Omit identity keys on
+insert unless a live readback on **update** already has them. On any other
+schema, unknown keys fail as `unknown_block_attributes`.
 
-On the **server** path, the same unknown keys are
+On the **server** path, unknown keys are always
 `unknown_block_attributes`. That is why `save:null` is the only PHP write.
 
-Unregistered names fail both paths: `block_not_registered` /
-`stonewright_block_not_registered`.
+Unregistered names fail both paths with `block_not_registered`.
 
 `stonewright-blocks-get-schema` returns `likely_partial` once the running
-plugin includes that field. Companion `list-blocks` counts on the
-introspection site were all `0` (Kadence, GenerateBlocks, Spectra absent).
-Treat those prefixes as partial the moment they appear.
+plugin includes that field. Companion `list-blocks` counts are `0` while
+Kadence, GenerateBlocks, or Spectra is not active. Treat those prefixes as
+partial the moment they appear.
 
-## Verified registry (introspection site)
+## Block registry
 
-Namespaces actually registered:
+`core` comes from WordPress; `kadence/`, `generateblocks/`, `uagb/`, and
+`blocksy/` register only while that plugin or theme is active. List what is
+registered with `stonewright-blocks-list-registered` (`namespace`) before you
+queue a name.
 
-| Namespace | Count |
-|---|---|
-| `core` | 116 |
-| `stonewright` | 2 |
-| `yoast` | 2 |
-| `yoast-seo` | 5 |
-| `kadence/` `generateblocks/` `uagb/` `blocksy/` | 0 |
-
-`core/group` attributes verified: `tagName`, `templateLock`, `lock`,
+`core/group` attributes: `tagName`, `templateLock`, `lock`,
 `metadata`, `align`, `className`, `style`, `backgroundColor`, `textColor`,
 `gradient`, `fontSize`, `fontFamily`, `borderColor`, `layout`, `ariaLabel`,
 `anchor`. `is_dynamic: false`.
@@ -253,9 +257,9 @@ user global styles with `stonewright-fse-update-global-styles` after an
 explicit confirm. The write snapshots the existing global styles first.
 
 Classic theme with a chrome adapter (Blocksy, Kadence Theme, GeneratePress):
-`stonewright-theme-chrome-get`. On the introspection site all three returned
-`active: false` and empty `writable`. There are no verified chrome tokens to
-copy. When an adapter is active, patch only `writable` keys, dry-run first.
+`stonewright-theme-chrome-get`. An adapter whose theme is not active returns
+`active: false` and empty `writable`, so there are no chrome tokens to copy.
+When an adapter is active, patch only `writable` keys, dry-run first.
 
 ## Composition recipes
 
@@ -450,6 +454,10 @@ patterns where that matches the task. Use block supports for spacing, color,
 typography, layout, borders, and dimensions instead of hardcoded wrappers when
 the registered block supports them. Pattern **bodies** that contain static
 blocks still go through the finalizer when you write the `wp_block` post.
+`patterns-create` / `patterns-update` and the template and template-part
+writers take block markup in `content` and store it after sanitizing
+(`wp_kses_post`, `<style>` removed; empty content is refused with
+`stonewright_empty_content`).
 
 ## Backup rule
 
@@ -471,6 +479,7 @@ write, so `stonewright-site-backup-page` is not needed before them.
 | Post changed under you | `content_conflict` (409) | Re-parse. Fresh hash. Re-queue. |
 | Heartbeat dead | `online: false` | Do not finalize. Do not PHP-serialize static blocks. |
 | Hash mismatch | `finalizer_hash_mismatch` | Discard the blob. Re-queue. |
+| Editor result differs from the spec | `serialized_structure_mismatch`, `serialized_markup_refused` (422) | The change is marked `failed`. Fix the spec (the second code means the result carried custom code that was not approved) and re-queue, or cancel it. |
 | Not a block theme | `fse_unavailable` | Skip template / global-style writes. Page body can still use the finalizer. |
 | Raw CSS in HTML | `stonewright_custom_code_approval_required` | Prefer block supports / preset slugs. Show `approval_url`. Stop. Retry only with `allow_raw_html` plus the human-issued `custom_code_grant`. Never strip the CSS. |
 | All-raw HTML tree | `stonewright_raw_html_refused` | Queue named core blocks. `allow_raw_html:true` only when the user explicitly wants raw HTML. |
@@ -484,7 +493,8 @@ write, so `stonewright-site-backup-page` is not needed before them.
 | `stonewright/blocks-get-schema` | block.json schema for a type (`likely_partial` when present) |
 | `stonewright/blocks-parse` | Parse the post to a block tree |
 | `stonewright-blocks-queue-change` | Queue `{name, attributes, innerBlocks}` for the finalizer |
-| `stonewright-blocks-finalizer-runtime` | `online`, pending count, Queue URL, editor frame URLs |
+| `stonewright-blocks-finalizer-runtime` | `online`, pending count, Block queue URL, editor frame URLs |
+| `stonewright-blocks-finalizer-cancel` | Cancel queued, serialized, or failed changes by id |
 | `stonewright-blocks-pending-batch` | Compact queued ids (no full spec) |
 | `stonewright-blocks-finalize-batch` | Persist hashed HTML after snapshot |
 | `stonewright/blocks-insert` | Server insert — true `save:null` only; queue visual sections |
@@ -501,10 +511,9 @@ write, so `stonewright-site-backup-page` is not needed before them.
 | `stonewright/patterns-list` | List registered + synced patterns |
 | `stonewright/patterns-create` | Create synced pattern |
 
-See `references/block-examples.md` for concrete block JSON payloads.
-Those examples that call `blocks-insert` for `core/group` are stale — queue
-static trees instead. See `references/fse-examples.md` for theme.json and
-template examples.
+See `references/block-examples.md` for concrete block JSON payloads (queue for
+static blocks, server insert for `save:null`). See `references/fse-examples.md`
+for theme.json and template examples.
 
 ## Motion
 

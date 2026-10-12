@@ -1,6 +1,6 @@
 ---
 name: woocommerce-catalog
-description: Use Stonewright for WooCommerce products, product variations, SKUs, prices, stock, categories, tags, attributes, attribute terms, shipping classes, catalog audits, and bulk product updates.
+description: Use when working on WooCommerce products, product variations, SKUs, prices, stock, categories, tags, attributes, attribute terms, shipping classes, catalog audits, or bulk product updates.
 version_constraints: {"woocommerce": "required"}
 ---
 
@@ -21,10 +21,16 @@ Then call:
 - `stonewright-site-plugins-list` when another builder, block library, field
   plugin, or SEO plugin participates in the store
 
-Use typed `stonewright-wc-*` abilities first. They use native WooCommerce
-objects, strict field allowlists, dry-run previews, context/permission gates,
-audit logging, and readback. Use tokenized `stonewright-wp-cli-*` only for a
-missing typed operation or long batch. Direct mode intentionally keeps
+Use the typed WooCommerce abilities first: `stonewright-wc-status`,
+`stonewright-wc-catalog-audit`, `stonewright-wc-product-list` / `-get` /
+`-save` / `-delete`, `stonewright-wc-variation-list` / `-save` /
+`-delete`, `stonewright-wc-attribute-list` / `-save` / `-delete`,
+`stonewright-wc-term-list` / `-save` / `-delete`, `stonewright-wc-order-list`,
+and `stonewright-wc-sales-report`. They use native WooCommerce objects, strict
+field allowlists, dry-run previews, context/permission gates, audit logging,
+and readback. Use tokenized `stonewright-wp-cli-run` (or
+`stonewright-wp-cli-batch-run` / `stonewright-wp-cli-job-start`) only for a
+missing typed operation or long batch. Direct mode (no plugin) keeps
 WooCommerce read-only.
 
 Useful docs:
@@ -55,9 +61,11 @@ Before writing:
 8. Read back parent product, attributes, variations, prices, stock, and default
    attributes.
 
-On the `full` profile only, use `stonewright-php-execute` when the typed catalog
-surface does not cover an official WooCommerce API operation and a short
-runtime snippet is clearer than WP-CLI. Use `stonewright-wp-cli-run` with argv tokens only. Do not run
+On the `full` profile only (an administrator chooses it in wp-admin under
+Stonewright > Setup > Settings; an agent never switches to it, and
+`stonewright-tool-profile` refuses `full`), use `stonewright-php-execute` when
+the typed catalog surface does not cover an official WooCommerce API operation
+and a short runtime snippet is clearer than WP-CLI. Use `stonewright-wp-cli-run` with argv tokens only. Do not run
 `wp ...` in a normal shell as Stonewright recovery, and do not use another PHP
 adapter to replace Stonewright tools.
 Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
@@ -67,10 +75,12 @@ For long imports, cache rebuilds, or bulk catalog maintenance, use
 
 ## Delete Policy
 
-Soft-delete by default. Move products, variations, terms, or classes to trash
-or equivalent reversible state when available. Permanent deletion requires an
-explicit user request and the production-safe confirmation token when that mode
-is active.
+Soft-delete by default. `stonewright-wc-product-delete` and
+`stonewright-wc-variation-delete` move to trash unless `force: true`.
+`stonewright-wc-term-delete` and `stonewright-wc-attribute-delete` delete
+permanently, so preview them (`dry_run` defaults to true) and delete only
+what the user named. Permanent deletion requires an explicit user request and
+the production-safe confirmation token when that mode is active.
 
 ## Storefront Layout Routing
 

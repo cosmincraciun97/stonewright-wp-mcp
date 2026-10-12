@@ -10,7 +10,7 @@ Use this when Advanced Custom Fields is active and the task is field groups,
 field schema, values on posts, options pages, repeaters, or flexible content.
 For ACPT, Meta Box, ASE, or Pods, load `content-model-integrations` instead.
 
-There is no `stonewright-acf-options-page` ability. Do not invent one.
+There is no typed ACF options-page ability (see Options pages below).
 
 ## First call
 
@@ -44,8 +44,11 @@ token from `stonewright-security-issue-confirmation-token`.
 ## Field-group model
 
 `stonewright-acf-field-group-save` requires `group` with `group.key`. It
-calls `acf_import_field_group` when that function exists. Shape the payload
-like ACF JSON, not like guessed `post_meta` keys.
+saves through ACF's own import (`acf_import_field_group`), reads the group
+back, and records the group and field posts in the change ledger. When the
+ACF version cannot import, it returns `stonewright_acf_import_unavailable`
+and saves nothing. Shape the payload like ACF JSON, not like guessed
+`post_meta` keys.
 
 Minimum group:
 
@@ -105,8 +108,10 @@ when these typed tools exist.
 
 No typed options-page register/list/update ability.
 
-- On the `full` profile, register or inspect with `stonewright-php-execute`
-  calling `acf_add_options_page` / `acf_get_options_pages` (official ACF API).
+- On the `full` profile, inspect with `stonewright-php-execute` calling
+  `acf_get_options_pages` (official ACF API). `acf_add_options_page` registers
+  a page only for the request that runs it, so it does not create a lasting
+  page; use the ACF screens or theme code for that.
 - Location: `options_page` + the slug ACF assigned. Confirm the slug
   before attaching a group.
 - **Typed value tools cannot target options.** `acf-values-get` and
@@ -140,9 +145,9 @@ schema writers:
   `stonewright-wp-cli-run` argv tokens. If the group is missing, the
   site does not have that command. Do not invent `wp acf field` writers.
 - ACF can expose WordPress Abilities when `enable_acf_ai` is on. That
-  is ACF's surface, not Stonewright's. Prefer `stonewright-acf-*`.
+  is ACF's surface, not Stonewright's. Prefer the typed ACF tools above.
 - JSON-LD / Schema.org field mapping (`enable_schema`) is ACF output,
-  not `stonewright-seo-meta-*`. There is no typed Stonewright writer
+  not the SEO meta tools (`stonewright-seo-meta-get` / `-update`). There is no typed Stonewright writer
   for ACF schema property maps.
 - Native ACF post types / taxonomies stay in ACF. `stonewright-cpt-register`
   / `stonewright-taxonomy-register` persist CPT UI-style options. Do not
@@ -167,12 +172,15 @@ calls. It is experimental. Still list/get the field group after it runs.
 
 `stonewright-php-execute` is on the `full` profile only. On any other
 profile the php-execute snippets in this skill are not available: use the typed
-tools, or ask the user whether an administrator should choose the Full surface in
-wp-admin (an agent cannot switch to `full`). It is for official ACF API
+tools. Only an administrator chooses Full, in wp-admin under Stonewright >
+Setup > Settings; an agent never switches to it, and `stonewright-tool-profile`
+refuses `full` with `approval_required`. If the user wants those snippets, show
+the settings link and stop. It is for official ACF API
 snippets the typed surface cannot take (options pages, full nested schema,
 `'option'` values). Do not replace `acf-field-group-save` with a homemade importer
 and do not write ACF tables through `$wpdb`.
 
 Never `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
-`--require`. Tokenized `stonewright-wp-cli-run` only. Long JSON sync:
+`--require`. Tokenized `stonewright-wp-cli-run` only (listed on the `wp-cli`,
+`content-model`, and `full` profiles). Long JSON sync:
 `stonewright-wp-cli-job-start` then `stonewright-wp-cli-job-status`.

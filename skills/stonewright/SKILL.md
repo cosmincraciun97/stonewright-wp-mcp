@@ -39,7 +39,9 @@ It routes the agent to the right specialized skill and MCP tools.
 
 Styling ladder (Elementor and Gutenberg): block supports / preset slugs → typed
 widget controls → custom CSS only through approval-gated tools. On
-`stonewright_custom_code_approval_required`, show `approval_url` and stop.
+`stonewright_custom_code_approval_required` or
+`stonewright_custom_code_grant_required`, show `approval_url` and stop; never
+open it or issue a grant unless the user asks you to do that approval step.
 
 Gutenberg headings: check whether the theme already prints the page title as
 H1. If it does, section titles are H2 — do not double up. Query loops need a
@@ -91,17 +93,31 @@ The `full` profile (`stonewright/php-execute` and the other abilities that run
 or write code) is never switched on this way. Only an administrator chooses the
 Full surface in wp-admin (**Stonewright → Setup → Settings**); a request for it
 is refused with `stonewright_tool_profile_full_requires_admin`. Show the user
-the settings link and stop; do not look for another way to switch the profile.
+the settings link (`approval_url`) and stop; do not look for another way to
+switch the profile.
 
 ## Route
 
 - Design/image/Figma-to-WordPress: use `design-to-wordpress`.
 - Elementor V3 pages/widgets/templates: use `elementor-v3-builder`.
+- Elementor V4 (Atomic) documents: use `elementor-v4-atomic`.
+- Cloning or rebuilding an Elementor page or section: use `elementor-site-clone`.
 - Gutenberg/FSE/theme.json/templates: use `gutenberg-fse-builder`.
-- ACF, CPT UI, Meta Box, Pods, taxonomies: use `content-model-integrations`.
+- Blocksy, GenerateBlocks, Kadence, or Spectra pages: use `blocksy-build-page`,
+  `generateblocks-build-page`, `kadence-build-page`, or `spectra-build-page`.
+- ACF, CPT UI, Meta Box, Pods, taxonomies: use `content-model-integrations`;
+  ACF field groups and values: `acf-build-fields`.
 - WooCommerce catalog work: use `woocommerce-catalog`.
+- SEO titles, descriptions, canonicals, robots: use `seo-optimize`.
+- Contact forms: use `forms-inventory`.
+- Brand palette, typography, and kit sync: use `visual-direction`.
+- A new page on a site that may already have matching sections: use
+  `stonewright-section-reuse`.
 - Stonewright plugin development: use `wp-plugin-dev`.
 - Review/polish generated pages: use `stonewright-review`.
+- A `pending_incident`, a site that stopped loading, or an undo or redo of a
+  change: use `stonewright-rescue`.
+- Writing or importing a site skill: use `how-to-write-skills`.
 
 ## Rules
 
