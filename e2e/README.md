@@ -76,6 +76,8 @@ controls overlap. It runs at 1440, 782 and 390px, so the CI groups `desktop-1440
 WP_BASE_URL=http://127.0.0.1:8888 npx playwright test admin-layout.spec.ts --project=desktop-1440-light --project=tablet-782-light --project=mobile-390-light
 ```
 
+The second part of the spec measures the action groups (the one row a page puts its buttons in: `sw-ui-actions`, `[data-sw-actions]`) of Rescue and Changes on populated fixtures: `rescue-page.html` (a change in every state, the safe-mode panel), `rescue-review.html` (the confirmation of one rollback in production-safe mode), `changes-page.html` (the drawer open, then the list) and `changes-page-review.html` (the Undo confirmation printed open), all in `plugin/tests/fixtures/admin-ui/` and rendered by the page classes (`RescuePageSnapshotTest`, `ChangesPageSnapshotTest`; regenerate with `STONEWRIGHT_UPDATE_FIXTURES=1`). They are served from the repository with the real stylesheets and scripts, so this part needs no login. Each group must hold controls of the height of their size (found by measuring a hidden button of the same size in the same scope, so the narrow-screen tiers are the layer's own), level on one top, one gap apart (the group's `column-gap`), on one line when they fit, with the help text under the row, and a test proves the check reports an uneven height, an uneven gap, a stacked row and a button that is not level.
+
 `SW_LAYOUT_VERBOSE=1` lists the states measured on each page. A control that must break a rule on purpose is marked
 `data-sw-layout-ignore`; a new mark needs a reason in the review. The static companion, `scripts/check-admin-control-sizing.mjs`
 (run by the `docs` CI job), fails when a page stylesheet gives a height, padding or line-height to a button or an input.

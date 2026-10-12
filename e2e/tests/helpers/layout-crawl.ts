@@ -142,5 +142,6 @@ export function findings(probe: LayoutProbe): string[] {
 		...probe.centreMismatches.map((line) => `centre: ${line}`),
 		...probe.overflows.map((line) => `overflow: ${line}`),
 		...probe.overlaps.map((line) => `overlap: ${line}`),
+		...probe.actionGroupMismatches.map((line) => `action group: ${line}`),
 	];
 }
