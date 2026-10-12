@@ -602,6 +602,9 @@ final class AuditEvent {
 			'failed_action_index',
 			'element_id',
 			'setting_path',
+			'widget_type',
+			'rejected_total',
+			'rejected_summary',
 			'rejected_settings',
 			'removed_settings',
 			'expected_type',
@@ -638,8 +641,9 @@ final class AuditEvent {
 				$out[ $key ] = $source[ $key ];
 				continue;
 			}
-			$max = 'error_message' === $key ? 500 : 255;
-			$value = 'error_message' === $key
+			$free_text = in_array( $key, [ 'error_message', 'rejected_summary' ], true );
+			$max       = $free_text ? 500 : 255;
+			$value     = $free_text
 				? self::redact_public_text( (string) $source[ $key ], $max )
 				: mb_substr( sanitize_text_field( (string) $source[ $key ] ), 0, $max );
 			if ( '' !== $value ) {

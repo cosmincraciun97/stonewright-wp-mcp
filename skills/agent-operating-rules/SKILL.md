@@ -151,8 +151,11 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   dry-run batch and one apply.
 - Serialize writes to the same document; never launch sibling write calls in
   parallel.
-- Resolve each `schema_requests` item once, replace only rejected settings, then
-  rerun one consolidated dry-run.
+- A refused batch lists `rejected_settings`: each entry names the operation,
+  element, widget type and setting, what was received, what the live control
+  accepts and an example. Replace those values, run a `schema_requests` item
+  once only for an entry without an example, then rerun one consolidated
+  dry-run.
 - Never fall back to raw metadata, REST runners, `php-execute`, or shell WP-CLI.
 - Never call `elementor/*` tools on Elementor's own MCP server, even when it is
   connected next to Stonewright: those calls skip the backup, the change history

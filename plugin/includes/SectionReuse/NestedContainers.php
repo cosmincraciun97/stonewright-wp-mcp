@@ -96,10 +96,12 @@ final class NestedContainers {
 	}
 
 	/**
+	 * The listing entry of one container: its locator, depth, type, size and first heading.
+	 *
 	 * @param array<string, mixed> $element
 	 * @return array<string, mixed>
 	 */
-	private static function entry( string $builder, array $element, int $depth ): array {
+	public static function entry( string $builder, array $element, int $depth ): array {
 		$children = self::children( $element );
 		$types    = [];
 		foreach ( $children as $child ) {

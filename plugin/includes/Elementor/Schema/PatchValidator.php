@@ -111,12 +111,31 @@ final class PatchValidator {
 						continue;
 					}
 					if ( ! array_key_exists( $field_key, $before_row ) || $before_row[ $field_key ] !== $field_value ) {
+						$field_path = 'settings.' . (string) $key . '.' . $index . '.' . $field_key;
+						$known      = array_slice( array_map( 'strval', array_keys( $control['fields'] ) ), 0, 30 );
 						return new \WP_Error(
 							'stonewright_elementor_settings_invalid',
-							__( 'A repeater patch cannot add or change a field absent from the live schema.', 'stonewright' ),
+							sprintf(
+								/* translators: 1: field path, 2: the fields of the repeater row */
+								__( 'A repeater patch cannot add or change a field absent from the live schema: %1$s. The row takes: %2$s.', 'stonewright' ),
+								$field_path,
+								implode( ', ', $known )
+							),
 							[
-								'status' => 400,
-								'violations' => [ [ 'path' => 'settings.' . (string) $key . '.' . $index . '.' . $field_key, 'code' => 'unknown_repeater_field_changed' ] ],
+								'status'           => 400,
+								'violations'       => [
+									[
+										'path'           => $field_path,
+										'code'           => 'unknown_repeater_field_changed',
+										'setting'        => (string) $key,
+										'expected'       => 'a field from the live repeater schema',
+										'received_value' => ControlHints::received( $field_value ),
+										'allowed_values' => $known,
+										'suggestions'    => array_slice( $known, 0, 3 ),
+									],
+								],
+								'rejected_total'   => 1,
+								'setting_path'     => $field_path,
 								'patch_validation' => true,
 							]
 						);
@@ -201,10 +220,36 @@ final class PatchValidator {
 			$path = (string) ( $warning['path'] ?? '' );
 			$relative = preg_replace( '/^settings\./', '', $path ) ?? $path;
 			if ( ! self::has_path( $before, $relative ) && self::top_level_path( $path ) !== '' ) {
+				$closest = is_array( $warning['suggestions'] ?? null ) ? array_slice( array_map( 'strval', $warning['suggestions'] ), 0, 3 ) : [];
+				$message = sprintf(
+					/* translators: 1: setting path, 2: received value type */
+					__( 'A new Elementor setting is not present in the live schema: %1$s (received %2$s).', 'stonewright' ),
+					$path,
+					(string) ( $warning['got_type'] ?? 'unknown' )
+				);
+				if ( [] !== $closest ) {
+					$message .= ' ' . sprintf(
+						/* translators: %s: closest control keys */
+						__( 'Closest controls: %s.', 'stonewright' ),
+						implode( ', ', $closest )
+					);
+				}
+				if ( '' !== (string) ( $warning['hint'] ?? '' ) ) {
+					$message .= ' ' . (string) $warning['hint'];
+				}
 				return new \WP_Error(
 					'stonewright_elementor_settings_invalid',
-					__( 'A new Elementor setting is not present in the live schema.', 'stonewright' ),
-					[ 'status' => 400, 'violations' => [ $warning ], 'retryable' => true, 'patch_validation' => true ]
+					$message,
+					[
+						'status'           => 400,
+						'violations'       => [ $warning ],
+						'rejected_total'   => 1,
+						'setting_path'     => $path,
+						'expected_type'    => 'a key from the live widget schema',
+						'actual_type'      => (string) ( $warning['got_type'] ?? '' ),
+						'retryable'        => true,
+						'patch_validation' => true,
+					]
 				);
 			}
 		}

@@ -388,6 +388,7 @@ final class BatchMutate extends AbilityKernel {
 					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence, $dry_run );
 
 					if ( $result instanceof \WP_Error ) {
+						$result = $this->with_operation_context( $result, $index, $operation, $tree, $refs );
 						if ( 'add_widget' === (string) ( $operation['action'] ?? '' ) ) {
 							SchemaRepairLearning::observe_compilation_error(
 								(string) ( $operation['widget_type'] ?? '' ),
@@ -401,9 +402,10 @@ final class BatchMutate extends AbilityKernel {
 						if ( $stop ) {
 							$cause_code = (string) $result->get_error_code();
 							$action     = (string) ( $operation['action'] ?? '' );
+							$where      = self::rejection_where( self::flatten_rejections( $items )[0] ?? [] );
 							return $this->error(
 								'batch_operation_failed',
-								sprintf( __( 'Elementor batch operation %1$d (%2$s) failed: %3$s', 'stonewright' ), $index, $action, $result->get_error_message() ),
+								sprintf( __( 'Elementor batch operation %1$d (%2$s) failed: %3$s', 'stonewright' ), $index, $action, $result->get_error_message() ) . ( '' !== $where ? ' (' . $where . ')' : '' ),
 								self::batch_failure_data( $items, $applied, $failed, $index, $action, $cause_code, $before_hash, $tree, $result, $receipt )
 							);
 						}
@@ -432,7 +434,7 @@ final class BatchMutate extends AbilityKernel {
 					$cause_code = (string) ( $first_failed['error']['code'] ?? '' );
 					return $this->error(
 						'batch_operation_failed',
-						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ) . ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? ' ' . (string) ( $first_failed['error']['message'] ?? '' ) : '' ),
+						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ) . SectionReuseSetting::refusal_note( $cause_code ) . ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? ' ' . (string) ( $first_failed['error']['message'] ?? '' ) : self::failure_sentences( $items ) ),
 						self::batch_failure_data(
 							$items,
 							$applied,
@@ -1888,6 +1890,188 @@ final class BatchMutate extends AbilityKernel {
 		return $lost;
 	}
 
+	/** Most rejected settings a refusal lists; the count of all of them is `rejected_total`. */
+	private const REJECTED_MAX = 25;
+
+	/** Fields of a rejected setting that the refusal keeps. */
+	private const REJECTED_FIELDS = [ 'operation_index', 'action', 'op_id', 'element_id', 'parent_id', 'widget_type', 'setting', 'path', 'code', 'expected', 'received_value', 'control', 'allowed_values', 'requires', 'example', 'suggestions', 'hint', 'sent_as', 'group_controls' ];
+
+	/**
+	 * Adds to every rejected setting of a refused operation where it was sent: the operation, its element or the
+	 * parent it goes into, and the widget or element type. The settings validators know the control, not the element.
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $operation
+	 * @param array<string, string>            $refs
+	 */
+	private function with_operation_context( \WP_Error $error, int $index, array $operation, array $tree, array $refs ): \WP_Error {
+		$data       = (array) $error->get_error_data();
+		$violations = is_array( $data['violations'] ?? null ) ? $data['violations'] : [];
+		if ( [] === $violations ) {
+			return $error;
+		}
+		$action  = (string) ( $operation['action'] ?? '' );
+		$context = [ 'operation_index' => $index, 'action' => $action ];
+		if ( isset( $operation['op_id'] ) && is_string( $operation['op_id'] ) && '' !== $operation['op_id'] ) {
+			$context['op_id'] = $operation['op_id'];
+		}
+		if ( in_array( $action, [ 'add_widget', 'add_container', 'add_inner_section' ], true ) ) {
+			$context['widget_type'] = 'add_widget' === $action ? (string) ( $operation['widget_type'] ?? '' ) : 'container';
+			$parent = isset( $operation['parent_ref'] ) && is_string( $operation['parent_ref'] ) ? ( $refs[ $operation['parent_ref'] ] ?? '@' . $operation['parent_ref'] ) : (string) ( $operation['parent_id'] ?? '' );
+			if ( '' !== $parent ) {
+				$context['parent_id'] = $parent;
+			}
+		} elseif ( in_array( $action, [ 'update_element', 'patch_repeater_row' ], true ) ) {
+			$element_id = $this->element_id( $operation, $refs );
+			if ( is_string( $element_id ) ) {
+				$context['element_id'] = $element_id;
+				$path                  = ElementorData::find_path( $tree, $element_id );
+				$element               = null === $path ? null : self::resolve( $tree, $path );
+				if ( is_array( $element ) ) {
+					$context['widget_type'] = 'widget' === (string) ( $element['elType'] ?? '' ) ? (string) ( $element['widgetType'] ?? '' ) : (string) ( $element['elType'] ?? '' );
+				}
+			}
+		}
+		foreach ( $violations as $key => $violation ) {
+			if ( is_array( $violation ) ) {
+				$violations[ $key ] = array_merge( $context, $violation );
+			}
+		}
+		$data['violations'] = $violations;
+
+		return new \WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
+	}
+
+	/**
+	 * The rejected settings of every failed operation, one entry each, bounded.
+	 *
+	 * @param list<array<string, mixed>> $items
+	 * @return list<array<string, mixed>>
+	 */
+	private static function flatten_rejections( array $items ): array {
+		$out = [];
+		foreach ( $items as $item ) {
+			if ( ! empty( $item['ok'] ) ) {
+				continue;
+			}
+			foreach ( is_array( $item['error']['data']['violations'] ?? null ) ? $item['error']['data']['violations'] : [] as $violation ) {
+				if ( ! is_array( $violation ) || ! isset( $violation['path'], $violation['operation_index'] ) ) {
+					continue;
+				}
+				$out[] = array_intersect_key( $violation, array_flip( self::REJECTED_FIELDS ) );
+			}
+		}
+
+		return $out;
+	}
+
+	/** Where a rejected setting was sent: the operation, its action, the element or parent and the widget type. */
+	private static function rejection_where( array $rejection ): string {
+		if ( [] === $rejection ) {
+			return '';
+		}
+		$target = (string) ( $rejection['element_id'] ?? '' );
+		if ( '' === $target && '' !== (string) ( $rejection['parent_id'] ?? '' ) ) {
+			$target = 'under ' . (string) $rejection['parent_id'];
+		}
+
+		return trim(
+			sprintf(
+				'operation %1$d %2$s%3$s%4$s',
+				(int) ( $rejection['operation_index'] ?? 0 ),
+				(string) ( $rejection['action'] ?? '' ),
+				'' !== $target ? ' ' . $target : '',
+				'' !== (string) ( $rejection['widget_type'] ?? '' ) ? ', ' . (string) $rejection['widget_type'] : ''
+			)
+		);
+	}
+
+	/**
+	 * What failed, for the message of a batch that was only validated: the rejected settings when the operations were
+	 * refused for their settings, otherwise the message of each of the first failed operations.
+	 *
+	 * @param list<array<string, mixed>> $items
+	 */
+	private static function failure_sentences( array $items ): string {
+		$rejections = self::flatten_rejections( $items );
+		if ( [] !== $rejections ) {
+			return self::rejection_sentences( $rejections );
+		}
+		$text   = '';
+		$listed = 0;
+		$failed = 0;
+		foreach ( $items as $item ) {
+			if ( ! empty( $item['ok'] ) ) {
+				continue;
+			}
+			++$failed;
+			if ( $listed >= 3 ) {
+				continue;
+			}
+			$message = (string) ( $item['error']['message'] ?? '' );
+			if ( '' === $message ) {
+				continue;
+			}
+			++$listed;
+			$text .= sprintf( ' Operation %1$d failed: %2$s', (int) ( $item['index'] ?? 0 ), rtrim( $message, ' ' ) );
+		}
+
+		return $failed > $listed && $listed > 0 ? $text . sprintf( ' %d more failed operations are listed in items.', $failed - $listed ) : $text;
+	}
+	/** One sentence per rejected setting for the first few, as the message of the refusal. */
+	private static function rejection_sentences( array $rejections ): string {
+		if ( [] === $rejections ) {
+			return '';
+		}
+		$text = '';
+		foreach ( array_slice( $rejections, 0, 3 ) as $position => $rejection ) {
+			$received = is_array( $rejection['received_value'] ?? null ) ? $rejection['received_value'] : [];
+			$type     = (string) ( $received['type'] ?? '' );
+			$phrase   = [] === $received || in_array( $type, [ 'array', 'object' ], true ) ? $type : ( in_array( $type, [ 'null', 'bool' ], true ) ? $type . ' ' . (string) ( $received['preview'] ?? '' ) : $type . ' "' . mb_substr( (string) ( $received['preview'] ?? '' ), 0, 40 ) . '"' );
+			$text    .= sprintf(
+				' Rejected in %1$s: %2$s: expected %3$s; received %4$s.',
+				self::rejection_where( $rejection ),
+				(string) ( $rejection['path'] ?? '' ),
+				(string) ( $rejection['expected'] ?? '' ),
+				'' !== $phrase ? $phrase : 'unknown'
+			);
+			if ( 0 === $position && is_array( $rejection['example'] ?? null ) ) {
+				$text .= ' Example: ' . (string) wp_json_encode( $rejection['example'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . '.';
+			}
+		}
+		if ( count( $rejections ) > 3 ) {
+			$text .= sprintf( ' %d more rejected settings are listed in rejected_settings.', count( $rejections ) - 3 );
+		}
+
+		return $text;
+	}
+
+	/**
+	 * A short, scalar-only account of every rejected setting for the audit row: operation, action, widget, setting,
+	 * the type of what was received and its short preview. Arrays are named by type only.
+	 *
+	 * @param list<array<string, mixed>> $rejections
+	 */
+	private static function rejection_summary( array $rejections ): string {
+		$parts = [];
+		foreach ( $rejections as $rejection ) {
+			$received = is_array( $rejection['received_value'] ?? null ) ? $rejection['received_value'] : [];
+			$type     = (string) ( $received['type'] ?? '' );
+			$value    = in_array( $type, [ 'array', 'object' ], true ) ? $type : $type . ' ' . mb_substr( (string) ( $received['preview'] ?? '' ), 0, 30 );
+			$parts[]  = sprintf(
+				'op%1$d %2$s %3$s: %4$s (%5$s) got %6$s',
+				(int) ( $rejection['operation_index'] ?? 0 ),
+				(string) ( $rejection['action'] ?? '' ),
+				'' !== (string) ( $rejection['widget_type'] ?? '' ) ? (string) $rejection['widget_type'] : '-',
+				(string) ( $rejection['setting'] ?? '' ),
+				(string) ( $rejection['code'] ?? '' ),
+				trim( $value )
+			);
+		}
+
+		return mb_substr( implode( '; ', $parts ), 0, 480 );
+	}
+
 	/**
 	 * @param list<array<string, mixed>>          $items
 	 * @param array<int, array<string, mixed>>    $tree
@@ -1925,6 +2109,19 @@ final class BatchMutate extends AbilityKernel {
 		];
 		if ( IncidentStore::is_input_shape_code( $cause_code ) ) {
 			$data['execution_status'] = 'blocked';
+		}
+		$rejections = in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ? [] : self::flatten_rejections( $items );
+		if ( [] !== $rejections ) {
+			$first                       = $rejections[0];
+			$data['rejected_settings']   = array_slice( $rejections, 0, self::REJECTED_MAX );
+			$data['rejected_total']      = count( $rejections );
+			$data['rejected_summary']    = self::rejection_summary( array_slice( $rejections, 0, 6 ) );
+			$data['failed_action_index'] = (int) ( $first['operation_index'] ?? 0 );
+			$data['setting_path']        = (string) ( $first['path'] ?? '' );
+			$data['expected_type']       = mb_substr( (string) ( $first['expected'] ?? '' ), 0, 200 );
+			$data['actual_type']         = (string) ( $first['received_value']['type'] ?? '' );
+			$data['widget_type']         = (string) ( $first['widget_type'] ?? '' );
+			$data['element_id']          = '' !== (string) ( $first['element_id'] ?? '' ) ? (string) $first['element_id'] : (string) ( $first['parent_id'] ?? '' );
 		}
 		if ( in_array( $cause_code, self::SECTION_SETTING_CODES, true ) ) {
 			$inner                      = (array) $result->get_error_data();
@@ -1977,7 +2174,7 @@ final class BatchMutate extends AbilityKernel {
 			'stonewright_ambiguous_repeater_row' => 'Refresh the widget and select exactly one stable custom_id, falling back to _id only when custom_id is unavailable.',
 			'stonewright_third_party_replace_blocked' => 'Use patch_repeater_row. If a full replace is unavoidable, review one explicit high-risk dry-run and bind the apply to its preservation hash.',
 			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',
-			'stonewright_elementor_settings_invalid' => 'Execute every schema_request in the response once. Keep unknown existing settings, replace only rejected values, include settings_evidence, and rerun one consolidated dry-run.',
+			'stonewright_elementor_settings_invalid' => 'Fix every entry of rejected_settings: each names the operation, element or parent, widget type and setting, what was received, what the live control accepts (allowed_values, units, responsive_keys, requires) and an example value. Keep unknown existing settings, replace only the rejected values, include settings_evidence, and rerun one consolidated dry-run. Run a schema_request only for an entry that has no example.',
 			'stonewright_elementor_evidence_invalid' => 'Execute every schema_request in the response, then resend settings_evidence for each planned setting. Direction-brief provenance is accepted for token-derived color, typography, and spacing when a design direction is active.',
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
 			'stonewright_elementor_setting_dropped' => 'The requested setting was dropped during sparse normalization. Send a persistable live-schema value or omit the key.',

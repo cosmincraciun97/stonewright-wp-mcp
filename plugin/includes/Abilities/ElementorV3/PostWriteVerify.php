@@ -4,9 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\RenderMarkers;
 use Stonewright\WpMcp\Security\ChangeSet;
 use Stonewright\WpMcp\Security\ChangeSetSources;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * Observes an Elementor frontend render. It does not regenerate CSS, invalidate
@@ -82,8 +84,12 @@ final class PostWriteVerify extends AbilityKernel {
 				'failed_check'                 => [ 'type' => 'string' ],
 				'rendered_bytes'               => [ 'type' => 'integer' ],
 				'render_sha256'       => [ 'type' => 'string' ],
-				'element_checks'      => [ 'type' => 'array' ],
+				'element_checks'      => [ 'type' => 'array', 'description' => 'One entry per element_ids item: element_id, selector, present, markers_checked (the data-id, data-interaction-id or elementor-element-<id> class markers its kind renders), matched_marker when found, and widget_type, reason and note when missing.' ],
 				'content_checks'      => [ 'type' => 'array' ],
+				'missing_elements'    => [ 'type' => 'array', 'description' => 'On a failure: each missing element as element_id, widget_type and reason (not_in_document, not_rendered, render_empty, password_protected, not_built_with_elementor, no_elementor_data, cached_html_suspected or renderer_failed).' ],
+				'render_context'      => [ 'type' => 'object', 'description' => 'Evidence behind the reasons: post_status, password_protected, built_with_elementor, element_cache_active, rendered_bytes, atomic_elements_active.' ],
+				'message'             => [ 'type' => 'string', 'description' => 'On a failure: one plain sentence naming the missing elements, their reasons and the next step.' ],
+				'notes'               => [ 'type' => 'array', 'items' => [ 'type' => 'string' ], 'description' => 'Observations that do not fail the check, such as a post that is not published.' ],
 				'browser_required'    => [ 'type' => 'boolean' ],
 				'browser_recipe'      => [ 'type' => 'object' ],
 				'write_receipt'       => [ 'type' => 'object' ],
@@ -141,13 +147,15 @@ final class PostWriteVerify extends AbilityKernel {
 					);
 				}
 
+				$context = self::render_context( $post_id );
 				try {
 					$html = (string) $frontend->get_builder_content_for_display( $post_id, false );
 				} catch ( \Throwable $error ) {
-					return self::failure_response( $post_id, '', $args, 'renderer_failed' );
+					return self::failure_response( $post_id, '', $args, 'renderer_failed', $context, get_class( $error ) );
 				}
+				$context['rendered_bytes'] = strlen( $html );
 
-				$verification   = self::verification_evidence( $html, $args );
+				$verification   = self::verification_evidence( $html, $args, $context );
 				$element_checks = $verification['element_checks'];
 				$content_checks = $verification['content_checks'];
 				$checks         = array_merge( $element_checks, $content_checks );
@@ -171,13 +179,21 @@ final class PostWriteVerify extends AbilityKernel {
 					'render_sha256'                => $verification['render_sha256'],
 					'element_checks'               => $element_checks,
 					'content_checks'               => $content_checks,
+					'render_context'               => self::public_context( $context ),
 					'browser_required'             => true,
 					'browser_recipe'               => self::browser_recipe(),
 					'write_receipt'                => $write_receipt,
 				];
+				$notes = self::status_notes( $context );
+				if ( [] !== $notes ) {
+					$result['notes'] = $notes;
+				}
 				if ( ! $passed ) {
-					$result['root_error_code'] = 'stonewright_elementor_frontend_verification_failed';
-					$result['failed_check']    = 'frontend';
+					$missing                    = self::missing_elements( $element_checks );
+					$result['root_error_code']  = 'stonewright_elementor_frontend_verification_failed';
+					$result['failed_check']     = 'frontend';
+					$result['missing_elements'] = $missing;
+					$result['message']          = self::failure_message( $missing, $content_checks, $html, $context );
 				}
 				return $result;
 			}
@@ -263,25 +279,105 @@ final class PostWriteVerify extends AbilityKernel {
 	}
 
 	/**
+	 * What the post is, as evidence for a missing element: its status, password, Elementor flag, document and element cache.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private static function render_context( int $post_id ): array {
+		$status   = get_post_status( $post_id );
+		$cache    = get_post_meta( $post_id, '_elementor_element_cache', true );
+		$cache    = is_string( $cache ) ? json_decode( $cache, true ) : $cache;
+		$atomic   = null;
+		$features  = class_exists( '\\Elementor\\Plugin' ) ? ( \Elementor\Plugin::$instance->experiments ?? null ) : null;
+		if ( is_object( $features ) && method_exists( $features, 'is_feature_active' ) ) {
+			$atomic = (bool) $features->is_feature_active( 'e_atomic_elements' );
+		}
+		return [
+			'post_status'            => is_string( $status ) ? $status : '',
+			'password_protected'     => function_exists( 'post_password_required' ) && post_password_required( $post_id ),
+			'built_with_elementor'   => '' !== (string) get_post_meta( $post_id, '_elementor_edit_mode', true ),
+			'element_cache_active'   => is_array( $cache ) && (int) ( $cache['timeout'] ?? 0 ) > time(),
+			'rendered_bytes'         => 0,
+			'atomic_elements_active' => $atomic,
+			'tree'                   => ElementorData::read( $post_id ),
+		];
+	}
+
+	/**
+	 * @param array<string,mixed> $context
+	 * @return array<string,mixed>
+	 */
+	private static function public_context( array $context ): array {
+		unset( $context['tree'] );
+		return $context;
+	}
+
+	/**
+	 * The reason an empty render is empty, from evidence; null when the render is not empty.
+	 *
+	 * @param array<string,mixed> $context
+	 */
+	private static function empty_render_reason( string $html, array $context ): ?string {
+		if ( '' !== $html ) {
+			return null;
+		}
+		if ( ! empty( $context['password_protected'] ) ) {
+			return 'password_protected';
+		}
+		if ( empty( $context['built_with_elementor'] ) ) {
+			return 'not_built_with_elementor';
+		}
+		if ( [] === $context['tree'] ) {
+			return 'no_elementor_data';
+		}
+		return 'render_empty';
+	}
+
+	/**
 	 * @param array<string,mixed> $args
+	 * @param array<string,mixed> $context
 	 * @return array{rendered_bytes:int,render_sha256:string,element_checks:list<array<string,mixed>>,content_checks:list<array<string,mixed>>}
 	 */
-	private static function verification_evidence( string $html, array $args ): array {
+	private static function verification_evidence( string $html, array $args, array $context = [] ): array {
+		$empty_reason   = [] === $context ? null : self::empty_render_reason( $html, $context );
+		$tree           = is_array( $context['tree'] ?? null ) ? $context['tree'] : [];
 		$element_checks = [];
 		foreach ( self::bounded_strings( $args['element_ids'] ?? [], 50, 80 ) as $element_id ) {
-			$element_checks[] = [
-				'element_id' => $element_id,
-				'selector'   => '.elementor-element-' . $element_id,
-				'present'    => str_contains( $html, 'elementor-element-' . $element_id ),
+			$path        = ElementorData::find_path( $tree, $element_id );
+			$element     = null === $path ? null : ElementorData::element_at( $tree, $path );
+			$widget_type = is_array( $element ) ? (string) ( $element['widgetType'] ?? '' ) : '';
+			$type        = is_array( $element ) ? ( '' !== $widget_type ? $widget_type : (string) ( $element['elType'] ?? '' ) ) : '';
+			$matched     = RenderMarkers::find( $html, $element_id, $type );
+			$check       = [
+				'element_id'      => $element_id,
+				'selector'        => '.elementor-element-' . $element_id,
+				'present'         => null !== $matched,
+				'markers_checked' => RenderMarkers::labels( $element_id, $type ),
 			];
+			if ( null !== $matched ) {
+				$check['matched_marker'] = $matched;
+			} else {
+				$check['widget_type'] = $widget_type;
+				$check['reason']      = $empty_reason ?? self::missing_reason( null !== $element, $tree, $context );
+				$note                 = self::atomic_note( $type, $context );
+				if ( '' !== $note ) {
+					$check['note'] = $note;
+				}
+			}
+			$element_checks[] = $check;
 		}
 		$content_checks = [];
 		foreach ( self::bounded_strings( $args['html_contains'] ?? [], 20, 200 ) as $marker ) {
-			$content_checks[] = [
+			$present = str_contains( $html, $marker );
+			$check   = [
 				'sha256'  => hash( 'sha256', $marker ),
 				'length'  => strlen( $marker ),
-				'present' => str_contains( $html, $marker ),
+				'present' => $present,
 			];
+			if ( ! $present ) {
+				$check['reason'] = $empty_reason ?? 'marker_not_in_render';
+			}
+			$content_checks[] = $check;
 		}
 		return [
 			'rendered_bytes'  => strlen( $html ),
@@ -291,13 +387,163 @@ final class PostWriteVerify extends AbilityKernel {
 		];
 	}
 
-	/** @param array<string,mixed> $args */
-	private static function failure_response( int $post_id, string $html, array $args, string $code ): array {
-		$verification = self::verification_evidence( $html, $args );
+	/**
+	 * Why a stored or unknown element is absent from a render that is not empty.
+	 *
+	 * @param array<int|string,mixed> $tree
+	 * @param array<string,mixed>     $context
+	 */
+	private static function missing_reason( bool $in_document, array $tree, array $context ): string {
+		if ( [] === $tree ) {
+			return 'no_elementor_data';
+		}
+		if ( ! $in_document ) {
+			return 'not_in_document';
+		}
+		return ! empty( $context['element_cache_active'] ) ? 'cached_html_suspected' : 'not_rendered';
+	}
+
+	/** @param array<string,mixed> $context */
+	private static function atomic_note( string $type, array $context ): string {
+		if ( str_starts_with( $type, 'e-' ) && false === ( $context['atomic_elements_active'] ?? null ) ) {
+			return 'The Elementor V4 atomic elements experiment is off, so Elementor skips e-* elements when it renders.';
+		}
+		return '';
+	}
+
+	/**
+	 * @param list<array<string,mixed>> $element_checks
+	 * @return list<array{element_id:string,widget_type:string,reason:string,note?:string}>
+	 */
+	private static function missing_elements( array $element_checks ): array {
+		$missing = [];
+		foreach ( $element_checks as $check ) {
+			if ( ! empty( $check['present'] ) ) {
+				continue;
+			}
+			$entry = [
+				'element_id'  => (string) $check['element_id'],
+				'widget_type' => (string) ( $check['widget_type'] ?? '' ),
+				'reason'      => (string) ( $check['reason'] ?? 'not_rendered' ),
+			];
+			if ( ! empty( $check['note'] ) ) {
+				$entry['note'] = (string) $check['note'];
+			}
+			$missing[] = $entry;
+		}
+		return $missing;
+	}
+
+	/**
+	 * Notes about the post that do not fail the check: Elementor renders a draft, a visitor gets no public page.
+	 *
+	 * @param array<string,mixed> $context
+	 * @return list<string>
+	 */
+	private static function status_notes( array $context ): array {
+		$status = (string) ( $context['post_status'] ?? '' );
+		if ( '' === $status || 'publish' === $status ) {
+			return [];
+		}
+		return [ sprintf( 'The post status is %s, so an anonymous visitor does not get this page. Elementor still rendered it, so this check ran; confirm the page in a browser while logged in, or publish it first.', $status ) ];
+	}
+
+	/**
+	 * One plain sentence a person or an audit row can act on: the missing ids with their reasons and the next step.
+	 *
+	 * @param list<array{element_id:string,widget_type:string,reason:string,note?:string}> $missing
+	 * @param list<array<string,mixed>>                                      $content_checks
+	 * @param array<string,mixed>                                            $context
+	 */
+	private static function failure_message( array $missing, array $content_checks, string $html, array $context, string $exception_class = '' ): string {
+		$parts   = [];
+		$reasons = [];
+		if ( '' !== $exception_class ) {
+			$parts[]   = 'The Elementor renderer threw ' . $exception_class . ', so nothing could be checked';
+			$reasons[] = 'renderer_failed';
+		}
+		if ( [] !== $missing && '' === $exception_class ) {
+			$named = [];
+			foreach ( array_slice( $missing, 0, 5 ) as $item ) {
+				$named[] = $item['element_id'] . ' (' . $item['reason'] . ')';
+			}
+			$text = 'Not found in the render: ' . implode( ', ', $named );
+			if ( count( $missing ) > 5 ) {
+				$text .= ' and ' . ( count( $missing ) - 5 ) . ' more';
+			}
+			$parts[] = $text;
+			foreach ( $missing as $item ) {
+				$reasons[] = $item['reason'];
+			}
+		}
+		$markers_missing = count( array_filter( $content_checks, static fn( array $check ): bool => empty( $check['present'] ) ) );
+		if ( $markers_missing > 0 && '' === $exception_class ) {
+			$parts[] = $markers_missing . ' content marker(s) not in the render';
+			foreach ( $content_checks as $check ) {
+				if ( empty( $check['present'] ) && isset( $check['reason'] ) ) {
+					$reasons[] = (string) $check['reason'];
+				}
+			}
+		}
+		if ( [] === $parts ) {
+			$empty = self::empty_render_reason( $html, $context ) ?? 'render_empty';
+			$parts[]   = 'The render is empty (' . $empty . ')';
+			$reasons[] = $empty;
+		}
+		$next = [];
+		foreach ( array_unique( $reasons ) as $reason ) {
+			$hint = self::next_step( $reason );
+			if ( '' !== $hint ) {
+				$next[] = $hint;
+			}
+		}
+		$message = 'Frontend verification failed. ' . implode( '; ', $parts ) . '.';
+		if ( [] !== $next ) {
+			$message .= ' Next: ' . implode( ' ', array_slice( $next, 0, 2 ) );
+		}
+		return strlen( $message ) > 400 ? substr( $message, 0, 397 ) . '...' : $message;
+	}
+
+	private static function next_step( string $reason ): string {
+		return match ( $reason ) {
+			'cached_html_suspected'    => 'The render may come from the Elementor element cache: clear it (Elementor > Tools > Regenerate CSS & Data) or rerun after it expires.',
+			'password_protected'       => 'The render of a password-protected post is empty by design; verify in a browser while logged in.',
+			'not_built_with_elementor' => 'The post is not built with Elementor; open it in the Elementor editor once or check the post id.',
+			'no_elementor_data'        => 'The post has no stored Elementor data; read the page structure to confirm the write landed.',
+			'render_empty'             => 'The renderer returned nothing for a populated document; check for a fatal error in the page template and verify in a browser.',
+			'not_in_document'          => 'The id is not in the stored document; read the page structure for the current ids.',
+			'not_rendered'             => 'The element is stored but not in the HTML; check its visibility settings and verify in a browser.',
+			'renderer_failed'          => 'Check the PHP error log for the renderer error and retry once.',
+			'marker_not_in_render'     => 'The text is not in the render; check the stored content.',
+			default                    => '',
+		};
+	}
+
+	/**
+	 * @param array<string,mixed> $args
+	 * @param array<string,mixed> $context
+	 */
+	private static function failure_response( int $post_id, string $html, array $args, string $code, array $context = [], string $exception_class = '' ): array {
+		$verification = self::verification_evidence( $html, $args, $context );
 		$write_receipt = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] ) ? self::sanitize_receipt( $args['write_receipt'] ) : [];
 		if ( [] !== $write_receipt ) {
 			$write_receipt['verification_status'] = 'failed';
 			$write_receipt['root_error_code']     = sanitize_key( $code );
+		}
+		$exception_class = (string) preg_replace( '/[^A-Za-z0-9_\\\\]/', '', $exception_class );
+		$checks          = [];
+		foreach ( $verification['element_checks'] as $check ) {
+			$check['present'] = false;
+			$check['reason']  = $code;
+			unset( $check['matched_marker'] );
+			$checks[] = $check;
+		}
+		$missing        = self::missing_elements( $checks );
+		$content_checks = [];
+		foreach ( $verification['content_checks'] as $check ) {
+			$check['present'] = false;
+			$check['reason']  = $code;
+			$content_checks[] = $check;
 		}
 		return [
 			'ok'                           => false,
@@ -309,13 +555,16 @@ final class PostWriteVerify extends AbilityKernel {
 			'frontend_verification_status' => 'failed',
 			'rendered_bytes'               => $verification['rendered_bytes'],
 			'render_sha256'                => $verification['render_sha256'],
-			'element_checks'               => $verification['element_checks'],
-			'content_checks'               => $verification['content_checks'],
+			'element_checks'               => $checks,
+			'content_checks'               => $content_checks,
+			'render_context'               => self::public_context( $context ),
+			'missing_elements'             => $missing,
 			'browser_required'             => true,
 			'browser_recipe'               => self::browser_recipe(),
 			'write_receipt'                => $write_receipt,
 			'root_error_code'              => sanitize_key( $code ),
 			'failed_check'                 => 'frontend',
+			'message'                      => self::failure_message( $missing, $content_checks, $html, $context, '' !== $exception_class ? $exception_class : 'an exception' ),
 		];
 	}
 
