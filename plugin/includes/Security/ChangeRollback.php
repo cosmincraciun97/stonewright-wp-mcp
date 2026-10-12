@@ -40,7 +40,7 @@ use Stonewright\WpMcp\Support\Logger;
  *    the approval-required answer of RescueRollback. The Changes page passes it; an agent or WP-CLI call does not.
  * 6. Drift is refused unless force_drift, a state that is not the previewed one is refused, and in production-safe
  *    mode a confirmation token bound to the change id and these options is verified (only now, so that a refusal
- *    above does not use the token up).
+ *    above does not use the token up). Every change is held to this, one that was never verified included.
  * 7. The resource is claimed (RollbackClaim), the live state is read again, a baseline probe is taken, the handler
  *    restores, a rollback row is written (kind rollback, or redo when the row acted on is a rollback row), and the site
  *    is probed with the retry. A probe that fails after a site that was not failing before puts the earlier state
@@ -48,11 +48,15 @@ use Stonewright\WpMcp\Support\Logger;
  *
  * The journal link: when the Rescue journal has an entry with the same id and the entry is open (armed, incident,
  * rollback_failed), the rollback goes through RescueRollback::run(), the path the Rescue page and ability use, so the
- * journal and the ledger stay one story: the journal entry settles as it always did, and the ledger gets its rollback
- * row. An open incident needs neither force nor an approval, because the site is failing. Anything else, a verified
- * change included, goes through the handler of the family, which probes the site after the restore and puts the earlier
- * state back when the probe fails; if the journal lists the change as verified it is settled as rolled back once the
- * restore is kept, and stays verified when the restore is taken back.
+ * journal and the ledger stay one story: the journal entry settles as it always did, and the rescue path writes the
+ * ledger's rollback row, the same row this engine writes for any other change, so that a Redo acts on it. The rescue
+ * path holds an entry to the same drift rule (RescueRollback::preflight_refusal() is asked here before a token is
+ * looked at), saves the state it replaces, and puts it back when a rollback of an armed change breaks the site. The one
+ * exception is a change with an incident or a failed rollback recorded against it while the site fails now: that is
+ * recovered without force or an approval, because the site is failing. Anything else, a verified change included,
+ * goes through the handler of the family, which probes the site after the restore and puts the earlier state back when
+ * the probe fails; if the journal lists the change as verified it is settled as rolled back once the restore is kept,
+ * and stays verified when the restore is taken back.
  *
  * Every call writes one audit row, a dry run and a refusal included, and its result carries a receipt.
  */

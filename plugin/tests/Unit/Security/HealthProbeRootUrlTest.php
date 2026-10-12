@@ -124,7 +124,7 @@ final class HealthProbeRootUrlTest extends TestCase {
 		yield 'another host'        => [ 'https://other.test/' ];
 		yield 'another host no path' => [ 'https://other.test' ];
 		yield 'a subdomain'         => [ 'https://www.example.test/' ];
-		yield 'credentials'         => [ 'https://user:secret@example.test/' ];
+		yield 'credentials'         => [ 'https://fixture-user:fixture-secret@example.test/' ];
 		yield 'another scheme'      => [ 'http://example.test/' ];
 		yield 'not http'            => [ 'ftp://example.test/' ];
 		yield 'another port'        => [ 'https://example.test:8443/' ];

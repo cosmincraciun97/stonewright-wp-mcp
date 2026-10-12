@@ -11,6 +11,44 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- A rollback from Rescue, from the `stonewright-rescue-rollback` ability or from
+  Changes stops with `stonewright_change_drift` when the item was edited after the
+  change, whether the change was verified, never verified or recorded as an
+  incident earlier. Nothing is saved, written or claimed, and a confirmation token
+  is not used up. Run it again with `force_drift` and the `current_sha256` of the
+  dry run as `expected_current_sha256` (both are new inputs of
+  `stonewright-rescue-rollback`) to overwrite the edit. A change with an incident
+  or a failed rollback recorded against it is still recovered without that
+  confirmation while a health check fails, and without the change history.
+- A rollback of a change that was never verified saves the current state first,
+  probes the site before and after, and puts the state back when the rollback
+  breaks a site that worked, as the rollback of a verified change does.
+- A rollback from Rescue records a rollback row under the change in the change
+  history, the same row Undo writes, so Changes lists it and offers Redo; Changes
+  no longer writes a second row for an open change. The answer of
+  `stonewright-rescue-rollback` carries `mode`, `drift_forced`,
+  `rollback_change_id`, `restorable_again`, `history` and `verification_reason`;
+  its dry run carries `drift`, `drift_known`, `requires_force`, `current_sha256`,
+  `expected_sha256` and `redo_available`.
+- Check again closes an incident only when every check that passed before the
+  change passes again, with the same single retry of a silent check that a probe
+  after a write gets. The answer carries `verification_reason`: `verified`,
+  `not_started`, `transport_unavailable`, `check_lost` or `site_failed`.
+
+### Fixed
+
+- The state saved before an undo of a kit change covers the same surfaces as the
+  snapshot being restored: the V4 global variables, the legacy class list, the
+  global classes and default styles read through Elementor's repositories, and
+  keys that did not exist when the snapshot was taken. The undo is refused before
+  it writes when a surface cannot be read, and a put-back counts as done only when
+  the whole saved state reads back.
+- The health probe asks for a page at the root of the site, whose address has no
+  path, with a token bound to `/`. A page address that is not on the site's own
+  origin is skipped before a token is issued for it.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-11T20:08:19+00:00",
+    "generated_at": "2026-10-12T10:45:46+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -86,7 +86,8 @@
             "stonewright/site-capabilities",
             "stonewright/theme-builder-apply-template",
             "stonewright/theme-builder-create-template",
-            "stonewright/theme-json-handoff"
+            "stonewright/theme-json-handoff",
+            "stonewright/rescue-rollback"
         ]
     },
     "abilities": [
@@ -6094,8 +6095,8 @@
             "ability_name": "stonewright/rescue-rollback",
             "mcp_name": "stonewright-rescue-rollback",
             "kind": "Write",
-            "input_schema_hash": "8cd28dd0d6c208dda57f77c88f045a7a5f4e0df6e7358ffdd151ae40f798a667",
-            "output_schema_hash": "24cb95dd9b842466c34f910691322c18054472ae547b14da52f7c8c1fd755556",
+            "input_schema_hash": "5c36729d6ac5b02a74680eb0491b22165930364c6e1f0a4eb4a840a0c0632675",
+            "output_schema_hash": "768bbdda825201a525bb585a097b190208f5bd97dcdd9d9811008d690f4c8b92",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
