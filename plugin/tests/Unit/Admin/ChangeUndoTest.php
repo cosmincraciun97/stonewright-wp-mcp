@@ -13,6 +13,8 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin;
 use Stonewright\WpMcp\Admin\ChangesPage;
 use Stonewright\WpMcp\Admin\ChangeUndo;
 use Stonewright\WpMcp\Admin\MenuRegistry;
+use Elementor\Core\Files\CSS\Post;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ChangeRollback;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -363,6 +365,32 @@ final class ChangeUndoTest extends RollbackTestCase {
 		self::assertStringContainsString( 'undone=undone', $url );
 		self::assertStringContainsString( 'source_change=' . $id, $url );
 		self::assertDoesNotMatchRegularExpression( '/[?&]from=/', $url, 'from is the date filter of the list; the change an undo acted on has a name of its own.' );
+	}
+
+	public function test_an_undo_whose_css_was_not_regenerated_is_a_warning_that_names_the_next_step(): void {
+		$this->make_post( self::POST, [ 'post_title' => 'Original title', 'post_content' => 'Original body' ] );
+		$this->set_meta( self::POST, '_elementor_edit_mode', 'builder' );
+		$this->set_meta( self::POST, '_elementor_data', '[{"id":"c0000001","elType":"container","settings":[],"elements":[]}]' );
+		$id = $this->post_change( fn () => $this->set_meta( self::POST, '_elementor_data', '[{"id":"c0000002","elType":"container","settings":[],"elements":[]}]' ) );
+		Post::$factory = static function (): object {
+			throw new \RuntimeException( 'generator failed' );
+		};
+		try {
+			$outcome = $this->post_request( $this->posted( $id ) );
+		} finally {
+			Post::$factory = null;
+			RestoredCss::reset();
+		}
+
+		self::assertSame( 'undone_css_pending', $outcome['code'] );
+		self::assertSame( '[{"id":"c0000001","elType":"container","settings":[],"elements":[]}]', get_post_meta( self::POST, '_elementor_data', true ), 'The content is back.' );
+
+		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => $outcome['code'], 'from' => $id ] );
+
+		self::assertMatchesRegularExpression( '#<div class="sw-ui-notice sw-ui-notice--warn"[^>]*role="alert"#', $html );
+		self::assertStringContainsString( 'The change was undone', $html );
+		self::assertStringContainsString( 'was not regenerated', $html );
+		self::assertStringContainsString( 'stonewright/elementor-css-regenerate', $html );
 	}
 
 	public function test_the_page_shows_the_result_with_a_link_to_the_new_row_and_the_receipt(): void {

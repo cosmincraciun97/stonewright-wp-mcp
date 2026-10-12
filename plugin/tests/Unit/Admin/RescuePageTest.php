@@ -3,12 +3,14 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
+use Elementor\Core\Files\CSS\Post;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\MenuRegistry;
 use Stonewright\WpMcp\Admin\RescuePage;
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
@@ -792,6 +794,29 @@ final class RescuePageTest extends TestCase {
 		self::assertStringContainsString( 'A rollback of this change set is running.', $html );
 		self::assertStringNotContainsString( 'data-sw-rescue-open', $html );
 		self::assertStringNotContainsString( '<dialog', $html );
+	}
+
+	public function test_a_rollback_whose_css_was_not_regenerated_is_a_warning_that_names_the_next_step(): void {
+		$entry = $this->incident();
+		$GLOBALS['stonewright_test_posts'][31]->meta['_elementor_data'] = '[{"id":"c0000001","elType":"container","settings":[],"elements":[]}]';
+		Post::$factory = static function (): object {
+			throw new \RuntimeException( 'generator failed' );
+		};
+		$_POST = [ '_stonewright_nonce' => 'x', 'incident_id' => $entry['id'] ];
+		try {
+			$result = RescuePage::process_rollback_request();
+		} finally {
+			Post::$factory = null;
+			RestoredCss::reset();
+			$_POST = [];
+		}
+
+		self::assertSame( 'rolled_back_css_pending', $result['code'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The content is back.' );
+		$_GET = [ 'rescue' => $result['code'], 'incident' => $entry['id'] ];
+		$html = $this->html();
+		self::assertStringContainsString( 'was not regenerated', $html );
+		self::assertStringContainsString( 'stonewright/elementor-css-regenerate', $html );
 	}
 
 	public function test_a_second_roll_back_request_for_the_same_change_set_is_turned_away_and_changes_nothing(): void {

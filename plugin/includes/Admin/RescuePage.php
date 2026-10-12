@@ -1117,9 +1117,11 @@ final class RescuePage {
 		if ( $result instanceof \WP_Error ) {
 			return [ 'code' => self::outcome_for_error( $result ), 'incident_id' => $id ];
 		}
+		// The content is back either way; a page whose generated CSS was not regenerated says so instead of "the site loads again".
+		$css_pending = 'not_regenerated' === ( is_array( $result['css_regeneration'] ?? null ) ? ( $result['css_regeneration']['status'] ?? '' ) : '' );
 		return [
 			'code'        => match ( (string) ( $result['site_status'] ?? '' ) ) {
-				'healthy'       => 'rolled_back',
+				'healthy'       => $css_pending ? 'rolled_back_css_pending' : 'rolled_back',
 				'still_failing' => 'rolled_back_still_failing',
 				default         => 'rolled_back_unverified',
 			},
@@ -1417,6 +1419,7 @@ final class RescuePage {
 	private static function outcome_messages(): array {
 		return [
 			'rolled_back'               => [ 'ok', __( 'The change was rolled back and the site loads again.', 'stonewright' ), true ],
+			'rolled_back_css_pending'   => [ 'warn', __( 'The change was rolled back and the site loads again, but the generated CSS of the page was not regenerated, so the page may still load the old stylesheet. Ask your assistant to run stonewright/elementor-css-regenerate for this page, or save the page once in Elementor.', 'stonewright' ), true ],
 			'rolled_back_still_failing' => [ 'warn', __( 'The change was rolled back, but the site still fails to load. The fault may not come from this change.', 'stonewright' ), true ],
 			'rolled_back_unverified'    => [ 'warn', __( 'The change was rolled back. The health check afterwards got no answer it could judge, so recovery is not confirmed. Check again, or look at the site.', 'stonewright' ), true ],
 			'rollback_failed'           => [ 'danger', __( 'The rollback did not complete. Try safe mode, or undo the change by hand and check the site again.', 'stonewright' ), true ],

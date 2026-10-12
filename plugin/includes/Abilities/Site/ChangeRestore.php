@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -26,7 +27,7 @@ final class ChangeRestore extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Restores a post from a Stonewright snapshot. Takes a snapshot of the current state first and returns it as pre_restore_snapshot_id, so the restore can be undone; refuses when that snapshot cannot be stored. Requires confirmation_token in production-safe mode.', 'stonewright' );
+		return __( 'Restores a post from a Stonewright snapshot. Takes a snapshot of the current state first and returns it as pre_restore_snapshot_id, so the restore can be undone; refuses when that snapshot cannot be stored. When the restore changes an Elementor document it also regenerates the generated CSS of that one post, and css_regeneration says whether that worked; when it did not, the content is still restored and warnings gives the next step. Requires confirmation_token in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -58,6 +59,16 @@ final class ChangeRestore extends AbilityKernel {
 				'snapshot_id'             => [ 'type' => 'string' ],
 				'restored'                => [ 'type' => 'boolean' ],
 				'pre_restore_snapshot_id' => [ 'type' => 'string', 'description' => 'Snapshot of the state before the restore. Pass it as snapshot_id to undo the restore.' ],
+				'css_regeneration'        => [
+					'type'        => 'object',
+					'description' => 'Present when the restore changed an Elementor document: whether the generated CSS of the post was regenerated. status not_regenerated means the content is restored but the page may still load the old stylesheet; reason says why and next_step names the ability to call.',
+					'properties'  => [
+						'status'    => [ 'type' => 'string', 'enum' => [ 'regenerated', 'not_regenerated' ] ],
+						'reason'    => [ 'type' => 'string' ],
+						'next_step' => [ 'type' => 'string' ],
+					],
+				],
+				'warnings'                => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
 			'required'   => [ 'ok', 'post_id', 'snapshot_id', 'restored' ],
 		];
@@ -135,14 +146,23 @@ final class ChangeRestore extends AbilityKernel {
 					return $this->error( 'restore_failed', __( 'Could not restore snapshot.', 'stonewright' ) );
 				}
 
-				return $this->ok(
-					[
-						'post_id'                 => $post_id,
-						'snapshot_id'             => $snapshot_id,
-						'restored'                => true,
-						'pre_restore_snapshot_id' => $pre_restore_id,
-					]
-				);
+				$result = [
+					'post_id'                 => $post_id,
+					'snapshot_id'             => $snapshot_id,
+					'restored'                => true,
+					'pre_restore_snapshot_id' => $pre_restore_id,
+				];
+				// The content is restored either way; the result says whether the generated CSS of the page followed.
+				$css = RestoredCss::last( $post_id );
+				if ( null !== $css ) {
+					$result['css_regeneration'] = $css;
+					$note                       = RestoredCss::warning( $css );
+					if ( '' !== $note ) {
+						$result['warnings'] = [ $note ];
+					}
+				}
+
+				return $this->ok( $result );
 			}
 		);
 	}

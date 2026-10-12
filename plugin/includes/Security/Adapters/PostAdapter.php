@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\Security\Adapters;
 use Stonewright\WpMcp\Abilities\Seo\SeoAdapter;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Security\Backup;
@@ -389,7 +390,7 @@ final class PostAdapter {
 	 * masked, or is not an image, or belongs to another post type, is refused and nothing is written.
 	 *
 	 * @param array<string, mixed> $image
-	 * @return array{ok:bool,post_id:int,skipped:list<string>,differences:list<string>}|\WP_Error ok is true only when the post now equals the image.
+	 * @return array{ok:bool,post_id:int,skipped:list<string>,differences:list<string>,css_regeneration?:array<string,mixed>}|\WP_Error ok is true only when the post now equals the image. css_regeneration says whether the generated Elementor CSS of the post was regenerated, when the restore changed the document.
 	 */
 	public static function restore( int $post_id, array $image ): array|\WP_Error {
 		if ( self::IMAGE_VERSION !== ( $image['v'] ?? null ) || ! is_array( $image['post'] ?? null ) || ! array_key_exists( 'post_title', $image['post'] ) ) {
@@ -405,6 +406,10 @@ final class PostAdapter {
 		if ( isset( $image['post_type'] ) && (string) $image['post_type'] !== (string) $post->post_type ) {
 			return new \WP_Error( 'stonewright_post_type_mismatch', __( 'The image is of another post type than the post.', 'stonewright' ) );
 		}
+
+		// What the generated CSS of this post is built from, before the restore writes: it is regenerated below when the restore changes it.
+		RestoredCss::forget( $post_id );
+		$css_before = RestoredCss::state( $post_id );
 
 		$update = [ 'ID' => $post_id ];
 		foreach ( self::POST_FIELDS as $field => $numeric ) {
@@ -497,12 +502,22 @@ final class PostAdapter {
 
 		$live        = self::image( $post_id, array_merge( array_keys( $meta ), $absent ) );
 		$differences = null === $live ? [ 'post' ] : self::differences( $image, $live );
-		return [
+		$result      = [
 			'ok'          => [] === $differences,
 			'post_id'     => $post_id,
 			'skipped'     => $skipped,
 			'differences' => $differences,
 		];
+		// Elementor keeps serving the stylesheet it generated for the state that was replaced, because a restore writes the meta
+		// directly. Only a post that was put back right gets its CSS regenerated, and a regeneration that does not complete never
+		// undoes the restore: the answer carries it.
+		if ( $result['ok'] ) {
+			$css = RestoredCss::refresh( $post_id, $css_before );
+			if ( 'not_needed' !== $css['status'] ) {
+				$result['css_regeneration'] = $css;
+			}
+		}
+		return $result;
 	}
 
 	/**

@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Security\Rollback\LiveState;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilies;
 use Stonewright\WpMcp\Security\Rollback\RollbackFamilyHandler;
@@ -583,7 +584,8 @@ final class RescueRollback {
 
 		// A normal rollback replaces something that works with something older, so it is judged against the site as it is
 		// and put back when it breaks it. A change with a fault recorded against it is the cure itself and is never put back.
-		$guard = ! in_array( (string) $entry['state'], self::FAULT_STATES, true );
+		$guard    = ! in_array( (string) $entry['state'], self::FAULT_STATES, true );
+		$css_post = self::css_post_id( $entry );
 		try {
 			$user    = isset( $options['user_id'] ) ? (int) $options['user_id'] : (int) get_current_user_id();
 			$context = self::probe_context( $entry, $user );
@@ -604,6 +606,9 @@ final class RescueRollback {
 			if ( $guard ) {
 				// Ask the site how it is now: without it there is no way to judge what the rollback did to it.
 				$baseline = HealthProbe::run( $context );
+			}
+			if ( $css_post > 0 ) {
+				RestoredCss::forget( $css_post );
 			}
 			$rollback         = self::apply_recipe( $entry, $by );
 			$rollback['user'] = $user;
@@ -655,6 +660,15 @@ final class RescueRollback {
 		}
 		if ( $ok && 'recorded' !== $link['history'] ) {
 			$result['warnings'][] = self::history_limit( $link['history'] );
+		}
+		// A restore of an Elementor page regenerates the generated CSS of that page; the answer says how that went.
+		$css = $ok && $css_post > 0 ? RestoredCss::last( $css_post ) : null;
+		if ( null !== $css ) {
+			$result['css_regeneration'] = $css;
+			$note                       = RestoredCss::warning( $css );
+			if ( '' !== $note ) {
+				$result['warnings'][] = $note;
+			}
 		}
 		if ( ! $ok ) {
 			return new \WP_Error(
@@ -828,6 +842,18 @@ final class RescueRollback {
 			return $none( 'not_recorded' );
 		}
 		return '' === $id ? $none( 'not_recorded' ) : [ 'rollback_change_id' => $id, 'restorable_again' => true, 'history' => 'recorded' ];
+	}
+
+	/**
+	 * The post a recipe puts back, or 0 when the recipe does not restore a post. Only a post can have generated CSS to regenerate.
+	 *
+	 * @param array<string, mixed> $entry
+	 */
+	private static function css_post_id( array $entry ): int {
+		if ( 'post_snapshot' !== (string) ( $entry['recipe']['type'] ?? '' ) ) {
+			return 0;
+		}
+		return (int) ( $entry['recipe_detail']['post_id'] ?? $entry['resource_key'] ?? 0 );
 	}
 
 	/** A sentence for what the history could not do, shown next to a rollback that worked. */

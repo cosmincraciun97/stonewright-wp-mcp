@@ -36,7 +36,7 @@ final class ChangeRollback extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Undoes one change from the change history, or redoes a rollback (pass the change_id of the rollback row). Always call with dry_run true first: it returns the plan (a short diff, drift, newer changes to the same item, whether an administrator is needed) and changes nothing. A run puts the item back as it was before the change, probes the site and records a rollback row; a failing probe puts the earlier state back. Drift (the item was edited after the change) is refused unless force_drift is true together with expected_current_sha256 from the plan (force_drift alone is refused with stonewright_change_drift_hash_required), for a change that was never verified as for any other. A site that fails now, with an incident or a failed rollback recorded for the change, is recovered without force_drift. In production-safe mode a run needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for the confirmation_args that the dry run returns (all four keys, as returned). A change to code (theme file, custom code, sandbox file, Customizer CSS) is never undone on a call: the answer is stonewright_rescue_approval_required with approval_url. Show it to the user, ask an administrator to use Stonewright > Activity > Changes, and stop; do not retry. Needs manage_options.', 'stonewright' );
+		return __( 'Undoes one change from the change history, or redoes a rollback (pass the change_id of the rollback row). Always call with dry_run true first: it returns the plan (a short diff, drift, newer changes to the same item, whether an administrator is needed) and changes nothing. A run puts the item back as it was before the change, probes the site and records a rollback row; a failing probe puts the earlier state back. Putting back an Elementor page also regenerates the generated CSS of that page: css_regeneration says whether that worked, and when it is not_regenerated the content is still restored and warnings gives the next step. Drift (the item was edited after the change) is refused unless force_drift is true together with expected_current_sha256 from the plan (force_drift alone is refused with stonewright_change_drift_hash_required), for a change that was never verified as for any other. A site that fails now, with an incident or a failed rollback recorded for the change, is recovered without force_drift. In production-safe mode a run needs a confirmation_token from stonewright-security-issue-confirmation-token, issued for the confirmation_args that the dry run returns (all four keys, as returned). A change to code (theme file, custom code, sandbox file, Customizer CSS) is never undone on a call: the answer is stonewright_rescue_approval_required with approval_url. Show it to the user, ask an administrator to use Stonewright > Activity > Changes, and stop; do not retry. Needs manage_options.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -121,6 +121,15 @@ final class ChangeRollback extends AbilityKernel {
 					],
 				],
 				'warnings'              => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'css_regeneration'      => [
+					'type'        => 'object',
+					'description' => 'Present when the restore changed an Elementor page: whether its generated CSS was regenerated. status not_regenerated means the content is restored but the page may still load the old stylesheet; reason says why and next_step names the ability to call.',
+					'properties'  => [
+						'status'    => [ 'type' => 'string', 'enum' => [ 'regenerated', 'not_regenerated' ] ],
+						'reason'    => [ 'type' => 'string' ],
+						'next_step' => [ 'type' => 'string' ],
+					],
+				],
 				'approval_required'     => [ 'type' => 'boolean' ],
 				'approval_url'          => [ 'type' => 'string' ],
 				'confirmation_required' => [ 'type' => 'boolean' ],

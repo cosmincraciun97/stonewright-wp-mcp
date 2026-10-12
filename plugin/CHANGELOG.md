@@ -211,6 +211,17 @@
 - A restore of options and theme mods reads every value back and is reported as
   failed when it does not match the restore point; a rollback that depends on it
   is not marked rolled back.
+- A restore of an Elementor page regenerates the generated CSS of that page. After a
+  snapshot restore (`stonewright-change-restore`), a rollback from Rescue, an
+  automatic rollback of a write that broke the site, and an undo or redo from the
+  Changes page or `stonewright-change-rollback`, the post CSS file is rebuilt from
+  the restored data through the guarded path of `stonewright-elementor-css-regenerate`
+  (post write lease, CSS directory lease, check of the other CSS files, readback),
+  for that post only, and only when the restore changed the document or its page
+  settings. When the regeneration does not complete, the content stays restored and
+  `css_regeneration` (`status` `not_regenerated`, `reason`, `next_step`
+  `stonewright/elementor-css-regenerate`) and `warnings` in the result say so, as do
+  the Changes and Rescue pages.
 
 ## [1.0.0-beta.15] - 2026-10-12
 
