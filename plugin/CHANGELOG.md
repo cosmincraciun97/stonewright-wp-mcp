@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.16] - 2026-10-12
+
 ### Added
 
 - Refresh the Direct built-in skills when the companion updates. The companion
@@ -2593,18 +2595,9 @@
   object metadata, removing repeated "Prop descriptor unavailable"
   Troubleshoot diagnostics and restoring the Atomic widget inventory.
 
-## [1.0.0-beta.13.1] - 2026-08-26
-
-### Fixed
-
-- Refetch GitHub Releases during WordPress plugin update checks so a newer
-  supported beta appears on Dashboard → Updates instead of a stale cached
-  "you are current" payload.
-- Force at most one uncached GitHub lookup per request during an update cycle
-  so a later transient write cannot rate-limit or wipe a successful discovery.
-
 ## Older releases
 
+- [1.0.0-beta.13.1](../docs/releases/1.0.0-beta.13.1.md)
 - [1.0.0-beta.13](../docs/releases/1.0.0-beta.13.md)
 - [1.0.0-beta.12](../docs/releases/1.0.0-beta.12.md)
 - [1.0.0-beta.11.1](../docs/releases/1.0.0-beta.11.1.md)

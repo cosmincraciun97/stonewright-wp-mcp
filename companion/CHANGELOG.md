@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.16] - 2026-10-12
+
 ### Added
 
 - Refresh the built-in skills in `~/.stonewright/skills/_builtin/` on startup. The
