@@ -14,6 +14,25 @@
   expertise packs and the specializations against the ability and Direct tool
   contracts in a unit test, and check that no skill asks an agent to activate the
   `full` profile.
+- Show how long the change history is kept. The History tab of Changes has an
+  always-visible line with the limits in force (days, changes and MB of stored
+  copies), that older finished changes are removed automatically and that open
+  incidents and linked Undo and Redo are kept, and the date and number of changes
+  removed by the last cleanup, or "none yet". Administrators get a **Change
+  limits** link to the setting. A warning notice says how many changes the next
+  cleanups remove and by which date when the finished changes or the stored
+  copies are at or over 80% of their limit, or finished changes pass the age limit
+  within seven days. It is computed read-only with the plan the cleanup runs, so
+  the number matches what would be removed.
+- Setup → Settings has a **Change history** section with number fields for the
+  three limits (days, changes, MB of stored copies). They write the existing
+  options `stonewright_change_ledger_days`, `stonewright_change_ledger_max_changes`
+  and `stonewright_change_ledger_max_bytes` through the settings form, with its
+  nonce and the `manage_options` check; a refused request answers 403. The server
+  checks the same bounds as the cleanup (3650 days, 100,000 changes, 10 GB): a
+  value outside them is refused with a message and the stored value stays. The
+  section says that a lower limit takes effect at the next daily cleanup and how
+  many changes the limits remove then. There is no unlimited setting.
 
 ### Changed
 

@@ -3124,6 +3124,7 @@ if ( ! function_exists( 'wp_nonce_field' ) ) {
 
 if ( ! function_exists( 'wp_verify_nonce' ) ) {
 	function wp_verify_nonce( string $nonce, string|int $action = -1 ): int|false {
+		$GLOBALS['stonewright_test_last_nonce_action'] = $action;
 		// In tests, treat any non-empty nonce as valid for happy-path tests.
 		// Tests that need to test nonce failure should override this.
 		if ( isset( $GLOBALS['stonewright_test_nonce_invalid'] ) && $GLOBALS['stonewright_test_nonce_invalid'] ) {
@@ -3220,6 +3221,12 @@ if ( ! function_exists( 'wp_clear_scheduled_hook' ) ) {
 	}
 }
 
+if ( ! function_exists( 'number_format_i18n' ) ) {
+	function number_format_i18n( float|int $number, int $decimals = 0 ): string {
+		return number_format( $number, $decimals );
+	}
+}
+
 if ( ! function_exists( 'size_format' ) ) {
 	function size_format( int $bytes, int $decimals = 0 ): string {
 		if ( $bytes >= 1048576 ) {
@@ -3253,6 +3260,32 @@ if ( ! function_exists( 'wp_generate_password' ) ) {
 
 if ( ! function_exists( 'settings_fields' ) ) {
 	function settings_fields( string $option_group ): void {
+	}
+}
+
+$GLOBALS['stonewright_test_settings_errors'] ??= [];
+
+if ( ! function_exists( 'add_settings_error' ) ) {
+	function add_settings_error( string $setting, string $code, string $message, string $type = 'error' ): void {
+		$GLOBALS['stonewright_test_settings_errors'][] = [
+			'setting' => $setting,
+			'code'    => $code,
+			'message' => $message,
+			'type'    => $type,
+		];
+	}
+}
+
+if ( ! function_exists( 'get_settings_errors' ) ) {
+	/** @return list<array{setting: string, code: string, message: string, type: string}> */
+	function get_settings_errors( string $setting = '', bool $sanitize = false ): array {
+		unset( $sanitize );
+		$errors = $GLOBALS['stonewright_test_settings_errors'] ?? [];
+		if ( '' === $setting ) {
+			return array_values( $errors );
+		}
+
+		return array_values( array_filter( $errors, static fn ( array $error ): bool => $setting === $error['setting'] ) );
 	}
 }
 
