@@ -186,7 +186,7 @@ abstract class AbilityKernel implements Ability {
 			$metadata['error_message'] = mb_substr( $message, 0, 500 );
 			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
-				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
+				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'widget_type', 'setting_path', 'expected_type', 'actual_type', 'rejected_total', 'rejected_summary', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
 					if ( isset( $data[ $effect_key ] ) && is_scalar( $data[ $effect_key ] ) ) {
 						$metadata[ $effect_key ] = $data[ $effect_key ];
 					}
