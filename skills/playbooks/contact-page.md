@@ -8,7 +8,7 @@ enable_prompt: true
 # Contact page
 
 ## Steps
-1. Discover form shortcodes/plugins.
+1. Discover form shortcodes/plugins with `stonewright/site-shortcodes-discover`.
 2. Layout: intro, form, contact details, optional map embed only if user provides it.
 3. Build with validated spec; test form shortcode renders.
 4. Store address/phone only from user or existing site options.

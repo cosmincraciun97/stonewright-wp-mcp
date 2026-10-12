@@ -71,15 +71,17 @@ fail, it is put back and the answer is `stonewright_rescue_undo_reverted`.
 
 ## Find and undo a change from the history
 
-Stonewright keeps a history of changes to posts, Elementor documents, options,
-menus, widgets, theme and custom code, users, comments, media, WooCommerce, skills,
-design directions and memory. Use it when the user asks what changed, or wants one
+Stonewright keeps a history of changes to posts, Elementor documents, Gutenberg
+content, templates and global styles, options, menus, widgets, theme files and
+custom code, plugins, users, comments, media, WooCommerce, skills, design
+directions and memory. Use it when the user asks what changed, or wants one
 change undone or redone. It needs an administrator account, and it is separate from
 the incident flow above.
 
 1. **Find it.** Call `stonewright-change-history-list`. Filter with `resource` (a
-   post id, an option name, a file path), `family`, `ability`, `status`, `from` and
-   `to`, or `restorable` true. A row is short: `change_id`, `time`, `summary`,
+   post id, an option name, a file path), `family`, `ability`, `actor`, `status`,
+   `kind`, `from` and `to` (YYYY-MM-DD, UTC), or `restorable` true. A row is short:
+   `change_id`, `time`, `summary`,
    `status`, `restorable` and why not, `parent_id` and `children`. Page with `page`
    and `per_page`.
 2. **Read the diff.** Call `stonewright-change-diff-get` with the `change_id`. It
@@ -92,9 +94,10 @@ the incident flow above.
    `dry_run` true, and tell the user what it would restore. Stop and ask before
    going on when `drift` is true or newer changes exist: the undo overwrites them.
 4. **Run it** with `dry_run` false. Add `force_drift` true only when the user agreed
-   to overwrite later edits, and `expected_current_sha256` from the plan to undo
-   exactly the state the user saw. In production-safe mode call
-   `stonewright-security-issue-confirmation-token` with `ability`
+   to overwrite later edits, and `expected_current_sha256` (the plan's
+   `current_sha256`) to undo exactly the state the user saw. `permanent` true
+   removes an upload the change created for good; add it only when the user asks.
+   In production-safe mode call `stonewright-security-issue-confirmation-token` with `ability`
    `stonewright/change-rollback` and `args` set to the `confirmation_args` that the
    dry run returned, unchanged, then pass the token as `confirmation_token`. A token
    fits one call.

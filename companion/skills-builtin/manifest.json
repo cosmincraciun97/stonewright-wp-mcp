@@ -1,0 +1,56 @@
+{
+	"version": 1,
+	"files": {
+		"content-model-additive.md": {
+			"sha256": "dbc58d9018b03c25bc1177a32067e4778ebebc8f0fc65fb1eabf9f4f9c912b18",
+			"previous": []
+		},
+		"elementor-direct-editing.md": {
+			"sha256": "5036020846cfa386f6ccc5e0d4d16cdd5081cf440c7845d9387e2bda0e842655",
+			"previous": [
+				"65552631863c4727671e412f5a50be4620a3b3185378b970802f971af56b0795",
+				"bba0d717eb20324bcbb919fd4d94080c8ad4cf53805b243eeb3d2fac1324499c",
+				"ecbe553dde496f12fe20699a0d066dd77476be21e782628b85b873ea87ae74f4"
+			]
+		},
+		"gutenberg-authoring.md": {
+			"sha256": "880c26b2f886779b5afab8e990e1483b22d26bbd192a81cf6727304b8d640ab6",
+			"previous": [
+				"1e81f17787330e053cd5c82b556ae47b78d51173b30dbf63a375e6576729fb20",
+				"c2f1956d66a2f12179443b4f4150a1a45dcf267391f9c79d0f644554021f7ec0"
+			]
+		},
+		"http-first-admin.md": {
+			"sha256": "cb04e1864d31acd5ae7e038a31c32585e68e41c47fe8cf7990d43c4f24b6d77c",
+			"previous": [
+				"5b93bcd3df29392253d4549d9b826e095938f6e01f108ade01c98b9186ea3a14",
+				"e1bd1e3ac9dc110d03dc9c243e5134f6686c7e69f177ff0176506580922c536f"
+			]
+		},
+		"no-ad-hoc-plugins.md": {
+			"sha256": "f0956d4f1b643afa662877118a0e09b8a937efc597b34ec9b602ecb441211bc0",
+			"previous": [
+				"b7552d455c3da516e026f15239156fb70c8eea25140287c435db063301e22eaf",
+				"2763bb7df9aa24a944c75e231d813180f5eb07d8f9e16ed5fb165869447dd21b"
+			]
+		},
+		"no-hallucination-protocol.md": {
+			"sha256": "0d9556af44b5aec845aa26de5313030e3146c51623ceb9078756a83ab2651c2c",
+			"previous": []
+		},
+		"remote-direct-tool-path.md": {
+			"sha256": "4478a2109ef6be2ac523f0149f8eecbeab9141cb268595e8f6ee2f9f60764d8b",
+			"previous": [
+				"29df2ccf4b0b271735f36e3ed4a1d2bf24db6f4464445794411c49e2265b64f9",
+				"c8d8a585270a7d79d57d127d79579258d6e9f7b6b16a277ce1806677ad87797b",
+				"e7c8ccdf8b2d028f0f5d6c48f0a51b41284c2a5cca42ec1e3fbaae622c639aae"
+			]
+		},
+		"single-environment-scope.md": {
+			"sha256": "ae3fcbc772f5ac63f125633ac2eb4a91e25a23f155e520370f16d59cd540c213",
+			"previous": [
+				"fe07fdf5306b72d07e5edcf1311b4f099ae0efdfa234d0efa4a2f3fbdb648386"
+			]
+		}
+	}
+}

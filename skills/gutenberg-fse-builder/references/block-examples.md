@@ -12,60 +12,55 @@
 Returns an array of block objects with `blockName`, `attrs`, `innerHTML`,
 `innerBlocks` keys.
 
-## Insert a heading at the top
+## Queue a heading at the top
+
+Static blocks are queued, then serialized by the block queue console and
+persisted with `stonewright-blocks-finalize-batch`. Do not send `innerHTML`.
 
 ```json
 {
-  "ability": "stonewright/blocks-insert",
+  "ability": "stonewright/blocks-queue-change",
   "args": {
     "post_id": 42,
-    "block": {
-      "name": "core/heading",
-      "attrs": { "level": 2, "textAlign": "center" },
-      "innerHTML": "<h2 class=\"wp-block-heading has-text-align-center\">Section title</h2>"
-    },
+    "action": "insert",
     "path": [],
-    "position": 0
+    "position": 0,
+    "expected_content_hash": "<hash from blocks-parse>",
+    "block_spec": {
+      "name": "core/heading",
+      "attributes": { "level": 2, "content": "Section title", "align": "center" },
+      "innerBlocks": []
+    }
   }
 }
 ```
 
-Returns `{ "post_id": 42, "snapshot_id": "snap_...", "path": [0] }`.
+Returns `{ "queued": true, "change_id": "...", "status": "queued", "finalizer_url": "..." }`.
 
-## Insert a group with nested columns
+## Queue a group with nested columns
 
 ```json
 {
-  "ability": "stonewright/blocks-insert",
+  "ability": "stonewright/blocks-queue-change",
   "args": {
     "post_id": 42,
-    "block": {
+    "action": "insert",
+    "block_spec": {
       "name": "core/group",
-      "attrs": { "layout": { "type": "flex", "flexWrap": "nowrap" } },
-      "innerHTML": "",
+      "attributes": { "layout": { "type": "flex", "flexWrap": "nowrap" } },
       "innerBlocks": [
         {
           "name": "core/column",
-          "attrs": { "width": "50%" },
-          "innerHTML": "",
+          "attributes": { "width": "50%" },
           "innerBlocks": [
-            {
-              "name": "core/paragraph",
-              "attrs": {},
-              "innerHTML": "<p>Left column text.</p>"
-            }
+            { "name": "core/paragraph", "attributes": { "content": "Left column text." }, "innerBlocks": [] }
           ]
         },
         {
           "name": "core/column",
-          "attrs": { "width": "50%" },
-          "innerHTML": "",
+          "attributes": { "width": "50%" },
           "innerBlocks": [
-            {
-              "name": "core/image",
-              "attrs": { "id": 77, "sizeSlug": "large" },
-              "innerHTML": "<figure class=\"wp-block-image size-large\"><img src=\"https://example.com/hero.jpg\" /></figure>"
-            }
+            { "name": "core/image", "attributes": { "id": 77, "sizeSlug": "large" }, "innerBlocks": [] }
           ]
         }
       ]
@@ -73,6 +68,27 @@ Returns `{ "post_id": 42, "snapshot_id": "snap_...", "path": [0] }`.
   }
 }
 ```
+
+Take the image `id` and `url` from a live attachment. Do not invent ids.
+
+## Insert a dynamic block on the server
+
+Only for a `save:null` type (for example `core/latest-posts`):
+
+```json
+{
+  "ability": "stonewright/blocks-insert",
+  "args": {
+    "post_id": 42,
+    "block": { "name": "core/latest-posts", "attrs": { "postsToShow": 3 } },
+    "path": [],
+    "position": 0
+  }
+}
+```
+
+Returns `{ "post_id": 42, "snapshot_id": "snap_...", "path": [0] }`. A block that
+needs the finalizer returns `queued: true` and a `change_id` instead.
 
 ## Update a block's attributes
 

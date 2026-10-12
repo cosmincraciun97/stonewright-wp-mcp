@@ -33,7 +33,8 @@ embed only). Then:
 
 Inventory is plugin posts / official list APIs, **read-only**:
 
-- `stonewright-php-execute` (`full` profile only) may call documented list APIs (examples:
+- `stonewright-php-execute` (`full` profile only; an administrator chooses it
+  in wp-admin, an agent never switches to it) may call documented list APIs (examples:
   `WPCF7_ContactForm::find()`, Gravity `GFAPI::get_forms()` when that
   class exists). Return id, title, and embed hint. Do not insert, update,
   or delete rows.
@@ -65,8 +66,9 @@ You may place an **existing** form on a page. You may not edit the form.
    as `{name, attributes, innerBlocks}` via
    `stonewright-blocks-queue-change`. For `core/shortcode` the attribute
    is `text` holding the shortcode string the plugin documents.
-4. `stonewright-blocks-finalizer-runtime` — need the block queue console
-   tab online. Then `stonewright-blocks-pending-batch` until serialized.
+4. `stonewright-blocks-finalizer-runtime` — need the Block queue console tab
+   online (Stonewright > Activity > Block queue, opened from the returned
+   `url`). Then `stonewright-blocks-pending-batch` until serialized.
 5. Persist with `stonewright-blocks-finalize-batch`.
 
 Do not `stonewright-blocks-insert` a static third-party form block and
@@ -94,7 +96,7 @@ after an Elementor form already exists.
 - Marking entries read, spam, or deleted.
 - `stonewright-php-execute` that calls `GFAPI::add_form`,
   `wpforms()->form->add`, `$wpdb->insert` on form tables, or equivalent.
-- Inventing `stonewright-forms-save` / `stonewright-cf7-update`.
+- Calling a form-write tool that is not in the live tool list. There is none.
 
 If the operator wants a new form or field changes, stop and tell them
 to build it in the plugin UI (or supply an existing form id). Then you

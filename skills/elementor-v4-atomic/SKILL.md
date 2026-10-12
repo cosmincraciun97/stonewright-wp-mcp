@@ -28,8 +28,8 @@ enabled (the native path below has its own gate):
 ```
 
 Check `atomic_flag` (and `v4_available`). If `atomic_flag` is false, stop. Do not
-attempt to enable the flag from this skill; ask the user to toggle it in
-wp-options (`stonewright_elementor_v4_atomic = 1`).
+attempt to enable the flag from this skill; ask the user to turn on **Elementor
+V4 atomic abilities** in Stonewright > Setup > Settings.
 
 Also check `integrations.elementor_v4` in `stonewright/site-capabilities`. It
 reports Elementor >= 4.0.0; the Atomic Widgets module gate itself accepts
@@ -39,17 +39,18 @@ Elementor 3.31+ builds that ship it.
 
 Elementor can register its own `elementor/*` abilities through its MCP module.
 Stonewright reports that state and never calls those abilities from this skill.
-Read it from `native_elementor` in `stonewright/site-capabilities`, or from the
-one-word `elementor.status.native_elementor` state in `stonewright-task-start`.
+Read it from `native_elementor` in `stonewright/site-capabilities`, in
+`stonewright/elementor-provider-discovery`, or from the one-word
+`elementor.status.native_elementor` state in `stonewright-task-start`.
 
 | `state` | Meaning |
 |---|---|
 | `not_installed` | Elementor is not active. |
 | `module_unavailable` | This Elementor build has no MCP module. |
 | `requirements_missing` | The module needs the WordPress Abilities API, the WordPress MCP Adapter, or Elementor's MCP Composer; `mcp_module.missing` names the absent one. |
-| `exposure_disabled` | The requirements are met but the MCP switch in Elementor's settings is off, so no abilities are registered. |
+| `exposure_disabled` | The requirements are met but the Elementor MCP switch (the `elementor_mcp_enabled` option, **Elementor** settings in wp-admin, off by default) is off, so no abilities are registered. Ask the user to turn it on. |
 | `no_abilities_registered` | The switch is on and no `elementor/*` ability is registered. |
-| `available_uncertified` | Abilities are registered and none matches a Stonewright contract. |
+| `available_uncertified` | Abilities are registered and none matches a Stonewright contract, usually an Elementor version outside the verified range (4.3.x). Native writes are refused; use the Stonewright writers. |
 | `available` | At least one registered ability matches its contract. |
 
 `native_elementor.certification` gives each contracted ability one of three
@@ -178,8 +179,12 @@ otherwise report V4 write as unsupported.
 
 ## Do not use on production
 
-V4 atomic is unstable. Never render to a live production page without explicit
-user confirmation and a backup snapshot. Present the confirmation token:
+V4 atomic is unstable. In `production-safe` mode every Stonewright V4 write that
+is not a dry run is refused (`stonewright_v4_experimental_production_block`);
+a confirmation token does not lift it. Only the certified native path above can
+write there, with its own `confirmation_token`. Outside `production-safe`, never
+render to a live production page without explicit user confirmation and a
+backup snapshot:
 
 ```
 "Confirm:
