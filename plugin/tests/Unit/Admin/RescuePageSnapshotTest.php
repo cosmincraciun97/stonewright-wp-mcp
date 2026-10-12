@@ -234,7 +234,7 @@ final class RescuePageSnapshotTest extends TestCase {
 		self::assertSame( 1, $xpath->query( '(//tr[@data-sw-rescue-row="' . self::UNSTARTED . '"]//div[@data-sw-actions])[1]//a[contains(@class, "sw-ui-btn--danger")]' )->length, 'The not-verified row has Roll back...' );
 		self::assertSame( 1, $xpath->query( '(//tr[@data-sw-rescue-row="' . self::UNSTARTED . '"]//div[@data-sw-actions])[1]//button[@type="submit"]' )->length, '...Check again...' );
 		self::assertSame( 1, $xpath->query( '(//tr[@data-sw-rescue-row="' . self::UNSTARTED . '"]//div[@data-sw-actions])[1]//a[starts-with(normalize-space(.), "View diff")]' )->length, '...and View diff, in one row.' );
-		self::assertSame( 1, $xpath->query( '//section[@class="sw-rescue-panel"]//div[@data-sw-actions]//button' )->length, 'The safe-mode panel.' );
+		self::assertSame( 1, $xpath->query( '//form[contains(@class, "sw-rescue-header-action")]//div[@data-sw-actions]//button' )->length, 'The safe-mode action in the header.' );
 		self::assertGreaterThan( 0, $xpath->query( '//*[@data-sw-rescue-fallback]//tr[@data-sw-rescue-row]' )->length, 'A recent change only the journal keeps.' );
 		self::assertSame( 0, $xpath->query( '//script[not(@src)]' )->length, 'No inline script.' );
 

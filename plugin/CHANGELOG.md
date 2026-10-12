@@ -31,8 +31,8 @@
   rollback recipe are under Details. The list of recent changes shows only the
   changes the history cannot undo, with their Roll back; the others are on the
   History tab, and the page says how many.
-- Open in safe mode is a panel on the Rescue page, with its help text under the
-  button. The Roll back, Check again and View diff actions of a change, and the
+- Open in safe mode stays in the header of the Rescue page, as a row with its help
+  text under the button. The Roll back, Check again and View diff actions of a change, and the
   Cancel and confirm buttons of a dialog, are one row of equal buttons that wraps
   on a narrow screen.
 - The first press of Roll back on the Rescue page and of Undo or Redo on the
@@ -40,13 +40,17 @@
   Cancel is a link. On the Rescue page the confirmation is a page of its own
   (`page=stonewright-rescue&review=<change set>`) that a dialog replaces when the
   browser supports it. In production-safe mode the server checks the typed phrase
-  ROLL BACK as well as the confirmation token, before the token is used. A
-  rollback of a change that was only never verified, or that passed, over a newer
-  change to the same item asks for a box to be ticked first.
-- The Rescue page says what a health check did in three different ways: it could
-  not start, it got no answer it could judge, or it found the site failing. Not
-  verified no longer reads as a broken site or a host problem; the code of the
-  check is under Details. Check again reports each of the three.
+  ROLL BACK as well as the confirmation token, before the token is used. The
+  rollback engine decides when a rollback needs the person's confirmation (a later
+  edit to the item): the review then has a box and the state it shows, and the page
+  passes both on. A refusal says that nothing was changed and returns to the review
+  with the current state filled in. A post returns to the page it came from, the
+  Rescue tab or the page at its own address.
+- The Rescue page says what a health check did in four different ways: it could
+  not start, it got no answer it could judge, a check that passed before the
+  change no longer answers, or it found the site failing. Not verified no longer
+  reads as a broken site or a host problem; the code of the check is under
+  Details. Check again reports each of the four.
 - A rollback from Rescue, from the `stonewright-rescue-rollback` ability or from
   Changes stops with `stonewright_change_drift` when the item was edited after the
   change, whether the change was verified, never verified or recorded as an

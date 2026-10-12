@@ -15,15 +15,15 @@
 /* What explains an action goes under the row, never beside it, so no button moves for it. */
 .sw-rescue-page .sw-ui-actions + .sw-rescue-note { margin-top: var(--sw-space-2); }
 
-.sw-rescue-callout, .sw-rescue-notice, .sw-rescue-empty, .sw-rescue-warning, .sw-rescue-stats > div, .sw-rescue-panel, .sw-rescue-review { display: grid; gap: var(--sw-space-1); padding: var(--sw-space-3) var(--sw-space-4); border: 1px solid var(--sw-border); border-radius: var(--sw-radius); background: var(--sw-surface-raised); }
+.sw-rescue-callout, .sw-rescue-notice, .sw-rescue-empty, .sw-rescue-warning, .sw-rescue-stats > div, .sw-rescue-review { display: grid; gap: var(--sw-space-1); padding: var(--sw-space-3) var(--sw-space-4); border: 1px solid var(--sw-border); border-radius: var(--sw-radius); background: var(--sw-surface-raised); }
 .sw-rescue-callout--warn, .sw-rescue-notice--warn, .sw-rescue-warning { border-color: var(--sw-warn-text); background: var(--sw-warn-soft); }
 .sw-rescue-callout--info, .sw-rescue-notice--info { border-color: var(--sw-info-text); background: var(--sw-info-soft); }
 .sw-rescue-notice--ok { border-color: var(--sw-ok-text); background: var(--sw-ok-soft); }
 .sw-rescue-notice--danger { border-color: var(--sw-danger-text); background: var(--sw-danger-soft); }
 
-.sw-rescue-panel { gap: var(--sw-space-2); background: var(--sw-surface); }
-.sw-rescue-panel h2 { margin-bottom: 0; }
-.sw-rescue-panel form { display: grid; gap: var(--sw-space-2); }
+/* Open in safe mode is in the header: the row of actions, and its help under it, in a column that grows downward only. */
+.sw-rescue-header-action { display: grid; gap: var(--sw-space-2); max-width: 20rem; margin: 0; }
+.sw-rescue-header-action .sw-rescue-note { margin: 0; }
 
 .sw-rescue-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sw-space-3); margin: 0; }
 .sw-rescue-stats > div { background: var(--sw-surface); }

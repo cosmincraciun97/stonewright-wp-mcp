@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
 use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\HealthProbe;
 use Stonewright\WpMcp\Security\ChangeRollback;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
@@ -57,7 +58,10 @@ final class RescuePage {
 	private const PLAN_BUDGET = 10;
 
 	/** Outcomes that ran nothing and can be fixed on the review itself. */
-	private const RETRYABLE = [ 'confirmation_required', 'confirmation_invalid', 'confirmation_phrase', 'drift', 'changed_since_preview' ];
+	private const RETRYABLE = [ 'confirmation_required', 'confirmation_invalid', 'confirmation_phrase', 'drift', 'drift_hash_required', 'changed_since_preview', 'live_unreadable' ];
+
+	/** Where a person came from: the standalone page or the Rescue tab of the Changes page. A posted value is checked against this list. */
+	private const CONTEXTS = [ 'rescue', 'changes' ];
 
 	/** @var callable(int):?string|false|null null uses RescueKeys when it exists; false means no safe mode. */
 	private static $safe_mode_resolver = null;
@@ -70,6 +74,9 @@ final class RescuePage {
 
 	/** @var int How many more plans of the change ledger this request may ask for. */
 	private static int $plans_left = self::PLAN_BUDGET;
+
+	/** @var string Which of CONTEXTS this request prints, so every link and form goes back to the same place. */
+	private static string $context = 'rescue';
 
 	public static function register(): void {
 		add_action( 'init', [ self::class, 'add_to_menu_registry' ] );
@@ -177,6 +184,11 @@ final class RescuePage {
 
 	/** Forget what one request learned about the ledger. For tests. */
 	public static function reset_for_tests(): void {
+		self::forget_request();
+		self::$context = 'rescue';
+	}
+
+	private static function forget_request(): void {
 		self::$ledger_rows   = [];
 		self::$ledger_failed = false;
 		self::$plans_left    = self::PLAN_BUDGET;
@@ -192,7 +204,16 @@ final class RescuePage {
 	 * @param array<string, string> $args
 	 */
 	public static function url( array $args = [] ): string {
-		$query = [ 'page' => self::SLUG ];
+		return self::url_in( self::$context, $args );
+	}
+
+	/**
+	 * An address of Rescue in one of its two places: the page at its own address, or the Rescue tab of Changes.
+	 *
+	 * @param array<string, string> $args
+	 */
+	public static function url_in( string $context, array $args = [] ): string {
+		$query = 'changes' === $context ? [ 'page' => ChangesPage::SLUG, 'tab' => ChangesPage::TAB_RESCUE ] : [ 'page' => self::SLUG ];
 		foreach ( $args as $key => $value ) {
 			if ( '' !== $value ) {
 				$query[ $key ] = $value;
@@ -216,11 +237,13 @@ final class RescuePage {
 			AccessDenied::deny( esc_html__( 'You do not have permission to view Stonewright Rescue.', 'stonewright' ) );
 		}
 		self::add_to_menu_registry();
+		self::$context = 'rescue';
 		AdminShell::open(
 			self::SLUG,
 			[
-				'title' => __( 'Rescue', 'stonewright' ),
-				'lede'  => self::lede(),
+				'title'   => __( 'Rescue', 'stonewright' ),
+				'lede'    => self::lede(),
+				'actions' => self::safe_mode_action(),
 			]
 		);
 		self::render_content();
@@ -232,14 +255,15 @@ final class RescuePage {
 	 * capability and has not asked the change ledger anything.
 	 */
 	public static function render_tab(): void {
-		AdminShell::open( ChangesPage::SLUG );
+		self::$context = 'changes';
+		AdminShell::open( ChangesPage::SLUG, [ 'actions' => self::safe_mode_action() ] );
 		self::render_content();
 		AdminShell::close();
 	}
 
 	/** Everything between the header and the end of the page. It reads the journal, and the ledger only for a link. */
 	private static function render_content(): void {
-		self::reset_for_tests();
+		self::forget_request();
 		// Bring in anything a fatal recorded while the database was unavailable.
 		ChangeJournal::sync_from_file();
 
@@ -272,7 +296,6 @@ final class RescuePage {
 		if ( 'unavailable' === ChangeJournal::storage_status()['mirror'] ) {
 			echo '<div class="sw-rescue-notice sw-rescue-notice--warn" role="status"><p>' . esc_html__( 'The journal file could not be written, so a fatal cannot be matched to a change while the database is down. Rollbacks from this page still work. Check that the uploads folder is writable.', 'stonewright' ) . '</p></div>';
 		}
-		self::render_safe_mode_panel();
 		self::render_callouts( $guarded );
 		self::render_stats( count( $open ), count( $unconfirmed ), RescueInstaller::summary() );
 		self::render_attention( $attention, $guarded, count( $unconfirmed ) );
@@ -352,19 +375,23 @@ final class RescuePage {
 		}
 	}
 
-	private static function render_safe_mode_panel(): void {
+	/**
+	 * Open in safe mode, in the header where it always was: one action row with its help text under it, described by the
+	 * help, so a longer help never moves the button. Empty when there is no safe mode to open.
+	 */
+	private static function safe_mode_action(): string {
 		if ( ! self::safe_mode_available() ) {
-			return;
+			return '';
 		}
-		echo '<section class="sw-rescue-panel" aria-labelledby="sw-rescue-safe-title">';
-		echo '<h2 id="sw-rescue-safe-title">' . esc_html__( 'Safe mode', 'stonewright' ) . '</h2>';
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		ob_start();
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="sw-rescue-header-action">';
 		self::hidden( 'action', 'stonewright_rescue_safe_mode' );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_safe_mode' );
 		echo self::actions( Button::render( __( 'Open in safe mode', 'stonewright' ), [ 'type' => 'submit', 'attrs' => [ 'aria-describedby' => 'sw-rescue-safe-help' ] ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
 		echo '<p class="sw-rescue-note" id="sw-rescue-safe-help">' . esc_html__( 'Loads WordPress with only Stonewright and a default theme. The link works once.', 'stonewright' ) . '</p>';
 		echo '</form>';
-		echo '</section>';
+		return (string) ob_get_clean();
 	}
 
 	/**
@@ -694,6 +721,7 @@ final class RescuePage {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-sw-rescue-form>';
 		self::hidden( 'action', 'stonewright_rescue_recheck' );
 		self::hidden( 'incident_id', $id );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_recheck' );
 		if ( $guarded ) {
 			self::hidden( 'confirmation_token', ConfirmationToken::issue( 'stonewright/rescue-rollback', [ 'incident_id' => $id, 'action' => 'recheck' ], self::TOKEN_TTL ) );
@@ -747,7 +775,7 @@ final class RescuePage {
 		$short = self::short_id( $id );
 		$hash  = md5( $id );
 		$state = (string) $entry['state'];
-		$plan  = $dialog ? null : self::plan_for( $id );
+		$plan  = self::plan_for( $id );
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" id="sw-rescue-form-' . esc_attr( $hash ) . '" data-sw-rescue-form>';
 		/* translators: %s: short change set id */
@@ -764,11 +792,13 @@ final class RescuePage {
 		self::render_newer_warning( $entry );
 		self::hidden( 'action', 'stonewright_rescue_rollback' );
 		self::hidden( 'incident_id', $id );
+		self::hidden( 'return_to', self::$context );
 		self::nonce_input( 'stonewright_rescue_rollback' );
-		if ( null !== $plan ) {
+		// The state the person is shown, which the engine compares with the item when the rollback runs.
+		if ( null !== $plan && '' !== (string) ( $plan['current_sha256'] ?? '' ) ) {
 			self::hidden( 'expected_current_sha256', substr( (string) $plan['current_sha256'], 0, ChangeRollback::MIN_HASH_PREFIX ) );
 		}
-		if ( self::needs_drift_acknowledgement( $entry, $plan ) ) {
+		if ( self::needs_drift_acknowledgement( $plan ) ) {
 			echo FormField::checkbox( __( 'I understand that this overwrites changes made since.', 'stonewright' ), 'force_drift', [ 'id' => $prefix . '-drift', 'required' => true ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the Ui helpers.
 		}
 		if ( $guarded ) {
@@ -785,38 +815,35 @@ final class RescuePage {
 	}
 
 	/**
-	 * The plan the change ledger has for this change, when it has one: the hash of the live state the person is shown,
-	 * which the post is checked against. At most a few per page; none when the ledger cannot say.
+	 * What the engine says a rollback of this change would do now (its dry run: it writes nothing, asks for no token and
+	 * makes no request): whether the item was edited since, and the hash of the state the person is shown. At most a few
+	 * per page. Null when the engine gives no plan.
 	 *
 	 * @return array<string, mixed>|null
 	 */
 	private static function plan_for( string $id ): ?array {
-		if ( self::$plans_left < 1 || null === self::ledger_row( $id ) ) {
+		if ( self::$plans_left < 1 ) {
 			return null;
 		}
 		--self::$plans_left;
 		try {
-			$plan = ChangeRollback::plan( $id );
+			$plan = RescueRollback::run( $id, [ 'dry_run' => true, 'user_id' => (int) get_current_user_id() ] );
 		} catch ( \Throwable $failure ) {
 			unset( $failure );
 			return null;
 		}
-		return $plan instanceof \WP_Error || ! isset( $plan['current_sha256'] ) ? null : $plan;
+		return $plan instanceof \WP_Error ? null : $plan;
 	}
 
 	/**
-	 * Whether a rollback of this change needs the person to say they know it overwrites later edits. A change that is
-	 * open because a fatal was recorded, or because its own rollback failed, is recovery and asks for nothing more; a
-	 * change that was only never verified, or that passed, is an ordinary rollback and does.
+	 * Whether the review asks the person to say they know a rollback overwrites later edits. The engine decides: its plan
+	 * says `requires_force` for an ordinary rollback over a later edit and not for a recovery of a failing site, and it
+	 * refuses a run that lacks the confirmation. The box only gives the person a way to give it.
 	 *
-	 * @param array<string, mixed>      $entry
 	 * @param array<string, mixed>|null $plan
 	 */
-	private static function needs_drift_acknowledgement( array $entry, ?array $plan ): bool {
-		if ( ! in_array( (string) $entry['state'], [ 'armed', 'verified' ], true ) ) {
-			return false;
-		}
-		return [] !== ChangeJournal::newer_changes( $entry ) || ( null !== $plan && ! empty( $plan['requires_force'] ) );
+	private static function needs_drift_acknowledgement( ?array $plan ): bool {
+		return null !== $plan && ! empty( $plan['requires_force'] );
 	}
 
 	/**
@@ -967,54 +994,42 @@ final class RescuePage {
 	// -----------------------------------------------------------------------
 
 	/**
-	 * What a probe says, in one of five words, so the page can say three different things where it used to say one:
+	 * What a recorded probe says, in one of six words, so the page can say different things where it used to say one:
 	 *
 	 * - `healthy`     the checks passed;
-	 * - `site_failed` the checks found the site failing;
-	 * - `not_started` the check could not start (no token could be issued), so nothing was asked of the site;
-	 * - `unreachable` the check started and got no verdict (no answer, a redirect, a login screen, an unexpected reply);
+	 * - `site_failed` a check got a failing answer;
+	 * - `not_started` no request could be made (no token could be issued, a check was skipped), so nothing was asked of the site;
+	 * - `unreachable` requests were made and none reached a verdict (no answer, a redirect, a login screen, an unexpected reply);
+	 * - `check_lost`  a check that passed before the change no longer answers: recovery is not shown, and the site is not shown to be broken;
 	 * - `unknown`     no result was recorded.
 	 *
-	 * Only `site_failed` says anything about the site. The others say something about the check.
+	 * Only `site_failed` says anything about the site. The others say something about the check. The words come from the
+	 * engine (HealthProbe::verdict()); reason_kind() is where each of its verdicts becomes one of these.
 	 *
 	 * @param array<string, mixed> $probe A recorded probe, or an empty array.
 	 */
 	public static function verification_kind( array $probe ): string {
-		$status = (string) ( $probe['status'] ?? '' );
-		if ( 'passed' === $status ) {
-			return 'healthy';
+		$legs = is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [];
+		// Nothing recorded: no legs, no reason and no result.
+		if ( [] === $legs && '' === (string) ( $probe['unavailable_reason'] ?? '' ) && ! in_array( (string) ( $probe['status'] ?? '' ), [ 'passed', 'failed' ], true ) ) {
+			return 'unknown';
 		}
-		if ( 'failed' === $status ) {
-			return 'site_failed';
-		}
-		$reasons = [ (string) ( $probe['unavailable_reason'] ?? '' ) ];
-		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
-			if ( is_array( $leg ) ) {
-				if ( 'failed' === (string) ( $leg['status'] ?? '' ) ) {
-					return 'site_failed';
-				}
-				$reasons[] = (string) ( $leg['reason'] ?? '' );
-			}
-		}
-		$kinds = array_map( [ self::class, 'reason_kind' ], array_filter( $reasons, static fn ( string $reason ): bool => '' !== $reason ) );
-		if ( in_array( 'site_failed', $kinds, true ) ) {
-			return 'site_failed';
-		}
-		if ( in_array( 'not_started', $kinds, true ) ) {
-			return 'not_started';
-		}
-		return [] === $kinds ? 'unknown' : 'unreachable';
+		return self::reason_kind( HealthProbe::verdict( $probe ) );
 	}
 
 	/**
-	 * The one place that says which reason code of a probe is which kind. A code that is not listed is a check that got
-	 * no verdict, never a failed site: a new code of the probe is added here, and until it is, it reads as `unreachable`.
+	 * The one place that says which `verification_reason` of the engine is which kind on this page. A reason that is not
+	 * listed is a check that got no verdict, never a failed site: a reason the engine adds is one line here, and until
+	 * then it reads as `unreachable`.
 	 */
-	private static function reason_kind( string $reason ): string {
-		return match ( $reason ) {
-			'token_unavailable'                               => 'not_started',
-			'critical_error_page', 'fatal_marker', 'http_500' => 'site_failed',
-			default                                           => 'unreachable',
+	public static function reason_kind( string $verification_reason ): string {
+		return match ( $verification_reason ) {
+			'verified'              => 'healthy',
+			'not_started'           => 'not_started',
+			'transport_unavailable' => 'unreachable',
+			'check_lost'            => 'check_lost',
+			'site_failed'           => 'site_failed',
+			default                 => 'unreachable',
 		};
 	}
 
@@ -1036,6 +1051,7 @@ final class RescuePage {
 		return match ( $kind ) {
 			'not_started' => __( 'The health check could not start, so this change has not been checked. That says nothing about the site.', 'stonewright' ),
 			'unreachable' => __( 'The health check got no answer it could judge, so the result is unknown. The site may be fine.', 'stonewright' ),
+			'check_lost'  => __( 'A health check that passed before this change no longer answers, so recovery is not shown. That does not mean the site is broken.', 'stonewright' ),
 			'site_failed' => __( 'The health check found the site failing after this change.', 'stonewright' ),
 			default       => __( 'No health check has reported on this change yet. That says nothing about the site.', 'stonewright' ),
 		};
@@ -1063,6 +1079,11 @@ final class RescuePage {
 	}
 
 	/**
+	 * The rollback the review asked for. The page keeps the checks that are about the page (who, the typed phrase, the
+	 * token); whether the item may be replaced is the engine's: it refuses a rollback over a later edit, a confirmation
+	 * without the state it was given for, and a state that is not the confirmed one, so the page asks it first, before
+	 * the token is looked at, and passes the confirmation on.
+	 *
 	 * @return array{code:string,incident_id:string}
 	 */
 	public static function process_rollback_request(): array {
@@ -1072,30 +1093,24 @@ final class RescuePage {
 		if ( Permissions::is_production_safe() && self::PHRASE !== self::posted( 'confirm_phrase' ) ) {
 			return [ 'code' => 'confirmation_phrase', 'incident_id' => $id ];
 		}
+
+		// The administrator who pressed the button is the approval that undoing a verified change to code needs.
+		$options = [
+			'by'                      => 'admin-page',
+			'user_id'                 => (int) get_current_user_id(),
+			'human_approved'          => true,
+			'force_drift'             => '1' === self::posted( 'force_drift' ),
+			'expected_current_sha256' => self::posted( 'expected_current_sha256' ),
+		];
+		$refused = RescueRollback::preflight_refusal( $id, $options );
+		if ( null !== $refused ) {
+			return [ 'code' => self::outcome_for_error( $refused ), 'incident_id' => $id ];
+		}
 		$refused = self::confirmation_refusal( $id, [ 'incident_id' => $id ] );
 		if ( null !== $refused ) {
 			return [ 'code' => $refused, 'incident_id' => $id ];
 		}
 
-		$options = [ 'by' => 'admin-page', 'user_id' => (int) get_current_user_id(), 'human_approved' => true ];
-		$entry   = '' === $id ? null : ChangeJournal::get( $id );
-		if ( null !== $entry && in_array( (string) $entry['state'], RescueRollback::ROLLBACK_STATES, true ) ) {
-			$force    = '1' === self::posted( 'force_drift' );
-			$expected = self::posted( 'expected_current_sha256' );
-			$plan     = '' !== $expected || self::needs_drift_acknowledgement( $entry, null ) ? self::fresh_plan( $id ) : null;
-			// The person saw one state of the item and the item is in another one now: nothing runs.
-			if ( '' !== $expected && null !== $plan && 0 !== strncmp( (string) $plan['current_sha256'], $expected, strlen( $expected ) ) ) {
-				return [ 'code' => 'changed_since_preview', 'incident_id' => $id ];
-			}
-			// An ordinary rollback over later edits needs the box on the review ticked.
-			if ( ! $force && self::needs_drift_acknowledgement( $entry, $plan ) ) {
-				return [ 'code' => 'drift', 'incident_id' => $id ];
-			}
-			$options['force_drift']             = $force;
-			$options['expected_current_sha256'] = $expected;
-		}
-
-		// The administrator who pressed the button is the approval that undoing a verified change to code needs.
 		$result = RescueRollback::run( $id, $options );
 		RescueRollback::audit_outcome( $id, $result, 'admin-page', 'rollback' );
 
@@ -1112,27 +1127,23 @@ final class RescuePage {
 		];
 	}
 
-	/** The plan of the change ledger for a post, without the budget of the page. @return array<string, mixed>|null */
-	private static function fresh_plan( string $id ): ?array {
-		self::$plans_left = max( self::$plans_left, 1 );
-		return self::plan_for( $id );
-	}
-
 	/**
 	 * The outcome code of a refused or failed rollback. One place, so the codes a newer engine adds are one line each.
 	 */
 	private static function outcome_for_error( \WP_Error $error ): string {
 		$data = is_array( $error->get_error_data() ) ? $error->get_error_data() : [];
 		return match ( $error->get_error_code() ) {
-			'stonewright_rescue_incident_not_found'  => 'not_found',
-			'stonewright_rescue_not_open'            => 'not_open',
-			'stonewright_rescue_no_recipe'           => 'no_recipe',
-			'stonewright_rescue_in_progress'         => 'in_progress',
-			'stonewright_rescue_undo_capture_failed' => 'undo_refused',
-			'stonewright_rescue_undo_reverted'       => 'healthy' === (string) ( $data['site_status'] ?? '' ) ? 'undo_reverted' : 'undo_reverted_still_failing',
-			'stonewright_change_drift'               => 'drift',
-			'stonewright_change_changed_since_preview' => 'changed_since_preview',
-			default                                  => 'rollback_failed',
+			'stonewright_rescue_incident_not_found'          => 'not_found',
+			'stonewright_rescue_not_open'                    => 'not_open',
+			'stonewright_rescue_no_recipe'                   => 'no_recipe',
+			'stonewright_rescue_in_progress'                 => 'in_progress',
+			'stonewright_rescue_undo_capture_failed'         => 'undo_refused',
+			'stonewright_rescue_undo_reverted'               => 'healthy' === (string) ( $data['site_status'] ?? '' ) ? 'undo_reverted' : 'undo_reverted_still_failing',
+			'stonewright_change_drift'                       => 'drift',
+			'stonewright_change_drift_hash_required'         => 'drift_hash_required',
+			'stonewright_change_changed_since_preview'       => 'changed_since_preview',
+			'stonewright_change_live_unreadable'             => 'live_unreadable',
+			default                                          => 'rollback_failed',
 		};
 	}
 
@@ -1161,11 +1172,14 @@ final class RescuePage {
 		if ( ! empty( $result['resolved'] ) ) {
 			return [ 'code' => 'rechecked_resolved', 'incident_id' => $id ];
 		}
+		// The engine says why it did not close: `verification_reason`.
+		$kind = '' !== (string) ( $result['verification_reason'] ?? '' ) ? self::reason_kind( (string) $result['verification_reason'] ) : self::verification_kind( is_array( $result['probe'] ?? null ) ? $result['probe'] : [] );
 		return [
-			'code'        => match ( self::verification_kind( is_array( $result['probe'] ?? null ) ? $result['probe'] : [] ) ) {
+			'code'        => match ( $kind ) {
 				'site_failed' => 'rechecked_site_failed',
 				'not_started' => 'rechecked_not_started',
 				'unreachable' => 'rechecked_unreachable',
+				'check_lost'  => 'rechecked_check_lost',
 				default       => 'rechecked_open',
 			},
 			'incident_id' => $id,
@@ -1186,13 +1200,19 @@ final class RescuePage {
 	}
 
 	/**
-	 * Back to the page with the outcome.
+	 * Back to the page the person came from with the outcome.
 	 *
 	 * @param array{code:string,incident_id:string} $outcome
 	 */
 	private static function redirect_with( array $outcome ): void {
-		wp_safe_redirect( self::outcome_url( $outcome ) );
+		wp_safe_redirect( self::outcome_url( $outcome, self::posted_context() ) );
 		exit;
+	}
+
+	/** Where a post came from: one of CONTEXTS, and the standalone page for anything else. */
+	private static function posted_context(): string {
+		$value = self::posted( 'return_to' );
+		return in_array( $value, self::CONTEXTS, true ) ? $value : 'rescue';
 	}
 
 	/**
@@ -1200,17 +1220,17 @@ final class RescuePage {
 	 * phrase or the unticked box is one step away.
 	 *
 	 * @param array{code:string,incident_id:string} $outcome
+	 * @param string                                $context One of CONTEXTS; an unknown one is the standalone page.
 	 */
-	public static function outcome_url( array $outcome ): string {
+	public static function outcome_url( array $outcome, string $context = 'rescue' ): string {
 		$args = [
-			'page'     => self::SLUG,
 			'rescue'   => $outcome['code'],
 			'incident' => $outcome['incident_id'],
 		];
 		if ( in_array( $outcome['code'], self::RETRYABLE, true ) && '' !== $outcome['incident_id'] ) {
 			$args['review'] = $outcome['incident_id'];
 		}
-		return add_query_arg( $args, admin_url( 'admin.php' ) );
+		return self::url_in( in_array( $context, self::CONTEXTS, true ) ? $context : 'rescue', $args );
 	}
 
 	/** Capability and nonce, or the request ends. */
@@ -1407,11 +1427,14 @@ final class RescuePage {
 			'rechecked_open'            => [ 'warn', __( 'The incident stays open: the health check did not confirm that the site loads.', 'stonewright' ), true ],
 			'rechecked_site_failed'     => [ 'danger', __( 'The health check found the site failing, so the incident stays open. Roll the change back, or try safe mode.', 'stonewright' ), true ],
 			'rechecked_not_started'     => [ 'warn', __( 'The health check could not start, so nothing was checked and the incident stays open. That says nothing about the site. Check again in a moment.', 'stonewright' ), true ],
+			'rechecked_check_lost'      => [ 'warn', __( 'A health check that passed before this change no longer answers, so the incident stays open and recovery is not shown. That does not mean the site is broken. Check again, or look at the site.', 'stonewright' ), true ],
 			'rechecked_unreachable'     => [ 'warn', __( 'The health check got no answer it could judge, so the incident stays open and the result is unknown. The site may be fine. Check again, or look at the site.', 'stonewright' ), true ],
 			'confirmation_required'     => [ 'danger', __( 'Production-safe mode needs the confirmation on the form. Nothing was changed. Try again from the review below.', 'stonewright' ), false ],
 			'confirmation_invalid'      => [ 'danger', __( 'The confirmation expired or does not match. Nothing was changed. Try again from the review below.', 'stonewright' ), false ],
 			'confirmation_phrase'       => [ 'warn', __( 'Production-safe mode asks you to type ROLL BACK to confirm. Nothing was changed. Type it in the box and press the button again.', 'stonewright' ), false ],
 			'drift'                     => [ 'warn', __( 'The item has changed since the recorded change. Nothing was changed. Review it below, and tick the box to overwrite those edits.', 'stonewright' ), false ],
+			'drift_hash_required'       => [ 'warn', __( 'Overwriting later edits needs the state of the item you were shown, and the confirmation did not carry it. Nothing was changed. The review below shows the state now and has it filled in: tick the box and confirm again.', 'stonewright' ), false ],
+			'live_unreadable'           => [ 'danger', __( 'The current state of this item cannot be read, so a rollback cannot be checked. Nothing was changed. Try safe mode, or undo the change by hand and check the site again.', 'stonewright' ), false ],
 			'changed_since_preview'     => [ 'warn', __( 'The item changed while the review was open. Nothing was changed. Review it again below.', 'stonewright' ), false ],
 			'not_found'                 => [ 'danger', __( 'No incident has that id.', 'stonewright' ), true ],
 			'not_open'                  => [ 'info', __( 'That change is already verified or rolled back.', 'stonewright' ), true ],

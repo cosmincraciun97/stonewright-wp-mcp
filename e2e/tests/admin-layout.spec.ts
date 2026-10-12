@@ -107,7 +107,7 @@ const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.cs
  */
 const FIXTURES = [
 	{
-		name: 'Rescue with a change in every state and the safe-mode panel',
+		name: 'Rescue with a change in every state and the safe-mode action in the header',
 		file: 'rescue-page.html',
 		query: '',
 		steps: [{ scope: 'body', groups: 7 }],
@@ -205,7 +205,7 @@ test.describe('Action groups on populated fixtures', () => {
 
 	test('the safe-mode button and its help text: the help is under the button and the button does not move when the help wraps', async ({ page }) => {
 		await openSheet(page, 'rescue-page.html', '');
-		const panel = page.locator('.sw-rescue-panel');
+		const panel = page.locator('.sw-rescue-header-action');
 		const button = panel.getByRole('button', { name: 'Open in safe mode' });
 		const help = panel.locator('#sw-rescue-safe-help');
 

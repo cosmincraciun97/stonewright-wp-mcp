@@ -598,7 +598,7 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 1, preg_match( '/name="confirmation_token" value="(swc_[^"]+)"/', $dialog[1], $match ) );
 		self::assertTrue( ConfirmationToken::verify( html_entity_decode( $match[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ), 'The token is bound to this ability and this change set.' );
 		// The re-check form carries its own token, bound to that action.
-		self::assertSame( 1, preg_match( '/name="action" value="stonewright_rescue_recheck" \/><input type="hidden" name="incident_id"[^>]*\/><input type="hidden" name="_stonewright_nonce"[^>]*\/><input type="hidden" name="confirmation_token" value="(swc_[^"]+)"/', $html, $recheck ) );
+		self::assertSame( 1, preg_match( '/name="action" value="stonewright_rescue_recheck" \/><input type="hidden" name="incident_id"[^>]*\/><input type="hidden" name="return_to"[^>]*\/><input type="hidden" name="_stonewright_nonce"[^>]*\/><input type="hidden" name="confirmation_token" value="(swc_[^"]+)"/', $html, $recheck ) );
 		self::assertTrue( ConfirmationToken::verify( html_entity_decode( $recheck[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'], 'action' => 'recheck' ] ) );
 		self::assertFalse( ConfirmationToken::verify( html_entity_decode( $recheck[1] ), 'stonewright/rescue-rollback', [ 'incident_id' => $entry['id'] ] ), 'A re-check token cannot roll anything back.' );
 	}
@@ -1207,14 +1207,14 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
 	}
 
-	public function test_a_recorded_fatal_or_a_failed_rollback_is_recovery_and_needs_no_such_box(): void {
-		foreach ( [ 'incident', 'rollback_failed' ] as $index => $state ) {
-			$entry = $this->incident( $state, 31 + $index );
-			$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => (string) ( 31 + $index ), 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
-			ChangeJournal::settle( $newer['id'], 'verified' );
+	public function test_the_box_is_shown_when_the_engine_says_a_confirmation_is_needed_and_not_otherwise(): void {
+		$with = $this->incident( 'verified', 31 );
+		$none = $this->incident( 'verified', 32 );
+		$newer = ChangeJournal::arm( [ 'ability' => 'stonewright/content-update-page', 'resource_type' => 'post', 'resource_key' => '31', 'recipe' => [ 'type' => 'none', 'ref' => '' ] ] );
+		ChangeJournal::settle( $newer['id'], 'verified' );
 
-			self::assertStringNotContainsString( 'name="force_drift"', $this->html_for( [ 'review' => $entry['id'] ] ), $state );
-		}
+		self::assertStringContainsString( 'name="force_drift"', $this->html_for( [ 'review' => $with['id'] ] ), 'A later change to the item: the engine asks.' );
+		self::assertStringNotContainsString( 'name="force_drift"', $this->html_for( [ 'review' => $none['id'] ] ), 'Nothing later: it does not.' );
 	}
 
 	public function test_the_refusals_that_ran_nothing_come_back_to_the_review_and_the_others_to_the_page(): void {
@@ -1231,10 +1231,10 @@ final class RescuePageTest extends TestCase {
 	// -- What a health check said ----------------------------------------------------------------------
 
 	public function test_the_kinds_of_a_health_check_are_told_apart_and_only_one_of_them_says_the_site_failed(): void {
-		$leg = static fn ( string $status, string $reason ): array => [ 'status' => 'unavailable', 'coverage' => 'none', 'legs' => [ [ 'leg' => 'home', 'status' => $status, 'http' => 0, 'reason' => $reason ] ] ];
+		$leg = static fn ( string $status, string $reason ): array => [ 'status' => 'failed' === $status ? 'failed' : 'unavailable', 'coverage' => 'none', 'legs' => [ [ 'leg' => 'home', 'status' => $status, 'http' => 0, 'reason' => $reason ] ] ];
 
 		self::assertSame( 'healthy', RescuePage::verification_kind( [ 'status' => 'passed', 'legs' => [] ] ) );
-		self::assertSame( 'site_failed', RescuePage::verification_kind( [ 'status' => 'failed', 'legs' => [] ] ) );
+		self::assertSame( 'site_failed', RescuePage::verification_kind( [ 'status' => 'failed', 'legs' => [ [ 'leg' => 'home', 'status' => 'failed', 'http' => 500, 'reason' => 'http_500' ] ] ] ) );
 		self::assertSame( 'site_failed', RescuePage::verification_kind( $leg( 'failed', 'critical_error_page' ) ), 'A failed leg is the site failing, whatever the total says.' );
 		self::assertSame( 'not_started', RescuePage::verification_kind( $leg( 'unavailable', 'token_unavailable' ) ) );
 		self::assertSame( 'not_started', RescuePage::verification_kind( [ 'status' => 'unavailable', 'unavailable_reason' => 'token_unavailable' ] ) );
@@ -1243,6 +1243,7 @@ final class RescuePageTest extends TestCase {
 		}
 		self::assertSame( 'unknown', RescuePage::verification_kind( [] ) );
 		self::assertSame( 'unknown', RescuePage::verification_kind( [ 'status' => 'unavailable', 'legs' => [] ] ) );
+		self::assertSame( 'check_lost', RescuePage::verification_kind( [ 'status' => 'failed', 'coverage' => 'partial', 'legs' => [ [ 'leg' => 'admin', 'status' => 'failed', 'http' => 0, 'reason' => 'degraded_no_response' ] ] ] ), 'A check that passed before and does not answer now is not a failed site.' );
 	}
 
 	/** @return array<string, mixed> An unverified entry with the probe the journal would hold. */
@@ -1515,20 +1516,21 @@ final class RescuePageTest extends TestCase {
 		self::assertStringNotContainsString( 'sw-rescue-note', (string) preg_replace( '/<\/div><p class="sw-rescue-note">.*$/s', '</div>', $cell[1] ), 'And nothing of it is inside.' );
 	}
 
-	public function test_safe_mode_is_a_panel_with_the_help_under_the_button_and_the_header_has_no_actions(): void {
+	public function test_open_in_safe_mode_is_in_the_header_as_a_row_with_the_help_under_it_and_described_by_it(): void {
 		RescuePage::set_safe_mode_resolver( static fn ( int $user_id ): ?string => 'https://example.test/x' );
 
 		$html = $this->html();
 
-		self::assertStringNotContainsString( 'sw-ui-page-header__aside', $html, 'The header has no button: nothing in it shifts when a help text grows.' );
-		self::assertSame( 1, preg_match( '/<section class="sw-rescue-panel" aria-labelledby="sw-rescue-safe-title">(.*?)<\/section>/s', $html, $panel ) );
-		self::assertStringContainsString( '<h2 id="sw-rescue-safe-title">Safe mode</h2>', $panel[1] );
-		$button = strpos( $panel[1], '<button type="submit" class="sw-ui-btn" aria-describedby="sw-rescue-safe-help">Open in safe mode</button>' );
-		$help   = strpos( $panel[1], '<p class="sw-rescue-note" id="sw-rescue-safe-help">Loads WordPress with only Stonewright and a default theme. The link works once.</p>' );
+		self::assertSame( 1, preg_match( '/<div class="sw-ui-page-header__aside">(.*?)<\/form><\/div><\/header>/s', $html, $aside ), 'Where it always was: the header.' );
+		self::assertStringContainsString( 'class="sw-rescue-header-action"', $aside[1] );
+		$button = strpos( $aside[1], '<div class="sw-ui-actions" data-sw-actions><button type="submit" class="sw-ui-btn" aria-describedby="sw-rescue-safe-help">Open in safe mode</button></div>' );
+		$help   = strpos( $aside[1], '<p class="sw-rescue-note" id="sw-rescue-safe-help">Loads WordPress with only Stonewright and a default theme. The link works once.</p>' );
 		self::assertIsInt( $button );
 		self::assertIsInt( $help );
-		self::assertLessThan( $help, $button, 'The help is under the button and described by it.' );
-		self::assertStringContainsString( '<div class="sw-ui-actions" data-sw-actions><button', $panel[1] );
+		self::assertLessThan( $help, $button, 'The help is under the row and described by the button, so a longer help moves nothing.' );
+		self::assertStringContainsString( 'name="return_to" value="rescue"', $aside[1] );
+		self::assertStringNotContainsString( 'sw-rescue-panel', $html );
+		self::assertStringNotContainsString( 'View changes', $html, 'The tab bar is the way to History.' );
 	}
 
 	// -- The history and the fallback -------------------------------------------------------------------
@@ -1584,21 +1586,22 @@ final class RescuePageTest extends TestCase {
 		self::assertSame( 2, substr_count( $html, 'data-sw-rescue-dialog' ) );
 	}
 
-	public function test_the_ledger_is_asked_at_most_once_per_change_and_not_at_all_after_it_failed(): void {
-		$this->incident( 'verified', 31 );
-		$this->incident( 'verified', 32 );
-		$this->incident( 'verified', 33 );
+	public function test_a_ledger_that_throws_on_every_question_leaves_every_row_and_every_action(): void {
+		$one   = $this->incident( 'verified', 31 );
+		$two   = $this->incident( 'verified', 32 );
+		$three = $this->incident( 'verified', 33 );
 		$GLOBALS['wpdb'] = new class() extends LedgerWpdb {
-			public int $asked = 0;
 			public function get_row( $query = null, $output = OBJECT, $y = 0 ) {
-				++$this->asked;
 				throw new \RuntimeException( 'ledger down' );
 			}
 		};
 
-		$this->html();
+		$html = $this->html();
 
-		self::assertSame( 1, $GLOBALS['wpdb']->asked, 'The ledger is asked, fails once, and is not asked again.' );
+		foreach ( [ $one, $two, $three ] as $entry ) {
+			self::assertSame( 1, substr_count( $html, '<tr data-sw-rescue-row="' . $entry['id'] . '">' ) );
+		}
+		self::assertSame( 3, substr_count( $html, 'data-sw-rescue-dialog' ) );
 	}
 
 	private static function remove_tree( string $dir ): void {
