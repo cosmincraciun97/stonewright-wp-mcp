@@ -145,9 +145,21 @@ final class ChangeUndoTest extends RollbackTestCase {
 		preg_match( '#<dialog id="sw-changes-undo-dialog".*?</dialog>#s', $this->drawer( $id ), $dialog );
 		$dialog = $dialog[0] ?? '';
 
-		self::assertMatchesRegularExpression( '#<button type="button" class="sw-ui-btn"[^>]*data-sw-ui-dialog-close[^>]*autofocus[^>]*>Cancel</button>#', $dialog );
+		self::assertMatchesRegularExpression( '#<a class="sw-ui-btn" href="https://example\.test/wp-admin/admin\.php\?page=stonewright-changes&change=' . $id . '"[^>]*data-sw-ui-dialog-close[^>]*autofocus[^>]*>Cancel</a>#', $dialog, 'Cancel is a link to the change, so it works without script.' );
 		self::assertMatchesRegularExpression( '#<button type="submit" class="sw-ui-btn sw-ui-btn--danger-solid"[^>]*>Undo this change</button>#', $dialog );
 		self::assertLessThan( strpos( $dialog, 'type="submit"' ), strpos( $dialog, 'Cancel' ), 'Cancel comes before the destructive button.' );
+	}
+
+	public function test_cancel_leaves_the_review_for_the_change_and_keeps_the_filters_of_the_list(): void {
+		$id = $this->changed_page();
+		preg_match( '#<dialog id="sw-changes-undo-dialog".*?</dialog>#s', $this->drawer( $id, [ 'undo' => '1', 'status' => 'verified', 'from' => '2026-09-01', 'paged' => '2' ] ), $dialog );
+		preg_match( '#<a class="sw-ui-btn" href="([^"]*)"[^>]*data-sw-ui-dialog-close[^>]*>Cancel</a>#', $dialog[0] ?? '', $cancel );
+		$href = html_entity_decode( $cancel[1] ?? '' );
+
+		self::assertStringContainsString( 'change=' . $id, $href );
+		self::assertStringNotContainsString( 'undo=1', $href, 'Cancel closes the review: it does not print it again.' );
+		self::assertStringContainsString( 'status=verified', $href );
+		self::assertStringContainsString( 'from=2026-09-01', $href, 'The date filter stays.' );
 	}
 
 	public function test_a_state_that_drifted_shows_the_warning_and_needs_a_checked_box_to_go_on(): void {
@@ -172,7 +184,7 @@ final class ChangeUndoTest extends RollbackTestCase {
 		self::assertStringContainsString( 'newer change', strtolower( $dialog[0] ?? '' ) );
 	}
 
-	public function test_production_safe_mode_adds_the_token_the_typed_phrase_and_a_disabled_confirm(): void {
+	public function test_production_safe_mode_adds_the_token_and_the_typed_phrase_and_leaves_the_confirm_for_the_script_to_hold(): void {
 		$id = $this->changed_page();
 		$this->production_safe();
 		$html   = $this->drawer( $id );
@@ -182,7 +194,8 @@ final class ChangeUndoTest extends RollbackTestCase {
 		preg_match( '#<dialog id="sw-changes-undo-dialog".*?</dialog>#s', $html, $dialog );
 		$dialog = $dialog[0] ?? '';
 		self::assertMatchesRegularExpression( '#<input class="sw-ui-input" type="text" id="[^"]+" name="confirm_phrase" value="" autocomplete="off" data-sw-ui-confirm-phrase="ROLL BACK"#', $dialog );
-		self::assertMatchesRegularExpression( '#<button type="submit"[^>]*disabled[^>]*data-sw-ui-confirm-submit[^>]*>#', $dialog );
+		self::assertMatchesRegularExpression( '#<button type="submit"[^>]*data-sw-ui-confirm-submit[^>]*>#', $dialog );
+		self::assertDoesNotMatchRegularExpression( '#<button type="submit"[^>]*\sdisabled[\s>=]#', $dialog, 'Without script the confirm works: only the script holds it back until the phrase is typed, and the server checks the phrase.' );
 		self::assertArrayNotHasKey( 'confirmation_token_force', $fields );
 	}
 
@@ -293,7 +306,7 @@ final class ChangeUndoTest extends RollbackTestCase {
 	private function posted( string $id, array $more = [] ): array {
 		$fields = $this->dialog_fields( $this->drawer( $id ) );
 
-		return array_merge( [ 'action' => $fields['action'], 'change_id' => $fields['change_id'], '_stonewright_nonce' => $fields['_stonewright_nonce'], 'expected_current_sha256' => $fields['expected_current_sha256'] ], $more );
+		return array_merge( [ 'action' => $fields['action'], 'change_id' => $fields['change_id'], '_stonewright_nonce' => $fields['_stonewright_nonce'], 'expected_current_sha256' => $fields['expected_current_sha256'], 'confirm_phrase' => ChangeUndo::PHRASE ], $more );
 	}
 
 	public function test_a_post_without_a_valid_nonce_or_without_manage_options_ends_the_request_and_runs_nothing(): void {
@@ -348,14 +361,15 @@ final class ChangeUndoTest extends RollbackTestCase {
 		self::assertStringContainsString( 'page=stonewright-changes', $url );
 		self::assertStringContainsString( 'change=' . $outcome['new_id'], $url );
 		self::assertStringContainsString( 'undone=undone', $url );
-		self::assertStringContainsString( 'from=' . $id, $url );
+		self::assertStringContainsString( 'source_change=' . $id, $url );
+		self::assertDoesNotMatchRegularExpression( '/[?&]from=/', $url, 'from is the date filter of the list; the change an undo acted on has a name of its own.' );
 	}
 
 	public function test_the_page_shows_the_result_with_a_link_to_the_new_row_and_the_receipt(): void {
 		$id      = $this->changed_page();
 		$outcome = $this->post_request( $this->posted( $id ) );
 
-		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => 'undone', 'from' => $id ] );
+		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => 'undone', 'source_change' => $id ] );
 
 		self::assertMatchesRegularExpression( '#<div class="sw-ui-notice sw-ui-notice--ok"[^>]*role="status"#', $html );
 		self::assertStringContainsString( 'The change was undone', $html );
@@ -366,7 +380,7 @@ final class ChangeUndoTest extends RollbackTestCase {
 
 	public function test_an_unknown_result_code_or_a_hostile_from_parameter_prints_nothing(): void {
 		$id   = $this->changed_page();
-		$html = $this->html( [ 'undone' => '<script>', 'from' => '"><img src=x>', 'change' => $id ] );
+		$html = $this->html( [ 'undone' => '<script>', 'source_change' => '"><img src=x>', 'from' => '"><img src=x>', 'change' => $id ] );
 
 		self::assertStringNotContainsString( '<script', $html );
 		self::assertStringNotContainsString( '<img src=x', $html );
@@ -495,7 +509,7 @@ final class ChangeUndoTest extends RollbackTestCase {
 
 		self::assertSame( 'reverted', $outcome['code'] );
 		self::assertSame( 'Working layout', $this->post_field( 'post_content' ) );
-		$html = $this->html( [ 'change' => $id, 'undone' => 'reverted', 'from' => $id ] );
+		$html = $this->html( [ 'change' => $id, 'undone' => 'reverted', 'source_change' => $id ] );
 		self::assertMatchesRegularExpression( '#sw-ui-notice--danger#', $html );
 		self::assertStringContainsString( 'was put back', $html );
 	}
@@ -515,12 +529,69 @@ final class ChangeUndoTest extends RollbackTestCase {
 		self::assertSame( 'reverted', $outcome['code'] );
 		self::assertSame( $two, (string) file_get_contents( $path ), 'The change that worked is back.' );
 		self::assertSame( 'rolled_back', $this->row( $outcome['new_id'] )['status'] );
-		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => $outcome['code'], 'from' => $outcome['change_id'] ] );
+		$html = $this->html( [ 'change' => $outcome['new_id'], 'undone' => $outcome['code'], 'source_change' => $outcome['change_id'] ] );
 		self::assertMatchesRegularExpression( '#sw-ui-notice--danger#', $html );
 		self::assertStringContainsString( 'the earlier state was put back', $html );
 		self::assertStringNotContainsString( 'The rollback did not complete', $html );
 		self::assertStringNotContainsString( 'The two rows', $html );
 		self::assertStringNotContainsString( 'Deleted. This is the content', $this->html( [ 'change' => $outcome['new_id'] ] ), 'The attempt is not shown as a deletion.' );
+	}
+
+	public function test_an_old_address_that_carries_the_change_id_in_from_still_shows_the_receipt_and_a_date_in_from_does_not(): void {
+		$id      = $this->changed_page();
+		$outcome = $this->post_request( $this->posted( $id ) );
+
+		$old = $this->html( [ 'change' => $outcome['new_id'], 'undone' => 'undone', 'from' => $id ] );
+		self::assertStringContainsString( 'Receipt', $old, 'The old name still means the change an undo acted on, because it validates as a change id.' );
+
+		$dated = $this->html( [ 'change' => $outcome['new_id'], 'undone' => 'undone', 'from' => '2026-09-01' ] );
+		self::assertStringContainsString( 'View the new change', $dated );
+		self::assertStringContainsString( 'Receipt', $dated, 'The receipt is the new row.' );
+		self::assertStringNotContainsString( 'cs-' . str_repeat( 'x', 3 ), $dated );
+	}
+
+	public function test_the_refusals_that_can_be_retried_come_back_to_the_review_and_the_others_to_the_change(): void {
+		$base = [ 'change_id' => 'cs-' . str_repeat( 'a', 24 ), 'new_id' => '' ];
+		foreach ( [ 'drift', 'changed_since_preview', 'confirmation_required', 'confirmation_invalid', 'confirmation_phrase' ] as $code ) {
+			self::assertStringContainsString( 'undo=1', ChangeUndo::redirect_url( [ 'code' => $code ] + $base ), $code . ' reopens the review.' );
+		}
+		foreach ( [ 'undone', 'reverted', 'failed', 'not_found' ] as $code ) {
+			self::assertStringNotContainsString( 'undo=1', ChangeUndo::redirect_url( [ 'code' => $code ] + $base ), $code );
+		}
+	}
+
+	public function test_production_safe_mode_refuses_a_missing_or_wrong_phrase_on_the_server_and_changes_nothing(): void {
+		$id = $this->changed_page();
+		$this->production_safe();
+		$fields = $this->dialog_fields( $this->drawer( $id ) );
+		$post   = $this->posted( $id, [ 'confirmation_token' => $fields['confirmation_token'] ] );
+
+		unset( $post['confirm_phrase'] );
+		self::assertSame( 'confirmation_phrase', $this->post_request( $post )['code'] );
+		self::assertSame( 'confirmation_phrase', $this->post_request( array_merge( $post, [ 'confirm_phrase' => 'roll back please' ] ) )['code'] );
+		self::assertSame( 'Changed body', $this->post_field( 'post_content' ) );
+		self::assertSame( [], $this->audit_rows(), 'A refused confirmation is not a run.' );
+
+		$ok = $this->post_request( array_merge( $post, [ 'confirm_phrase' => ' ROLL BACK ' ] ) );
+		self::assertSame( 'undone', $ok['code'], 'The token was not used by the refusals.' );
+	}
+
+	public function test_outside_production_safe_mode_no_phrase_is_asked_for(): void {
+		$id   = $this->changed_page();
+		$post = $this->posted( $id );
+		unset( $post['confirm_phrase'] );
+
+		self::assertSame( 'undone', $this->post_request( $post )['code'] );
+	}
+
+	public function test_a_get_request_for_the_review_changes_nothing(): void {
+		$id    = $this->changed_page();
+		$count = ChangeLedger::count();
+		$this->html( [ 'change' => $id, 'undo' => '1' ] );
+
+		self::assertSame( 'Changed body', $this->post_field( 'post_content' ) );
+		self::assertSame( [], $this->audit_rows() );
+		self::assertSame( $count, ChangeLedger::count(), 'No row was added by looking.' );
 	}
 
 	// ---- assets ---------------------------------------------------------------------------------------------
@@ -529,7 +600,9 @@ final class ChangeUndoTest extends RollbackTestCase {
 		$js = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/pages/changes.js' );
 
 		self::assertStringContainsString( 'sw-changes-undo-dialog', $js );
-		self::assertStringContainsString( "[ 'change', 'view', 'undo', 'undone', 'from' ]", $js, 'Closing the drawer takes every argument of the page out of the address.' );
+		self::assertStringContainsString( "[ 'change', 'view', 'undo', 'undone', 'source_change' ]", $js, 'Closing the drawer takes the drawer and the result out of the address, and nothing else.' );
+		self::assertStringNotContainsString( "'from', 'to'", $js );
+		self::assertStringContainsString( 'legacyOrigin', $js, 'An old address that carried a change id in from loses only that.' );
 		self::assertStringContainsString( "dropParams( [ 'undo' ] )", $js, 'Closing the dialog takes undo out of the address.' );
 		self::assertDoesNotMatchRegularExpression( '/fetch\(|XMLHttpRequest|innerHTML/', $js );
 	}
