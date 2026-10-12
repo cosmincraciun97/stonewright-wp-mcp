@@ -33,6 +33,44 @@ final class CssAssetTransactionTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
+	/**
+	 * Skips, with the reason named, when this runner cannot create symbolic links, which the fixtures of the
+	 * symlink tests need. A POSIX runner always can, so there the missing capability fails the test instead of
+	 * hiding it.
+	 */
+	private function require_symlinks(): void {
+		$dir    = sys_get_temp_dir() . '/stonewright-symlink-probe-' . bin2hex( random_bytes( 4 ) );
+		$file   = $dir . '-file';
+		$ok     = false;
+		$linked = [];
+		if ( mkdir( $dir, 0700, true ) && false !== file_put_contents( $file, 'probe' ) ) {
+			$linked = [ $dir . '-dir-link', $dir . '-file-link' ];
+			$ok     = @symlink( $dir, $linked[0] ) && @symlink( $file, $linked[1] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+		foreach ( $linked as $link ) {
+			if ( is_link( $link ) ) {
+				@unlink( $link ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				if ( is_dir( $link ) ) {
+					@rmdir( $link ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				}
+			}
+		}
+		if ( is_file( $file ) ) {
+			unlink( $file );
+		}
+		if ( is_dir( $dir ) ) {
+			rmdir( $dir );
+		}
+
+		if ( $ok ) {
+			return;
+		}
+		if ( 'Windows' !== PHP_OS_FAMILY ) {
+			self::fail( 'This runner cannot create symbolic links, and the CSS location checks must run here.' );
+		}
+		self::markTestSkipped( 'Symlink fixtures unavailable: this Windows account may not create symbolic links (needs Developer Mode or the symlink privilege). The checks run on Linux CI.' );
+	}
+
 	public function test_allows_only_the_target_post_css_and_probes_protected_assets(): void {
 		$this->write( 'post-701.css', 'old-post' );
 		$this->write( 'post-999.css', 'sibling' );
@@ -305,6 +343,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	public function test_revalidates_css_location_immediately_before_the_operation(): void {
+		$this->require_symlinks();
 		$this->write( 'post-701.css', 'old-post' );
 		$url      = 'https://example.test/wp-content/uploads/elementor/css/post-701.css';
 		$real_dir = $this->css_dir . '-real';
@@ -410,6 +449,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	public function test_rejects_a_symlink_before_running_the_operation(): void {
+		$this->require_symlinks();
 		$outside = tempnam( sys_get_temp_dir(), 'stonewright-css-outside-' );
 		self::assertIsString( $outside );
 		file_put_contents( $outside, 'outside' );
@@ -440,6 +480,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	public function test_rejects_a_symlinked_css_directory_even_when_it_stays_inside_uploads(): void {
+		$this->require_symlinks();
 		$real_dir = $this->css_dir . '-real';
 		self::assertTrue( rename( $this->css_dir, $real_dir ) );
 		self::assertTrue( symlink( $real_dir, $this->css_dir ) );
@@ -460,6 +501,7 @@ final class CssAssetTransactionTest extends TestCase {
 	}
 
 	public function test_allows_a_stable_uploads_basedir_symlink(): void {
+		$this->require_symlinks();
 		$real = sys_get_temp_dir() . '/stonewright-uploads-real-' . bin2hex( random_bytes( 4 ) );
 		$link = sys_get_temp_dir() . '/stonewright-uploads-link-' . bin2hex( random_bytes( 4 ) );
 		self::assertTrue( mkdir( $real, 0700, true ) );

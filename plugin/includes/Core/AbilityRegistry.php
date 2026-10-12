@@ -873,6 +873,35 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Names of the abilities the current surface and session profile list as tools,
+	 * without the administrator-disabled ones. Reads names only, so it is cheap
+	 * next to enabled_abilities(), which also builds every input schema.
+	 *
+	 * @return list<string>
+	 */
+	public static function listed_ability_names(): array {
+		$disabled_abilities = array_fill_keys(
+			array_map( 'strval', (array) get_option( 'stonewright_disabled_abilities', [] ) ),
+			true
+		);
+		$names              = [];
+
+		foreach ( self::public_classes() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+
+			/** @var Ability $ability */
+			$ability = new $class();
+			if ( ! isset( $disabled_abilities[ $ability->name() ] ) ) {
+				$names[] = $ability->name();
+			}
+		}
+
+		return $names;
+	}
+
+	/**
 	 * Returns the ability names that should be handed to the MCP server for
 	 * this request. Mirrors register_all() so server startup does not probe
 	 * disabled or non-essential abilities when compact mode is active.

@@ -418,7 +418,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
-			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
+			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [], $task );
 		}
 
 		$response['response_mode'] = 'full';
@@ -430,30 +430,18 @@ final class WorkflowPreflight extends AbilityKernel {
 	 * @param array<string, mixed> $known_hashes
 	 * @return array<string, mixed>
 	 */
-	private static function compact_response( array $response, array $known_hashes ): array {
+	private static function compact_response( array $response, array $known_hashes, string $task = '' ): array {
 		$hash_keys = [ 'auth_guidance', 'fast_path', 'elementor', 'site', 'context' ];
 		[ $payload_hashes, $changed, $unchanged ] = self::hash_delta( $response, $known_hashes, $hash_keys );
 		$fast_path = is_array( $response['fast_path'] ?? null ) ? $response['fast_path'] : [];
 		$profile   = is_array( $fast_path['task_profile'] ?? null ) ? $fast_path['task_profile'] : [];
-		$tools     = array_values( array_slice( array_map( 'strval', (array) ( $fast_path['recommended_mcp_tools'] ?? [] ) ), 0, 8 ) );
-		$ordered_profile_tools = [];
 		$profile_name          = (string) ( $fast_path['tool_profile']['profile'] ?? 'essential' );
 		$suggested_profile     = (string) ( $fast_path['tool_profile']['suggested_profile'] ?? $profile_name );
-		if ( class_exists( ToolProfile::class ) && method_exists( ToolProfile::class, 'profile_tools' ) ) {
-			// Cap at 8 names so compact task-start stays under the token budget.
-			$ordered_profile_tools = array_values(
-				array_slice(
-					array_map(
-						[ AbilityRegistry::class, 'mcp_tool_name' ],
-						ToolProfile::profile_tools( $suggested_profile )
-					),
-					0,
-					8
-				)
-			);
-		}
-		// Prefer ordered profile tools when available; keep compact payload small.
-		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 4 ) );
+		// This response is the start. The steps that follow are chosen by the task
+		// and by what is still missing, so they never send the agent back to the
+		// start tools.
+		$next = array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], self::next_tools( $response, $suggested_profile, $task ) );
+
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -467,7 +455,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			// Pointer only. The bodies are in full mode and in rules-get; repeating
 			// them on every compact task start is what the pointer replaces.
 			'batching_rule_id' => self::BATCHING_RULE_ID,
-			// Canonical exact next-tool path (capped for token budget).
+			// The next tools for this task, in call order. The start is already done.
 			'ordered_tools' => $next,
 		];
 		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
@@ -506,6 +494,10 @@ final class WorkflowPreflight extends AbilityKernel {
 				$elementor['status'],
 				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status', 'native_elementor', 'native_hint' ] )
 			);
+			// Like the other empty signals, an empty hint is left out of the compact payload.
+			if ( '' === ( $compact_elementor['status']['native_hint'] ?? null ) ) {
+				unset( $compact_elementor['status']['native_hint'] );
+			}
 		}
 
 		$context = is_array( $response['context'] ?? null ) ? $response['context'] : [];
@@ -537,6 +529,12 @@ final class WorkflowPreflight extends AbilityKernel {
 			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 			'learning'         => AgentHints::LEARNING_TRIGGER,
 		];
+		// Empty lists carry nothing; the required actions name them when they apply.
+		foreach ( [ 'matched_skills', 'memory_refs' ] as $empty_key ) {
+			if ( [] === $compact_context[ $empty_key ] ) {
+				unset( $compact_context[ $empty_key ] );
+			}
+		}
 		if ( [] !== $compact_context['expertise_refs'] ) {
 			// The body tool is the same for every ref, so it is named once here
 			// instead of repeated inside each entry.
@@ -683,6 +681,154 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return $fitted;
+	}
+
+	/**
+	 * Tools that write site content, ahead of which a production-safe token is issued.
+	 *
+	 * @var list<string>
+	 */
+	private const WRITE_TOOLS = [
+		'stonewright/elementor-v3-build-page-from-spec',
+		'stonewright/elementor-v3-batch-mutate',
+		'stonewright/gutenberg-apply-to-post',
+		'stonewright/content-update-page',
+		'stonewright/content-update-post',
+		'stonewright/content-bulk-upsert-posts',
+		'stonewright/wp-cli-batch-run',
+		'stonewright/wp-cli-run',
+	];
+
+	/**
+	 * The ability names to call after the start that was just made, in order.
+	 *
+	 * The start tools (context-bootstrap, task-start, tool-profile) are not
+	 * repeated for the same goal: this response is the start. They come back
+	 * only when something the start cannot settle is left: a write the Elementor
+	 * architecture blocks until a new start names the post or target, or a needed
+	 * tool the session cannot call yet. Skills loading, the live schema, the
+	 * design evidence, the confirmation token and the result check stay in the
+	 * list. The rule bodies are fetched through `hard_rules.tool`, which the
+	 * compact payload already carries.
+	 *
+	 * @param array<string, mixed> $response Full task-start response.
+	 * @return list<string>
+	 */
+	private static function next_tools( array $response, string $suggested_profile, string $task ): array {
+		$fast_path = is_array( $response['fast_path'] ?? null ) ? $response['fast_path'] : [];
+		$profile   = is_array( $fast_path['task_profile'] ?? null ) ? $fast_path['task_profile'] : [];
+		$surface   = (string) ( $profile['surface'] ?? 'unknown' );
+		$is_write  = ! empty( $profile['is_write'] );
+		$text_edit = self::is_text_edit( $task, $profile );
+
+		// What a call can reach now, and what the suggested profile adds once it is applied.
+		$callable  = array_fill_keys( AbilityRegistry::listed_ability_names(), true );
+		$reachable = $callable;
+		foreach ( ToolProfile::profile_tools( $suggested_profile ) as $name ) {
+			$reachable[ $name ] = true;
+		}
+		$first_reachable = static function ( array $candidates ) use ( $reachable ): ?string {
+			foreach ( $candidates as $name ) {
+				if ( isset( $reachable[ $name ] ) ) {
+					return $name;
+				}
+			}
+			return null;
+		};
+
+		$steps = [];
+		if ( in_array( 'stonewright/skills-get', (array) ( $fast_path['recommended_tools'] ?? [] ), true ) ) {
+			$steps[] = 'stonewright/skills-get';
+		}
+
+		if ( 'elementor' === $surface ) {
+			$architecture = is_array( $fast_path['elementor_architecture'] ?? null ) ? $fast_path['elementor_architecture'] : [];
+			$target       = (string) ( $profile['elementor_write_target'] ?? 'v3' );
+			if ( ! empty( $profile['elementor_write_blocked'] ) ) {
+				// A new start that carries post_id or target_architecture clears the block.
+				$steps[] = 'stonewright/task-start';
+				foreach ( (array) ( $architecture['repair_tools'] ?? [] ) as $tool ) {
+					$steps[] = (string) $tool;
+				}
+			} elseif ( ! $is_write ) {
+				$steps[] = 'stonewright/elementor-v3-get-page-structure';
+			} elseif ( $text_edit ) {
+				// A bounded outline finds the node; the whole tree is not read for a copy change.
+				$steps[] = 'stonewright/elementor-v3-get-page-structure';
+				$steps[] = 'stonewright/elementor-schema';
+				$steps[] = 'stonewright/elementor-v3-batch-mutate';
+				$steps[] = 'stonewright/elementor-post-write-verify';
+			} elseif ( 'v3-surgical' === $target ) {
+				$steps[] = 'stonewright/elementor-schema';
+				$steps[] = 'stonewright/design-native-plan';
+				$steps[] = 'stonewright/elementor-v3-get-page-structure';
+				$steps[] = 'stonewright/elementor-v3-batch-mutate';
+				$steps[] = 'stonewright/elementor-post-write-verify';
+			} else {
+				$steps[] = 'stonewright/elementor-schema';
+				$steps[] = 'stonewright/design-native-plan';
+				$steps[] = 'stonewright/elementor-v3-build-page-from-spec';
+				$steps[] = 'stonewright/elementor-post-write-verify';
+			}
+		} elseif ( 'gutenberg' === $surface ) {
+			$steps[] = 'stonewright/blocks-get-schema';
+			if ( $is_write ) {
+				if ( ! empty( $profile['needs_visual_check'] ) && ! $text_edit ) {
+					$steps[] = 'stonewright/design-native-plan';
+				}
+				$steps[] = 'stonewright/gutenberg-apply-to-post';
+			}
+		} elseif ( $text_edit ) {
+			$steps[] = 'stonewright/content-get-page';
+			$write   = $first_reachable( [ 'stonewright/content-update-page', 'stonewright/content-update-post', 'stonewright/content-bulk-upsert-posts' ] );
+			if ( null !== $write ) {
+				$steps[] = $write;
+			}
+		} else {
+			// The prerequisites the task still needs: plugin discovery and the write path.
+			$skip = [ 'stonewright/task-start', 'stonewright/tool-profile', 'stonewright/skills-get', 'stonewright/knowledge-candidate-record', 'stonewright/security-issue-confirmation-token' ];
+			foreach ( array_slice( array_diff( (array) ( $fast_path['recommended_tools'] ?? [] ), $skip ), 0, 4 ) as $tool ) {
+				$steps[] = (string) $tool;
+			}
+		}
+
+		if ( ! empty( $profile['production_safe_token_required'] ) ) {
+			$at = count( $steps );
+			foreach ( $steps as $index => $step ) {
+				if ( in_array( $step, self::WRITE_TOOLS, true ) ) {
+					$at = $index;
+					break;
+				}
+			}
+			array_splice( $steps, $at, 0, [ 'stonewright/security-issue-confirmation-token' ] );
+		}
+
+		$steps = array_values( array_unique( $steps ) );
+		foreach ( $steps as $step ) {
+			if ( 'stonewright/task-start' !== $step && ! isset( $callable[ $step ] ) ) {
+				// A needed tool is not callable yet: the profile step stays so the session can widen or say why it cannot.
+				array_unshift( $steps, 'stonewright/tool-profile' );
+				break;
+			}
+		}
+
+		return $steps;
+	}
+
+	/**
+	 * Whether the task only changes existing wording, with no layout, design or new-content work in it.
+	 *
+	 * @param array<string, mixed> $profile
+	 */
+	private static function is_text_edit( string $task, array $profile ): bool {
+		if ( empty( $profile['is_write'] ) || ! empty( $profile['is_destructive'] ) ) {
+			return false;
+		}
+		$query = self::normalise( $task );
+		$text  = self::has_any_term( $query, [ 'text', 'copy', 'wording', 'typo', 'typos', 'headline', 'heading', 'title', 'label', 'caption', 'paragraph', 'sentence', 'spelling', 'tagline', 'excerpt', 'rename' ] );
+		$build = self::has_any_term( $query, [ 'build', 'create', 'design', 'figma', 'hero', 'image', 'landing page', 'layout', 'mockup', 'redesign', 'responsive', 'screenshot', 'section', 'spacing', 'style', 'template' ] );
+
+		return $text && ! $build;
 	}
 
 	/**

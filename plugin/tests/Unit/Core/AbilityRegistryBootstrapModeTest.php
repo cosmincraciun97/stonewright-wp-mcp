@@ -56,6 +56,20 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 		self::assertNotContains( 'stonewright/sandbox-write', $names );
 	}
 
+	public function test_listed_ability_names_match_the_surface_and_leave_out_disabled_abilities(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'bootstrap';
+
+		$listed = AbilityRegistry::listed_ability_names();
+
+		self::assertEqualsCanonicalizing( array_column( AbilityRegistry::enabled_abilities(), 'name' ), $listed );
+		self::assertContains( 'stonewright/content-get-page', $listed );
+
+		$GLOBALS['stonewright_test_options']['stonewright_disabled_abilities'] = [ 'stonewright/content-get-page' ];
+
+		self::assertNotContains( 'stonewright/content-get-page', AbilityRegistry::listed_ability_names() );
+		self::assertContains( 'stonewright/task-start', AbilityRegistry::listed_ability_names() );
+	}
+
 	public function test_session_profile_expands_only_the_current_mcp_session(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'bootstrap';
 		$_SERVER['HTTP_MCP_SESSION_ID'] = 'session-a';
