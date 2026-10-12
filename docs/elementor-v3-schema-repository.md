@@ -93,6 +93,54 @@ style and decoration come from fixed lists; slider, dimension, `box_shadow` and
 value fails with `stonewright_elementor_settings_invalid` and the offending
 key. See [Security](security.md#values-that-reach-generated-css).
 
+What the checks accept, because Elementor stores it:
+
+- An unset control may be sent as the empty string, `null` or an empty list,
+  whatever its type and whichever options a select lists. A repeater is the
+  exception: it takes a list of rows.
+- A select or choose control whose option keys are numeric strings (a font
+  weight, a column span) takes the number as well; the value is stored as the
+  string, and a `value_coerced` warning says so.
+- A slider or dimensions object may carry only `unit`, or only some sides, so a
+  patch can change one part. The `custom` unit takes a CSS length expression
+  (`calc()`, `clamp()`, `min()`, `max()`, `var()` over numbers, units and
+  custom property names, up to 120 characters) instead of a number.
+- A link is a URL string or an object with `url`, `is_external`, `nofollow` and
+  `custom_attributes`. The target may be an absolute URL with any scheme except
+  `javascript:`, `vbscript:`, `data:`, `file:` and `blob:`, a path, a query or an
+  anchor, and has no spaces. A link object may carry only the options being
+  changed.
+- A media value is `{ id, url }` with either part empty, or a list of them.
+- A repeater row may carry `_id`, `__globals__` and `__dynamic__` next to its
+  fields; the targets of its bindings are the fields of the row.
+- A control that Elementor hides while it holds its own default (the heading
+  `size`, hidden when it is `default`) accepts that default.
+- A breakpoint variant (`_tablet`, `_mobile`, `_laptop`, `_widescreen` and the
+  extra breakpoints) follows its base control when that control is responsive.
+
+## When a setting is refused
+
+A refusal lists every rejected setting in `violations`, and each entry carries:
+
+| Field | Content |
+|---|---|
+| `path`, `setting` | The path (`settings.typography_font_size`, or `settings.<repeater>.<row>.<field>`) and the top-level key. |
+| `code` | `unknown_setting`, `invalid_option`, `invalid_shape`, `invalid_typography_value`, `inactive_condition`, `required_missing`, `invalid_binding`, `unknown_binding_target` or `unknown_repeater_field`. |
+| `expected`, `got_type` | The shape the control takes and the type received. |
+| `received_value` | `type`, a short `preview` (60 characters; credentials are redacted; an object keeps its shape but never its secrets) and `truncated`. |
+| `control` | The live control: `key`, `type`, `label`, `units` for a slider or dimensions control, `responsive` with the `responsive_keys` of the active breakpoints, `options`, `default` and, for a repeater, `row_fields`. |
+| `allowed_values` | The option keys of a select or choose control, up to 25. |
+| `requires` | For `inactive_condition`, the settings to send with it (`{ "typography_typography": "custom" }`). |
+| `example` | A settings fragment that would be accepted, derived from the live control and from the value sent. |
+| `hint`, `group_controls`, `sent_as` | The known repair when the key is a breakpoint variant of a control that is not responsive, or a control group sent as an object; the alias the key was mapped from. |
+
+`elementor-v3-batch-mutate` adds to each entry the `operation_index`, `action`,
+`op_id`, the `element_id` or `parent_id` and the `widget_type`, and returns them
+in `rejected_settings` (up to 40; `rejected_total` counts all of them). The
+message names the first three, and the Audit Log row keeps the same message and
+a `rejected_summary` with the operation, widget, setting and received type of
+each.
+
 ## Compatibility
 
 `stonewright/elementor-v3-get-widget-schema` and
