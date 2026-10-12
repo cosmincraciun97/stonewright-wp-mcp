@@ -14,6 +14,7 @@ Hard budgets (non-zero exit on breach):
 | Default profile cap | ≤ 20 tools |
 | Strict / low-tools cap | ≤ 12 tools |
 | Bootstrap tools | ≤ 12 |
+| Bootstrap `tools/list` | ≤ 3500 estimated tokens |
 | `task-start` non-visual compact | < 800 estimated tokens |
 | `task-start` visual compact | < 1200 estimated tokens |
 
