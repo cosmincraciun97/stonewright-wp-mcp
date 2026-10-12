@@ -188,7 +188,30 @@ final class CssRegenerator {
 	}
 
 	private static function path_matches( string $expected, string $actual ): bool {
-		return self::canonical_filesystem_path( $actual ) === self::canonical_filesystem_path( $expected );
+		$expected_path = self::canonical_filesystem_path( $expected );
+		$actual_path   = self::canonical_filesystem_path( $actual );
+		if ( $actual_path === $expected_path ) {
+			return true;
+		}
+
+		// A Windows drive path behind a scheme (`file:///C:/dir`) leaves `/C:/dir` once the scheme is
+		// dropped. It names the same file only as an absolute target on that same drive; no other
+		// leading slash is removed, and a path without a scheme is never rewritten.
+		if (
+			self::has_scheme_prefix( $actual )
+			&& 1 === preg_match( '#^/([A-Za-z]):/#', $actual_path, $actual_drive )
+			&& 1 === preg_match( '#^([A-Za-z]):/#', $expected_path, $expected_drive )
+			&& 0 === strcasecmp( $actual_drive[1], $expected_drive[1] )
+		) {
+			// Same drive: what follows the drive letter must be identical.
+			return substr( $actual_path, 2 ) === substr( $expected_path, 1 );
+		}
+
+		return false;
+	}
+
+	private static function has_scheme_prefix( string $path ): bool {
+		return 1 === preg_match( '#^(?:https?|file)://(/.*)$#i', str_replace( '\\', '/', trim( $path ) ) );
 	}
 
 	private static function canonical_filesystem_path( string $path ): string {

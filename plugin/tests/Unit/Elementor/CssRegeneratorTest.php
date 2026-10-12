@@ -198,13 +198,57 @@ final class CssRegeneratorTest extends TestCase {
 	}
 
 	public function test_accepts_scheme_prefixed_filesystem_path(): void {
+		// A fixed POSIX target, so the outcome does not depend on the runner's upload directory.
+		$this->assert_reported_path(
+			'/srv/www/uploads/elementor/css/post-701.css',
+			'http:///srv/www/uploads/elementor/css/post-701.css',
+			true
+		);
+	}
+
+	/**
+	 * Pairs of the target path and the path Elementor reports. A scheme prefix is dropped before the compare;
+	 * a Windows drive path behind it (`file:///C:/...`) is the same file only on the same drive.
+	 *
+	 * @dataProvider scheme_prefixed_path_pairs
+	 */
+	public function test_scheme_prefixed_filesystem_paths( string $target_path, string $reported_path, bool $accepted ): void {
+		$this->assert_reported_path( $target_path, $reported_path, $accepted );
+	}
+
+	/** @return array<string, array{0:string, 1:string, 2:bool}> */
+	public static function scheme_prefixed_path_pairs(): array {
+		$posix   = '/srv/www/uploads/elementor/css/post-701.css';
+		$windows = 'C:/Sites/uploads/elementor/css/post-701.css';
+
+		return [
+			'posix: http triple slash'                  => [ $posix, 'http:///srv/www/uploads/elementor/css/post-701.css', true ],
+			'posix: file uri'                           => [ $posix, 'file:///srv/www/uploads/elementor/css/post-701.css', true ],
+			'posix: different directory'                => [ $posix, 'http:///srv/other/uploads/elementor/css/post-701.css', false ],
+			'posix: drive path is not the same path'    => [ $posix, 'file:///C:/srv/www/uploads/elementor/css/post-701.css', false ],
+			'windows: plain path with backslashes'      => [ $windows, 'C:\Sites\uploads\elementor\css\post-701.css', true ],
+			'windows: http triple slash'                => [ $windows, 'http:///C:/Sites/uploads/elementor/css/post-701.css', true ],
+			'windows: file uri'                         => [ $windows, 'file:///C:/Sites/uploads/elementor/css/post-701.css', true ],
+			'windows: file uri with backslashes'        => [ $windows, 'file:///C:\Sites\uploads\elementor\css\post-701.css', true ],
+			'windows: file uri, drive letter in lower case' => [ $windows, 'file:///c:/Sites/uploads/elementor/css/post-701.css', true ],
+			'windows: another drive'                    => [ $windows, 'file:///D:/Sites/uploads/elementor/css/post-701.css', false ],
+			'windows: another directory'                => [ $windows, 'file:///C:/Other/uploads/elementor/css/post-701.css', false ],
+			'windows: leading slash without a scheme'   => [ $windows, '/C:/Sites/uploads/elementor/css/post-701.css', false ],
+			'windows: host and path, not a file path'   => [ $windows, 'http://example.test/C:/Sites/uploads/elementor/css/post-701.css', false ],
+			'windows: drive-relative path'              => [ $windows, 'file:///C:Sites/uploads/elementor/css/post-701.css', false ],
+			'windows: unc path'                         => [ $windows, '\\server\share\Sites\uploads\elementor\css\post-701.css', false ],
+			'windows: unc path behind a file uri'       => [ $windows, 'file://///server/share/Sites/uploads/elementor/css/post-701.css', false ],
+		];
+	}
+
+	private function assert_reported_path( string $target_path, string $reported_path, bool $accepted ): void {
 		$updated = 0;
-		Post::$factory = static function () use ( &$updated ): object {
-			return new class( $updated ) {
+		Post::$factory = static function () use ( &$updated, $reported_path ): object {
+			return new class( $updated, $reported_path ) {
 				/** @var int */
 				private $updated;
 
-				public function __construct( int &$updated ) {
+				public function __construct( int &$updated, private string $reported_path ) {
 					$this->updated = &$updated;
 				}
 
@@ -213,7 +257,7 @@ final class CssRegeneratorTest extends TestCase {
 				}
 
 				public function get_path(): string {
-					return 'http:///' . ltrim( rtrim( (string) wp_upload_dir()['basedir'], '/\\' ) . '/elementor/css/post-701.css', '/' );
+					return $this->reported_path;
 				}
 
 				public function get_url(): string {
@@ -221,11 +265,25 @@ final class CssRegeneratorTest extends TestCase {
 				}
 			};
 		};
+		$target = new CssTarget(
+			701,
+			'post',
+			Post::class,
+			'post-701.css',
+			$target_path,
+			'https://example.test/wp-content/uploads/elementor/css/post-701.css'
+		);
 
-		$result = CssRegenerator::regenerate( $this->post_target() );
+		$result = CssRegenerator::regenerate( $target );
 
-		self::assertTrue( $result['ok'] );
-		self::assertSame( 1, $updated );
+		if ( $accepted ) {
+			self::assertTrue( $result['ok'], $reported_path );
+			self::assertSame( 1, $updated );
+			return;
+		}
+		self::assertFalse( $result['ok'], $reported_path );
+		self::assertSame( 'path_mismatch', $result['detail'] );
+		self::assertSame( 0, $updated );
 	}
 
 	public function test_fails_closed_when_url_path_differs_on_the_same_host(): void {
