@@ -212,6 +212,13 @@ customer data, so they are available immediately. In Direct mode, a new
 user-created skills, or audit events; packaged generic built-ins remain
 available.
 
+On an update the plugin refreshes its built-in skills and playbooks to the text
+of the installed release on the first request, keeping the site's enable choices
+and never touching a skill created or imported on the site. The companion
+refreshes the built-in skills it copied to `~/.stonewright/skills/_builtin/` when
+it starts: a copy nobody edited is replaced with the current text, and a copy you
+edited is left alone. See [Skill packs](skills.md).
+
 The first real operation may create an audit event. Setup or learning actions
 create state only after the user or agent performs them.
 

@@ -34,6 +34,17 @@ handshake includes only id, version, status, trigger, hash, and the
 receives only the ref. Version or required-capability mismatch blocks activation;
 there is no fallback to stale advice.
 
+Each pack declares the runtime versions it describes. The packs for V3
+documents (`elementor-v3`, `theme-builder`, and `elementor-pro-dynamic`) accept
+Elementor core 3.20 up to, but not including, 5.0, because Elementor 4 still
+edits V3 documents beside atomic ones. The atomic pack (`elementor-v4-atomic`)
+needs Elementor 4.0 or later. Every bundled pack requires WordPress at the
+plugin's own minimum (6.7) or later, and the WooCommerce packs share one
+WooCommerce range. A pack names the abilities it needs in
+`required_capabilities`; the scoped-snippet pack names
+`stonewright/custom-code-provider` (dry run, human approval, rollback) and the
+write-recovery pack names the change history and rollback abilities.
+
 The compact index budget is 450 estimated tokens. Pack bodies, references,
 recipes, and eval cases are separate sections loaded only when needed, with a
 1,200-token active body/reference budget.

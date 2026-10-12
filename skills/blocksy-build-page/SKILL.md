@@ -31,25 +31,25 @@ Call `stonewright-task-start` with surface `gutenberg`. Then:
    Otherwise list core types with `stonewright-blocks-list-registered` and
    read `stonewright-blocks-get-schema`.
 
-Introspection on a local plugin site (Blocksy not active) returned
-`check-setup.active: false`, `theme-chrome-get.active: false`, empty
-`colors` / `typography` / `header` / `footer` / `writable`, and
-`stonewright-blocks-list-registered` with namespace `blocksy` count `0`.
-No Blocksy block names were verified. The recipes below use verified
-`core/*` blocks from that same registry. When Blocksy is actually active,
-re-read chrome and re-list namespaces before writing.
+When Blocksy is not active, `check-setup.active` and
+`theme-chrome-get.active` are false, the `colors` / `typography` / `header` /
+`footer` / `writable` buckets are empty, and
+`stonewright-blocks-list-registered` with namespace `blocksy` returns count
+`0`. Do not invent Blocksy block names. The recipes below use `core/*` blocks;
+confirm each one with `stonewright-blocks-get-schema` before queueing it. When
+Blocksy is active, re-read chrome and re-list namespaces before writing.
 
 ## Namespaces (theme vs plugin vs add-on)
 
 Blocksy the theme is not a block library in `list-blocks`. Companion
 plugins (Kadence, GenerateBlocks, Spectra) keep their own prefixes.
 
-| Prefix | Role | Verified on the introspection site |
-|---|---|---|
-| `blocksy/` (if the theme registers one) | Theme-provided blocks, only when listed | Not registered. Namespace search returned `0`. |
-| Any other `blocksy-*` prefix | Add-on packs, if they register their own namespace | None registered. Do not invent widgets. |
-| `kadence/`, `generateblocks/`, `uagb/` | Companion plugins, listed only when those libraries are active | All three `list-blocks` counts were `0`. |
-| `core/` | WordPress core. Default page-body toolkit on this site. | 116 blocks registered. Recipes below use this set. |
+| Prefix | Role |
+|---|---|
+| `blocksy/` (if the theme registers one) | Theme-provided blocks, only when listed |
+| Any other `blocksy-*` prefix | Add-on packs, if they register their own namespace. Do not invent widgets. |
+| `kadence/`, `generateblocks/`, `uagb/` | Companion plugins, listed only when those libraries are active |
+| `core/` | WordPress core. Default page-body toolkit. The recipes below use this set. |
 
 When Blocksy is active, call `stonewright-blocks-list-registered` with
 `namespace: "blocksy"` again. If it is still empty, build the body with
@@ -71,8 +71,9 @@ Theme chrome is a separate write.
 3. Call `stonewright-blocks-finalizer-runtime`. You need `online: true`, a
    `finalizer_url` / `url`, `pending_count`, and per-target
    `editor_frame_url`. `keep_open` is true on purpose.
-4. If `online` is false, tell the operator to open **Stonewright → Activity →
-   Block queue** and leave that tab open. Do not finalize while the
+4. If `online` is false, give the operator the returned `url` (the
+   **Stonewright → Activity → Block queue** console with your queue session)
+   and ask them to leave that tab open. Do not finalize while the
    heartbeat is dead. `stonewright-blocks-finalizer-url` is the same URL if
    you only need the link.
 5. Poll `stonewright-blocks-pending-batch` until the queued ids are
@@ -91,14 +92,16 @@ One section per batch unless two sections are trivial and tightly coupled.
 
 ## `likely_partial` and editor-owned ids
 
-Core blocks on the introspection site were not `likely_partial` (they
-declare enough attributes). Companion prefixes are:
+Core blocks normally declare enough attributes not to be `likely_partial`.
+Companion prefixes are:
 
 - `kadence/`, `generateblocks/`, `uagb/` → always `likely_partial: true`
   in `AttributeValidator`. Finalizer path warns (`likely_partial_schema`)
-  and keeps unknown keys. Server path rejects them.
-- Unregistered names fail both paths with `block_not_registered` /
-  `stonewright_block_not_registered`.
+  and keeps unknown keys. Server path rejects them
+  (`unknown_block_attributes`).
+- On the finalizer path, a schema that is not `likely_partial` rejects
+  unknown keys with `unknown_block_attributes` too.
+- Unregistered names fail both paths with `block_not_registered`.
 
 If Blocksy later registers thin JS-backed blocks (editor script present
 and fewer than three declared attributes), those also count as partial.
@@ -112,38 +115,39 @@ them.
 
 Do not PHP-serialize third-party Blocksy companion blocks. If a visual
 `core/*` block reports `is_dynamic: true` because it has a render callback
-(`core/heading`, `core/cover`, `core/image`, `core/button` did on the
-introspection site), still queue it. That is not `save:null`.
+(`core/heading`, `core/cover`, `core/image`, and `core/button` can), still
+queue it. That is not `save:null`.
 
 ## Theme chrome
 
 Blocksy chrome keys come from live theme mods (via `blocksy_get_theme_mod`
 when that helper exists). Stonewright buckets a key by its name:
 
-- `header*` → `header`
-- `footer*` → `footer`
-- `font*` / `typography*` → `typography`
-- `color*` / `palette*` / `hue*` → `colors`
+- a key containing `header` → `header`
+- else containing `footer` → `footer`
+- else containing `font` or `typography` → `typography`
+- else containing `color`, `palette`, or `hue` → `colors`
 - anything else is ignored by the adapter
 
-On the introspection site no mods were readable because Blocksy was not
-active. There are **no verified token names** to copy into this skill.
-When the theme is active:
+This skill lists no Blocksy token names to copy: read them from the live
+theme. When the theme is not active no mods are readable. When the theme is
+active:
 
 1. Read `stonewright-theme-chrome-get`.
 2. Patch only keys listed in `writable`.
-3. `stonewright-theme-chrome-update` with `dry_run: true` first.
-4. Apply only the planned keys. Re-read.
+3. `stonewright-theme-chrome-update` (`dry_run` defaults to true) first.
+4. Apply only the planned keys with `dry_run: false` (`confirmation_token`
+   in production-safe mode). Re-read.
 
 Do not invent Customizer keys from Blocksy docs. If a key is not in the
 live `writable` list, it is not writable through this adapter.
 
 ## Composition recipes
 
-These sketches use verified `core/*` attributes from
-`stonewright-blocks-get-schema` on the introspection site. Map colors and
-type to Blocksy chrome tokens once `theme-chrome-get` returns them. Keep
-the same `{name, attributes, innerBlocks}` shape.
+These sketches use `core/*` attributes; confirm each with
+`stonewright-blocks-get-schema` on the target. Map colors and type to Blocksy
+chrome tokens once `theme-chrome-get` returns them. Keep the same
+`{name, attributes, innerBlocks}` shape.
 
 `core/column` parent is `core/columns`. `core/button` parent is
 `core/buttons`. Do not insert those children at the root.
@@ -284,13 +288,14 @@ from chrome / `theme.json` over hardcoded hex.
 
 | Symptom | Code / signal | What you do |
 |---|---|---|
-| Name not in the live list | `block_not_registered` / `stonewright_block_not_registered` | Re-run `list-registered` / `list-blocks`. Stop inventing names. |
+| Name not in the live list | `block_not_registered` | Re-run `list-registered` / `list-blocks`. Stop inventing names. |
 | Unknown chrome key | `stonewright_unknown_chrome_key` | The key is not in live `writable`. Drop it. Do not invent Customizer names. |
 | Theme adapter inactive | `stonewright_theme_inactive` / `check-setup.active` false | This pack does not apply. Switch theme or use `gutenberg-fse-builder`. |
 | Queue rejected unknown keys on PHP insert | `unknown_block_attributes` | You used the server path for a partial schema. Re-queue on the finalizer. |
 | Warning only, queue accepted | `likely_partial_schema` | Expected for companion `kadence/` / `generateblocks/` / `uagb/` names. Leave the keys. |
 | Finalize refused, item still `queued` | `finalizer_not_serialized` (409) | Open the block queue console (Stonewright → Activity → Block queue). Wait for serialize. Retry. |
 | Post changed under you | `content_conflict` (409) | Re-parse. Queue again with a fresh `expected_content_hash`. |
+| Spec carries a style, script, iframe, event handler, or `javascript:` URL | `stonewright_custom_code_approval_required` | Use block supports and preset slugs. Show the `approval_url` and stop; open it or use a grant only when the user explicitly asks you to do that approval step. |
 | Heartbeat dead | `stonewright-blocks-finalizer-runtime` `online: false` | Do not finalize. Do not PHP-serialize the body. Keep the console tab open. |
 
 Do not write the page body through theme chrome. Do not write header/footer

@@ -294,7 +294,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'If the connection fails, open Stonewright → Troubleshoot in wp-admin and run diagnostics.', $prompt );
 		$this->assertStringContainsString( '`--profile discover-execute` exposes the three protocol tools plus the startup and confirmation-token tools.', $prompt );
 		$this->assertStringNotContainsString( '3-tool', $prompt );
-		$this->assertStringContainsString( 'Static or third-party block writes finalize through the Block Editor Queue page; keep it open when asked.', $prompt );
+		$this->assertStringContainsString( 'Static or third-party block writes finalize through the Block queue page; keep it open when asked.', $prompt );
 		$this->assertStringContainsString( 'v' . STONEWRIGHT_VERSION . '/stonewright-companion-' . STONEWRIGHT_VERSION . '.tgz', $prompt );
 	}
 

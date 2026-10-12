@@ -13,7 +13,7 @@
     "mirror changes"
   ],
   "enabled": true,
-  "updated_at": "2026-07-16T00:00:00.000Z"
+  "updated_at": "2026-10-12T00:00:00.000Z"
 }
 ---
 
@@ -25,7 +25,7 @@ When the user names **one** target (URL, alias, “live”, “staging”, “lo
 
 1. Mutate **only** that environment.
 2. Do **not** also change another environment “while I’m here” or “for consistency.”
-3. If you already changed the wrong environment by mistake: **report it** and offer restore — never hide it.
+3. If you already changed the wrong environment by mistake: **report it** and offer restore (in Direct, `stonewright-direct-backup-list` and `-restore`; a restore asks for a confirmation) — never hide it.
 
 ## Checks
 

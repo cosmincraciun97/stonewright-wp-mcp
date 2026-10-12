@@ -49,6 +49,28 @@ final class SpecializationCatalogTest extends TestCase {
 		self::assertNotContains( 'woocommerce', $ids );
 	}
 
+	public function test_woocommerce_guidance_prefers_typed_tools_and_keeps_wp_wc_for_gaps(): void {
+		$woocommerce = array_column( SpecializationCatalog::all(), null, 'id' )['woocommerce'];
+		$surface     = (string) $woocommerce['write_surface'];
+
+		self::assertStringContainsString( 'stonewright/wc-status', $surface );
+		foreach ( [ 'wc-product', 'wc-variation', 'wc-term', 'wc-attribute', 'wc-catalog-audit' ] as $typed ) {
+			self::assertStringContainsString( $typed, $surface );
+		}
+		self::assertStringContainsString( 'use tokenized wp wc only for a missing typed operation or a long batch', $surface );
+		self::assertLessThan( strpos( $surface, 'wp wc' ), strpos( $surface, 'wc-product' ), 'Typed abilities are named before wp wc.' );
+		self::assertStringNotContainsString( 'Prefer WooCommerce REST v3 or wp wc commands', $surface );
+	}
+
+	public function test_acf_guidance_names_the_typed_field_group_and_value_abilities(): void {
+		$acf     = array_column( SpecializationCatalog::all(), null, 'id' )['acf'];
+		$surface = (string) $acf['write_surface'];
+
+		foreach ( [ 'acf-field-group-save', 'acf-value-update', 'acf-values-get' ] as $typed ) {
+			self::assertStringContainsString( $typed, $surface );
+		}
+	}
+
 	public function test_each_specialization_has_runtime_operational_guidance(): void {
 		foreach ( SpecializationCatalog::all() as $specialization ) {
 			self::assertIsArray( $specialization );

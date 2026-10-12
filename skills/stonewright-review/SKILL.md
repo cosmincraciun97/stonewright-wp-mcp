@@ -32,10 +32,12 @@ has been edited manually and you need to verify it still matches the spec.
      - fse template: stonewright/fse-list-templates + stonewright/fse-get-theme-json
 3. Compare spec sections to live elements -> find missing, extra, or drifted sections
 4. Compare spec tokens to kit colors / global styles -> find token drift
+     (stonewright/elementor-v3-get-kit-globals: colors.items.system and .custom)
 5. Compare spec assets to media library -> find unresolved or swapped assets
 6. Run accessibility surface check (heading hierarchy, alt attributes)
 7. Rank findings -> present refinement plan
-8. Issue confirmation token if any write fixes are proposed
+8. Get the user's approval of the proposed write fixes; in production-safe mode
+   issue a confirmation token for each write call
 9. Apply approved fixes via appropriate builder ability
 ```
 
@@ -64,8 +66,9 @@ SPEC DRIFT
 
 2. [token-drift] Hero background color
    Spec: tokens.colors.primary = "#0057FF"
-   Live: #0044CC (kit color "primary")
-   Fix: stonewright/elementor-v3-update-kit-colors -> primary: "#0057FF"
+   Live: #0044CC (kit system color "primary")
+   Fix: stonewright/elementor-v3-kit-batch-mutate -> colors, bucket "system",
+        primary: "#0057FF"
 
 3. [asset-mismatch] Hero image
    Spec: sections[0].background.image = "https://source.com/hero.jpg"
@@ -81,9 +84,9 @@ No critical layout deviations found.
 Confirm fixes 1-4? Reply YES or list item numbers.
 ```
 
-## Confirmation token
+## Approval and confirmation token
 
-For any write fix, issue a token:
+For any write fix, ask the user to approve it first:
 
 ```
 "Confirm:
@@ -92,6 +95,10 @@ For any write fix, issue a token:
   fixes: [1, 2, 3, 4]
 Reply YES to apply."
 ```
+
+In production-safe mode each write call also needs a `confirmation_token`: call
+`stonewright-security-issue-confirmation-token` with `ability` and `args` set to
+exactly the arguments of that call. A token fits one call.
 
 Take a backup before applying fixes:
 `stonewright/site-backup-page` (Gutenberg/FSE) or
@@ -106,7 +113,9 @@ Take a backup before applying fixes:
 | `stonewright/blocks-parse` | Read live Gutenberg blocks |
 | `stonewright/fse-get-theme-json` | Read global styles |
 | `stonewright/fse-list-templates` | List FSE templates |
-| `stonewright/elementor-v3-update-kit-colors` | Fix color token drift |
+| `stonewright/elementor-v3-get-kit-globals` | Read kit colors and typography (`system` and `custom` lists) |
+| `stonewright/elementor-v3-update-kit-colors` | Fix drift in custom kit colors (it never changes the four system colors) |
+| `stonewright/elementor-v3-kit-batch-mutate` | Fix system kit color or typography drift (`bucket: "system"`) |
 | `stonewright/elementor-v3-update-element` | Fix element-level drift |
 | `stonewright/blocks-update` | Fix Gutenberg block drift |
 | `stonewright/fse-update-global-styles` | Fix global style drift |
