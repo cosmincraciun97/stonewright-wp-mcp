@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The compact `stonewright-task-start` response lists the next tools for the task in
+  `fast_path.ordered_tools`, without `stonewright-context-bootstrap`,
+  `stonewright-task-start` and `stonewright-tool-profile` for the goal it just
+  started. An Elementor build names the live schema and the design evidence plan
+  before the write and the result check after it; a text change reads one page or a
+  bounded outline and does not load the design flow; skills loading and the
+  production-safe confirmation token stay where they apply.
+  `stonewright-task-start` stays in the list while the Elementor architecture blocks
+  the write, and `stonewright-tool-profile` while a needed tool is not callable yet.
+  An empty `elementor.status.native_hint` is left out of the compact response.
+- `composer tokens:measure` checks the bootstrap profile: more than 12 tools or more
+  than 3500 estimated tokens each fail the gate on their own. The budgets are
+  unchanged.
+
+### Fixed
+
+- `stonewright-elementor-css-regenerate` accepts a Windows drive path that Elementor
+  reports behind a scheme (`file:///C:/...`) when the target is on the same drive.
+  Another drive, a host and path, a drive-relative path and a UNC path are still
+  refused.
+- Contributor tests: the symlink fixtures skip with a named reason on a Windows
+  account that cannot create symbolic links, the `CLAUDE.md` symlink check reads the
+  git index when the working tree holds a plain file, and the Direct audit and
+  incident privacy checks read the Windows ACL instead of POSIX modes.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added
