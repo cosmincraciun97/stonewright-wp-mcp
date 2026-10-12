@@ -182,9 +182,13 @@ abstract class AbilityKernel implements Ability {
 		}
 		if ( $result instanceof \WP_Error ) {
 			$message                   = preg_replace( '/\s+/', ' ', trim( (string) $result->get_error_message() ) ) ?? '';
+			$data                      = $result->get_error_data();
+			if ( '' === $message && is_array( $data ) ) {
+				// An error without a message still says what the data says, so the audit row is never only a code.
+				$message = self::derived_failure_message( $data );
+			}
 			$metadata['error_code']    = sanitize_key( (string) $result->get_error_code() );
 			$metadata['error_message'] = mb_substr( $message, 0, 500 );
-			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
 				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'widget_type', 'setting_path', 'expected_type', 'actual_type', 'rejected_total', 'rejected_summary', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
 					if ( isset( $data[ $effect_key ] ) && is_scalar( $data[ $effect_key ] ) ) {
@@ -216,6 +220,12 @@ abstract class AbilityKernel implements Ability {
 				if ( '' !== $cause ) {
 					$metadata['root_error_code'] = $cause;
 				}
+				$error_message = self::structured_error_message( $result );
+				if ( '' !== $error_message ) {
+					$metadata['error_message'] = $error_message;
+				}
+			} elseif ( 'error' === $status && ( ! isset( $metadata['error_message'] ) || ! is_scalar( $metadata['error_message'] ) || '' === trim( (string) $metadata['error_message'] ) ) ) {
+				// A result that reports a failed verification without `ok` set to false says what failed all the same.
 				$error_message = self::structured_error_message( $result );
 				if ( '' !== $error_message ) {
 					$metadata['error_message'] = $error_message;
@@ -429,13 +439,68 @@ abstract class AbilityKernel implements Ability {
 
 	/** @param array<string, mixed> $result */
 	private static function structured_error_message( array $result ): string {
-		foreach ( [ 'error', 'message' ] as $key ) {
-			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) ) {
-				$message = preg_replace( '/\s+/', ' ', trim( (string) $result[ $key ] ) ) ?? '';
-				return mb_substr( $message, 0, 500 );
+		foreach ( [ 'error', 'message', 'error_message', 'public_message' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && '' !== trim( (string) $result[ $key ] ) ) {
+				return self::one_line( (string) $result[ $key ], 500 );
 			}
 		}
-		return '';
+		// The message of the first step that failed.
+		foreach ( is_array( $result['steps'] ?? null ) ? $result['steps'] : [] as $step ) {
+			if ( ! is_array( $step ) || ! in_array( strtolower( (string) ( $step['status'] ?? '' ) ), [ 'failed', 'error' ], true ) ) {
+				continue;
+			}
+			foreach ( [ 'error', 'message', 'reason' ] as $key ) {
+				if ( isset( $step[ $key ] ) && is_scalar( $step[ $key ] ) && '' !== trim( (string) $step[ $key ] ) ) {
+					return self::one_line( sprintf( 'Step %s failed: %s', is_scalar( $step['id'] ?? null ) ? (string) $step['id'] : '?', (string) $step[ $key ] ), 500 );
+				}
+			}
+		}
+
+		return self::derived_failure_message( $result );
+	}
+
+	/**
+	 * What a failed result says when it carries no message of its own: the check that failed, the statuses that are
+	 * not good, the first warning and the first sentence of the repair, from its own fields only.
+	 *
+	 * @param array<string, mixed> $result
+	 */
+	private static function derived_failure_message( array $result ): string {
+		$parts = [];
+		if ( isset( $result['reason'] ) && is_scalar( $result['reason'] ) && '' !== trim( (string) $result['reason'] ) ) {
+			$parts[] = self::one_line( (string) $result['reason'], 220 );
+		}
+		$violation = is_array( $result['violations'][0] ?? null ) ? $result['violations'][0] : [];
+		if ( isset( $violation['path'] ) && is_scalar( $violation['path'] ) && '' !== trim( (string) $violation['path'] ) ) {
+			$parts[] = sprintf( 'Rejected %s (%s).', self::one_line( (string) $violation['path'], 120 ), self::one_line( (string) ( is_scalar( $violation['code'] ?? null ) ? $violation['code'] : 'invalid' ), 60 ) );
+		}
+		$failed = isset( $result['failed_check'] ) && is_scalar( $result['failed_check'] ) ? sanitize_key( (string) $result['failed_check'] ) : '';
+		if ( '' !== $failed ) {
+			$parts[] = sprintf( 'The %s check failed.', $failed );
+		}
+		$statuses = [];
+		foreach ( [ 'verification_status', 'generation_status', 'delivery_status', 'frontend_verification_status', 'rollback_status' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && in_array( strtolower( (string) $result[ $key ] ), [ 'failed', 'blocked', 'missing', 'unverified' ], true ) ) {
+				$statuses[] = $key . ' ' . strtolower( (string) $result[ $key ] );
+			}
+		}
+		if ( [] !== $statuses ) {
+			$parts[] = ucfirst( implode( ', ', $statuses ) ) . '.';
+		}
+		$warning = is_array( $result['warnings'][0] ?? null ) ? $result['warnings'][0] : [];
+		if ( isset( $warning['message'] ) && is_scalar( $warning['message'] ) && '' !== trim( (string) $warning['message'] ) ) {
+			$parts[] = self::one_line( (string) $warning['message'], 220 );
+		}
+		if ( isset( $result['repair'] ) && is_scalar( $result['repair'] ) && '' !== trim( (string) $result['repair'] ) ) {
+			$sentences = preg_split( '/(?<=[.!?])\s+/', self::one_line( (string) $result['repair'], 400 ), 2 );
+			$parts[]   = 'Next: ' . (string) ( $sentences[0] ?? '' );
+		}
+
+		return self::one_line( implode( ' ', $parts ), 500 );
+	}
+
+	private static function one_line( string $text, int $length ): string {
+		return mb_substr( preg_replace( '/\s+/', ' ', trim( $text ) ) ?? '', 0, $length );
 	}
 
 	/** @param array<string, mixed> $result */

@@ -305,4 +305,23 @@ final class PostWriteVerifyMarkersTest extends TestCase {
 		self::assertStringContainsString( 'RuntimeException', $result['message'] );
 		self::assertStringNotContainsString( 'secret detail', (string) wp_json_encode( $result ) );
 	}
+
+	public function test_the_audit_row_of_a_failed_verification_carries_the_message_and_the_missing_elements(): void {
+		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
+		$GLOBALS['stonewright_test_current_user_id'] = 1;
+		$this->post( self::widget_tree( 'head001', 'e-heading' ) );
+		$this->render( '<div class="elementor elementor-302">nothing of the element</div>', true );
+
+		$result = $this->verify( [ 'head001' ] );
+
+		self::assertFalse( $result['ok'] );
+		$details = json_decode( (string) ( $GLOBALS['stonewright_test_wpdb_inserts'][0]['data']['redacted_details'] ?? '' ), true );
+		self::assertIsArray( $details );
+		self::assertSame( 'stonewright_elementor_frontend_verification_failed', $details['root_error_code'] );
+		self::assertStringStartsWith( 'Frontend verification failed.', $details['error_message'] );
+		self::assertStringContainsString( 'head001 (not_rendered)', $details['error_message'] );
+		self::assertStringNotContainsString( 'The call failed', $details['error_message'] );
+		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
+		$GLOBALS['stonewright_test_current_user_id'] = 0;
+	}
 }
