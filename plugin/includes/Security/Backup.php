@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\RestoredCss;
 use Stonewright\WpMcp\Elementor\V4\DefaultStylesState;
 use Stonewright\WpMcp\Elementor\V4\GlobalClassesState;
 use Stonewright\WpMcp\Support\Json;
@@ -334,6 +335,11 @@ final class Backup {
 			return false;
 		}
 
+		// What the generated CSS of this post is built from, as it is before the restore writes: the CSS is regenerated
+		// below when the restore changes it. A post that is not an Elementor document is left alone there.
+		RestoredCss::forget( $post_id );
+		$css_before = array_key_exists( '_elementor_data', $expected['meta'] ) ? RestoredCss::state( $post_id ) : null;
+
 		$post_result = wp_update_post(
 			wp_slash(
 				[
@@ -376,9 +382,17 @@ final class Backup {
 			$operations_verified = DefaultStylesState::restore( $snapshot['default_styles'] ) && $operations_verified;
 		}
 
-		return $operations_verified
+		$restored = $operations_verified
 			&& $expected === $readback
 			&& hash_equals( Json::hash( $expected ), Json::hash( $readback ) );
+		// Elementor keeps serving the stylesheet it generated for the state that was replaced, because a restore writes the
+		// meta directly. Only a document that was put back right gets its CSS regenerated, and a regeneration that does not
+		// complete never undoes the restore: the caller reads the result with RestoredCss::last().
+		if ( $restored && null !== $css_before ) {
+			RestoredCss::refresh( $post_id, $css_before );
+		}
+
+		return $restored;
 	}
 
 	/**
