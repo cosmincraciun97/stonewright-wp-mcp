@@ -165,16 +165,89 @@ final class Backup {
 
 	/** Drops an observed snapshot, for a call that failed or changed nothing. A snapshot of the real history is never touched. */
 	public static function discard_observed( int $post_id, string $snapshot_id ): void {
-		$snapshots = get_post_meta( $post_id, self::META_KEY_OBSERVED, true );
+		self::drop_snapshot( $post_id, self::META_KEY_OBSERVED, $snapshot_id );
+	}
+
+	private static function drop_snapshot( int $post_id, string $meta_key, string $snapshot_id ): void {
+		$snapshots = get_post_meta( $post_id, $meta_key, true );
 		if ( ! is_array( $snapshots ) || ! isset( $snapshots[ $snapshot_id ] ) ) {
 			return;
 		}
 		unset( $snapshots[ $snapshot_id ] );
 		if ( [] === $snapshots ) {
-			self::delete_meta( $post_id, self::META_KEY_OBSERVED );
+			self::delete_meta( $post_id, $meta_key );
 			return;
 		}
-		self::update_meta( $post_id, self::META_KEY_OBSERVED, $snapshots );
+		self::update_meta( $post_id, $meta_key, $snapshots );
+	}
+
+	/**
+	 * The surfaces a snapshot covers besides the post fields and the tracked meta: which kit meta keys (as a value or
+	 * as absent), and whether it holds the Elementor global classes and default styles from the repositories. A restore
+	 * of the snapshot writes exactly these surfaces, so the state it overwrites has to be saved over the same ones.
+	 *
+	 * @param array<string, mixed> $snapshot
+	 * @return array{kit_meta:list<string>,global_classes:bool,default_styles:bool}
+	 */
+	public static function snapshot_domain( array $snapshot ): array {
+		$present = is_array( $snapshot['meta'] ?? null ) ? array_map( 'strval', array_keys( $snapshot['meta'] ) ) : [];
+		$absent  = is_array( $snapshot['meta_absent'] ?? null ) ? array_map( 'strval', array_filter( $snapshot['meta_absent'], 'is_string' ) ) : [];
+		return [
+			'kit_meta'       => array_values( array_filter( self::KIT_V4_META_KEYS, static fn ( string $key ): bool => in_array( $key, $present, true ) || in_array( $key, $absent, true ) ) ),
+			'global_classes' => is_array( $snapshot['global_classes'] ?? null ),
+			'default_styles' => is_array( $snapshot['default_styles'] ?? null ),
+		];
+	}
+
+	/**
+	 * Whether $saved covers every surface that $source covers.
+	 *
+	 * @param array<string, mixed> $saved
+	 * @param array<string, mixed> $source
+	 */
+	public static function snapshot_covers( array $saved, array $source ): bool {
+		$wanted = self::snapshot_domain( $source );
+		$have   = self::snapshot_domain( $saved );
+		return [] === array_diff( $wanted['kit_meta'], $have['kit_meta'] )
+			&& ( ! $wanted['global_classes'] || $have['global_classes'] )
+			&& ( ! $wanted['default_styles'] || $have['default_styles'] );
+	}
+
+	/**
+	 * Whether the repositories a snapshot holds state of (the global classes, the default styles) can be read now.
+	 *
+	 * @param array<string, mixed> $source
+	 */
+	public static function surfaces_readable( array $source ): bool {
+		$domain = self::snapshot_domain( $source );
+		return ( ! $domain['global_classes'] || null !== GlobalClassesState::capture() )
+			&& ( ! $domain['default_styles'] || null !== DefaultStylesState::capture() );
+	}
+
+	/**
+	 * Save the state a restore of $source is about to overwrite: the post and the same surfaces $source covers, kit
+	 * meta keys included whether they hold a value or are absent now. It arms no rescue entry.
+	 *
+	 * @param array<string, mixed> $source The snapshot that will be restored.
+	 * @param list<string>         $keep   Snapshot ids the history limit must not drop (the source, normally).
+	 * @return string The new snapshot id, or '' when the post cannot be read, a surface cannot be captured (the Elementor repository is not there) or the stored snapshot does not cover the source. Nothing is left stored in that case.
+	 */
+	public static function snapshot_covering( int $post_id, array $source, array $keep = [] ): string {
+		$domain = self::snapshot_domain( $source );
+		// A surface that cannot be read now cannot be put back later: stop before anything is stored.
+		if ( ! self::surfaces_readable( $source ) ) {
+			return '';
+		}
+		$id = self::store_snapshot( $post_id, self::META_KEY, 0, $keep, false, $domain['kit_meta'], $domain['global_classes'], $domain['default_styles'] );
+		if ( '' === $id ) {
+			return '';
+		}
+		$saved = self::get_snapshot( $post_id, $id );
+		if ( null === $saved || ! self::snapshot_covers( $saved, $source ) ) {
+			self::drop_snapshot( $post_id, self::META_KEY, $id );
+			return '';
+		}
+		return $id;
 	}
 
 	/**
