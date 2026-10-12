@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Setup;
 
+use Stonewright\WpMcp\Admin\ChangeHistoryRetention;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
@@ -21,10 +22,10 @@ use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
- * Enabling, the mode, the MCP surface, the Elementor V4 switch, the section reuse row, optional API keys and the
- * local bridge, in the one form the Settings API saves. Every control keeps its name and id, so a save posts the
- * same fields as before, and a stored secret is never printed: its field is empty with a placeholder and a
- * checkbox that removes it.
+ * Enabling, the mode, the MCP surface, the Elementor V4 switch, the section reuse row, optional API keys, the change
+ * history limits and the local bridge, in the one form the Settings API saves. Every control keeps its name and id,
+ * so a save posts the same fields as before, and a stored secret is never printed: its field is empty with a
+ * placeholder and a checkbox that removes it.
  */
 final class SettingsForm {
 
@@ -60,6 +61,7 @@ final class SettingsForm {
 				$keys,
 				[ 'desc' => __( 'Optional keys for the stock-image abilities. A stored key is never shown again.', 'stonewright' ) ]
 			)
+			. ChangeHistoryRetention::settings_html()
 			. self::bridge( $context )
 			. $actions
 		);
@@ -80,7 +82,7 @@ final class SettingsForm {
 			return '';
 		}
 
-		return Notice::render( 'ok', __( 'Settings saved', 'stonewright' ), ConfigurationPage::surface_saved_notice() );
+		return Notice::render( 'ok', __( 'Settings saved', 'stonewright' ), ConfigurationPage::surface_saved_notice() ) . ChangeHistoryRetention::refusal_html();
 	}
 
 	private static function row( string $label_html, string $cell_html ): string {

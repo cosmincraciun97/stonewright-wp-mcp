@@ -194,7 +194,7 @@ final class ChangesPage {
 			$carry['paged'] = (string) $page;
 		}
 
-		$html  = ChangeUndo::outcome_notice( $source );
+		$html  = ChangeUndo::outcome_notice( $source ) . ChangeHistoryRetention::warning_html() . ChangeHistoryRetention::info_html();
 		$panel = '';
 		$asked = isset( $source['change'] ) && is_scalar( $source['change'] ) ? trim( (string) wp_unslash( (string) $source['change'] ) ) : '';
 		if ( '' !== $asked ) {

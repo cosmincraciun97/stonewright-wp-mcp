@@ -37,7 +37,9 @@ final class Html {
 		'hidden',
 		'href',
 		'id',
+		'inputmode', // Brings up the numeric keypad for a number field.
 		'lang',
+		'max', // The upper bound of a number field.
 		'maxlength',
 		'method',
 		'min',
@@ -58,6 +60,7 @@ final class Html {
 		'selected',
 		'spellcheck',
 		'src', // An image of the plugin; it is escaped as a URL below.
+		'step', // The step of a number field.
 		'tabindex',
 		'target',
 		'title',
