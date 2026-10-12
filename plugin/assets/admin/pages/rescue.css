@@ -1,34 +1,57 @@
-/* Stonewright > Rescue. Tokens only (shell.css). The table stacks at 782px. */
+/*
+ * Stonewright > Rescue. Placement only, tokens only: every button, link button and field is the shared layer's
+ * (sw-ui.css) and gets its height from the control-size tokens there. This file arranges them and never sizes one.
+ * The table stacks at 782px.
+ */
 .sw-rescue-page { display: grid; gap: var(--sw-space-4); min-width: 0; }
 .sw-rescue-page [hidden], .sw-rescue-busy:empty { display: none; }
 .sw-rescue-page h2 { margin: 0 0 var(--sw-space-2); font-size: var(--sw-text-lg); font-weight: 650; }
 .sw-rescue-page p, .sw-rescue-page form { margin: 0; }
 .sw-rescue-page code { font: var(--sw-text-xs) var(--sw-font-mono); }
-.sw-rescue-header__action { max-width: 20rem; }
 
-.sw-rescue-callout, .sw-rescue-notice, .sw-rescue-empty, .sw-rescue-warning, .sw-rescue-stats > div { display: grid; gap: var(--sw-space-1); padding: var(--sw-space-3) var(--sw-space-4); border: 1px solid var(--sw-border); border-radius: var(--sw-radius); background: var(--sw-surface-raised); }
+/* An action group is one row: the layer's flex row with its gap, wrapping on a narrow screen. A form in it prints no
+   box of its own, so its button is a member of the row and not a block that stacks under the others. */
+.sw-rescue-page .sw-ui-actions > form { display: contents; }
+/* What explains an action goes under the row, never beside it, so no button moves for it. */
+.sw-rescue-page .sw-ui-actions + .sw-rescue-note { margin-top: var(--sw-space-2); }
+
+.sw-rescue-callout, .sw-rescue-notice, .sw-rescue-empty, .sw-rescue-warning, .sw-rescue-stats > div, .sw-rescue-panel, .sw-rescue-review { display: grid; gap: var(--sw-space-1); padding: var(--sw-space-3) var(--sw-space-4); border: 1px solid var(--sw-border); border-radius: var(--sw-radius); background: var(--sw-surface-raised); }
 .sw-rescue-callout--warn, .sw-rescue-notice--warn, .sw-rescue-warning { border-color: var(--sw-warn-text); background: var(--sw-warn-soft); }
 .sw-rescue-callout--info, .sw-rescue-notice--info { border-color: var(--sw-info-text); background: var(--sw-info-soft); }
 .sw-rescue-notice--ok { border-color: var(--sw-ok-text); background: var(--sw-ok-soft); }
 .sw-rescue-notice--danger { border-color: var(--sw-danger-text); background: var(--sw-danger-soft); }
+
+.sw-rescue-panel { gap: var(--sw-space-2); background: var(--sw-surface); }
+.sw-rescue-panel h2 { margin-bottom: 0; }
+.sw-rescue-panel form { display: grid; gap: var(--sw-space-2); }
 
 .sw-rescue-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sw-space-3); margin: 0; }
 .sw-rescue-stats > div { background: var(--sw-surface); }
 .sw-rescue-stats dt, .sw-rescue-kv dt { color: var(--sw-text-muted); font-size: var(--sw-text-xs); }
 .sw-rescue-stats dd { margin: 0; font-size: var(--sw-text-lg); font-weight: 650; }
 .sw-rescue-note, .sw-rescue-sub { color: var(--sw-text-secondary); font-size: var(--sw-text-sm); }
-.sw-rescue-sub { display: block; margin-top: var(--sw-space-1); }
+.sw-rescue-sub { display: block; margin-top: var(--sw-space-1); font-weight: 400; }
+.sw-rescue-object { display: block; }
 
 .sw-rescue-table { width: 100%; border-collapse: collapse; background: var(--sw-surface); }
 .sw-rescue-table th, .sw-rescue-table td { padding: var(--sw-space-3); border-bottom: 1px solid var(--sw-border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 .sw-rescue-table thead th { color: var(--sw-text-muted); font-size: var(--sw-text-xs); }
+/* Room for the three actions of a row on one line where the table has it; a narrower column wraps them. */
+.sw-rescue-table td[data-label="Actions"] { min-width: 20rem; }
 .sw-rescue-badge--danger { background: var(--sw-danger-soft); color: var(--sw-danger-text); }
 .sw-rescue-badge--warn { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
 .sw-rescue-badge--ok { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
 .sw-rescue-badge--info { background: var(--sw-info-soft); color: var(--sw-info-text); }
 
-.sw-rescue-prompt { margin-top: var(--sw-space-2); }
-.sw-rescue-prompt textarea, .sw-rescue-dialog input[type="text"] { box-sizing: border-box; width: 100%; }
+/* The ids, the ability, the client and the codes of the health check: there when they are wanted, not in the way. */
+.sw-rescue-details, .sw-rescue-prompt { margin-top: var(--sw-space-2); font-weight: 400; }
+.sw-rescue-details summary, .sw-rescue-prompt summary { cursor: pointer; color: var(--sw-text-secondary); font-size: var(--sw-text-sm); }
+.sw-rescue-details .sw-rescue-kv { margin-top: var(--sw-space-2); }
+.sw-rescue-prompt textarea, .sw-rescue-dialog input[type="text"], .sw-rescue-review input[type="text"] { box-sizing: border-box; width: 100%; }
+
+.sw-rescue-review { max-width: 40rem; padding: var(--sw-space-5); background: var(--sw-surface); }
+.sw-rescue-review form { display: grid; gap: var(--sw-space-3); }
+.sw-rescue-review h2 { margin: 0; }
 
 .sw-rescue-dialog { box-sizing: border-box; width: min(32rem, calc(100vw - var(--sw-space-5))); padding: var(--sw-space-5); border: 1px solid var(--sw-border); border-radius: var(--sw-radius); background: var(--sw-surface); color: var(--sw-text); box-shadow: var(--sw-shadow-3); }
 .sw-rescue-dialog::backdrop { background: var(--sw-text); opacity: .5; }
@@ -36,13 +59,12 @@
 .sw-rescue-dialog h2 { margin: 0; }
 .sw-rescue-kv { display: grid; gap: var(--sw-space-2); margin: 0; }
 .sw-rescue-kv dd { margin: 0; overflow-wrap: anywhere; }
-.sw-rescue-dialog .sw-rescue-solid { background: var(--sw-danger-text); border-color: var(--sw-danger-text); color: var(--sw-text-invert); }
 
 @media (max-width: 782px) {
 	.sw-rescue-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 	.sw-rescue-table, .sw-rescue-table tbody, .sw-rescue-table tr, .sw-rescue-table th, .sw-rescue-table td { display: block; }
 	.sw-rescue-table tr { padding: var(--sw-space-2) 0; border-bottom: 1px solid var(--sw-border); }
 	.sw-rescue-table th, .sw-rescue-table td { padding: var(--sw-space-1) var(--sw-space-3); border: 0; }
+	.sw-rescue-table td[data-label="Actions"] { min-width: 0; }
 	.sw-rescue-table td::before { content: attr(data-label); display: block; color: var(--sw-text-muted); font-size: var(--sw-text-xs); }
-	.sw-rescue-page .sw-btn, .sw-rescue-page input[type="text"] { min-height: 44px; }
 }

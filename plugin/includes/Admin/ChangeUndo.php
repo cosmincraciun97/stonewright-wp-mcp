@@ -170,7 +170,7 @@ final class ChangeUndo {
 			. Html::element( 'div', [ 'class' => 'sw-ui-dialog__body' ], $body )
 			. Html::element(
 				'div',
-				[ 'class' => 'sw-ui-dialog__footer' ],
+				[ 'class' => 'sw-ui-dialog__footer', 'data-sw-actions' => true ],
 				// A link, so Cancel works without script: it goes back to the change. With script the layer closes the dialog in place.
 				Button::render( __( 'Cancel', 'stonewright' ), [ 'href' => ChangesPage::url( $carry + [ 'change' => (string) $row['change_id'] ] ), 'attrs' => [ 'data-sw-ui-dialog-close' => true, 'autofocus' => true ] ] )
 				. Button::render(

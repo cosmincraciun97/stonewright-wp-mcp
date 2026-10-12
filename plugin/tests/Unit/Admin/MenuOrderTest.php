@@ -184,12 +184,14 @@ final class MenuOrderTest extends TestCase {
 		];
 	}
 
-	public function test_the_sidebar_has_one_changes_entry_and_none_for_rescue_which_keeps_its_address(): void {
+	public function test_the_sidebar_has_one_changes_entry_and_rescue_keeps_its_item_hidden_at_the_end(): void {
 		$this->changes_entries( 0 );
 
 		MenuOrder::apply();
 
-		self::assertSame( [ 'stonewright-status', 'stonewright-changes' ], array_column( $GLOBALS['submenu']['stonewright'], 2 ) );
+		self::assertSame( [ 'stonewright-status', 'stonewright-changes', 'stonewright-rescue' ], array_column( $GLOBALS['submenu']['stonewright'], 2 ), 'The item stays: WordPress opens the Stonewright menu on the page by finding it.' );
+		self::assertSame( 'sw-menu-hidden', $GLOBALS['submenu']['stonewright'][2][4], 'And it is not shown.' );
+		self::assertArrayNotHasKey( 4, $GLOBALS['submenu']['stonewright'][1], 'No other item is hidden.' );
 		self::assertSame(
 			'<span class="sw-menu-label">Changes</span> <span class="sw-menu-exp" aria-hidden="true" data-sw-tip="This feature is experimental.">EXP</span><span class="screen-reader-text"> This feature is experimental.</span>',
 			$GLOBALS['submenu']['stonewright'][1][0],

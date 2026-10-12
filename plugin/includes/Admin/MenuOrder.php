@@ -26,6 +26,9 @@ final class MenuOrder {
 	/** Runs after every page has added its entry. */
 	private const PRIORITY = 999;
 
+	/** The class of a sidebar item that is kept for WordPress, which opens the right menu on its page, and not shown. */
+	public const HIDDEN_CLASS = 'sw-menu-hidden';
+
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'apply' ], self::PRIORITY );
 	}
@@ -45,7 +48,8 @@ final class MenuOrder {
 	 * @return list<array<int, mixed>>
 	 */
 	public static function order( array $items ): array {
-		// A page that is another page's own tab has an address and a registration, but no entry of its own.
+		// A page that is another page's own tab has an address and a registration, but no entry of its own. Its item stays
+		// in the menu, at the end and hidden, because WordPress finds the menu to open on a page by looking for its item.
 		$views = [];
 		foreach ( MenuRegistry::entries() as $entry ) {
 			if ( '' !== $entry['parent'] ) {
@@ -53,11 +57,15 @@ final class MenuOrder {
 			}
 		}
 		$by_slug = [];
+		$hidden  = [];
 		foreach ( $items as $item ) {
 			$slug = (string) ( $item[2] ?? '' );
-			if ( ! isset( $views[ $slug ] ) ) {
-				$by_slug[ $slug ] = $item;
+			if ( isset( $views[ $slug ] ) ) {
+				$item[4]  = trim( (string) ( $item[4] ?? '' ) . ' ' . self::HIDDEN_CLASS );
+				$hidden[] = $item;
+				continue;
 			}
+			$by_slug[ $slug ] = $item;
 		}
 
 		$ordered = [];
@@ -71,7 +79,7 @@ final class MenuOrder {
 			unset( $by_slug[ $entry['slug'] ] );
 		}
 
-		return array_merge( $ordered, array_values( $by_slug ) );
+		return array_merge( $ordered, array_values( $by_slug ), $hidden );
 	}
 
 	/**

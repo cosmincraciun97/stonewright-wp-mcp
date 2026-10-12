@@ -11,6 +11,50 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- Changes and Rescue are one entry in the sidebar and in the band. The Changes
+  page has two tabs: History (the list, the drawer, Undo and Redo; the default,
+  `page=stonewright-changes&tab=history`) and Rescue
+  (`page=stonewright-changes&tab=rescue`). The number of changes that need
+  attention is on the Changes entry and on the Rescue tab. Rescue keeps its own
+  address, `page=stonewright-rescue`, which still works by itself (the health
+  probe, the safe-boot redirect, approval links and old links go to it) and shows
+  the same tab bar. The Rescue tab is chosen before the change history is read,
+  so it opens when the history is missing or fails.
+- Each change on the Rescue page shows the object that changed and what was done
+  first. The ability, the client, the ids, the health check evidence and the
+  rollback recipe are under Details. The list of recent changes shows only the
+  changes the history cannot undo, with their Roll back; the others are on the
+  History tab, and the page says how many.
+- Open in safe mode is a panel on the Rescue page, with its help text under the
+  button. The Roll back, Check again and View diff actions of a change, and the
+  Cancel and confirm buttons of a dialog, are one row of equal buttons that wraps
+  on a narrow screen.
+- The first press of Roll back on the Rescue page and of Undo or Redo on the
+  Changes page opens a confirmation that changes nothing, with or without script.
+  Cancel is a link. On the Rescue page the confirmation is a page of its own
+  (`page=stonewright-rescue&review=<change set>`) that a dialog replaces when the
+  browser supports it. In production-safe mode the server checks the typed phrase
+  ROLL BACK as well as the confirmation token, before the token is used. A
+  rollback of a change that was only never verified, or that passed, over a newer
+  change to the same item asks for a box to be ticked first.
+- The Rescue page says what a health check did in three different ways: it could
+  not start, it got no answer it could judge, or it found the site failing. Not
+  verified no longer reads as a broken site or a host problem; the code of the
+  check is under Details. Check again reports each of the three.
+
+### Fixed
+
+- Closing the diff drawer on the Changes page keeps the From and To dates, the
+  status, the family, the search, Restorable only and the page of the list in the
+  address. The change an Undo acted on is named in `source_change`; `from` is the
+  start date again, and an old address that holds a change id in `from` is read
+  as that change.
+- The Undo and Redo dialog of the Changes page works without script: its confirm
+  button is not disabled in production-safe mode, the server checks the typed
+  phrase, and a refusal that ran nothing returns to the confirmation.
+
 ## [1.0.0-beta.15] - 2026-10-12
 
 ### Added

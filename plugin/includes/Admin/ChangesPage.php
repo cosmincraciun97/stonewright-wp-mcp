@@ -29,15 +29,23 @@ use Stonewright\WpMcp\Security\ChangeLedger;
  * to admin-post.php with a nonce. Every request needs manage_options, checked before the ledger is read. The page reads the ledger through its public
  * API only and prints diffs through ChangeDiff and DiffView, which mask secrets and never print an image.
  *
- * Query arguments: the filters (family, resource, ability, user, from, to, status, restorable), `paged`,
- * `change` (a change id), `view` (diff, details or history), `undo` (print the Undo dialog open) and, after an Undo,
- * `undone` (the outcome) and `from` (the change it acted on).
+ * The page has two tabs, both at this address. History (`tab=history`, the default) is the list, the drawer and Undo.
+ * Rescue (`tab=rescue`) is the content of the independent Rescue page (RescuePage): incidents, changes no health check
+ * reported back on, Check again, the helper and safe mode. The tab is chosen before the ledger is asked anything, so
+ * Rescue renders when the ledger table is missing or fails.
+ *
+ * Query arguments of History: the filters (family, resource, ability, user, from, to, status, restorable), where `from`
+ * and `to` are the dates of the range; `paged`; `change` (a change id); `view` (diff, details or history); `undo` (print
+ * the Undo dialog open) and, after an Undo, `undone` (the outcome) and `source_change` (the change it acted on).
  */
 final class ChangesPage {
 
 	public const SLUG       = 'stonewright-changes';
 	public const CAPABILITY = 'manage_options';
 	public const PER_PAGE   = 25;
+
+	public const TAB_HISTORY = 'history';
+	public const TAB_RESCUE  = 'rescue';
 
 	/** Status filter value => the ledger statuses it matches. */
 	public const STATUS_GROUPS = [
@@ -66,18 +74,48 @@ final class ChangesPage {
 		);
 	}
 
-	/** The tab of the Activity hub. It is registered on `init`, where labels can be translated; render() makes sure it exists too. */
+	/**
+	 * The Changes entry of the Activity hub and its two tabs. It is registered on `init`, where labels can be translated;
+	 * render() makes sure it exists too. The sidebar and the band list one Changes entry: the Rescue tab's count
+	 * (changes needing attention) is on it, and on the tab.
+	 */
 	public static function add_to_menu_registry(): void {
 		MenuRegistry::add(
 			self::SLUG,
-			__( 'Changes', 'stonewright' ),
+			__( 'History', 'stonewright' ),
 			'activity',
 			[
-				'order' => 40,
-				'beta'  => true,
-				'lede'  => self::lede(),
+				'tab'        => self::TAB_HISTORY,
+				'default'    => true,
+				'order'      => 30,
+				'beta'       => true,
+				'title'      => __( 'Changes', 'stonewright' ),
+				'menu_label' => __( 'Changes', 'stonewright' ),
+				'lede'       => self::lede(),
 			]
 		);
+		MenuRegistry::add(
+			self::SLUG,
+			__( 'Rescue', 'stonewright' ),
+			'activity',
+			[
+				'tab'         => self::TAB_RESCUE,
+				'order'       => 31,
+				'beta'        => true,
+				'menu_label'  => __( 'Changes', 'stonewright' ),
+				'title'       => __( 'Rescue', 'stonewright' ),
+				'lede'        => RescuePage::tab_lede(),
+				'count'       => static fn (): int => RescuePage::attention_count(),
+				'count_label' => __( 'needing attention', 'stonewright' ),
+				'menu_count'  => true,
+			]
+		);
+		RescuePage::add_alias_to_menu_registry();
+	}
+
+	/** The tab the address asks for: Rescue only when it says so, History otherwise. */
+	public static function current_tab(): string {
+		return self::TAB_RESCUE === MenuRegistry::requested_tab() ? self::TAB_RESCUE : self::TAB_HISTORY;
 	}
 
 	private static function lede(): string {
@@ -95,6 +133,9 @@ final class ChangesPage {
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
 		$base    = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
 		wp_enqueue_script( 'stonewright-admin-changes', $base . 'assets/admin/pages/changes.js', [ 'stonewright-ui' ], $version, true );
+		if ( self::TAB_RESCUE === self::current_tab() ) {
+			RescuePage::enqueue_tab_assets();
+		}
 	}
 
 	// -----------------------------------------------------------------------------------------------
@@ -131,6 +172,11 @@ final class ChangesPage {
 			wp_die( esc_html__( 'You do not have permission to view Stonewright changes.', 'stonewright' ), '', [ 'response' => 403 ] );
 		}
 		self::add_to_menu_registry();
+		// The Rescue tab is the page that must work when the ledger does not: it is chosen before anything asks the ledger.
+		if ( self::TAB_RESCUE === self::current_tab() ) {
+			RescuePage::render_tab();
+			return;
+		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only GET filters and one change id; the page changes nothing.
 		$source = $_GET;
@@ -166,20 +212,9 @@ final class ChangesPage {
 		$html .= self::timeline_html( $list, $filters, $carry, $page );
 		$html .= $panel;
 
-		AdminShell::open( self::SLUG, [ 'actions' => self::header_actions() ] );
+		AdminShell::open( self::SLUG );
 		echo Scope::wrap( $html, [ 'page' => true, 'class' => 'sw-changes-page' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
 		AdminShell::close();
-	}
-
-	/** Rescue is the page for incidents and safe mode; Changes is for history. */
-	private static function header_actions(): string {
-		return Button::render(
-			__( 'Rescue', 'stonewright' ),
-			[
-				'href'    => admin_url( 'admin.php?page=' . RescuePage::SLUG ),
-				'context' => __( 'for incidents and safe mode', 'stonewright' ),
-			]
-		);
 	}
 
 	// -----------------------------------------------------------------------------------------------
