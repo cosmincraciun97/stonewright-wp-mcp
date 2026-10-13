@@ -16,12 +16,16 @@ use Stonewright\WpMcp\Security\PluginEffectiveState;
  * Toggle is nonce-protected and requires manage_options. Shows ERROR when
  * abilities are enabled but vendor/MCP dependencies failed to load, and
  * BLOCKED (not OFF) when operator intent is on but domain lock mismatches.
+ *
+ * The stonewright_admin_bar setting (on by default) hides the badge, its menu and its styles. It changes
+ * nothing else: the abilities keep their state and the Settings tab still turns them on and off.
  */
 final class AdminBarIndicator {
 
 	public const TOGGLE_ACTION = 'stonewright_toggle_abilities';
 	public const OPTION        = PluginEffectiveState::OPTION_REQUESTED;
 	public const CAPABILITY    = 'manage_options';
+	public const SHOW_OPTION   = 'stonewright_admin_bar';
 
 	/**
 	 * Register admin bar + toggle handler hooks.
@@ -34,12 +38,19 @@ final class AdminBarIndicator {
 	}
 
 	/**
+	 * Whether the badge is shown in the admin bar.
+	 */
+	public static function is_shown(): bool {
+		return (bool) get_option( self::SHOW_OPTION, true );
+	}
+
+	/**
 	 * Add the indicator / kill-switch node to the admin bar.
 	 *
 	 * @param \WP_Admin_Bar $bar The admin bar instance.
 	 */
 	public static function add_node( \WP_Admin_Bar $bar ): void {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
+		if ( ! current_user_can( self::CAPABILITY ) || ! self::is_shown() ) {
 			return;
 		}
 
@@ -189,7 +200,7 @@ final class AdminBarIndicator {
 	 * Inline styles for the admin-bar badge.
 	 */
 	public static function output_styles(): void {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
+		if ( ! current_user_can( self::CAPABILITY ) || ! self::is_shown() ) {
 			return;
 		}
 		if ( function_exists( 'is_admin_bar_showing' ) && ! is_admin_bar_showing() ) {

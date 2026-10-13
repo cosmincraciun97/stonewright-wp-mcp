@@ -11,6 +11,13 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Add a **Show in admin bar** switch to **Stonewright → Setup → Settings**. It is
+  on by default. Turned off, the Stonewright status badge and its menu are removed
+  from the toolbar at the top of the dashboard and the site; the AI abilities keep
+  their state and the **AI abilities** switch still turns them on and off.
+
 ## [1.0.0-beta.16] - 2026-10-12
 
 ### Added
