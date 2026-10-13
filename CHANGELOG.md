@@ -11,6 +11,8 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.16.1] - 2026-10-13
+
 ### Added
 
 - Add a **Show in admin bar** switch to **Stonewright → Setup → Settings**. It is
@@ -2821,22 +2823,9 @@ development builds were never stable releases.
   or php-fpm only expose `HTTP_AUTHORIZATION`.
 - Refuse theme-file patches when a marker is missing or matches more than once.
 
-## [1.0.0-beta.13.2] - 2026-08-26
-
-### Fixed
-
-- Bundle built-in skills and playbooks in the plugin ZIP and seed them from
-  the plugin directory, so ZIP installs show the full Skills catalog and MCP
-  task-start serves the built-in pack.
-- Refetch GitHub Releases for Plugins → View details when the cached release
-  is older than the installed version, and purge release caches after the
-  plugin updates itself.
-- Normalize Elementor 4.2+ Atomic props whose serialization nests empty
-  object metadata, removing repeated "Prop descriptor unavailable"
-  Troubleshoot diagnostics and restoring the Atomic widget inventory.
-
 ## Older releases
 
+- [1.0.0-beta.13.2](docs/releases/1.0.0-beta.13.2.md)
 - [1.0.0-beta.13.1](docs/releases/1.0.0-beta.13.1.md)
 - [1.0.0-beta.13](docs/releases/1.0.0-beta.13.md)
 - [1.0.0-beta.12](docs/releases/1.0.0-beta.12.md)
