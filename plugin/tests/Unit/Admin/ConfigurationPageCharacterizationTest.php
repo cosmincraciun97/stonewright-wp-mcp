@@ -198,6 +198,7 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 				'stonewright_settings stonewright_companion_url string default=\'http://127.0.0.1:8765\'',
 				'stonewright_settings stonewright_companion_token string default=\'\'',
 				'stonewright_settings stonewright_elementor_v4_atomic boolean default=false',
+				'stonewright_settings stonewright_admin_bar boolean default=true',
 				'stonewright_settings stonewright_unsplash_access_key string default=\'\'',
 				'stonewright_settings stonewright_pexels_api_key string default=\'\'',
 				'stonewright_settings stonewright_change_ledger_days integer default=NULL',

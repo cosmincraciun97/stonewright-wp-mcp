@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Setup;
 
+use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\ChangeHistoryRetention;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\Ui\Button;
@@ -22,7 +23,7 @@ use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
- * Enabling, the mode, the MCP surface, the Elementor V4 switch, the section reuse row, optional API keys, the change
+ * Enabling, the admin bar badge, the mode, the MCP surface, the Elementor V4 switch, the section reuse row, optional API keys, the change
  * history limits and the local bridge, in the one form the Settings API saves. Every control keeps its name and id,
  * so a save posts the same fields as before, and a stored secret is never printed: its field is empty with a
  * placeholder and a checkbox that removes it.
@@ -32,6 +33,12 @@ final class SettingsForm {
 	public static function html( SetupContext $context ): string {
 		$general = '<table class="sw-ui-form-table" role="presentation"><tbody>'
 			. self::enable_row( $context )
+			. self::switch_row(
+				AdminBarIndicator::SHOW_OPTION,
+				__( 'Show in admin bar', 'stonewright' ),
+				AdminBarIndicator::is_shown(),
+				__( 'Shows the Stonewright status badge and its quick menu in the toolbar at the top of the site and the dashboard. Turn it off to hide them; the AI abilities keep their state and you can still turn them on and off here.', 'stonewright' )
+			)
 			. self::mode_row( $context )
 			. self::surface_row( $context )
 			. self::switch_row(

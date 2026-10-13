@@ -109,6 +109,26 @@ final class AdminBarIndicatorTest extends TestCase {
 		self::assertSame( [], $bar->nodes );
 	}
 
+	public function test_the_badge_is_shown_by_default(): void {
+		self::assertTrue( AdminBarIndicator::is_shown() );
+	}
+
+	public function test_turning_the_setting_off_hides_the_badge_its_menu_and_its_styles(): void {
+		$GLOBALS['stonewright_test_options'][ AdminBarIndicator::SHOW_OPTION ] = false;
+
+		$bar = new \WP_Admin_Bar();
+		AdminBarIndicator::add_node( $bar );
+		self::assertSame( [], $bar->nodes );
+		self::assertSame( '', self::badge_css() );
+	}
+
+	public function test_hiding_the_badge_does_not_change_the_abilities(): void {
+		$GLOBALS['stonewright_test_options'][ AdminBarIndicator::SHOW_OPTION ] = false;
+
+		AdminBarIndicator::add_node( new \WP_Admin_Bar() );
+		self::assertTrue( $GLOBALS['stonewright_test_options']['stonewright_enabled'] );
+	}
+
 	private static function badge_rule( string $css, string $state ): string {
 		self::assertSame(
 			1,
