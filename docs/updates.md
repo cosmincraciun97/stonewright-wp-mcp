@@ -30,6 +30,18 @@ activation, packaging, or compatibility issue that affects the site.
    ZIP, and choose **Replace current with uploaded**.
 4. Return to **Stonewright → Setup** and run **Verify connection**.
 
+WordPress replaces the installed copy only when the uploaded ZIP unpacks into
+the same folder. When the installed copy sits in another folder, the upload
+installs a second copy beside it. Only one copy runs at a time, and the Plugins
+screen and the Dashboard then show a notice that names each folder, its
+version and the copy that runs. Delete the copy you do not use on the Plugins
+screen: the settings, the history and the connections are shared and stay with
+the other copy. While another copy stays installed, deleting one removes
+nothing else: the running copy keeps its list of registered widgets and its
+rescue helper. When the copy you delete is a version older than
+1.0.0-beta.16.2, delete it while the newer copy is the one that runs; the newer
+copy makes the delete of an older one safe.
+
 The native updater offers a release only when exact plugin, companion, and
 `SHA256SUMS.txt` assets are present on the trusted release URL. At WordPress's
 install/update gate it fetches a bounded manifest, requires one exact ZIP

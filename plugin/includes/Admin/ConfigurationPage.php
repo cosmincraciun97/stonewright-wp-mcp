@@ -414,6 +414,12 @@ final class ConfigurationPage {
 			'sanitize_callback' => static fn ( mixed $value ): bool => (bool) $value,
 		] );
 
+		register_setting( self::OPTION_GROUP, MenuOrder::SHOW_OPTION, [
+			'type'              => 'boolean',
+			'default'           => true,
+			'sanitize_callback' => static fn ( mixed $value ): bool => (bool) $value,
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
 			'type'              => 'string',
 			'default'           => '',

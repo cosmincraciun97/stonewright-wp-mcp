@@ -117,6 +117,7 @@ final class AdminBootstrap {
 			. '#adminmenu .wp-submenu a .sw-menu-exp:hover::after{display:block;}'
 			. '#adminmenu .wp-submenu a .sw-menu-count{margin-inline-start:8px;}'
 			. '#adminmenu .wp-submenu li.sw-menu-hidden{display:none;}'
+			. '#adminmenu li.menu-top.sw-menu-hidden{display:none;}'
 			. '</style>' . "\n";
 	}
 

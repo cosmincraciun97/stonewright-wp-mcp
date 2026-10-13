@@ -223,4 +223,37 @@ final class MenuOrderTest extends TestCase {
 		self::assertStringNotContainsString( 'awaiting-mod', $by_slug['stonewright-audit-log'], 'Only a page that asks for it shows its count in the sidebar.' );
 		self::assertStringNotContainsString( 'awaiting-mod', $by_slug['stonewright-status'] );
 	}
+
+	/** @return array<int, array<int, string>> The top-level menu with the Stonewright item and a WordPress one. */
+	private function top_level(): array {
+		return [
+			5  => [ 'Posts', 'edit_posts', 'edit.php', '', 'menu-top menu-icon-post' ],
+			76 => [ 'Stonewright', 'manage_options', 'stonewright', 'Stonewright', 'menu-top toplevel_page_stonewright' ],
+		];
+	}
+
+	public function test_the_sidebar_shows_stonewright_by_default(): void {
+		$GLOBALS['menu']    = $this->top_level();
+		$GLOBALS['submenu'] = [ 'stonewright' => $this->registered() ];
+
+		MenuOrder::apply();
+
+		self::assertTrue( MenuOrder::is_shown() );
+		self::assertStringNotContainsString( MenuOrder::HIDDEN_CLASS, $GLOBALS['menu'][76][4] );
+		unset( $GLOBALS['menu'] );
+	}
+
+	public function test_with_the_setting_off_the_top_level_item_is_hidden_and_keeps_its_registration(): void {
+		$GLOBALS['stonewright_test_options'][ MenuOrder::SHOW_OPTION ] = false;
+		$GLOBALS['menu']    = $this->top_level();
+		$GLOBALS['submenu'] = [ 'stonewright' => $this->registered() ];
+
+		MenuOrder::apply();
+
+		self::assertSame( 'menu-top toplevel_page_stonewright ' . MenuOrder::HIDDEN_CLASS, $GLOBALS['menu'][76][4] );
+		self::assertSame( 'stonewright', $GLOBALS['menu'][76][2], 'the slug and the page stay registered' );
+		self::assertSame( 'menu-top menu-icon-post', $GLOBALS['menu'][5][4], 'other menus are left alone' );
+		self::assertCount( count( $this->registered() ), $GLOBALS['submenu']['stonewright'] );
+		unset( $GLOBALS['menu'], $GLOBALS['stonewright_test_options'][ MenuOrder::SHOW_OPTION ] );
+	}
 }

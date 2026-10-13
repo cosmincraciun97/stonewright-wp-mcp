@@ -27,6 +27,30 @@ if ( function_exists( 'mb_internal_encoding' ) ) {
 }
 
 if ( defined( 'STONEWRIGHT_FILE' ) ) {
+	// Another Stonewright copy, in another plugin folder, loaded first and runs; this one does nothing. Say so on the
+	// Plugins screen and the Dashboard, because the copy that runs can be the older one.
+	$stonewright_skipped_file = __FILE__;
+	if ( function_exists( 'add_action' ) && realpath( (string) STONEWRIGHT_FILE ) !== realpath( $stonewright_skipped_file ) ) {
+		add_action(
+			'admin_notices',
+			static function () use ( $stonewright_skipped_file ): void {
+				$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+				if ( ! current_user_can( 'activate_plugins' ) || null === $screen || ! in_array( (string) $screen->id, [ 'plugins', 'plugins-network', 'dashboard', 'dashboard-network' ], true ) ) {
+					return;
+				}
+				$skipped = get_file_data( $stonewright_skipped_file, [ 'version' => 'Version' ] );
+				$text    = sprintf(
+					/* translators: 1: plugin folder, 2: version, 3: plugin folder, 4: version */
+					__( 'Two copies of Stonewright are active. Only the copy in the folder %1$s (version %2$s) runs; the copy in the folder %3$s (version %4$s) does nothing. Deactivate the copy you do not use, then delete it.', 'stonewright' ),
+					basename( dirname( (string) STONEWRIGHT_FILE ) ),
+					defined( 'STONEWRIGHT_VERSION' ) ? (string) STONEWRIGHT_VERSION : '',
+					basename( dirname( $stonewright_skipped_file ) ),
+					(string) ( $skipped['version'] ?? '' )
+				);
+				echo '<div class="notice notice-error"><p>' . esc_html( $text ) . '</p></div>';
+			}
+		);
+	}
 	return;
 }
 

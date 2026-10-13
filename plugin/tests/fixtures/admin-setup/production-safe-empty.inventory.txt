@@ -132,6 +132,8 @@ form action=options.php method=post class="stonewright-settings-form sw-ui-stack
   input type=checkbox name=stonewright_enabled id=stonewright_enabled value=1 checked
   input type=hidden name=stonewright_admin_bar value=0
   input type=checkbox name=stonewright_admin_bar id=stonewright_admin_bar value=1 checked
+  input type=hidden name=stonewright_admin_menu value=0
+  input type=checkbox name=stonewright_admin_menu id=stonewright_admin_menu value=1 checked
   select name=stonewright_mode id=stonewright_mode class=sw-ui-select options=development,staging,production-safe*
   select name=stonewright_mcp_surface id=stonewright_mcp_surface class=sw-ui-select sw-setup__select options=bootstrap*,essential,full
   button type=button id=stonewright-apply-mcp-surface class=sw-ui-btn data-sw-apply-mcp-surface= text="Apply now"
@@ -582,6 +584,8 @@ stonewright-oauth-connections
 stonewright-verify
 stonewright_admin_bar
 stonewright_admin_bar_help
+stonewright_admin_menu
+stonewright_admin_menu_help
 stonewright_app_password_name
 stonewright_app_password_name_help
 stonewright_change_ledger_days

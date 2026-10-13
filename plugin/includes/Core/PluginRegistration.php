@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\ActivationRedirect;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\DuplicateCopies;
 use Stonewright\WpMcp\Admin\ChangesPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
@@ -185,6 +186,7 @@ final class PluginRegistration {
 		AuditLogPage::register();
 		ChangesPage::register();
 		AdminBarIndicator::register();
+		DuplicateCopies::register();
 		McpbBundle::register();
 		AdminBootstrap::register();
 		RescueHooks::register();

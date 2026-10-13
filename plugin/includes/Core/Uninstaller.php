@@ -97,6 +97,46 @@ final class Uninstaller {
 	/** @param bool $network Whether to clean every site of a multisite network instead of the current site. */
 	public function __construct( private \wpdb $db, private bool $network = false ) {}
 
+	/**
+	 * The Stonewright copies installed in the plugins folder, as plugin file names relative to it (for example
+	 * stonewright/stonewright.php). A ZIP uploaded under another folder name installs a second copy beside the
+	 * first; both share the same options, tables and rescue helper.
+	 *
+	 * @return list<string>
+	 */
+	public static function installed_copies(): array {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
+			return [];
+		}
+		$files = glob( rtrim( (string) constant( 'WP_PLUGIN_DIR' ), '/\\' ) . '/*/stonewright.php' );
+		$found = [];
+		foreach ( is_array( $files ) ? $files : [] as $file ) {
+			// Read like WordPress reads a plugin header, without needing WordPress: the first 8 KB.
+			$head = @file_get_contents( $file, false, null, 0, 8192 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- A local plugin file; an unreadable one is not a copy.
+			if ( is_string( $head ) && 1 === preg_match( '/^[ \t\/*#@]*Plugin Name:[ \t]*Stonewright[ \t]*\r?$/mi', $head ) ) {
+				$found[] = basename( dirname( $file ) ) . '/stonewright.php';
+			}
+		}
+		sort( $found );
+
+		return $found;
+	}
+
+	/**
+	 * Whether another Stonewright copy stays installed when $plugin is deleted. The copies share their data and
+	 * the rescue helper, so deleting one of them must leave both in place.
+	 */
+	public static function other_copy_remains( string $plugin ): bool {
+		$folder = strtok( str_replace( '\\', '/', $plugin ), '/' );
+		foreach ( self::installed_copies() as $copy ) {
+			if ( strtok( $copy, '/' ) !== $folder ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** Whether the site owner turned removal on: the constant is defined and is the boolean true. */
 	public static function requested(): bool {
 		return defined( self::CONSTANT ) && true === constant( self::CONSTANT );
