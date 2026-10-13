@@ -8,7 +8,7 @@ shown as tabs under the page header:
 | View | What it holds | Address |
 | --- | --- | --- |
 | **Get started** | The numbered steps: 1 turn on AI abilities (a status, with a link to Settings), 2 choose OAuth or an Application Password, 3 connect an AI client, 4 verify the connection | `page=stonewright` |
-| **Settings** | The settings form (master enable, admin bar badge, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the change history limits, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
+| **Settings** | The settings form (master enable, admin bar badge, admin menu entry, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the change history limits, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
 | **Connections** | The OAuth sign-in status with its copyable addresses, and the connected OAuth clients with a disconnect each | `page=stonewright&tab=connections` |
 | **Updates** | How to keep the plugin and the companion current | `page=stonewright&tab=updates` |
 
@@ -77,6 +77,17 @@ toolbar at the top of the dashboard and the site, with a menu to turn the AI
 abilities on or off. Turning it off removes the badge, its menu and its styles. It
 changes nothing else: the abilities keep their state, and the **AI abilities**
 switch above still turns them on and off.
+
+### Show in admin menu
+
+The row after **Show in admin bar**. The switch saves the option
+`stonewright_admin_menu` (boolean, default `true`) through the same Settings
+API form. Turning it off hides the Stonewright entry in the menu on the left of
+the dashboard. The entry keeps its registration, so every Stonewright address
+keeps working and the WordPress capability checks are unchanged. The
+**Overview** and **Setup** links under Stonewright on the Plugins screen, the
+admin bar badge and the band at the top of every Stonewright page still open
+the pages.
 
 ### Domain lock
 

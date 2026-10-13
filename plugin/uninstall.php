@@ -24,8 +24,19 @@
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
+// A deleted plugin is inactive, so a loaded Stonewright is another copy that runs: it uses the same rescue helper,
+// widget list and data, so nothing goes. Its classes are loaded already; loading this copy's files would be fatal.
+if ( defined( 'STONEWRIGHT_FILE' ) ) {
+	return;
+}
+
 require_once __DIR__ . '/includes/Core/RescueInstaller.php';
 require_once __DIR__ . '/includes/Core/Uninstaller.php';
+
+// Another, inactive copy of Stonewright stays installed: it uses the same rescue helper, widget list and data.
+if ( \Stonewright\WpMcp\Core\Uninstaller::other_copy_remains( (string) WP_UNINSTALL_PLUGIN ) ) {
+	return;
+}
 
 // Code, not data: the rescue helper and the list of registered custom widgets go before the data setting is looked at.
 \Stonewright\WpMcp\Core\Uninstaller::remove_code();
