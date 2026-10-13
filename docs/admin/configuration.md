@@ -8,7 +8,7 @@ shown as tabs under the page header:
 | View | What it holds | Address |
 | --- | --- | --- |
 | **Get started** | The numbered steps: 1 turn on AI abilities (a status, with a link to Settings), 2 choose OAuth or an Application Password, 3 connect an AI client, 4 verify the connection | `page=stonewright` |
-| **Settings** | The settings form (master enable, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the change history limits, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
+| **Settings** | The settings form (master enable, admin bar badge, mode, MCP tool surface, Elementor V4 atomic, reuse saved sections, optional stock-image keys, the change history limits, the local WP-CLI bridge) and the domain lock | `page=stonewright&tab=settings` |
 | **Connections** | The OAuth sign-in status with its copyable addresses, and the connected OAuth clients with a disconnect each | `page=stonewright&tab=connections` |
 | **Updates** | How to keep the plugin and the companion current | `page=stonewright&tab=updates` |
 
@@ -67,6 +67,16 @@ Domain-lock rebind, rollback, and clear actions are rendered in the **Domain
 lock** card outside that form. After a no-JavaScript save, WordPress redirects
 back to **Stonewright → Setup → Settings**; `/wp-admin/options.php` is never the
 final page. The page confirms a save with a notice.
+
+### Show in admin bar
+
+The row after **AI abilities**. The switch saves the option `stonewright_admin_bar`
+(boolean, default `true`) through the same Settings API form. While it is on,
+administrators see the Stonewright status badge (ON, OFF, BLOCKED or ERROR) in the
+toolbar at the top of the dashboard and the site, with a menu to turn the AI
+abilities on or off. Turning it off removes the badge, its menu and its styles. It
+changes nothing else: the abilities keep their state, and the **AI abilities**
+switch above still turns them on and off.
 
 ### Domain lock
 
