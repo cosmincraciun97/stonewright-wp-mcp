@@ -159,6 +159,74 @@ final class UninstallFileTest extends TestCase {
 		return [ $site, $content, $uploads ];
 	}
 
+	/**
+	 * A ZIP uploaded under another folder name installs a second copy. Both share the rescue helper, the widget list
+	 * and the data, so deleting one of them while the other stays installed removes nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_deleting_one_of_two_copies_keeps_the_widget_list_and_the_helper(): void {
+		$plugins = sys_get_temp_dir() . '/sw-uninstall-copies-' . bin2hex( random_bytes( 5 ) );
+		foreach ( [ 'stonewright', 'stonewright-old' ] as $folder ) {
+			mkdir( $plugins . '/' . $folder, 0777, true );
+			file_put_contents( $plugins . '/' . $folder . '/stonewright.php', "<?php\n/**\n * Plugin Name: Stonewright\n * Version: 1.0.0\n */\n" );
+		}
+		mkdir( $plugins . '/other', 0777, true );
+		file_put_contents( $plugins . '/other/stonewright.php', "<?php\n/**\n * Plugin Name: Something else\n */\n" );
+
+		define( 'WP_PLUGIN_DIR', $plugins );
+		define( 'WP_UNINSTALL_PLUGIN', 'stonewright-old/stonewright.php' );
+		$wpdb = UninstallSite::reset();
+		$GLOBALS['wpdb'] = $wpdb;
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [ 'my-card' ];
+		$options = $GLOBALS['stonewright_test_options'];
+		$helper  = \Stonewright\WpMcp\Core\RescueInstaller::target_path();
+		@mkdir( dirname( $helper ), 0777, true );
+		file_put_contents( $helper, "<?php\n// @stonewright-rescue-mu\n" );
+
+		try {
+			self::assertSame( [ 'stonewright-old/stonewright.php', 'stonewright/stonewright.php' ], \Stonewright\WpMcp\Core\Uninstaller::installed_copies() );
+
+			include self::file();
+
+			self::assertSame( $options, $GLOBALS['stonewright_test_options'], 'the widget list and every other option stay' );
+			self::assertFileExists( $helper, 'the rescue helper of the copy that stays is kept' );
+			self::assertSame( [], $wpdb->statements );
+		} finally {
+			@unlink( $helper );
+			self::remove_folder( $plugins );
+		}
+	}
+
+	/**
+	 * A plugin is deactivated before it is deleted, so a loaded Stonewright is another copy that runs. Its classes are
+	 * loaded already: uninstall.php loads none of its own (that would be fatal) and removes nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_deleting_a_copy_while_another_copy_runs_loads_nothing_and_removes_nothing(): void {
+		define( 'WP_UNINSTALL_PLUGIN', 'stonewright-old/stonewright.php' );
+		define( 'STONEWRIGHT_FILE', '/plugins/stonewright/stonewright.php' );
+		$wpdb = UninstallSite::reset();
+		$GLOBALS['wpdb'] = $wpdb;
+		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [ 'my-card' ];
+		$options = $GLOBALS['stonewright_test_options'];
+		$loaded  = get_included_files();
+
+		include self::file();
+		$new = array_values( array_diff( get_included_files(), $loaded ) );
+
+		self::assertSame( $options, $GLOBALS['stonewright_test_options'] );
+		self::assertSame( [], $wpdb->statements );
+		self::assertSame( [ realpath( self::file() ) ], $new, 'no other file was loaded' );
+	}
+
+	public function test_a_single_copy_has_no_other_copy(): void {
+		self::assertFalse( \Stonewright\WpMcp\Core\Uninstaller::other_copy_remains( 'stonewright/stonewright.php' ) );
+	}
+
 	private static function remove_folder( string $path ): void {
 		if ( ! is_dir( $path ) ) {
 			return;

@@ -29,13 +29,32 @@ final class MenuOrder {
 	/** The class of a sidebar item that is kept for WordPress, which opens the right menu on its page, and not shown. */
 	public const HIDDEN_CLASS = 'sw-menu-hidden';
 
+	/** The setting that shows Stonewright in the sidebar (on by default). */
+	public const SHOW_OPTION = 'stonewright_admin_menu';
+
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'apply' ], self::PRIORITY );
 	}
 
-	/** Reorder and rename the entries under the Stonewright top-level menu. */
+	/** Whether Stonewright is shown in the sidebar. */
+	public static function is_shown(): bool {
+		return (bool) get_option( self::SHOW_OPTION, true );
+	}
+
+	/**
+	 * Reorder and rename the entries under the Stonewright top-level menu. With the sidebar setting off, the top-level
+	 * item keeps its registration and is only hidden, so every Stonewright address and the links on the Plugins
+	 * screen keep working.
+	 */
 	public static function apply(): void {
-		global $submenu;
+		global $menu, $submenu;
+		if ( ! self::is_shown() && is_array( $menu ) ) {
+			foreach ( $menu as $position => $item ) {
+				if ( is_array( $item ) && MenuRegistry::PARENT === ( $item[2] ?? null ) ) {
+					$menu[ $position ][4] = trim( (string) ( $item[4] ?? '' ) . ' ' . self::HIDDEN_CLASS ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Hiding the item keeps its registration.
+				}
+			}
+		}
 		if ( ! is_array( $submenu ) || ! isset( $submenu[ MenuRegistry::PARENT ] ) || ! is_array( $submenu[ MenuRegistry::PARENT ] ) ) {
 			return;
 		}

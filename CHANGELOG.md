@@ -11,6 +11,27 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.16.2] - 2026-10-13
+
+### Added
+
+- Add a **Show in admin menu** switch to **Stonewright → Setup → Settings**. It
+  is on by default. Turned off, the Stonewright entry is hidden in the menu on
+  the left of the dashboard; every Stonewright page keeps its address, and the
+  **Overview** and **Setup** links on the Plugins screen open them.
+- Say so on the Plugins screen and the Dashboard when Stonewright is installed
+  twice, for example after uploading the ZIP when the installed copy sits in
+  another folder: the notice names each folder, its version and the copy that
+  runs.
+
+### Fixed
+
+- Let a second copy of Stonewright be deleted on the Plugins screen while the
+  other copy runs; the delete stopped with a fatal error. Deleting one copy while
+  another stays installed removes nothing: the list of registered widgets, the
+  rescue helper and the data stay, also when the deleted copy is an older
+  version.
+
 ## [1.0.0-beta.16.1] - 2026-10-13
 
 ### Added
@@ -2788,43 +2809,9 @@ development builds were never stable releases.
   in code, and the final file path is checked to stay inside the knowledge
   store, before anything is written.
 
-## [1.0.0-beta.13.3] - 2026-09-17
-
-### Fixed
-
-- Select one compatible MCP adapter runtime (`wordpress/mcp-adapter` ^0.6.1
-  with Jetpack Autoloader ^5.0) instead of treating every installed copy as an
-  active conflict, and delay adapter boot until `plugins_loaded` 99 so another
-  plugin can load first.
-- Report MCP server registration failures instead of swallowing `create_server`
-  `WP_Error` results, and keep the default upstream MCP server distinct from
-  Stonewright.
-- Keep Setup/Troubleshoot `info` checks out of the successful-check count, and
-  require a Stonewright `serverInfo` handshake (`initialize` →
-  `notifications/initialized` → `tools/list` → `stonewright-task-start`).
-- Check `/mcp/stonewright` and `/mcp/stonewright-oauth` separately, treat
-  “configuration verified, connection not tested” as info, and keep the live
-  handshake probe distinct from an OAuth HTTP 401 guard.
-- Treat HTTP 200 `ok:false` ability results as audit failures, keep ACF writes
-  idempotent when the stored raw value already matches, and separate Elementor
-  CSS generation from HTTP delivery evidence.
-- Treat only `text/css` HTTP probes as verified Elementor CSS delivery; JSON,
-  PDF, HTML, and empty bodies stay unverified or failed.
-- Reject invalid ACF values before a no-op, repair a missing or wrong field
-  key reference through `field_*`, and compute `changed` from before/after
-  raw value and reference rather than `update_field`'s return.
-- Preserve unknown Elementor settings on mobile-only deltas, reject stale
-  editor hashes, and keep Memory draft lessons from becoming global rules.
-- Surface a Loop Grid compile failure after CPT/ACF/content writes instead of
-  returning `ok:true`, keep partial effects visible, and refuse a full recreate.
-- Block a stale Elementor editor save after a later MCP write, keep the local
-  draft, and leave `post_status` unchanged.
-- Hydrate Application Password Basic credentials into `PHP_AUTH_*` when Apache
-  or php-fpm only expose `HTTP_AUTHORIZATION`.
-- Refuse theme-file patches when a marker is missing or matches more than once.
-
 ## Older releases
 
+- [1.0.0-beta.13.3](docs/releases/1.0.0-beta.13.3.md)
 - [1.0.0-beta.13.2](docs/releases/1.0.0-beta.13.2.md)
 - [1.0.0-beta.13.1](docs/releases/1.0.0-beta.13.1.md)
 - [1.0.0-beta.13](docs/releases/1.0.0-beta.13.md)
