@@ -27,8 +27,16 @@ for the exact trusted-principal policy, host prerequisites, and restart recovery
 An MCP client that authenticates with an administrator account can call any ability, including destructive ones. Mitigations:
 
 - Set `stonewright_mode` to `production-safe` so every destructive ability needs a confirmation token bound to its exact call, whatever the authentication level. A site with no stored mode starts in the mode of its environment type (`production` gives `production-safe`), on every site of a network.
-- Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. For read-only agents, `read` is sufficient. For content workflows, `editor` is usually enough.
+- Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. The MCP servers admit an account only when it holds `edit_posts` (see [Who can use the MCP servers](#who-can-use-the-mcp-servers)), so a contributor is the smallest role that can connect. For content workflows, `editor` is usually enough.
 - Rotate Application Passwords regularly.
+
+### Who can use the MCP servers
+
+Every WordPress account holds `read`, and WordPress lets every account create an Application Password, so `read` would let a subscriber or a shop customer call the abilities that only ask for it. Both MCP routes (`mcp/stonewright`, with an Application Password, and `mcp/stonewright-oauth`, with an OAuth bearer) therefore admit only an account that holds `edit_posts`: contributors, authors, editors and administrators. A subscriber's request gets the same refusal as any other request WordPress does not allow, and an OAuth grant is checked again at the consent screen, the code exchange, each refresh and each request, so the screen is not offered to an account that could not use the tools and a grant stops working when its account loses the capability.
+
+A site can change the capability with the `stonewright_mcp_required_capability` filter, which receives `edit_posts` and returns a capability name (for example `read` to admit every account, or `publish_posts` to keep contributors out); a value that is not a non-empty string is ignored. The filter applies to both routes and to the OAuth consent pages.
+
+Site knowledge is for administrators even when an account may connect: `task-start` and `context-bootstrap` return the matched site memory, custom instructions, user context, recurring errors and incident actions only to an account with `manage_options`, as `memory-list`, `memory-get` and `system-instructions-get` do; any other account gets the rest of the context with those sections empty.
 
 ### Permissions per object
 
@@ -39,7 +47,8 @@ A capability such as `edit_users` says that a user may manage accounts in genera
 - **Comments and media.** The comment abilities check `edit_comment` for the comment, and `comment-list` returns only comments the user may edit. `media-get` and `media-list` check `read_post` for each attachment.
 - **Theme Builder.** The abilities need `edit_theme_options` and, on a template, `edit_post` or `delete_post`. A template is moved to the trash; `force` is refused.
 - **History and restore.** `change-log` lists only posts where `edit_post` holds, and `change-restore` needs the publish capability of the post type when the snapshot is published, scheduled or private.
-- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`.
+- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`, and so does the site knowledge that `task-start` and `context-bootstrap` return.
+- **Search and outbound requests.** `search-query` and `oembed-resolve` need `edit_posts`; `oembed-resolve` fetches third-party URLs from the server, as the oEmbed proxy of WordPress core does. `search-query` lists a post type the caller cannot edit only when the site shows that type to visitors (`is_post_type_viewable()`); otherwise it refuses with `stonewright_search_post_type_not_allowed`. `stock-image-search` needs `upload_files`, as `stock-image-import` does, because a search spends the site's stock-photo quota; the search terms are percent-encoded in the provider request.
 
 ### Compromised MCP client
 

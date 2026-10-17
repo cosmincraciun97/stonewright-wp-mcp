@@ -203,7 +203,7 @@ final class ConnectedClientsTest extends TestCase {
 	}
 
 	public function test_disconnect_also_closes_the_codes_and_consents_that_could_still_create_a_grant(): void {
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		[ $first, $second ] = $this->two_clients();
 		$rig = $this->http->rig;
 		$code = $rig->authorize( $first );

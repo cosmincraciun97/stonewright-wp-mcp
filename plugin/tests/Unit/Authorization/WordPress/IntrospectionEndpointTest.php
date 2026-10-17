@@ -18,7 +18,7 @@ final class IntrospectionEndpointTest extends TestCase {
 
 	protected function setUp(): void {
 		StorageRig::reset_globals();
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$this->http = new HttpRig();
 	}
 

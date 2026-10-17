@@ -31,6 +31,7 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [];
+		$GLOBALS['stonewright_test_user_caps']  = [];
 		IncidentStore::reset_for_tests();
 	}
 
@@ -112,6 +113,37 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 	}
 
 	public function test_task_start_returns_ranked_open_incident_actions(): void {
+		// Incident actions are site knowledge: they go to an administrator.
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'edit_posts' => true, 'manage_options' => true ];
+		$this->observe_open_incident();
+
+		$result = ( new WorkflowPreflight() )->execute( [
+			'task' => 'Repair the broken image widget', 'surface' => 'elementor', 'intent' => 'write', 'responseMode' => 'compact',
+		] );
+
+		self::assertIsArray( $result );
+		self::assertContains( 'repair_open_incidents_first', $result['context']['required_actions'] );
+		self::assertNotContains( 'fix_recurring_errors_first', $result['context']['required_actions'] );
+		self::assertCount( 1, $result['context']['incident_actions'] );
+		self::assertSame( hash( 'sha256', 'preflight-incident' ), $result['context']['incident_actions'][0]['incident_id'] );
+		self::assertSame( 'stonewright/elementor-post-write-verify', $result['context']['incident_actions'][0]['required_verifier'] );
+	}
+
+	public function test_task_start_keeps_open_incident_actions_from_a_caller_who_is_not_an_administrator(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'edit_posts' => true ];
+		$this->observe_open_incident();
+
+		$result = ( new WorkflowPreflight() )->execute( [
+			'task' => 'Repair the broken image widget', 'surface' => 'elementor', 'intent' => 'write', 'responseMode' => 'compact',
+		] );
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'incident_actions', $result['context'] );
+		self::assertNotContains( 'repair_open_incidents_first', $result['context']['required_actions'] );
+		self::assertStringNotContainsString( 'stonewright/elementor-post-write-verify', (string) wp_json_encode( $result ) );
+	}
+
+	private function observe_open_incident(): void {
 		$event = [
 			'incident_id'          => hash( 'sha256', 'preflight-incident' ),
 			'event_id'             => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -133,17 +165,6 @@ final class WorkflowPreflightSessionProfileTest extends TestCase {
 		IncidentStore::observe( $event );
 		$event['event_id'] = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 		IncidentStore::observe( $event );
-
-		$result = ( new WorkflowPreflight() )->execute( [
-			'task' => 'Repair the broken image widget', 'surface' => 'elementor', 'intent' => 'write', 'responseMode' => 'compact',
-		] );
-
-		self::assertIsArray( $result );
-		self::assertContains( 'repair_open_incidents_first', $result['context']['required_actions'] );
-		self::assertNotContains( 'fix_recurring_errors_first', $result['context']['required_actions'] );
-		self::assertCount( 1, $result['context']['incident_actions'] );
-		self::assertSame( hash( 'sha256', 'preflight-incident' ), $result['context']['incident_actions'][0]['incident_id'] );
-		self::assertSame( 'stonewright/elementor-post-write-verify', $result['context']['incident_actions'][0]['required_verifier'] );
 	}
 
 	public function test_compact_task_start_keeps_required_auth_guidance_when_empty(): void {

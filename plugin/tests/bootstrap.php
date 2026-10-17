@@ -1451,6 +1451,15 @@ if ( ! function_exists( 'get_post_type_object' ) ) {
 	}
 }
 
+if ( ! function_exists( 'is_post_type_viewable' ) ) {
+	/** Mirrors core: publicly queryable, or a public built-in type; an unregistered type is not viewable. */
+	function is_post_type_viewable( string|object $post_type ): bool {
+		$object = is_object( $post_type ) ? $post_type : get_post_type_object( $post_type );
+
+		return is_object( $object ) && ( ! empty( $object->publicly_queryable ) || ( ! empty( $object->_builtin ) && ! empty( $object->public ) ) );
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Post stubs — backed by $GLOBALS['stonewright_test_posts'].
 // Tests set: $GLOBALS['stonewright_test_posts'][1] = (object)['ID' => 1, 'post_type' => 'page', ...];

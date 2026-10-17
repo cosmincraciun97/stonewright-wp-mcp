@@ -151,11 +151,11 @@ final class ProtectedResource {
 	}
 
 	/**
-	 * Whether the signed-in user may use the MCP tools: the read capability the MCP
-	 * transport requires; site administrators qualify through manage_options.
+	 * Whether the signed-in user may use the MCP tools: holds the capability the MCP
+	 * servers require (edit_posts unless the site filters it), as the transport checks.
 	 */
 	public static function current_user_can_use_mcp(): bool {
-		return get_current_user_id() > 0 && ( current_user_can( 'read' ) || current_user_can( 'manage_options' ) );
+		return get_current_user_id() > 0 && Permissions::can_use_mcp_transport();
 	}
 
 	private static function applies_to( mixed $request ): bool {

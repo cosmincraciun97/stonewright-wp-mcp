@@ -69,3 +69,19 @@ test('release workflow excludes .github and rejects it in the built plugin zip',
 	assert.match(releaseWorkflow, /--exclude \.github(\s|$)/);
 	assert.match(releaseWorkflow, /grep -E '\^stonewright\/\\\.github\(\/\|\$\)'/);
 });
+
+test('package dry run leaves out the PHPStan stubs folder', () => {
+	const withoutStubs = runPackageVerify([]);
+	const withStubs = runPackageVerify(['stubs/elementor.stub.php']);
+	assert.equal(withStubs.status, 0);
+	assert.ok(withStubs.report.excludes.includes('stubs'));
+	assert.equal(withStubs.report.included_file_count, withoutStubs.report.included_file_count);
+});
+
+test('packaging workflows exclude the stubs folder from the plugin root only', () => {
+	const ciWorkflow = readFileSync(path.join(scriptsDir, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+	// Anchored to the plugin root so a vendor package that ships its own stubs folder is untouched.
+	assert.match(releaseWorkflow, /--exclude \/stubs(\s|$)/);
+	assert.equal(ciWorkflow.match(/--exclude \/stubs(\s|$)/g)?.length, 2);
+	assert.match(releaseWorkflow, /grep -E '\^stonewright\/\(tests\|bin\|stubs\)\/\|/);
+});
