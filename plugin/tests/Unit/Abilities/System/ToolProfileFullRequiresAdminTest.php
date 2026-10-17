@@ -19,6 +19,7 @@ final class ToolProfileFullRequiresAdminTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [
+			'stonewright_enabled'                   => true,
 			'stonewright_disabled_abilities'        => [],
 			'stonewright_essential_tools_mode'      => true,
 			'stonewright_essential_extra_abilities' => [],

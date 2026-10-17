@@ -173,11 +173,30 @@ permission filters run twice for one MCP tool call.
 Two paths run an ability without its registered object and so without these
 filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
 and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
-gates and the list of disabled abilities. `execute-ability` also validates the
-arguments against the input schema of the target before its permission callback,
-and refuses abilities the surface hides and abilities that run or write code
-unless the current profile lists them. To block an ability on every path,
-disable it (`stonewright_disabled_abilities`).
+gates and the list of disabled abilities, and both validate the arguments against
+the input schema of the target (a bad argument is a 400) before its permission
+callback.
+
+One check decides whether an ability may run at all, and every path that runs an
+ability by name makes it before anything else: MCP tools, `execute-ability`, the
+REST runner, and WordPress's own Abilities API route
+(`/wp-json/wp-abilities/v1/abilities/<name>/run`). It covers the master toggle,
+the list of disabled abilities (`stonewright_disabled_abilities`), and the tool
+surface. An ability that runs or writes code (`php-execute`, the sandbox writers,
+the WP-CLI command runners, `custom-code-provider`, the custom widget definers)
+and an ability the surface hides are refused with
+`stonewright_ability_not_on_surface` unless the surface an administrator chose
+in wp-admin, or the session profile, lists them. A confirmation token never lifts
+that refusal: the REST runner refuses such an ability before it reads a token, and
+`security-issue-confirmation-token` issues no token for one (for the ability
+itself, or as the target of the REST runner). The refusal carries the settings
+link and `agent_must_stop`. A confirmation token still unlocks an ordinary
+ability outside the active profile on the REST runner. To block an ability on
+every path, disable it (`stonewright_disabled_abilities`).
+
+The plugin has no REST route that writes, activates or deletes sandbox files.
+Sandbox files are managed on the Sandbox Library admin page and by the `sandbox-*`
+abilities, which are on the Full surface only.
 
 ### Tool annotations are hints
 

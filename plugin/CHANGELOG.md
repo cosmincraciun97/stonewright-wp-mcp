@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Security
+
+- Check the tool surface on every way an ability can be run. An ability that runs or
+  writes code is refused unless an administrator chose the Full tool surface in
+  wp-admin, whether it is called as an MCP tool, through `execute-ability`, the
+  REST runner or WordPress's own Abilities API route, and a confirmation token no
+  longer lifts that refusal. `security-issue-confirmation-token` issues no token for
+  such an ability.
+- Validate the input of `POST /stonewright/v1/abilities/run` against the ability's
+  schema, as `execute-ability` does.
+- Make the Direct task-start and learning-record routes respect the master toggle
+  and the list of disabled abilities.
+
+### Removed
+
+- Remove the `/stonewright/v1/sandbox/files` REST routes. Sandbox files are managed
+  on the Sandbox Library admin page and with the sandbox abilities on the Full
+  surface.
+
 ## [1.0.0-beta.16.2] - 2026-10-13
 
 ### Added

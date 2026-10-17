@@ -8,7 +8,6 @@ use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Memory\MemoryScreen;
-use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -126,13 +125,20 @@ final class RestRoutes {
 				'methods'             => 'POST',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function ( \WP_REST_Request $request ) {
+					// The master toggle and the disabled list hold here as they do for every way to run an ability.
+					$task_start = new TaskStart();
+					$refusal    = AbilityRegistry::authorize_execution( $task_start );
+					if ( $refusal instanceof \WP_Error ) {
+						return $refusal;
+					}
+
 					$args = [
 						'task'         => sanitize_textarea_field( (string) $request->get_param( 'task' ) ),
 						'surface'      => sanitize_key( (string) $request->get_param( 'surface' ) ),
 						'intent'       => sanitize_key( (string) $request->get_param( 'intent' ) ),
 						'responseMode' => 'compact',
 					];
-					$result = ( new TaskStart() )->execute( $args );
+					$result = $task_start->execute( $args );
 					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
 				},
 			]
@@ -147,6 +153,7 @@ final class RestRoutes {
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$params = $request->get_json_params();
 					$params = is_array( $params ) ? Utf8::deep_sanitize( $params ) : [];
+					// The context guard refuses a switched-off plugin or a disabled ability before the ability runs.
 					$result = AbilityRegistry::execute_with_context_guard( new LearningRecord(), $params );
 					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
 				},
@@ -187,21 +194,21 @@ final class RestRoutes {
 						);
 					}
 
-					$master_enabled = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
-					if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
-						return new \WP_Error(
-							'stonewright_disabled',
-							__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
-							[ 'status' => 403 ]
-						);
+					// The master toggle, the disabled list and the tool surface come first, before any
+					// token is read: a confirmation token never unlocks an ability that runs or writes code.
+					$refusal = AbilityRegistry::authorize_execution( $ability );
+					if ( $refusal instanceof \WP_Error ) {
+						return $refusal;
 					}
 
-					$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
-					if ( in_array( $name, $disabled, true ) ) {
+					// Same input check as execute-ability. The confirmation token travels with the input but is
+					// not an argument of the ability.
+					$valid = AbilityInputValidator::validate( $ability, RestRoutes::input_without_confirmation_token( $input ) );
+					if ( $valid instanceof \WP_Error ) {
 						return new \WP_Error(
-							'stonewright_ability_disabled',
-							__( 'Ability is disabled.', 'stonewright' ),
-							[ 'status' => 403 ]
+							'stonewright_ability_invalid_input',
+							$valid->get_error_message(),
+							[ 'status' => 400, 'ability' => $name ]
 						);
 					}
 
@@ -493,285 +500,6 @@ final class RestRoutes {
 						] );
 					},
 				],
-			]
-		);
-
-		// -----------------------------------------------------------------
-		// Sandbox — shared master-toggle guard
-		// -----------------------------------------------------------------
-
-		$sandbox_toggle_check = static function (): ?\WP_Error {
-			if ( ! \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled() ) {
-				return new \WP_Error(
-					'stonewright_disabled',
-					__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
-					[ 'status' => 403 ]
-				);
-			}
-			return null;
-		};
-
-		register_rest_route(
-			'stonewright/v1',
-			'/sandbox/files',
-			[
-				[
-					'methods'             => 'GET',
-					'permission_callback' => [ Permissions::class, 'manage_options' ],
-					'callback'            => static function () use ( $sandbox_toggle_check ) {
-						$err = $sandbox_toggle_check();
-						if ( $err ) {
-							return $err;
-						}
-						return rest_ensure_response( [ 'files' => SandboxFiles::list_files() ] );
-					},
-				],
-				[
-					'methods'             => 'POST',
-					'permission_callback' => [ Permissions::class, 'manage_options' ],
-					'args'                => [
-						'name'     => [
-							'type'     => 'string',
-							'required' => true,
-						],
-						'contents' => [
-							'type'     => 'string',
-							'required' => true,
-						],
-					],
-					'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-						$err = $sandbox_toggle_check();
-						if ( $err ) {
-							return $err;
-						}
-
-						$result = SandboxFiles::write(
-							(string) $request->get_param( 'name' ),
-							(string) $request->get_param( 'contents' )
-						);
-
-						if ( is_wp_error( $result ) ) {
-							$result->add_data( [ 'status' => 422 ] );
-							return $result;
-						}
-
-						return rest_ensure_response( [ 'written' => true ] );
-					},
-				],
-			]
-		);
-
-		register_rest_route(
-			'stonewright/v1',
-			'/sandbox/files/(?P<name>[a-z0-9_-]+\.php)',
-			[
-				[
-					'methods'             => 'GET',
-					'permission_callback' => [ Permissions::class, 'manage_options' ],
-					'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-						$err = $sandbox_toggle_check();
-						if ( $err ) {
-							return $err;
-						}
-
-						$result = SandboxFiles::read( (string) $request->get_param( 'name' ) );
-
-						if ( is_wp_error( $result ) ) {
-							$result->add_data( [ 'status' => 404 ] );
-							return $result;
-						}
-
-						return rest_ensure_response( [
-							'name'     => (string) $request->get_param( 'name' ),
-							'contents' => $result,
-						] );
-					},
-				],
-				[
-					'methods'             => 'PUT',
-					'permission_callback' => [ Permissions::class, 'manage_options' ],
-					'args'                => [
-						'contents'   => [
-							'type' => 'string',
-						],
-						'old_string' => [
-							'type' => 'string',
-						],
-						'new_string' => [
-							'type' => 'string',
-						],
-					],
-					'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-						$err = $sandbox_toggle_check();
-						if ( $err ) {
-							return $err;
-						}
-
-						$name     = (string) $request->get_param( 'name' );
-						$contents = $request->get_param( 'contents' );
-
-						if ( null !== $contents ) {
-							$result = SandboxFiles::write( $name, (string) $contents );
-						} else {
-							$old = $request->get_param( 'old_string' );
-							$new = $request->get_param( 'new_string' );
-
-							if ( null === $old || null === $new ) {
-								return new \WP_Error(
-									'stonewright_sandbox_missing_args',
-									__( 'Provide either "contents" or both "old_string" and "new_string".', 'stonewright' ),
-									[ 'status' => 422 ]
-								);
-							}
-
-							$result = SandboxFiles::edit( $name, (string) $old, (string) $new );
-						}
-
-						if ( is_wp_error( $result ) ) {
-							$result->add_data( [ 'status' => 422 ] );
-							return $result;
-						}
-
-						return rest_ensure_response( [ 'updated' => true ] );
-					},
-				],
-				[
-					'methods'             => 'DELETE',
-					'permission_callback' => [ Permissions::class, 'manage_options' ],
-					'args'                => [
-						'confirmation_token' => [
-							'type' => 'string',
-						],
-					],
-					'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-						$err = $sandbox_toggle_check();
-						if ( $err ) {
-							return $err;
-						}
-
-						$name = (string) $request->get_param( 'name' );
-						if ( ! Permissions::not_production_safe() ) {
-							$token = (string) $request->get_param( 'confirmation_token' );
-							if ( '' === $token ) {
-								return new \WP_Error(
-									'stonewright_confirmation_required',
-									__( 'A confirmation_token is required in production-safe mode.', 'stonewright' ),
-									[ 'status' => 403 ]
-								);
-							}
-							$verify_result = ConfirmationToken::verify_or_error( $token, 'stonewright/sandbox-delete', [ 'name' => $name ] );
-							if ( is_wp_error( $verify_result ) ) {
-								return $verify_result;
-							}
-						}
-
-						$result = SandboxFiles::delete( $name );
-
-						if ( is_wp_error( $result ) ) {
-							$result->add_data( [ 'status' => 422 ] );
-							return $result;
-						}
-
-						return rest_ensure_response( [ 'deleted' => true ] );
-					},
-				],
-			]
-		);
-
-		register_rest_route(
-			'stonewright/v1',
-			'/sandbox/files/(?P<name>[a-z0-9_-]+\.php)/activate',
-			[
-				'methods'             => 'POST',
-				'permission_callback' => [ Permissions::class, 'manage_options' ],
-				'args'                => [
-					'confirmation_token' => [
-						'type' => 'string',
-					],
-				],
-				'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-					$err = $sandbox_toggle_check();
-					if ( $err ) {
-						return $err;
-					}
-
-					$name = (string) $request->get_param( 'name' );
-					if ( ! Permissions::not_production_safe() ) {
-						$token = (string) $request->get_param( 'confirmation_token' );
-						if ( '' === $token ) {
-							return new \WP_Error(
-								'stonewright_confirmation_required',
-								__( 'A confirmation_token is required in production-safe mode.', 'stonewright' ),
-								[ 'status' => 403 ]
-							);
-						}
-						$verify_result = ConfirmationToken::verify_or_error( $token, 'stonewright/sandbox-activate', [ 'name' => $name ] );
-						if ( is_wp_error( $verify_result ) ) {
-							return $verify_result;
-						}
-					}
-
-					$result = SandboxFiles::activate( $name );
-
-					if ( is_wp_error( $result ) ) {
-						$result->add_data( [ 'status' => 422 ] );
-						return $result;
-					}
-
-					return rest_ensure_response( [ 'activated' => true ] );
-				},
-			]
-		);
-
-		register_rest_route(
-			'stonewright/v1',
-			'/sandbox/files/(?P<name>[a-z0-9_-]+\.php)/disable',
-			[
-				'methods'             => 'POST',
-				'permission_callback' => [ Permissions::class, 'manage_options' ],
-				'args'                => [
-					'enable'             => [
-						'type'    => 'boolean',
-						'default' => false,
-					],
-					'confirmation_token' => [
-						'type' => 'string',
-					],
-				],
-				'callback'            => static function ( \WP_REST_Request $request ) use ( $sandbox_toggle_check ) {
-					$err = $sandbox_toggle_check();
-					if ( $err ) {
-						return $err;
-					}
-
-					$name   = (string) $request->get_param( 'name' );
-					$enable = (bool) $request->get_param( 'enable' );
-
-					// Re-enable is destructive (puts code back into the auto-loaded mu-plugins surface).
-					if ( $enable && ! Permissions::not_production_safe() ) {
-						$token = (string) $request->get_param( 'confirmation_token' );
-						if ( '' === $token ) {
-							return new \WP_Error(
-								'stonewright_confirmation_required',
-								__( 'A confirmation_token is required to enable a sandbox file in production-safe mode.', 'stonewright' ),
-								[ 'status' => 403 ]
-							);
-						}
-						$verify_result = ConfirmationToken::verify_or_error( $token, 'stonewright/sandbox-toggle', [ 'name' => $name, 'action' => 'enable' ] );
-						if ( is_wp_error( $verify_result ) ) {
-							return $verify_result;
-						}
-					}
-
-					$result = $enable ? SandboxFiles::enable( $name ) : SandboxFiles::disable( $name );
-
-					if ( is_wp_error( $result ) ) {
-						$result->add_data( [ 'status' => 422 ] );
-						return $result;
-					}
-
-					return rest_ensure_response( [ 'enabled' => $enable ] );
-				},
 			]
 		);
 
@@ -1877,6 +1605,16 @@ final class RestRoutes {
 	 * @param array<string, mixed> $input
 	 */
 	private static function rest_run_profile_gate( \WP_REST_Request $request, string $name, array $input ): ?\WP_Error {
+		// An ability that runs or writes code, or that the surface hides, is never unlocked by a token. The
+		// refusal comes before any token is read, so a token is neither needed nor spent for it.
+		$ability = AbilityRegistry::ability_by_name( $name );
+		if ( null !== $ability ) {
+			$refusal = AbilityRegistry::authorize_execution( $ability );
+			if ( $refusal instanceof \WP_Error ) {
+				return $refusal;
+			}
+		}
+
 		if ( 'stonewright/ping' === $name || self::ability_in_active_profile( $name ) ) {
 			return null;
 		}
