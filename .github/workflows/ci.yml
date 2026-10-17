@@ -180,6 +180,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: companion/package-lock.json
+      # Shipped runtime dependencies only; reads the lockfile, so it runs before the install.
+      - name: Audit shipped dependencies
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -247,6 +250,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: visual/package-lock.json
+      # Shipped runtime dependencies only; reads the lockfile, so it runs before the install.
+      - name: Audit shipped dependencies
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
