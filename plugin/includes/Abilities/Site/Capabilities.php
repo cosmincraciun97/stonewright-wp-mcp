@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpRuntimeStatus;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Elementor\Provider\ProviderRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -97,7 +98,7 @@ final class Capabilities extends AbilityKernel {
 				'elementor_v4' => defined( 'ELEMENTOR_VERSION' ) && version_compare( (string) ELEMENTOR_VERSION, '4.0.0', '>=' ),
 				'fse'          => function_exists( 'wp_is_block_theme' ) && wp_is_block_theme(),
 			],
-			'mode'          => (string) get_option( 'stonewright_mode', 'development' ),
+			'mode'          => SiteMode::current(),
 			'feature_flags' => (array) get_option( 'stonewright_feature_flags', [] ),
 			'mcp_runtime'   => McpRuntimeStatus::agent_report( McpRuntimeStatus::current() ),
 			'native_elementor' => $this->provider_router->native_elementor(),

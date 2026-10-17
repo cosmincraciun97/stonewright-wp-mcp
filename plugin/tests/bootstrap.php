@@ -430,6 +430,7 @@ $GLOBALS['stonewright_test_options'] ??= [];
 
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( string $option, mixed $default = false ): mixed {
+		$passed_default = func_num_args() > 1;
 		// With the flag set, behave like WordPress's per-request option cache: the first read of an option is
 		// kept until it is written here or its cache entry is deleted, whatever another request stores meanwhile.
 		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) ) {
@@ -439,12 +440,13 @@ if ( ! function_exists( 'get_option' ) ) {
 					: null;
 			}
 			$cached = $GLOBALS['stonewright_test_option_cache'][ $option ];
-			return null === $cached ? $default : $cached['value'];
+			return null === $cached ? apply_filters( "default_option_{$option}", $default, $option, $passed_default ) : $cached['value'];
 		}
 		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
 			return $GLOBALS['stonewright_test_options'][ $option ];
 		}
-		return $default;
+		// Like WordPress, a missing option passes through default_option_{option}; the third argument says whether the caller gave a default.
+		return apply_filters( "default_option_{$option}", $default, $option, $passed_default );
 	}
 }
 

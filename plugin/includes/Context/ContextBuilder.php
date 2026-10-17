@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Design\Quality\QualityRuleRegistry;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
@@ -48,7 +49,7 @@ final class ContextBuilder {
 				'normalized_url'    => rtrim( home_url( '/' ), '/' ),
 				'site_fingerprint'  => ContextToken::site_fingerprint(),
 				'environment_type'  => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
-				'stonewright_mode'  => (string) get_option( 'stonewright_mode', 'development' ),
+				'stonewright_mode'  => SiteMode::current(),
 				'memory_backend'    => 'plugin-site',
 				'memory_visibility' => 'site-admin (Stonewright Memory UI)',
 				'tool_profile'      => (string) ( ToolProfile::profile_hint( $task, $surface, $intent )['profile'] ?? 'essential' ),

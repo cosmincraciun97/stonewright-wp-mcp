@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
 use Stonewright\WpMcp\Context\UserContext;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
@@ -213,7 +214,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		);
 		// Latch session so subsequent reads drop the non-blocking task-start hint.
 		AbilityRegistry::mark_session_task_started();
-		$mode            = (string) get_option( 'stonewright_mode', 'development' );
+		$mode            = SiteMode::current();
 		$specializations = SpecializationCatalog::match( $task, $surface );
 		$task_profile    = self::task_profile( $task, $surface, $intent, $mode, $specializations );
 		$architecture    = ArchitectureRouter::describe(

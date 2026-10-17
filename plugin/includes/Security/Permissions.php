@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\SiteMode;
+
 /**
  * Reusable permission callbacks. Abilities should call into these helpers
  * rather than declaring inline closures so that the policy lives in one file.
@@ -119,15 +121,15 @@ final class Permissions {
 		if ( ! self::manage_options() ) {
 			return false;
 		}
-		return 'production-safe' !== get_option( 'stonewright_mode', 'development' );
+		return ! SiteMode::is_production_safe();
 	}
 
 	public static function not_production_safe(): bool {
-		return 'production-safe' !== get_option( 'stonewright_mode', 'development' );
+		return ! SiteMode::is_production_safe();
 	}
 
 	public static function is_production_safe(): bool {
-		return 'production-safe' === get_option( 'stonewright_mode', 'development' );
+		return SiteMode::is_production_safe();
 	}
 
 	/**

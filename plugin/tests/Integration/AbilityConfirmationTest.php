@@ -46,6 +46,7 @@ final class AbilityConfirmationTest extends TestCase {
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
+		unset( $GLOBALS['stonewright_test_environment_type'] );
 	}
 
 	private function set_production_safe(): void {
@@ -54,6 +55,25 @@ final class AbilityConfirmationTest extends TestCase {
 
 	public function test_sandbox_activate_production_safe_no_token_rejected(): void {
 		$this->set_production_safe();
+		$result = ( new SandboxActivate() )->execute( [ 'name' => 'test.php' ] );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+	}
+
+	public function test_a_missing_mode_on_a_production_environment_still_requires_a_token(): void {
+		$GLOBALS['stonewright_test_environment_type'] = 'production';
+		self::assertArrayNotHasKey( 'stonewright_mode', $GLOBALS['stonewright_test_options'] );
+
+		$result = ( new SandboxActivate() )->execute( [ 'name' => 'test.php' ] );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+	}
+
+	public function test_an_invalid_mode_still_requires_a_token(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'Production-Safe';
+
 		$result = ( new SandboxActivate() )->execute( [ 'name' => 'test.php' ] );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );

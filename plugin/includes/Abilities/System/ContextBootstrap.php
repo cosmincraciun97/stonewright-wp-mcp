@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -209,7 +210,7 @@ final class ContextBootstrap extends AbilityKernel {
 			'normalized_url'    => (string) ( $target_context['normalized_url'] ?? '' ),
 			'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
 			'environment_type'  => (string) ( $target_context['environment_type'] ?? 'unknown' ),
-			'stonewright_mode'  => (string) ( $target_context['stonewright_mode'] ?? 'development' ),
+			'stonewright_mode'  => (string) ( $target_context['stonewright_mode'] ?? SiteMode::current() ),
 			'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
 			'memory_visibility' => 'site-admin',
 		];

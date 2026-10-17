@@ -952,7 +952,7 @@ final class RestRoutes {
 					'permission_callback' => [ Permissions::class, 'manage_options' ],
 					'callback'            => static function () {
 						return rest_ensure_response( [
-							'mode'                 => get_option( 'stonewright_mode', 'development' ),
+							'mode'                 => SiteMode::current(),
 							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
 							'version'              => STONEWRIGHT_VERSION,
@@ -990,7 +990,7 @@ final class RestRoutes {
 
 						$mode = $request->get_param( 'mode' );
 						if ( $mode ) {
-							$previous_mode = (string) get_option( 'stonewright_mode', 'development' );
+							$previous_mode = SiteMode::current();
 							update_option( 'stonewright_mode', $mode );
 							if ( (string) $mode !== $previous_mode ) {
 								SiteAdapter::note_admin_write( 'rest', 'stonewright_mode', 'Mode changed from ' . $previous_mode . ' to ' . sanitize_key( (string) $mode ) );
@@ -1011,7 +1011,7 @@ final class RestRoutes {
 						}
 
 						return rest_ensure_response( [
-							'mode'                 => get_option( 'stonewright_mode', 'development' ),
+							'mode'                 => SiteMode::current(),
 							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
 						] );
@@ -1253,7 +1253,7 @@ final class RestRoutes {
 			'source'         => 'rest',
 			'route'          => $route,
 			'method'         => $method,
-			'mode'           => (string) get_option( 'stonewright_mode', 'development' ),
+			'mode'           => SiteMode::current(),
 			'resource'       => $resource,
 			'params'         => $audit_params,
 			'error_envelope' => $envelope['public'],
@@ -1733,7 +1733,7 @@ final class RestRoutes {
 				'source' => 'rest',
 				'route'  => $envelope['route'],
 				'method' => $envelope['method'],
-				'mode'   => (string) get_option( 'stonewright_mode', 'development' ),
+				'mode'   => SiteMode::current(),
 				'_meta'  => [
 					'error_code'      => $envelope['error_code'],
 					'public_message'  => $envelope['public_message'],

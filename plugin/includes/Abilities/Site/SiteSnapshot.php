@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -86,7 +87,7 @@ final class SiteSnapshot extends AbilityKernel {
 			'theme'       => $theme_payload,
 			'plugins'     => $this->plugin_counts(),
 			'post_counts' => $this->post_counts(),
-			'mode'        => (string) get_option( 'stonewright_mode', 'development' ),
+			'mode'        => SiteMode::current(),
 			'mcp_surface' => AbilityRegistry::mcp_surface(),
 			'stonewright' => defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '',
 		];

@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -439,7 +440,7 @@ final class AuditLog {
 				'duration_ms'       => max( 0, (int) ( $meta['duration_ms'] ?? 0 ) ),
 				'backend'           => 'plugin',
 				'site_fingerprint'  => self::site_fingerprint(),
-				'mode'              => sanitize_key( (string) get_option( 'stonewright_mode', 'development' ) ),
+				'mode'              => sanitize_key( SiteMode::current() ),
 				'severity'          => $severity,
 				'event_id'          => $event['event_id'],
 				'schema_version'    => AuditEvent::SCHEMA_VERSION,

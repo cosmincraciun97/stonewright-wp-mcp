@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
 use Stonewright\WpMcp\Admin\Connect\SignInStatus;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Admin\SetupState;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
 /**
@@ -65,7 +66,7 @@ final class SetupContext {
 	public static function current(): self {
 		$enabled             = PluginEffectiveState::enabled_requested();
 		$effective_state     = PluginEffectiveState::effective_state();
-		$mode                = (string) get_option( 'stonewright_mode', 'development' );
+		$mode                = SiteMode::current();
 		$companion_url       = (string) get_option( 'stonewright_companion_url', '' );
 		// Stored secrets are only tested for presence: their values never reach the page.
 		$has_companion_token = '' !== (string) get_option( 'stonewright_companion_token', '' );
