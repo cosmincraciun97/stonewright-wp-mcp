@@ -138,4 +138,48 @@ final class SearchQueryAccessTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( [ 21, 23 ], array_column( $result['items'], 'id' ) );
 	}
+
+	public function test_a_caller_who_cannot_edit_others_posts_gets_a_scoped_query(): void {
+		$GLOBALS['stonewright_test_current_user_id'] = 7;
+		unset( $GLOBALS['stonewright_test_filters']['posts_where'] );
+
+		self::assertIsArray( ( new SearchQuery() )->execute( [ 'search' => 'x' ] ) );
+
+		self::assertSame( 7, $GLOBALS['stonewright_test_last_wp_query_args'][ SearchQuery::SCOPE_VAR ] );
+		self::assertFalse( has_filter( 'posts_where' ), 'The scope filter is removed once the query has run.' );
+		unset( $GLOBALS['stonewright_test_current_user_id'] );
+	}
+
+	public function test_a_caller_who_can_edit_others_posts_gets_the_whole_search(): void {
+		$this->user_with( [ 'read', 'edit_posts', 'edit_others_posts' ] );
+		$GLOBALS['stonewright_test_current_user_id'] = 7;
+
+		self::assertIsArray( ( new SearchQuery() )->execute( [ 'search' => 'x' ] ) );
+
+		self::assertArrayNotHasKey( SearchQuery::SCOPE_VAR, $GLOBALS['stonewright_test_last_wp_query_args'] );
+		unset( $GLOBALS['stonewright_test_current_user_id'] );
+	}
+
+	public function test_the_scope_keeps_published_posts_and_the_callers_own_posts_only(): void {
+		$scoped = new class() extends \WP_Query {
+			public function __construct() {}
+			public function get( string $query_var, mixed $default_value = '' ): mixed {
+				return SearchQuery::SCOPE_VAR === $query_var ? 7 : $default_value;
+			}
+		};
+		$other  = new class() extends \WP_Query {
+			public function __construct() {}
+			public function get( string $query_var, mixed $default_value = '' ): mixed {
+				return $default_value;
+			}
+		};
+
+		$where = SearchQuery::scope_where( ' AND 1=1', $scoped );
+
+		self::assertStringStartsWith( ' AND 1=1 AND ( ', $where );
+		self::assertStringContainsString( ".post_status IN ( 'publish', 'inherit' )", $where );
+		self::assertStringContainsString( '.post_author = 7 )', $where );
+		self::assertSame( ' AND 1=1', SearchQuery::scope_where( ' AND 1=1', $other ), 'Another query is left alone.' );
+		self::assertSame( ' AND 1=1', SearchQuery::scope_where( ' AND 1=1' ) );
+	}
 }
