@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-17T17:42:40+00:00",
+    "generated_at": "2026-10-17T17:59:18+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -5438,7 +5438,7 @@
             "mcp_name": "stonewright-knowledge-import",
             "kind": "Write",
             "input_schema_hash": "c3a509a0df4d18547338cbcb59076e6236b2322db9c7c750bc845785f61da581",
-            "output_schema_hash": "18fa7b19590341ad5f997b0bd6a56b851d1d6b61dc0a15ec495bf0d17e5d8ab3",
+            "output_schema_hash": "d67ed206a2541d33ff535cc1acf8addb5119c64e310aaf391d3762f1e29d2ea5",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
