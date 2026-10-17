@@ -166,10 +166,22 @@ final class SignInPanelTest extends TestCase {
 		self::assertStringStartsWith( '<details class="sw-ui-disclosure sw-connect-managed" id="sw-connect-claude-desktop-managed"><summary>', $managed, 'Closed by default.' );
 		self::assertStringContainsString( '<span class="sw-connect-managed__title">Work account managed by an admin?</span><span class="sw-ui-hint">Team, Enterprise</span></summary>', $managed );
 		self::assertStringContainsString( 'On Team plans only Owners can add a custom connector.', $managed );
-		self::assertStringContainsString( '<li>An Owner opens Organization settings &gt; Connectors, chooses Add &gt; Custom &gt; Web and enters the server URL <span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-desktop-managed-a1-1">https://example.com/wp-json/mcp/stonewright-oauth</code>', $managed );
+		self::assertStringContainsString( '<li>An Owner opens Organization settings &gt; Connectors, chooses Add &gt; Custom &gt; Web and enters the server URL <span class="sw-ui-copy-chip-group"><span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-desktop-managed-a1-1">https://example.com/wp-json/mcp/stonewright-oauth</code>', $managed );
+		self::assertMatchesRegularExpression( '/<\/span><\/span>\.<\/span><\/li>/', $managed, 'The full stop after the URL is printed with its chip.' );
 		self::assertStringContainsString( 'Each member then opens Customize &gt; Connectors', $managed );
 		self::assertStringContainsString( 'Admins can turn off local MCP servers', $managed );
-		self::assertSame( 1, substr_count( $guide, 'sw-connect-managed"' ), 'One section per guide.' );
+
+		$order = [ 'On Team plans only Owners', '>Ask your admin</h4>', '<ol class="sw-connect-steps">', 'Copy message for your admin', 'Open organization connector settings', '>Or connect from your computer</h4>', 'Claude Desktop can run Stonewright', 'Use Application Password instead', 'claude mcp add --transport http', 'Admins can turn off local MCP servers' ];
+		$last  = -1;
+		foreach ( $order as $needle ) {
+			$at = strpos( $managed, $needle );
+			self::assertNotFalse( $at, $needle );
+			self::assertGreaterThan( $last, $at, $needle . ' is out of order.' );
+			$last = $at;
+		}
+		self::assertSame( 1, substr_count( $managed, '<div class="sw-ui-actions"><button type="button" class="sw-ui-btn sw-ui-btn--sm"' ), 'One row holds the copy button.' );
+		self::assertMatchesRegularExpression( '/Copy message for your admin<\/button><a class="sw-ui-btn sw-ui-btn--sm" href="https:\/\/claude\.ai\/admin-settings\/connectors"[^>]*>Open organization connector settings<span[^>]*>[^<]*<\/span><\/a><span class="sw-ui-copy__status"/', $managed, 'The organization link is in the same row as the copy button.' );
+		self::assertSame( 2, substr_count( $managed, 'class="sw-connect__subtitle"' ) );		self::assertSame( 1, substr_count( $guide, 'sw-connect-managed"' ), 'One section per guide.' );
 		self::assertLessThan( strpos( $guide, 'sw-connect-managed"' ), strpos( $guide, '<ol class="sw-connect-steps">' ) );
 		self::assertLessThan( strpos( $guide, 'sw-connect-claude-desktop-managed' ), strpos( $guide, 'Open Claude connector settings' ), 'After the links row.' );
 		self::assertLessThan( strpos( $guide, 'How sign-in starts:' ), strpos( $guide, 'sw-connect-claude-desktop-managed' ) );
@@ -187,6 +199,24 @@ final class SignInPanelTest extends TestCase {
 			self::assertStringNotContainsString( 'admin-settings/connectors', self::managed_markup( $html, $slug ), $slug );
 		}
 		self::assertSame( 2, substr_count( $html, 'Open organization connector settings' ) );
+	}
+
+	public function test_only_clients_with_a_local_route_have_the_second_subheading_and_copilot_keeps_a_note(): void {
+		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+
+		foreach ( ClientInstructions::all( self::status()['mcp_url'], self::status()['server_name'] ) as $guide ) {
+			if ( null === $guide['managed'] ) {
+				continue;
+			}
+			$managed = self::managed_markup( $html, $guide['slug'] );
+			self::assertSame( 1, substr_count( $managed, '>Ask your admin</h4>' ), $guide['slug'] );
+			self::assertSame( [] !== $guide['managed']['local'] ? 1 : 0, substr_count( $managed, '>Or connect from your computer</h4>' ), $guide['slug'] );
+		}
+		foreach ( [ 'vscode-copilot', 'github-copilot' ] as $slug ) {
+			$managed = self::managed_markup( $html, $slug );
+			self::assertStringContainsString( '<p class="sw-ui-field__help">There is no local workaround while the policy is off.</p>', $managed, $slug );
+			self::assertGreaterThan( strpos( $managed, 'Copy message for your admin' ), strpos( $managed, 'There is no local workaround' ), $slug );
+		}
 	}
 
 	public function test_zed_and_grok_build_have_no_work_account_section(): void {

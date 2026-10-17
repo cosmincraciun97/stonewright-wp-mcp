@@ -42,6 +42,15 @@ final class CopyChipTest extends TestCase {
 		self::assertStringContainsString( 'class="sw-ui-copy-chip extra"', $mine );
 	}
 
+	public function test_punctuation_after_the_chip_is_kept_with_it(): void {
+		$html = CopyChip::render( 'x', [ 'id' => 'c', 'trail' => '.)' ] );
+
+		self::assertStringStartsWith( '<span class="sw-ui-copy-chip-group"><span class="sw-ui-copy-chip">', $html );
+		self::assertStringEndsWith( '</span>.)</span>', $html );
+		self::assertStringNotContainsString( 'sw-ui-copy-chip-group', CopyChip::render( 'x' ) );
+		self::assertStringContainsString( '&lt;b&gt;', CopyChip::render( 'x', [ 'trail' => '<b>' ] ) );
+	}
+
 	public function test_the_value_is_escaped(): void {
 		$html = CopyChip::render( '"><script>alert(1)</script>', [ 'label' => '"><img src=x>' ] );
 

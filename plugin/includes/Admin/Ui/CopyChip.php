@@ -24,8 +24,11 @@ final class CopyChip {
 	 *     id?: string,
 	 *     label?: string,
 	 *     copy_label?: string,
+	 *     trail?: string,
 	 *     class?: string|list<string>
-	 * } $args "label" names what is copied ("server URL"); the button is read as "Copy server URL".
+	 * } $args "label" names what is copied ("server URL"); the button is read as "Copy server URL". "trail" is the
+	 *         punctuation that follows the chip in the sentence: it is printed with the chip so a line never breaks
+	 *         between them and leaves a lone full stop on the next line.
 	 */
 	public static function render( string $value, array $args = [] ): string {
 		$id   = '' !== (string) ( $args['id'] ?? '' ) ? (string) $args['id'] : Html::unique_id( 'chip' );
@@ -49,12 +52,15 @@ final class CopyChip {
 			Icon::render( 'copy', [ 'class' => 'sw-ui-copy__icon-copy' ] ) . Icon::render( 'check', [ 'class' => 'sw-ui-copy__icon-done' ] )
 		);
 
-		return Html::element(
+		$chip = Html::element(
 			'span',
 			[ 'class' => Html::classes( 'sw-ui-copy-chip', $args['class'] ?? '' ) ],
 			Html::element( 'code', [ 'class' => 'sw-ui-copy-chip__value', 'id' => $id ], Html::text( $value ) )
 			. $copy
 			. Html::element( 'span', [ 'class' => 'sw-ui-visually-hidden', 'role' => 'status', 'id' => $status ], '' )
 		);
+		$trail = (string) ( $args['trail'] ?? '' );
+
+		return '' === $trail ? $chip : Html::element( 'span', [ 'class' => 'sw-ui-copy-chip-group' ], $chip . Html::text( $trail ) );
 	}
 }

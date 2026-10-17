@@ -28,7 +28,8 @@ use Stonewright\WpMcp\Admin\ClientCatalog;
  * print each of those as a copyable value. Joining the values of the parts gives back the plain string.
  *
  * "managed" is the guidance for a work account whose admin controls the client: who may add a server, what to ask
- * the admin for, what a person can do locally and a message to send the admin. It is null for a client with no
+ * the admin for, what a person can do locally (the note closes that block, or follows the admin block when there is
+ * no local route) and a message to send the admin. It is null for a client with no
  * documented organization controls.
  *
  * @phpstan-type Snippet array{key: string, title: string, format: string, location: string, code: string}
@@ -622,12 +623,7 @@ final class ClientInstructions {
 					/* translators: %s: MCP server URL. */
 					self::step( __( 'If the organization limits MCP to a registry or an allowlist, ask them to allow %s.', 'stonewright' ), [ self::url( $url ) ] ),
 				];
-				$local = [
-					[
-						'type' => 'text',
-						'step' => self::plain( __( 'There is no local workaround while the policy is off.', 'stonewright' ) ),
-					],
-				];
+				$note  = self::plain( __( 'There is no local workaround while the policy is off.', 'stonewright' ) );
 				$where = __( 'Settings > Copilot > Policies > MCP servers in Copilot, plus the MCP registry or allowlist if one is used', 'stonewright' );
 				break;
 			case 'windsurf':

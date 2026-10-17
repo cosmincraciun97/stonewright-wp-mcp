@@ -4,6 +4,28 @@ h2 1. Turn on AI abilities
 h2 2. Choose how clients sign in
 h2 3. Connect your AI client
 h3 Sign in from your AI client
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Or connect from your computer
+h4 Ask your admin
+h4 Ask your admin
+h4 Or connect from your computer
+h4 Ask your admin
+h4 Or connect from your computer
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
+h4 Ask your admin
 h2 4. Verify the connection
 h2 General
 h2 Stock images
@@ -42,8 +64,8 @@ h2 Update the local companion
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-desktop-s3-1 data-sw-ui-copy-status=#sw-connect-claude-desktop-s3-1-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-desktop-s3-2 data-sw-ui-copy-status=#sw-connect-claude-desktop-s3-2-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-desktop-managed-a1-1 data-sw-ui-copy-status=#sw-connect-claude-desktop-managed-a1-1-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
-  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-claude-desktop-managed-code data-sw-ui-copy-status=#sw-connect-claude-desktop-managed-code-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Claude Desktop"
   button type=button class=sw-ui-btn sw-ui-btn--sm data-sw-ui-copy-text=(prompt) data-sw-ui-copy-status=#sw-connect-claude-desktop-managed-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy message for your admin"
+  button type=button class=sw-ui-btn sw-ui-btn--xs data-sw-ui-copy=#sw-connect-claude-desktop-managed-code data-sw-ui-copy-status=#sw-connect-claude-desktop-managed-code-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text="Copy Add the server for Claude Desktop"
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-ai-s2-1 data-sw-ui-copy-status=#sw-connect-claude-ai-s2-1-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-ai-s2-2 data-sw-ui-copy-status=#sw-connect-claude-ai-s2-2-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""
   button type=button class=sw-ui-btn sw-ui-btn--tertiary sw-ui-btn--xs sw-ui-btn--icon data-sw-ui-copy=#sw-connect-claude-ai-managed-a1-1 data-sw-ui-copy-status=#sw-connect-claude-ai-managed-a1-1-status data-sw-ui-copied-label=Copied data-sw-ui-copy-failed-label=Press Ctrl+C text=""

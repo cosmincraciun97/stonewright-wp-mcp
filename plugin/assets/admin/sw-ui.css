@@ -1534,6 +1534,17 @@
 	border-radius: var(--sw-radius-sm);
 	background: var(--sw-accent-soft);
 	color: var(--sw-text);
+	white-space: normal;
+}
+
+/* A chip and the punctuation after it stay together; the chip itself still wraps its value. */
+.sw-ui .sw-ui-copy-chip-group {
+	white-space: nowrap;
+}
+
+/* Leave room for the punctuation so the pair never grows past the line. */
+:where(.sw-ui) .sw-ui-copy-chip-group > .sw-ui-copy-chip {
+	max-width: calc(100% - 2ch);
 }
 
 .sw-ui .sw-ui-copy-chip__value {

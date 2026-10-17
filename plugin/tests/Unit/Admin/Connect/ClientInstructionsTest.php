@@ -431,6 +431,16 @@ final class ClientInstructionsTest extends TestCase {
 		self::assertSame( self::codes( self::guide( 'claude-code' ) )['add'], $local[3]['snippet']['code'] );
 		self::assertSame( 'shell', $local[3]['snippet']['format'] );
 		self::assertSame( [ 'text' ], array_column( self::guide( 'claude-ai' )['managed']['local'], 'type' ) );
+		self::assertStringStartsWith( 'Admins can turn off local MCP servers', self::guide( 'claude-desktop' )['managed']['note']['text'] );
+	}
+
+	public function test_copilot_has_no_local_route_only_a_note(): void {
+		foreach ( [ 'vscode-copilot', 'github-copilot' ] as $slug ) {
+			$managed = self::guide( $slug )['managed'];
+
+			self::assertSame( [], $managed['local'], $slug );
+			self::assertSame( 'There is no local workaround while the policy is off.', $managed['note']['text'], $slug );
+		}
 	}
 
 	public function test_the_admin_message_names_the_client_the_server_and_where_to_add_it(): void {
