@@ -329,7 +329,7 @@
 	 */
 	function initUsePasswordLinks() {
 		document.addEventListener( 'click', function ( event ) {
-			var link = event.target && event.target.closest ? event.target.closest( '[data-stonewright-use-password]' ) : null;
+			var link = event.target && event.target.closest ? event.target.closest( '[data-stonewright-switch-sign-in]' ) : null;
 			var method = document.querySelector( '[data-stonewright-auth-method="application-password"]' );
 			if ( ! link || ! method || method.disabled ) {
 				return;
@@ -338,7 +338,7 @@
 			if ( method.getAttribute( 'aria-checked' ) !== 'true' ) {
 				method.click();
 			}
-			var slug = link.getAttribute( 'data-stonewright-use-password' ) || '';
+			var slug = link.getAttribute( 'data-stonewright-switch-sign-in' ) || '';
 			var cards = document.querySelectorAll( '[data-stonewright-client-card]' );
 			for ( var i = 0; i < cards.length; i++ ) {
 				var card = cards[ i ];

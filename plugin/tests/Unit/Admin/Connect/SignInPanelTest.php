@@ -248,10 +248,10 @@ final class SignInPanelTest extends TestCase {
 		$html    = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
 		$managed = self::managed_markup( $html, 'claude-desktop' );
 
-		self::assertStringContainsString( '<a class="sw-ui-btn sw-ui-btn--sm" href="#stonewright-application-password" data-stonewright-use-password="claude-desktop">Use Application Password instead</a>', $managed );
+		self::assertStringContainsString( '<a class="sw-ui-btn sw-ui-btn--sm" href="#stonewright-application-password" data-stonewright-switch-sign-in="claude-desktop">Use Application Password instead</a>', $managed );
 		self::assertStringContainsString( 'Claude Code on your computer can connect too:', $managed );
 		self::assertStringContainsString( '<pre class="sw-ui-code__body sw-connect-snippet__code" id="sw-connect-claude-desktop-managed-code" tabindex="0" aria-label="Add the server: Add the server for Claude Desktop"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $managed );
-		self::assertSame( 1, substr_count( $html, 'data-stonewright-use-password' ) );
+		self::assertSame( 1, substr_count( $html, 'data-stonewright-switch-sign-in' ) );
 		self::assertStringNotContainsString( 'Claude Code on your computer', self::managed_markup( $html, 'claude-ai' ) );
 	}
 

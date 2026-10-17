@@ -368,7 +368,7 @@ final class SignInPanel {
 					$body .= Html::element(
 						'div',
 						[ 'class' => 'sw-ui-actions' ],
-						Button::render( $item['label'], [ 'size' => 'sm', 'href' => '#stonewright-application-password', 'attrs' => [ 'data-stonewright-use-password' => $item['slug'] ] ] )
+						Button::render( $item['label'], [ 'size' => 'sm', 'href' => '#stonewright-application-password', 'attrs' => [ 'data-stonewright-switch-sign-in' => $item['slug'] ] ] )
 					);
 				} elseif ( 'snippet' === $item['type'] && isset( $item['snippet'] ) ) {
 					$body .= CodeBlock::render(

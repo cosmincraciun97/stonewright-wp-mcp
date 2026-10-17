@@ -210,7 +210,7 @@ final class AdminJavascriptTest extends TestCase {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 
 		self::assertStringContainsString( 'initUsePasswordLinks();', $script );
-		self::assertStringContainsString( "[data-stonewright-use-password]", $script );
+		self::assertStringContainsString( "[data-stonewright-switch-sign-in]", $script );
 		self::assertStringContainsString( "[data-stonewright-auth-method=\"application-password\"]", $script );
 		self::assertStringContainsString( "'data-stonewright-client-card'", $script );
 		self::assertStringContainsString( "getElementById( 'stonewright-application-password' )", $script );
