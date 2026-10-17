@@ -508,6 +508,14 @@ if ( ! function_exists( 'maybe_serialize' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	// A test seeds $GLOBALS['stonewright_test_object_cache'][ $group ][ $key ]; anything else is a cache miss.
+	function wp_cache_get( int|string $key, string $group = '', bool $force = false, ?bool &$found = null ): mixed {
+		$found = isset( $GLOBALS['stonewright_test_object_cache'][ $group ] ) && array_key_exists( $key, $GLOBALS['stonewright_test_object_cache'][ $group ] );
+		return $found ? $GLOBALS['stonewright_test_object_cache'][ $group ][ $key ] : false;
+	}
+}
+
 if ( ! function_exists( 'wp_cache_delete' ) ) {
 	function wp_cache_delete( string $key, string $group = '' ): bool {
 		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) && 'options' === $group ) {

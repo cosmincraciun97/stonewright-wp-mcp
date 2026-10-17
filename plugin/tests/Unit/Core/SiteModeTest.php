@@ -32,7 +32,7 @@ final class SiteModeTest extends TestCase {
 		$GLOBALS['stonewright_test_filters']        = [];
 		$GLOBALS['stonewright_test_user_caps']      = [];
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
-		unset( $GLOBALS['stonewright_test_environment_type'] );
+		unset( $GLOBALS['stonewright_test_environment_type'], $GLOBALS['stonewright_test_object_cache'] );
 	}
 
 	private static function environment( string $type ): void {
@@ -141,6 +141,25 @@ final class SiteModeTest extends TestCase {
 
 		self::assertNull( SiteMode::stored() );
 		self::assertSame( 'production-safe', SiteMode::current() );
+	}
+
+	public function test_a_default_filter_cannot_hide_a_row_wordpress_knows_is_missing(): void {
+		// A filter that ignores the passed default and answers development, on a production site.
+		$GLOBALS['stonewright_test_filters']['default_option_stonewright_mode'] = static fn (): string => 'development';
+		$GLOBALS['stonewright_test_object_cache']['options']['notoptions']        = [ 'stonewright_mode' => true ];
+		self::environment( 'production' );
+
+		self::assertNull( SiteMode::stored() );
+		self::assertSame( 'production-safe', SiteMode::current() );
+	}
+
+	public function test_a_stored_mode_wins_over_an_unrelated_notoptions_entry(): void {
+		$GLOBALS['stonewright_test_object_cache']['options']['notoptions'] = [ 'another_option' => true ];
+		self::environment( 'production' );
+		self::store( 'development' );
+
+		self::assertSame( 'development', SiteMode::stored() );
+		self::assertSame( 'development', SiteMode::current() );
 	}
 
 	public function test_reading_never_writes_the_option(): void {

@@ -42,15 +42,30 @@ final class SiteMode {
 	 * otherwise the raw string. A stored value that is not a string comes back as a placeholder that
 	 * is not a mode, never as null, so it is not mistaken for "never stored".
 	 *
-	 * The explicit null default bypasses a default_option_stonewright_mode filter.
+	 * The explicit null default keeps the registered default out. A default_option_stonewright_mode filter
+	 * can still hand back a value for a missing row, so the row counts as missing whenever WordPress has
+	 * recorded it in its notoptions cache, whatever the filter returned.
 	 */
 	public static function stored(): ?string {
 		$value = get_option( self::OPTION, null );
-		if ( null === $value || '' === $value ) {
+		if ( self::row_known_missing() || null === $value || '' === $value ) {
 			return null;
 		}
 		// A value that is not a string is invalid, not missing: keep it distinguishable from null.
 		return is_string( $value ) ? $value : '(invalid)';
+	}
+
+	/**
+	 * Whether WordPress recorded, in the per-site notoptions cache that get_option() fills, that the option
+	 * row does not exist. A pre_option_ override never reaches that cache, so it still counts as stored.
+	 */
+	private static function row_known_missing(): bool {
+		if ( ! function_exists( 'wp_cache_get' ) ) {
+			return false;
+		}
+		$notoptions = wp_cache_get( 'notoptions', 'options' );
+
+		return is_array( $notoptions ) && isset( $notoptions[ self::OPTION ] );
 	}
 
 	/**
