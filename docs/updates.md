@@ -69,8 +69,8 @@ or Stonewright settings.
 
 ### Release signature
 
-Releases are not signed yet. Signing starts with the first Stonewright version
-that ships release public keys; its release notes say so. From that version on:
+Releases are signed from Stonewright 1.0.0-beta.17 on, the first version that
+ships release public keys. From that version on:
 
 - Each release has a fourth asset, `SHA256SUMS.txt.sig`: an Ed25519 signature
   of the exact bytes of `SHA256SUMS.txt`, made with the maintainer's release
@@ -90,8 +90,9 @@ that ships release public keys; its release notes say so. From that version on:
   signatures; WordPress ships a fallback for servers without the PHP sodium
   extension, so it should not appear. The messages name no key, signature, or
   server detail.
-- A site on a version without keys updates to the first signed version with the
-  checksum check only. Every update after that is verified.
+- A site on 1.0.0-beta.16.2 or earlier has no keys, so it installs
+  1.0.0-beta.17 with the checksum check only. Every update after that is
+  verified.
 
 To check a release by hand, run this next to the downloaded assets:
 

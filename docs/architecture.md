@@ -401,8 +401,9 @@ At install time the updater compares the ZIP with the SHA-256 in its release's
 version that lists release public keys in `ReleaseSignature::PUBLIC_KEYS` also
 requires `SHA256SUMS.txt.sig`, an Ed25519 signature of the exact manifest by one
 of those keys, and checks it before it reads the manifest or downloads the ZIP.
-The list is empty for now; [Updating Stonewright](updates.md#release-signature)
-describes the rollout.
+The list holds the active release key and an offline backup key;
+[Updating Stonewright](updates.md#release-signature) says which versions are
+signed.
 
 ### External browser consent boundary
 

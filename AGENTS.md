@@ -134,8 +134,9 @@ override default behavior.
    (or `preview` / `stable` as chosen in the release decision record);
    GitHub `prerelease` is false for `supported` and `stable`, true for `preview`;
    assets are exactly `stonewright-VERSION.zip`, `stonewright-companion-VERSION.tgz`,
-   and `SHA256SUMS.txt`; `GitHubUpdater` would select that release for a site
-   still on the previous same-channel version. After publish, a WordPress
+   `SHA256SUMS.txt`, and `SHA256SUMS.txt.sig`, and that signature verifies against
+   `ReleaseSignature::PUBLIC_KEYS`; `GitHubUpdater` would select that release for a
+   site still on the previous same-channel version. After publish, a WordPress
    Dashboard → Updates → Check again (or `wp_update_plugins`) must be able to
    see `new_version` equal to that tag. Never treat changelog-only or
    "the ZIP exists" as enough. Never skip this checklist to save a step.

@@ -43,7 +43,8 @@ From repository root unless noted:
 - [ ] `git diff --check`
 - [ ] `node scripts/check-public-hygiene.mjs --require-private-terms` (release packaging)
 - [ ] Plugin ZIP, companion TGZ, and SHA256SUMS unpacked and scanned; published
-      checksums match downloaded assets. No Visual TGZ is published.
+      checksums match downloaded assets, and `SHA256SUMS.txt.sig` verifies. No
+      Visual TGZ is published.
 - [ ] Focused OAuth matrix when OAuth changed:
   - `cd plugin && ./vendor/bin/phpunit tests/Unit/Authorization`
   - `cd companion && npx vitest run tests/oauth-matrix.test.ts tests/oauth-token-manager.test.ts tests/wordpress-mcp-oauth.test.ts`
