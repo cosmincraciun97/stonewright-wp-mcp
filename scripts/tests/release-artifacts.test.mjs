@@ -14,8 +14,20 @@ import {
 	inspectLocalReleaseDir,
 	inspectPluginZip,
 } from '../check-release-artifacts.mjs';
+import { generateSigningKey, signManifest } from '../release-signature.mjs';
 
 const version = '1.0.0-beta.13.3';
+
+// Archive contents are synthetic: without --inspect only names, digests and the signature are checked.
+function writeUnsignedRelease(dir) {
+	const zipName = `stonewright-${version}.zip`;
+	const tgzName = `stonewright-companion-${version}.tgz`;
+	fs.writeFileSync(path.join(dir, zipName), 'synthetic plugin zip');
+	fs.writeFileSync(path.join(dir, tgzName), 'synthetic companion tgz');
+	const sha = (name) => createHash('sha256').update(fs.readFileSync(path.join(dir, name))).digest('hex');
+	fs.writeFileSync(path.join(dir, 'SHA256SUMS.txt'), `${sha(zipName)}  ${zipName}\n${sha(tgzName)}  ${tgzName}\n`);
+	return fs.readFileSync(path.join(dir, 'SHA256SUMS.txt'));
+}
 
 test('expected assets are exactly zip, companion tgz, and SHA256SUMS', () => {
 	assert.deepEqual(expectedReleaseAssetNames(version), [
@@ -188,4 +200,63 @@ test('plugin zip inspection rejects a bundled stubs folder', () => {
 	} finally {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+test('an unsigned release stays exactly the two archives and SHA256SUMS.txt', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stonewright-artifacts-'));
+	try {
+		writeUnsignedRelease(dir);
+		assert.doesNotThrow(() => inspectLocalReleaseDir(dir, version));
+		fs.writeFileSync(path.join(dir, 'SHA256SUMS.txt.sig'), 'unexpected\n');
+		assert.throws(() => inspectLocalReleaseDir(dir, version), /exactly/);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('a signed release needs SHA256SUMS.txt.sig that verifies against the shipped keys', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stonewright-artifacts-'));
+	try {
+		const manifest = writeUnsignedRelease(dir);
+		const active = generateSigningKey();
+		const backup = generateSigningKey();
+		const publicKeys = [active.publicKey, backup.publicKey];
+		const signaturePath = path.join(dir, 'SHA256SUMS.txt.sig');
+
+		// The package job checks before the publish job signs.
+		assert.doesNotThrow(() => inspectLocalReleaseDir(dir, version, { publicKeys, beforeSigning: true }));
+		assert.throws(() => inspectLocalReleaseDir(dir, version, { publicKeys }), /exactly/);
+
+		fs.writeFileSync(signaturePath, signManifest(manifest, generateSigningKey().privateKeyPem));
+		assert.throws(() => inspectLocalReleaseDir(dir, version, { publicKeys }), /does not verify/);
+
+		fs.writeFileSync(signaturePath, signManifest(Buffer.concat([manifest, Buffer.from('\n')]), active.privateKeyPem));
+		assert.throws(() => inspectLocalReleaseDir(dir, version, { publicKeys }), /does not verify/);
+
+		fs.writeFileSync(signaturePath, signManifest(manifest, backup.privateKeyPem));
+		assert.doesNotThrow(() => inspectLocalReleaseDir(dir, version, { publicKeys }));
+		assert.throws(() => inspectLocalReleaseDir(dir, version, { publicKeys, beforeSigning: true }), /exactly/);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('GitHub metadata of a signed release lists SHA256SUMS.txt.sig', () => {
+	const publicKeys = [generateSigningKey().publicKey, generateSigningKey().publicKey];
+	const unsigned = {
+		tag_name: `v${version}`,
+		prerelease: false,
+		assets: expectedReleaseAssetNames(version).map((name) => ({ name })),
+	};
+	const signed = { ...unsigned, assets: expectedReleaseAssetNames(version, { signed: true }).map((name) => ({ name })) };
+
+	assert.deepEqual(expectedReleaseAssetNames(version, { signed: true }), [
+		'SHA256SUMS.txt',
+		'SHA256SUMS.txt.sig',
+		`stonewright-${version}.zip`,
+		`stonewright-companion-${version}.tgz`,
+	]);
+	assert.doesNotThrow(() => inspectGitHubReleaseMetadata(signed, version, { publicKeys }));
+	assert.throws(() => inspectGitHubReleaseMetadata(unsigned, version, { publicKeys }), /exactly/);
+	assert.throws(() => inspectGitHubReleaseMetadata(signed, version), /exactly/);
 });

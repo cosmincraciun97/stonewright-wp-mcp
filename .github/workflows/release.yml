@@ -153,7 +153,8 @@ jobs:
             exit 1
           fi
           (cd dist && sha256sum "stonewright-${version}.zip" "stonewright-companion-${version}.tgz" > SHA256SUMS.txt)
-          node scripts/check-release-artifacts.mjs --version "$version" --dir dist --inspect --require-production-vendor
+          # The publish job signs SHA256SUMS.txt; this job never holds the signing key.
+          node scripts/check-release-artifacts.mjs --version "$version" --dir dist --inspect --require-production-vendor --before-signing
 
       # The private terms reach the scan steps through env only: they are never expanded
       # into a script and are not in the environment of the build and packaging tools.
@@ -186,6 +187,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      # Build provenance attestations for the published archives.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -201,13 +205,32 @@ jobs:
           name: release-assets
           path: dist
 
-      - name: Verify downloaded release assets
+      - name: Verify downloaded checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+
+      # Signing is on when plugin/includes/Core/ReleaseSignature.php lists public keys.
+      # The step then stops without the key or with a key the plugin does not list.
+      # The private key reaches this step through env only and is never printed.
+      - name: Sign SHA256SUMS.txt
+        env:
+          STONEWRIGHT_RELEASE_SIGNING_KEY: ${{ secrets.STONEWRIGHT_RELEASE_SIGNING_KEY }}
+        run: node scripts/release-signature.mjs sign --manifest dist/SHA256SUMS.txt --out dist/SHA256SUMS.txt.sig
+
+      - name: Verify release assets
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          (cd dist && sha256sum -c SHA256SUMS.txt)
           node scripts/check-release-artifacts.mjs --version "$version" --dir dist
+
+      # GitHub stores the attestation; it adds no release asset.
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS.txt
 
       - name: Publish GitHub release
         env:
@@ -223,10 +246,13 @@ jobs:
             exit 1
           fi
           release_flag="$(node scripts/release-flags.mjs "$version" "$notes")"
+          assets=("dist/stonewright-${version}.zip" "dist/stonewright-companion-${version}.tgz" dist/SHA256SUMS.txt)
+          # The signature exists only when signing is on; the check above requires it exactly then.
+          if [ -f dist/SHA256SUMS.txt.sig ]; then
+            assets+=(dist/SHA256SUMS.txt.sig)
+          fi
           gh release create "$GITHUB_REF_NAME" \
-            "dist/stonewright-${version}.zip" \
-            "dist/stonewright-companion-${version}.tgz" \
-            dist/SHA256SUMS.txt \
+            "${assets[@]}" \
             --title "Stonewright ${GITHUB_REF_NAME}" \
             --notes-file "$notes" \
             "$release_flag"
