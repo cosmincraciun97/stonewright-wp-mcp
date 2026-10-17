@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Authorization\WordPress\ProtectedResource;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * @covers \Stonewright\WpMcp\Core\ServerRegistration
@@ -40,14 +41,15 @@ final class ProtectedServerRegistrationTest extends TestCase {
 		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
-	public function test_only_the_oauth_server_admits_requests_through_the_bearer_check(): void {
+	public function test_the_oauth_server_admits_only_requests_through_the_bearer_check(): void {
 		$adapter = new PermissionCapturingMcpAdapter();
 
 		ServerRegistration::register_server( $adapter );
 
 		self::assertCount( 2, $adapter->calls );
 		self::assertSame( 'stonewright', $adapter->calls[0][0] );
-		self::assertNull( $adapter->calls[0][12] ?? null );
+		// The Application Password server keeps WordPress' own sign-in; only the capability check is Stonewright's.
+		self::assertSame( [ Permissions::class, 'can_use_mcp_transport' ], $adapter->calls[0][12] );
 		self::assertSame( 'stonewright-oauth', $adapter->calls[1][0] );
 		self::assertSame( [ ProtectedResource::class, 'permit' ], $adapter->calls[1][12] );
 		self::assertIsCallable( $adapter->calls[1][12] );

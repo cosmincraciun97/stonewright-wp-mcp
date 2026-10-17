@@ -26,6 +26,7 @@ use Stonewright\WpMcp\Authorization\Protocol\ParameterBag;
 use Stonewright\WpMcp\Authorization\Protocol\RedirectRules;
 use Stonewright\WpMcp\Authorization\Protocol\RequestDecoder;
 use Stonewright\WpMcp\Authorization\Protocol\ResourceRules;
+use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -89,6 +90,10 @@ final class AuthorizationPages {
 		$audit = [ 'client_id' => '' ];
 		if ( $user_id < 1 ) {
 			return PageOutcome::error( 401, __( 'Sign in to authorize an application.', 'stonewright' ), $audit );
+		}
+		// An account that could not use the tools is not asked to approve an application for them.
+		if ( ! Permissions::user_can_use_mcp( $user_id ) ) {
+			return PageOutcome::error( 403, self::cannot_use_tools(), $audit );
 		}
 		$admission = $this->limiter->admit( 'authorization', 'user:' . $user_id );
 		if ( ! $admission['allowed'] ) {
@@ -191,6 +196,9 @@ final class AuthorizationPages {
 
 	/** The consent view for a pending request of this user, or an error page. */
 	public function review( string $query, int $user_id ): PageOutcome {
+		if ( ! Permissions::user_can_use_mcp( $user_id ) ) {
+			return PageOutcome::error( 403, self::cannot_use_tools() );
+		}
 		$pending_key = self::pending_key( $query );
 		$pending = null === $pending_key ? null : $this->storage->consents()->peek( $pending_key );
 		$client = null === $pending ? null : $this->storage->clients()->find( (string) $pending['client_key'] );
@@ -236,7 +244,7 @@ final class AuthorizationPages {
 			$outcome = $coordinator->decide( $pending_key, (string) $user_id, true, $approve );
 		} catch ( OAuthFault $fault ) {
 			return 'access_denied' === $fault->error()
-				? PageOutcome::error( 403, __( 'Your account cannot use the MCP tools on this site.', 'stonewright' ) )
+				? PageOutcome::error( 403, self::cannot_use_tools() )
 				: self::expired();
 		} catch ( StorageFailure $failure ) {
 			return PageOutcome::error( 500, __( 'The answer could not be stored. Start the connection again from your application.', 'stonewright' ) );
@@ -327,6 +335,10 @@ final class AuthorizationPages {
 		return '<div class="wrap">' . Scope::wrap( $header . Card::render( __( 'Review this request', 'stonewright' ), $body ), [ 'page' => true, 'class' => 'sw-oauth-consent' ] ) . '</div>';
 	}
 
+	private static function cannot_use_tools(): string {
+		return __( 'Your account cannot use the MCP tools on this site.', 'stonewright' );
+	}
+
 	/** Whether a destination origin is on the computer the user is sitting at. */
 	private static function is_loopback( string $origin ): bool {
 		$host = strtolower( trim( (string) parse_url( $origin, PHP_URL_HOST ), '[]' ) );
@@ -339,8 +351,8 @@ final class AuthorizationPages {
 		if ( ! HttpSurface::site()->available() ) {
 			return;
 		}
-		$authorize = add_submenu_page( 'options.php', __( 'Authorize application', 'stonewright' ), __( 'Authorize application', 'stonewright' ), 'read', SiteProfile::AUTHORIZE_PAGE, [ self::class, 'render_page' ] );
-		$consent = add_submenu_page( 'options.php', __( 'Approve application', 'stonewright' ), __( 'Approve application', 'stonewright' ), 'read', SiteProfile::CONSENT_PAGE, [ self::class, 'render_page' ] );
+		$authorize = add_submenu_page( 'options.php', __( 'Authorize application', 'stonewright' ), __( 'Authorize application', 'stonewright' ), Permissions::mcp_required_capability(), SiteProfile::AUTHORIZE_PAGE, [ self::class, 'render_page' ] );
+		$consent = add_submenu_page( 'options.php', __( 'Approve application', 'stonewright' ), __( 'Approve application', 'stonewright' ), Permissions::mcp_required_capability(), SiteProfile::CONSENT_PAGE, [ self::class, 'render_page' ] );
 		if ( is_string( $authorize ) && '' !== $authorize ) {
 			add_action( 'load-' . $authorize, [ self::class, 'load_authorize' ] );
 		}

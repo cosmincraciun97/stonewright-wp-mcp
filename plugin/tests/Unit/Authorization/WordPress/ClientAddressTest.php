@@ -26,7 +26,7 @@ final class ClientAddressTest extends TestCase {
 	protected function setUp(): void {
 		StorageRig::reset_globals();
 		$GLOBALS['stonewright_test_filters'] = [];
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$GLOBALS['stonewright_test_transients'] = [];
 		unset( $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_X_FORWARDED_FOR'] );

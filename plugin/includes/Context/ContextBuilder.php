@@ -15,6 +15,7 @@ use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentActions;
 use Stonewright\WpMcp\Security\IncidentStore;
+use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 
 /**
@@ -28,8 +29,12 @@ final class ContextBuilder {
 	public static function build( string $task, string $surface = 'unknown', string $intent = 'unknown' ): array {
 		$token = ContextToken::issue( $task );
 
+		// Site memory, custom instructions, user context, recurring errors and incident actions are site knowledge
+		// that memory-list, memory-get and instructions-get give to administrators only. A caller who may use the
+		// MCP servers without that capability gets the rest of the packet and these sections empty.
+		$site_knowledge = Permissions::manage_options();
 		$matched_skills = self::matched_skills( $task, $surface );
-		$matched_memory = self::matched_memory( $task, $surface );
+		$matched_memory = $site_knowledge ? self::matched_memory( $task, $surface ) : [];
 
 		$is_visual = self::is_visual_task( $task, $surface, $intent );
 
@@ -55,7 +60,7 @@ final class ContextBuilder {
 				'expires_at'        => $token['expires_at'],
 				'context_token'     => $token['token'],
 			],
-			'instructions'             => AgentInstructions::default( $is_visual ),
+			'instructions'             => AgentInstructions::default( $is_visual, $site_knowledge ),
 			'mcp_tool_naming'          => self::mcp_tool_naming(),
 			'tool_profile_hint'        => ToolProfile::profile_hint( $task, $surface, $intent ),
 			'matched_skills'           => array_map(
@@ -76,10 +81,10 @@ final class ContextBuilder {
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
-			'user_context'             => UserContext::get(),
-			'custom_instructions'      => self::custom_instructions(),
-			'recurring_errors'         => self::recurring_error_warnings(),
-			'incident_actions'         => IncidentActions::rank( IncidentStore::recent( 50 ), $surface, 3 ),
+			'user_context'             => $site_knowledge ? UserContext::get() : self::no_text(),
+			'custom_instructions'      => $site_knowledge ? self::custom_instructions() : self::no_text(),
+			'recurring_errors'         => $site_knowledge ? self::recurring_error_warnings() : [],
+			'incident_actions'         => $site_knowledge ? IncidentActions::rank( IncidentStore::recent( 50 ), $surface, 3 ) : [],
 			'expertise_packs'          => ExpertiseResolver::resolve( $task, $surface ),
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),
@@ -98,6 +103,18 @@ final class ContextBuilder {
 		}
 
 		return $packet;
+	}
+
+	/**
+	 * The text section of a caller who may not read site knowledge.
+	 *
+	 * @return array{enabled:bool,text:string}
+	 */
+	private static function no_text(): array {
+		return [
+			'enabled' => false,
+			'text'    => '',
+		];
 	}
 
 	/**

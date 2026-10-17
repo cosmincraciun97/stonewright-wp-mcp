@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-12T13:39:43+00:00",
+    "generated_at": "2026-10-17T17:42:40+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -5819,7 +5819,7 @@
             "kind": "Read",
             "input_schema_hash": "70a0ee4ad267a54f0f15e23c0f816a1f1920eacbeb10283a06dca6c593c3ca2d",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -6319,7 +6319,7 @@
             "kind": "Read",
             "input_schema_hash": "22ee8a9dd022a0a6e025c5fa76d87e868f8a28c4e3d5dd2e207ca2db7bfa00a3",
             "output_schema_hash": "b01840bc75a943bacff205e17ea07f6ace8a7c6827bfeae6e737ed3f84180fe8",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -6899,7 +6899,7 @@
             "kind": "Read",
             "input_schema_hash": "359941141ca2942fba7d5c3903e873964a00423b55db761cf5936fe2640784b5",
             "output_schema_hash": "94299193e63223bb340e01e81c32fb106c9415d4857c177f91f913836b527d4c",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::upload_files()",
             "gates": {
                 "backup": false,
                 "token": false,
