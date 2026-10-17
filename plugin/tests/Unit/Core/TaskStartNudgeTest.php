@@ -18,6 +18,7 @@ final class TaskStartNudgeTest extends TestCase {
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [
+			'stonewright_enabled'              => true,
 			'stonewright_disabled_abilities'   => [],
 			'stonewright_essential_tools_mode' => true,
 		];

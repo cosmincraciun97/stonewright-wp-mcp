@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\SiteMode;
+
 /**
  * Idempotent migration of pre-v2 audit rows into the permanent taxonomy.
  */
@@ -199,7 +201,7 @@ final class AuditReconciler {
 			return 0;
 		}
 		$limit = max( 1, min( 5000, $limit ) );
-		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
+		if ( SiteMode::is_production_safe() ) {
 			$token_args = [] !== $confirmation_args ? $confirmation_args : [ 'limit' => $limit ];
 			$verified   = ConfirmationToken::verify_or_error( $confirmation_token, 'stonewright/security-audit-reconcile', $token_args );
 			if ( $verified instanceof \WP_Error ) {

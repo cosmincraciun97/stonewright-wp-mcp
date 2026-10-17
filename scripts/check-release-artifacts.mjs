@@ -136,6 +136,7 @@ export function inspectPluginZip(zipPath, version, options = {}) {
 		(rel) =>
 			rel.startsWith('stonewright/tests/') ||
 			rel.startsWith('stonewright/bin/') ||
+			rel.startsWith('stonewright/stubs/') ||
 			rel.startsWith('stonewright/.github/') ||
 			rel.includes('/fixtures/') ||
 			rel.includes('synthetic-mcp-provider') ||

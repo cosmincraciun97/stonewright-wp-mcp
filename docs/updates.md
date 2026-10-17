@@ -48,8 +48,11 @@ install/update gate it fetches a bounded manifest, requires one exact ZIP
 filename and SHA-256 digest, and verifies the downloaded package before
 installation. Missing, malformed, forged, unavailable, empty, or mismatched
 checksum evidence fails closed; do not bypass that failure with an unverified
-package. The queued ZIP is also bound to its exact release version, canonical
-package path, and manifest when the update transient is created. A later cache
+package. The digest comes from the `SHA256SUMS.txt` of the same release as the
+ZIP and releases are not signed, so the check catches a corrupt, truncated, or
+mismatched download; it does not protect against a compromised release. The
+queued ZIP is also bound to its exact release version, canonical package path,
+and manifest when the update transient is created. A later cache
 refresh, unavailable release feed, mismatched package, or query-string URL
 variant cannot bypass that binding. Non-Stonewright plugin downloads, including
 wordpress.org packages, are left unchanged; the gate fail-closes only for

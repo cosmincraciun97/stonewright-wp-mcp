@@ -21,7 +21,7 @@ final class ProtectedResourceTest extends TestCase {
 
 	protected function setUp(): void {
 		StorageRig::reset_globals();
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		unset( $_SERVER['HTTP_AUTHORIZATION'], $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] );
 		$this->http = new HttpRig();
@@ -95,8 +95,16 @@ final class ProtectedResourceTest extends TestCase {
 		$this->http->rig->at( StorageRig::T + 10 );
 		$GLOBALS['stonewright_test_user_caps_by_id'] = [];
 		self::assert_invalid( ProtectedResource::guard( null, null, self::request( 'Bearer ' . $pair->access_token ) ) );
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$this->http->rig->access->revoke( $outcome->issuance->access_key );
+		self::assert_invalid( ProtectedResource::guard( null, null, self::request( 'Bearer ' . $pair->access_token ) ) );
+		self::assertSame( 0, get_current_user_id() );
+	}
+
+	public function test_a_bearer_of_an_account_that_can_only_read_is_refused(): void {
+		[ , $pair ] = $this->http->rig->connect();
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+
 		self::assert_invalid( ProtectedResource::guard( null, null, self::request( 'Bearer ' . $pair->access_token ) ) );
 		self::assertSame( 0, get_current_user_id() );
 	}
@@ -186,11 +194,13 @@ final class ProtectedResourceTest extends TestCase {
 	}
 
 	public function test_the_current_user_must_be_signed_in_with_mcp_access(): void {
-		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true ];
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'edit_posts' => true ];
 		self::assertFalse( ProtectedResource::current_user_can_use_mcp() );
 		$GLOBALS['stonewright_test_current_user_id'] = 17;
 		self::assertTrue( ProtectedResource::current_user_can_use_mcp() );
-		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true ];
+		self::assertFalse( ProtectedResource::current_user_can_use_mcp(), 'A subscriber cannot use the tools.' );
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'edit_posts' => true ];
 		self::assertTrue( ProtectedResource::current_user_can_use_mcp() );
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		self::assertFalse( ProtectedResource::current_user_can_use_mcp() );

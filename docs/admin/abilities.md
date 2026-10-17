@@ -71,6 +71,12 @@ gates:
    name is added or removed and the option is saved with
    `update_option( 'stonewright_disabled_abilities', $updated, false )`.
 
+The route needs a person in wp-admin (a cookie sign-in with the REST nonce, which the
+page's script always sends); an Application Password or an OAuth bearer is refused with
+`stonewright_abilities_require_admin`. An agent switches an ability off with
+`POST /stonewright/v1/abilities/toggle` and a confirmation token, and cannot switch it
+back on there.
+
 Neither writes an audit row. The option is a plain PHP array of string ability
 names. You can inspect it in wp-options:
 

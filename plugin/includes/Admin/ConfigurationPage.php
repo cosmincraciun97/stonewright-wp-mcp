@@ -10,6 +10,8 @@ use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupPage;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Companion\CompanionContract;
+use Stonewright\WpMcp\Core\SiteDefaults;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
@@ -371,13 +373,14 @@ final class ConfigurationPage {
 
 		register_setting( self::OPTION_GROUP, 'stonewright_mode', [
 			'type'              => 'string',
-			'default'           => 'development',
+			'default'           => SiteDefaults::mode_for_environment(),
 			'sanitize_callback' => static function ( mixed $value ): string {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
-				$value = in_array( $value, [ 'development', 'staging', 'production-safe' ], true )
+				// Input that is not one of the three modes leaves the mode as it is.
+				$value = in_array( $value, SiteMode::modes(), true )
 					? $value
-					: 'development';
-				if ( (string) get_option( 'stonewright_mode', 'development' ) !== $value ) {
+					: SiteMode::current();
+				if ( SiteMode::current() !== $value ) {
 					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
 				}
 				return $value;

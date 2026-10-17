@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
 /**
@@ -80,7 +81,7 @@ final class AdminBootstrap {
 		if ( ! function_exists( 'wp_get_environment_type' ) || 'production' !== wp_get_environment_type() ) {
 			return;
 		}
-		$mode = (string) get_option( 'stonewright_mode', 'development' );
+		$mode = SiteMode::current();
 		if ( 'production-safe' === $mode ) {
 			return;
 		}

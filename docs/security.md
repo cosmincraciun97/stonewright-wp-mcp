@@ -27,8 +27,16 @@ for the exact trusted-principal policy, host prerequisites, and restart recovery
 An MCP client that authenticates with an administrator account can call any ability, including destructive ones. Mitigations:
 
 - Set `stonewright_mode` to `production-safe` so every destructive ability needs a confirmation token bound to its exact call, whatever the authentication level. A site with no stored mode starts in the mode of its environment type (`production` gives `production-safe`), on every site of a network.
-- Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. For read-only agents, `read` is sufficient. For content workflows, `editor` is usually enough.
+- Create a dedicated WordPress user with the minimum capabilities needed for the intended workflow. The MCP servers admit an account only when it holds `edit_posts` (see [Who can use the MCP servers](#who-can-use-the-mcp-servers)), so a contributor is the smallest role that can connect. For content workflows, `editor` is usually enough.
 - Rotate Application Passwords regularly.
+
+### Who can use the MCP servers
+
+Every WordPress account holds `read`, and WordPress lets every account create an Application Password, so `read` would let a subscriber or a shop customer call the abilities that only ask for it. Both MCP routes (`mcp/stonewright`, with an Application Password, and `mcp/stonewright-oauth`, with an OAuth bearer) therefore admit only an account that holds `edit_posts`: contributors, authors, editors and administrators. A subscriber's request gets the same refusal as any other request WordPress does not allow, and an OAuth grant is checked again at the consent screen, the code exchange, each refresh and each request, so the screen is not offered to an account that could not use the tools and a grant stops working when its account loses the capability.
+
+A site can change the capability with the `stonewright_mcp_required_capability` filter, which receives `edit_posts` and returns a capability name (for example `read` to admit every account, or `publish_posts` to keep contributors out); a value that is not a non-empty string is ignored. The filter applies to both routes and to the OAuth consent pages.
+
+Site knowledge is for administrators even when an account may connect: `task-start` and `context-bootstrap` return the matched site memory, custom instructions, user context, recurring errors and incident actions only to an account with `manage_options`, as `memory-list`, `memory-get` and `system-instructions-get` do; any other account gets the rest of the context with those sections empty.
 
 ### Permissions per object
 
@@ -39,7 +47,8 @@ A capability such as `edit_users` says that a user may manage accounts in genera
 - **Comments and media.** The comment abilities check `edit_comment` for the comment, and `comment-list` returns only comments the user may edit. `media-get` and `media-list` check `read_post` for each attachment.
 - **Theme Builder.** The abilities need `edit_theme_options` and, on a template, `edit_post` or `delete_post`. A template is moved to the trash; `force` is refused.
 - **History and restore.** `change-log` lists only posts where `edit_post` holds, and `change-restore` needs the publish capability of the post type when the snapshot is published, scheduled or private.
-- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`.
+- **Reads that held private data.** `memory-list`, `memory-get` and `system-instructions-get` need `manage_options`, and so does the site knowledge that `task-start` and `context-bootstrap` return.
+- **Search and outbound requests.** `search-query` and `oembed-resolve` need `edit_posts`; `oembed-resolve` fetches third-party URLs from the server, as the oEmbed proxy of WordPress core does. `search-query` lists a post type the caller cannot edit only when the site shows that type to visitors (`is_post_type_viewable()`); otherwise it refuses with `stonewright_search_post_type_not_allowed`. `stock-image-search` needs `upload_files`, as `stock-image-import` does, because a search spends the site's stock-photo quota; the search terms are percent-encoded in the provider request.
 
 ### Compromised MCP client
 
@@ -173,11 +182,32 @@ permission filters run twice for one MCP tool call.
 Two paths run an ability without its registered object and so without these
 filters: the `stonewright-execute-ability` tool (the `discover-execute` profile)
 and `POST /wp-json/stonewright/v1/abilities/run`. Both apply the same Stonewright
-gates and the list of disabled abilities. `execute-ability` also validates the
-arguments against the input schema of the target before its permission callback,
-and refuses abilities the surface hides and abilities that run or write code
-unless the current profile lists them. To block an ability on every path,
-disable it (`stonewright_disabled_abilities`).
+gates and the list of disabled abilities, and both validate the arguments against
+the input schema of the target (a bad argument is a 400) before its permission
+callback.
+
+One check decides whether an ability may run at all, and every path that runs an
+ability by name makes it before anything else: MCP tools, `execute-ability`, the
+REST runner, and WordPress's own Abilities API route
+(`/wp-json/wp-abilities/v1/abilities/<name>/run`). It covers the master toggle,
+the list of disabled abilities (`stonewright_disabled_abilities`), and the tool
+surface. An ability that runs or writes code (`php-execute`, the sandbox writers,
+the WP-CLI command runners, `custom-code-provider`, the custom widget definers)
+is refused with `stonewright_ability_not_on_surface` unless the surface an
+administrator chose in wp-admin, or the session profile, lists it. An ability the
+surface only hides from the tool list (section reuse switched off, Atomic
+abilities not turned on) answers that state itself; `execute-ability` still
+refuses it because it runs only what the tool list offers. A confirmation token never lifts
+that refusal: the REST runner refuses such an ability before it reads a token, and
+`security-issue-confirmation-token` issues no token for one (for the ability
+itself, or as the target of the REST runner). The refusal carries the settings
+link and `agent_must_stop`. A confirmation token still unlocks an ordinary
+ability outside the active profile on the REST runner. To block an ability on
+every path, disable it (`stonewright_disabled_abilities`).
+
+The plugin has no REST route that writes, activates or deletes sandbox files.
+Sandbox files are managed on the Sandbox Library admin page and by the `sandbox-*`
+abilities, which are on the Full surface only.
 
 ### Tool annotations are hints
 
@@ -504,6 +534,28 @@ needs an admin screen, so `stonewright-change-rollback` refuses it. The Setup
 screen applies the surface through admin-ajax with a nonce, and `options.php`
 saves it from the Settings form; both are cookie requests. No ability, settings
 import or blueprint writes the surface options.
+
+An agent does not loosen its own leash either. Making the site mode less strict
+(production-safe to staging or development, or staging to development), switching an
+ability back on, and setting the feature flags need a person in wp-admin, the same
+cookie sign-in with a valid REST nonce. `POST /stonewright/v1/settings` with a looser
+`mode` or any `feature_flags` and `POST /stonewright/v1/abilities/toggle` with
+`enabled:true` (a confirmation token alone does not stand in for the person) answer
+`stonewright_mode_requires_admin`, `stonewright_feature_flags_require_admin` or
+`stonewright_abilities_require_admin` (403, `approval_required`, `agent_must_stop`, the
+link where the person decides) and write nothing; the `/admin/abilities/*` routes of the
+AI Abilities page need the same sign-in. Making the mode stricter and switching an
+ability off keep working with an Application Password. `abilities/toggle` refuses a name
+that is not a registered Stonewright ability (400), and the feature flags are stored as a
+flat map of at most 32 boolean flags, not autoloaded. A filter on the two options
+themselves keeps the old value when any other REST request that is not a person in
+wp-admin tries to loosen them (for example through a restore), and leaves an event in
+the change ledger; WP-CLI, cron, activation and admin screens are not affected. Custom
+instructions, which every agent context carries, go through the screen a memory save
+goes through when they are set by the instructions route, `stonewright-system-instructions-set`
+or a knowledge import: text that tells an agent to override the plugin rules or move
+credentials is refused (`stonewright_instructions_need_review`), and an import reports it
+as `instructions_rejected`.
 
 A companion in front of a plugin older than this rule does not offer or forward a
 switch to `full` either. `stonewright-tool-profile` in the companion refuses a

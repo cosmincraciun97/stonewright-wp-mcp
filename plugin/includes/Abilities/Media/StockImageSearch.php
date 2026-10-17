@@ -105,8 +105,9 @@ final class StockImageSearch extends AbilityKernel {
 		];
 	}
 
+	/** A search spends the site's provider quota, so it needs the capability stock-image-import needs. */
 	public function permission_callback( array $args ): bool|\WP_Error {
-		return Permissions::read();
+		return Permissions::upload_files();
 	}
 
 	public function execute( array $args ): array|\WP_Error {

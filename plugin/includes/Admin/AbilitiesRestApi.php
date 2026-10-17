@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Security\FullSurfaceGuard;
+use Stonewright\WpMcp\Security\LeashGuard;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -18,7 +20,9 @@ use Stonewright\WpMcp\Security\Permissions;
  * The routes are the form handlers of AbilitiesPage (`stonewright_toggle_ability` and `stonewright_bulk_abilities`)
  * reached another way, and they keep the same gates: the `manage_options` capability, the nonce of that form, the
  * same option and the same writer (AbilityToggles). A write also needs the REST nonce that WordPress requires of a
- * signed-in request. The routes are for the page's own script; agents use the confirmation-token route.
+ * signed-in request. The routes are for the page's own script and need a person in wp-admin (a cookie sign-in with
+ * a valid REST nonce): an Application Password or an OAuth bearer is refused, so an agent cannot switch an ability
+ * on again here. Agents use the confirmation-token route, which only switches abilities off.
  *
  * Route namespace `stonewright/v1`, path prefix `/admin/abilities`.
  */
@@ -109,6 +113,11 @@ final class AbilitiesRestApi {
 
 		if ( ! Permissions::manage_options() ) {
 			return new \WP_Error( 'rest_forbidden', __( 'You do not have permission to change abilities.', 'stonewright' ), [ 'status' => 403 ] );
+		}
+
+		// The page's own script sends the cookie and the REST nonce with every call. An agent does not.
+		if ( ! FullSurfaceGuard::human_in_wp_admin( $request ) ) {
+			return LeashGuard::abilities_refusal();
 		}
 
 		if ( 'GET' === $route['methods'] ) {

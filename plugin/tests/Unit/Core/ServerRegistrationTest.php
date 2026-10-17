@@ -5,11 +5,13 @@ namespace Stonewright\WpMcp\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
+use Stonewright\WpMcp\Authorization\WordPress\ProtectedResource;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\McpAbilitiesCompatibilityPreflight;
 use Stonewright\WpMcp\Core\McpRegistrationState;
 use Stonewright\WpMcp\Core\ServerRegistration;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
+use Stonewright\WpMcp\Security\Permissions;
 
 /**
  * @covers \Stonewright\WpMcp\Core\ServerRegistration
@@ -165,6 +167,17 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertSame( 'stonewright-oauth', $adapter->calls[1][0] );
 		self::assertSame( 'stonewright-oauth', $adapter->calls[1][2] );
 		self::assertSame( $adapter->calls[0][9], $adapter->calls[1][9] );
+	}
+
+	public function test_each_server_checks_the_mcp_capability_at_the_transport(): void {
+		$adapter = new CapturingMcpAdapter();
+
+		ServerRegistration::register_server( $adapter );
+
+		// The Application Password server is checked against the filterable capability; the OAuth server
+		// admits only a request whose bearer ProtectedResource accepted for an account that holds it.
+		self::assertSame( [ Permissions::class, 'can_use_mcp_transport' ], $adapter->calls[0][12] );
+		self::assertSame( [ ProtectedResource::class, 'permit' ], $adapter->calls[1][12] );
 	}
 
 	public function test_create_server_wp_error_is_recorded_as_failed(): void {

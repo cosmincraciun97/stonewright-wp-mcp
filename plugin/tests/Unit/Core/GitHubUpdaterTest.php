@@ -967,6 +967,9 @@ final class GitHubUpdaterTest extends TestCase {
 		$mismatch = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
 		self::assertInstanceOf( \WP_Error::class, $mismatch );
 		self::assertSame( 'stonewright_update_checksum_mismatch', $mismatch->get_error_code() );
+		// The check compares against the release's SHA256SUMS.txt; nothing is signed, so the message must not say so.
+		self::assertStringContainsString( 'SHA256SUMS.txt', $mismatch->get_error_message() );
+		self::assertStringNotContainsStringIgnoringCase( 'signed', $mismatch->get_error_message() );
 		self::assertFileDoesNotExist( $package );
 
 		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): \WP_Error => new \WP_Error( 'http_request_failed', 'private upstream detail' );

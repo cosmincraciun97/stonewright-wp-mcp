@@ -40,6 +40,8 @@ final class CodeFormatterWiringTest extends TestCase {
 		$GLOBALS['stonewright_test_options']             = [
 			'stonewright_mode'               => 'development',
 			'stonewright_disabled_abilities' => [],
+			// php-execute and sandbox-write are Full-surface abilities, and a token is issued only for one the surface lists.
+			'stonewright_mcp_surface'        => 'full',
 		];
 		$GLOBALS['stonewright_test_transients']          = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']        = [];

@@ -39,6 +39,15 @@ runner, `custom-code-provider` or a custom widget definer to a surface
 (`stonewright_tool_profile_extras_restricted`). `php-execute` and the WP-CLI
 runners need `edit_plugins` and `manage_options`, and a super admin on multisite.
 
+Every path that runs an ability by name checks the surface first: MCP tools,
+`execute-ability`, `POST /stonewright/v1/abilities/run`, and WordPress's own
+Abilities API route. An ability that runs or writes code is refused with
+`stonewright_ability_not_on_surface` unless a person has chosen the Full surface
+in wp-admin (or the session profile lists it). A confirmation token never unlocks
+it: the REST runner refuses it before reading a token, and
+`security-issue-confirmation-token` issues none for it. The plugin has no REST
+route for writing or activating sandbox files.
+
 A successful `php-execute` response may carry a `routing_hint` that names the
 typed tool for a common pattern (post meta, options, Elementor data, menus). The
 hint is advice built from fixed text. It never blocks or changes the call, and

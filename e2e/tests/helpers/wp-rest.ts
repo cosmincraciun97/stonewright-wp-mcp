@@ -1,4 +1,4 @@
-import type { APIResponse, Page } from '@playwright/test';
+import { expect, type APIResponse, type Page } from '@playwright/test';
 
 /**
  * WordPress REST helpers for Playwright against wp-env.
@@ -156,9 +156,75 @@ export async function runAbility(
 }
 
 /**
+ * Abilities that run or write code. Only the Full tool surface lists them, and a
+ * confirmation token never unlocks them, so a test that needs one chooses the
+ * Full surface first with chooseFullSurface().
+ */
+const FULL_SURFACE_ABILITIES = new Set([
+	'stonewright/php-execute',
+	'stonewright/sandbox-write',
+	'stonewright/sandbox-edit',
+	'stonewright/sandbox-delete',
+	'stonewright/sandbox-activate',
+	'stonewright/sandbox-deactivate',
+	'stonewright/sandbox-toggle',
+	'stonewright/wp-cli-run',
+	'stonewright/wp-cli-batch-run',
+	'stonewright/wp-cli-job-start',
+	'stonewright/custom-code-provider',
+	'stonewright/elementor-widget-define',
+	'stonewright/elementor-widget-register',
+	'stonewright/elementor-create-custom-widget',
+	'stonewright/elementor-v4-atomic-widget-define',
+]);
+
+/**
+ * Choose an MCP tool surface the way an administrator does: on the Setup
+ * settings tab, in a separate tab of the same signed-in browser, so the
+ * caller's page keeps its state. Returns the surface that was set before.
+ */
+async function selectMcpSurface(page: Page, surface: string): Promise<string> {
+	const admin = await page.context().newPage();
+	try {
+		await admin.goto('/wp-admin/admin.php?page=stonewright&tab=settings', {
+			waitUntil: 'domcontentloaded',
+		});
+		const select = admin.locator('#stonewright_mcp_surface');
+		await expect(select).toBeVisible({ timeout: 15_000 });
+		const previous = await select.inputValue();
+		if (previous !== surface) {
+			await select.selectOption(surface);
+			await expect(admin.locator('[data-sw-mcp-surface-status]')).toContainText(
+				/Surface saved/i,
+				{ timeout: 8_000 },
+			);
+		}
+		return previous;
+	} finally {
+		await admin.close();
+	}
+}
+
+/**
+ * Choose the Full tool surface for the rest of a test and return the function
+ * that puts the previous surface back. The surface is shared site state, so
+ * call the returned function in a finally block or an afterEach hook.
+ */
+export async function chooseFullSurface(page: Page): Promise<() => Promise<void>> {
+	const previous = await selectMcpSurface(page, 'full');
+	return async () => {
+		if (previous !== 'full') {
+			await selectMcpSurface(page, previous);
+		}
+	};
+}
+
+/**
  * Execute an ability that is intentionally outside the persisted MCP profile.
  * The explicit, one-use wrapper token keeps the REST profile gate exercised
  * instead of mutating shared profile state or bypassing the gate in tests.
+ * An ability that runs or writes code is never unlocked by a token: it runs
+ * directly and needs the Full surface chosen first (chooseFullSurface).
  */
 export async function runAbilityWithProfileConfirmation(
 	page: Page,
@@ -167,6 +233,15 @@ export async function runAbilityWithProfileConfirmation(
 	name: string,
 	input: Record<string, unknown>,
 ): Promise<{ ok: boolean; status: number; body: unknown; url: string }> {
+	if (FULL_SURFACE_ABILITIES.has(name)) {
+		const direct = await runAbility(page, nonce, name, input);
+		if (!direct.ok && JSON.stringify(direct.body).includes('stonewright_ability_not_on_surface')) {
+			throw new Error(
+				`${name} runs or writes code: choose the Full surface with chooseFullSurface() before calling it.`,
+			);
+		}
+		return direct;
+	}
 	const wrapperArgs = { name, input };
 	const issued = await runAbility(
 		page,

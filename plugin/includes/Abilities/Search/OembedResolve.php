@@ -18,8 +18,9 @@ final class OembedResolve extends AbilityKernel {
  return [ 'type'=>'object', 'additionalProperties'=>false, 'properties'=>[ 'url'=>[ 'type'=>'string' ] ], 'required'=>[ 'url' ] ]; }
 	public function output_schema(): array {
  return [ 'type'=>'object', 'additionalProperties'=>true ]; }
+	/** Resolving makes outbound discovery requests, which WordPress core's own oEmbed proxy allows from edit_posts. */
 	public function permission_callback( array $args ): bool|\WP_Error {
- return Permissions::read(); }
+ return Permissions::edit_posts(); }
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_read($args, static function ( array $args ) {
 			$url= (string) $args['url'];
