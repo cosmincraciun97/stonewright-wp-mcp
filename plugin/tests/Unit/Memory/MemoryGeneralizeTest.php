@@ -27,6 +27,7 @@ final class MemoryGeneralizeTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 5;
 		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_options']         = [
+			'stonewright_enabled'        => true,
 			'stonewright_memory_enabled' => true,
 			'stonewright_mode'           => 'development',
 		];

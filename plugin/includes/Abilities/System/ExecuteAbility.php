@@ -7,7 +7,6 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityInputValidator;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\Permissions;
-use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Support\Utf8;
 
 /**
@@ -112,30 +111,10 @@ final class ExecuteAbility extends AbilityKernel {
 			);
 		}
 
-		$master_enabled = PluginEffectiveState::is_effectively_enabled();
-		if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
-			return $this->error(
-				'disabled',
-				__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
-				[ 'status' => 403 ]
-			);
-		}
-
-		$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
-		if ( in_array( $name, $disabled, true ) ) {
-			return $this->error(
-				'ability_disabled',
-				__( 'Ability is disabled.', 'stonewright' ),
-				[ 'status' => 403 ]
-			);
-		}
-
-		if ( ! AbilityRegistry::session_may_execute( $ability ) ) {
-			return $this->error(
-				'ability_not_on_surface',
-				__( 'This ability is not available on the current tool surface. Abilities that run or write code are reachable only on the profile that lists them.', 'stonewright' ),
-				[ 'status' => 403, 'ability' => $name ]
-			);
+		// The master toggle, the disabled list and the tool surface: the same decision every path makes.
+		$refusal = AbilityRegistry::authorize_execution( $ability );
+		if ( $refusal instanceof \WP_Error ) {
+			return $refusal;
 		}
 
 		$input = $args['arguments'] ?? [];
