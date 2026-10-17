@@ -5,7 +5,7 @@ updates:
     directory: /plugin
     target-branch: next
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     groups:
       composer-minor-patch:
@@ -17,7 +17,7 @@ updates:
     directory: /companion
     target-branch: next
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     groups:
       companion-npm-minor-patch:
@@ -29,7 +29,7 @@ updates:
     directory: /visual
     target-branch: next
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     groups:
       visual-npm-minor-patch:
@@ -41,7 +41,7 @@ updates:
     directory: /e2e
     target-branch: next
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     groups:
       e2e-npm-minor-patch:
@@ -53,7 +53,7 @@ updates:
     directory: /
     target-branch: next
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 3
     groups:
       github-actions-minor-patch:
