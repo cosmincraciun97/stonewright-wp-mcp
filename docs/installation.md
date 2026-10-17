@@ -53,6 +53,19 @@ Endpoint:
 https://your-site.example.com/wp-json/mcp/stonewright
 ```
 
+### Work accounts managed by an admin
+
+On organization plans an administrator often has to add or allow a custom MCP
+server first: Claude Team and Enterprise (an Owner adds the custom connector),
+ChatGPT Business, Enterprise and Edu, GitHub Copilot Business and Enterprise
+(the **MCP servers in Copilot** policy), and the MCP allowlists of Cursor,
+Devin Desktop, Codex, Gemini CLI and Antigravity. Each OAuth guide on
+**Stonewright → Setup** has a closed **Work account managed by an admin?**
+section with the admin steps for that client and a **Copy message for your
+admin** button that carries the server name and URL. Where the client allows
+it, the section also shows how to connect from your own computer instead, for
+example Claude Desktop with an Application Password or Claude Code.
+
 ## Advanced: install from source
 
 ```bash

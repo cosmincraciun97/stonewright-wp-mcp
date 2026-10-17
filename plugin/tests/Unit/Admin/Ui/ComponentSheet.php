@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Admin\Ui\Badge;
 use Stonewright\WpMcp\Admin\Ui\Band;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\CopyChip;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
 use Stonewright\WpMcp\Admin\Ui\DiffView;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
@@ -254,7 +255,9 @@ final class ComponentSheet {
 			. '<button type="button" class="sw-ui-btn sw-ui-btn--xs" data-sw-ui-copy="#code-body"><span>Copy</span></button></div>'
 			. '<pre class="sw-ui-code__body" id="code-body" tabindex="0" aria-label="Command: add the server"><code>example-client mcp add --transport http stonewright-example https://example.test/wp-json/mcp/stonewright-oauth</code></pre></div>';
 
-		return self::label( 'Copy field and code block' ) . '<div class="sw-ui-stack">'
+		return self::label( 'Copy field, copy chip and code block' ) . '<div class="sw-ui-stack">'
+			. '<p>Enter a name such as ' . CopyChip::render( 'stonewright-example', [ 'id' => 'chip-name', 'label' => 'server name' ] )
+			. ' and the server URL ' . CopyChip::render( 'https://example.test/wp-json/mcp/stonewright-oauth', [ 'id' => 'chip-url', 'label' => 'MCP server URL' ] ) . '</p>'
 			. CopyField::render( 'https://example.test/wp-json/mcp/stonewright-oauth', [ 'label' => 'MCP server URL' ] )
 			. CopyField::render( 'tok_example_0123456789', [ 'secret' => true, 'label' => 'Bridge token' ] )
 			. $code . '</div>';

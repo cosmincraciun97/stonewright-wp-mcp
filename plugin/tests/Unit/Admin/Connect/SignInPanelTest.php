@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin\Connect;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\ClientCatalog;
+use Stonewright\WpMcp\Admin\Connect\ClientInstructions;
 use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
 use Stonewright\WpMcp\Admin\Connect\SignInPanel;
 use Stonewright\WpMcp\Admin\Connect\SignInStatus;
@@ -117,6 +118,190 @@ final class SignInPanelTest extends TestCase {
 		}
 		self::assertStringContainsString( '<pre class="sw-ui-code__body sw-connect-snippet__code" id="sw-connect-claude-code-add" tabindex="0" aria-label="Add the server: Add the server for Claude Code"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $html );
 		self::assertStringContainsString( '.mcp.json', $html );
+	}
+
+	/** The guide of one client as the panel prints it, from its summary to the next one. */
+	private static function guide_markup( string $html, string $slug ): string {
+		self::assertSame( 1, preg_match( '/<details class="sw-ui-disclosure sw-connect-client" id="sw-connect-client-' . preg_quote( $slug, '/' ) . '".*?(?=<details class="sw-ui-disclosure sw-connect-client"|\z)/s', $html, $found ), $slug );
+
+		return $found[0];
+	}
+
+	/** A guide without its work-account section, whose own values are counted apart. */
+	private static function without_managed( string $guide ): string {
+		return (string) preg_replace( '/<details class="sw-ui-disclosure sw-connect-managed".*?<\/details>/s', '', $guide );
+	}
+
+	private static function managed_markup( string $html, string $slug ): string {
+		self::assertSame( 1, preg_match( '/<details class="sw-ui-disclosure sw-connect-managed" id="sw-connect-' . preg_quote( $slug, '/' ) . '-managed".*?<\/details>/s', $html, $found ), $slug );
+
+		return $found[0];
+	}
+
+	public function test_the_server_name_and_url_in_a_step_are_copyable_values(): void {
+		$html  = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+		$guide = self::guide_markup( $html, 'claude-ai' );
+		$url   = 'https://example.com/wp-json/mcp/stonewright-oauth';
+
+		self::assertStringContainsString( '<li>Enter a name such as <span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-ai-s2-1">stonewright-example-test</code>', $guide );
+		self::assertStringContainsString( '</span> and the server URL <span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-ai-s2-2">' . $url . '</code>', $guide );
+		self::assertStringContainsString( 'aria-label="Copy server name" data-sw-ui-copy="#sw-connect-claude-ai-s2-1" data-sw-ui-copy-status="#sw-connect-claude-ai-s2-1-status"', $guide );
+		self::assertStringContainsString( 'aria-label="Copy MCP server URL" data-sw-ui-copy="#sw-connect-claude-ai-s2-2"', $guide );
+		self::assertSame( 2, substr_count( self::without_managed( $guide ), 'sw-ui-copy-chip__value' ) );
+		self::assertStringContainsString( '<li>In Claude, open Customize &gt; Connectors and choose Add custom connector.</li>', $guide, 'A step without values stays plain text.' );
+
+		self::assertSame( 1, substr_count( self::without_managed( self::guide_markup( $html, 'claude-code' ) ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 2, substr_count( self::without_managed( self::guide_markup( $html, 'chatgpt' ) ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 1, substr_count( self::without_managed( self::guide_markup( $html, 'generic-mcp' ) ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 1, substr_count( self::without_managed( self::guide_markup( $html, 'gemini-cli' ) ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 0, substr_count( self::without_managed( self::guide_markup( $html, 'cursor' ) ), 'sw-ui-copy-chip__value' ) );
+		self::assertStringContainsString( '<p class="sw-connect-signin"><strong>How sign-in starts:</strong> Sign-in starts on its own after the first 401 from this site. Inside the CLI, /mcp auth <span class="sw-ui-copy-chip">', self::guide_markup( $html, 'gemini-cli' ) );
+	}
+
+	public function test_a_work_account_section_is_a_closed_disclosure_after_the_steps_and_before_the_snippets(): void {
+		$html    = self::html( static fn () => SignInPanel::render_guides( self::status(), 'claude-desktop' ) );
+		$guide   = self::guide_markup( $html, 'claude-desktop' );
+		$managed = self::managed_markup( $html, 'claude-desktop' );
+
+		self::assertStringStartsWith( '<details class="sw-ui-disclosure sw-connect-managed" id="sw-connect-claude-desktop-managed"><summary>', $managed, 'Closed by default.' );
+		self::assertStringContainsString( '<span class="sw-connect-managed__title">Work account managed by an admin?</span><span class="sw-ui-hint">Team, Enterprise</span></summary>', $managed );
+		self::assertStringContainsString( 'On Team plans only Owners can add a custom connector.', $managed );
+		self::assertStringContainsString( '<li>An Owner opens Organization settings &gt; Connectors, chooses Add &gt; Custom &gt; Web and enters the server URL <span class="sw-ui-copy-chip-group"><span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-desktop-managed-a1-1">https://example.com/wp-json/mcp/stonewright-oauth</code>', $managed );
+		self::assertMatchesRegularExpression( '/<\/span><\/span>\.<\/span><\/li>/', $managed, 'The full stop after the URL is printed with its chip.' );
+		self::assertStringContainsString( 'Each member then opens Customize &gt; Connectors', $managed );
+		self::assertStringContainsString( 'Admins can turn off local MCP servers', $managed );
+
+		$order = [ 'On Team plans only Owners', '>Ask your admin</h4>', '<ol class="sw-connect-steps">', 'Copy message for your admin', 'Open organization connector settings', '>Or connect from your computer</h4>', 'Claude Desktop can run Stonewright', 'Use Application Password instead', 'claude mcp add --transport http', 'Admins can turn off local MCP servers' ];
+		$last  = -1;
+		foreach ( $order as $needle ) {
+			$at = strpos( $managed, $needle );
+			self::assertNotFalse( $at, $needle );
+			self::assertGreaterThan( $last, $at, $needle . ' is out of order.' );
+			$last = $at;
+		}
+		self::assertSame( 1, substr_count( $managed, '<div class="sw-ui-actions"><button type="button" class="sw-ui-btn sw-ui-btn--sm"' ), 'One row holds the copy button.' );
+		self::assertMatchesRegularExpression( '/Copy message for your admin<\/button><a class="sw-ui-btn sw-ui-btn--sm" href="https:\/\/claude\.ai\/admin-settings\/connectors"[^>]*>Open organization connector settings<span[^>]*>[^<]*<\/span><\/a><span class="sw-ui-copy__status"/', $managed, 'The organization link is in the same row as the copy button.' );
+		self::assertSame( 2, substr_count( $managed, 'class="sw-connect__subtitle"' ) );		self::assertSame( 1, substr_count( $guide, 'sw-connect-managed"' ), 'One section per guide.' );
+		self::assertLessThan( strpos( $guide, 'sw-connect-managed"' ), strpos( $guide, '<ol class="sw-connect-steps">' ) );
+		self::assertLessThan( strpos( $guide, 'sw-connect-claude-desktop-managed' ), strpos( $guide, 'Open Claude connector settings' ), 'After the links row.' );
+		self::assertLessThan( strpos( $guide, 'How sign-in starts:' ), strpos( $guide, 'sw-connect-claude-desktop-managed' ) );
+		$code = self::guide_markup( $html, 'claude-code' );
+		self::assertLessThan( strpos( $code, 'id="sw-connect-claude-code-add"' ), strpos( $code, 'sw-connect-claude-code-managed' ), 'Before the snippets.' );
+	}
+
+	public function test_the_section_links_to_the_organization_settings_only_for_the_claude_connectors(): void {
+		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+
+		foreach ( [ 'claude-ai', 'claude-desktop' ] as $slug ) {
+			self::assertStringContainsString( 'href="https://claude.ai/admin-settings/connectors" target="_blank" rel="noopener noreferrer">Open organization connector settings', self::managed_markup( $html, $slug ), $slug );
+		}
+		foreach ( [ 'claude-code', 'chatgpt', 'codex', 'cursor', 'vscode-copilot', 'windsurf', 'gemini-cli', 'antigravity', 'generic-mcp' ] as $slug ) {
+			self::assertStringNotContainsString( 'admin-settings/connectors', self::managed_markup( $html, $slug ), $slug );
+		}
+		self::assertSame( 2, substr_count( $html, 'Open organization connector settings' ) );
+	}
+
+	public function test_only_clients_with_a_local_route_have_the_second_subheading_and_copilot_keeps_a_note(): void {
+		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+
+		foreach ( ClientInstructions::all( self::status()['mcp_url'], self::status()['server_name'] ) as $guide ) {
+			if ( null === $guide['managed'] ) {
+				continue;
+			}
+			$managed = self::managed_markup( $html, $guide['slug'] );
+			self::assertSame( 1, substr_count( $managed, '>Ask your admin</h4>' ), $guide['slug'] );
+			self::assertSame( [] !== $guide['managed']['local'] ? 1 : 0, substr_count( $managed, '>Or connect from your computer</h4>' ), $guide['slug'] );
+		}
+		foreach ( [ 'vscode-copilot', 'github-copilot' ] as $slug ) {
+			$managed = self::managed_markup( $html, $slug );
+			self::assertStringContainsString( '<p class="sw-ui-field__help">There is no local workaround while the policy is off.</p>', $managed, $slug );
+			self::assertGreaterThan( strpos( $managed, 'Copy message for your admin' ), strpos( $managed, 'There is no local workaround' ), $slug );
+		}
+	}
+
+	public function test_zed_and_grok_build_have_no_work_account_section(): void {
+		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+
+		foreach ( [ 'zed', 'grok-build' ] as $slug ) {
+			self::assertStringNotContainsString( 'id="sw-connect-' . $slug . '-managed"', $html, $slug );
+		}
+		self::assertSame( count( ClientCatalog::slugs() ) - 2, substr_count( $html, 'class="sw-ui-disclosure sw-connect-managed"' ) );
+		self::assertSame( count( ClientCatalog::slugs() ) - 2, substr_count( $html, 'Work account managed by an admin?' ) );
+	}
+
+	public function test_the_message_for_the_admin_is_copied_from_a_button(): void {
+		$status = self::status();
+		$html   = self::html( static fn () => SignInPanel::render_guides( $status, '' ) );
+
+		foreach ( ClientInstructions::all( $status['mcp_url'], $status['server_name'] ) as $guide ) {
+			if ( null === $guide['managed'] ) {
+				continue;
+			}
+			$managed = self::managed_markup( $html, $guide['slug'] );
+			self::assertSame( 1, preg_match( '/<button type="button" class="sw-ui-btn sw-ui-btn--sm"[^>]*data-sw-ui-copy-text="([^"]*)" data-sw-ui-copy-status="#sw-connect-' . preg_quote( $guide['slug'], '/' ) . '-managed-status" data-sw-ui-copied-label="Copied"[^>]*>[^<]*<svg.*?<\/svg>Copy message for your admin<\/button>/s', $managed, $found ), $guide['slug'] );
+			self::assertSame( $guide['managed']['message'], html_entity_decode( $found[1], ENT_QUOTES ), $guide['slug'] );
+			self::assertStringContainsString( 'role="status" id="sw-connect-' . $guide['slug'] . '-managed-status"', $managed, $guide['slug'] );
+		}
+	}
+
+	public function test_claude_desktop_offers_the_application_password_route_and_a_local_command(): void {
+		$html    = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+		$managed = self::managed_markup( $html, 'claude-desktop' );
+
+		self::assertStringContainsString( '<a class="sw-ui-btn sw-ui-btn--sm" href="#stonewright-application-password" data-stonewright-switch-sign-in="claude-desktop">Use Application Password instead</a>', $managed );
+		self::assertStringContainsString( 'Claude Code on your computer can connect too:', $managed );
+		self::assertStringContainsString( '<pre class="sw-ui-code__body sw-connect-snippet__code" id="sw-connect-claude-desktop-managed-code" tabindex="0" aria-label="Add the server: Add the server for Claude Desktop"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $managed );
+		self::assertSame( 1, substr_count( $html, 'data-stonewright-switch-sign-in' ) );
+		self::assertStringNotContainsString( 'Claude Code on your computer', self::managed_markup( $html, 'claude-ai' ) );
+	}
+
+	public function test_every_chip_and_copy_target_in_the_sections_resolves_and_ids_are_unique(): void {
+		$html = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+
+		preg_match_all( '/\sid="([^"]+)"/', $html, $ids );
+		self::assertSame( array_unique( $ids[1] ), $ids[1], 'No id is printed twice.' );
+		preg_match_all( '/data-sw-ui-copy(?:-status)?="#([^"]+)"/', $html, $targets );
+		foreach ( $targets[1] as $target ) {
+			self::assertContains( $target, $ids[1], $target );
+		}
+	}
+
+	public function test_every_chip_status_resolves_and_the_text_of_each_step_is_unchanged(): void {
+		$status = self::status();
+		$html   = self::html( static fn () => SignInPanel::render_guides( $status, '' ) );
+
+		self::assertGreaterThan( 8, (int) preg_match_all( '/data-sw-ui-copy-status="#([^"]+)"/', $html, $statuses ) );
+		foreach ( $statuses[1] as $target ) {
+			self::assertSame( 1, substr_count( $html, 'id="' . $target . '"' ), $target );
+		}
+		foreach ( ClientInstructions::all( $status['mcp_url'], $status['server_name'] ) as $guide ) {
+			$markup = self::guide_markup( $html, $guide['slug'] );
+			preg_match( '/<ol class="sw-connect-steps">(.*?)<\/ol>/s', $markup, $list );
+			preg_match_all( '/<li>(.*?)<\/li>/s', $list[1], $items );
+			$printed = array_map( static fn ( string $item ): string => html_entity_decode( strip_tags( (string) preg_replace( '/<button.*?<\/button>/s', '', $item ) ), ENT_QUOTES ), $items[1] );
+			self::assertSame( $guide['steps'], $printed, $guide['slug'] );
+		}
+	}
+
+	public function test_a_value_with_markup_in_a_step_is_escaped(): void {
+		$site = new SiteProfile(
+			true,
+			'production',
+			[
+				'issuer'                 => 'https://example.com',
+				'resource'               => 'https://example.com/wp-json/mcp/"><script>alert(1)</script>',
+				'authorization_endpoint' => 'https://example.com/wp-admin/admin.php?page=stonewright-oauth-authorize',
+				'consent_endpoint'       => 'https://example.com/wp-admin/admin.php?page=stonewright-oauth-consent',
+				'token_endpoint'         => 'https://example.com/wp-json/stonewright/v1/oauth/token',
+				'registration_endpoint'  => 'https://example.com/wp-json/stonewright/v1/oauth/register',
+				'revocation_endpoint'    => 'https://example.com/wp-json/stonewright/v1/oauth/revoke',
+				'introspection_endpoint' => 'https://example.com/wp-json/stonewright/v1/oauth/introspect',
+			]
+		);
+		$guide = self::guide_markup( self::html( static fn () => SignInPanel::render_guides( self::status( $site ), '' ) ), 'generic-mcp' );
+
+		self::assertStringNotContainsString( '<script', $guide );
+		self::assertStringContainsString( 'sw-connect-generic-mcp-s1-1">https://example.com/wp-json/mcp/&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;</code>', $guide );
 	}
 
 	public function test_install_links_keep_their_client_schemes(): void {

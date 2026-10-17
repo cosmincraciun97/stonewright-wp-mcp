@@ -322,6 +322,38 @@
 		} );
 	}
 
+	/**
+	 * A guide's "Use Application Password instead" link goes to step 2. With the picker on the page it also chooses
+	 * the Application Password method and the guide's client first, through the same buttons a click would use, and
+	 * moves focus to the method choice. Without them the link is a plain jump to step 2.
+	 */
+	function initUsePasswordLinks() {
+		document.addEventListener( 'click', function ( event ) {
+			var link = event.target && event.target.closest ? event.target.closest( '[data-stonewright-switch-sign-in]' ) : null;
+			var method = document.querySelector( '[data-stonewright-auth-method="application-password"]' );
+			if ( ! link || ! method || method.disabled ) {
+				return;
+			}
+			event.preventDefault();
+			if ( method.getAttribute( 'aria-checked' ) !== 'true' ) {
+				method.click();
+			}
+			var slug = link.getAttribute( 'data-stonewright-switch-sign-in' ) || '';
+			var cards = document.querySelectorAll( '[data-stonewright-client-card]' );
+			for ( var i = 0; i < cards.length; i++ ) {
+				var card = cards[ i ];
+				if ( slug && card.getAttribute( 'data-stonewright-client-card' ) === slug && card.getAttribute( 'aria-disabled' ) !== 'true' && ! card.classList.contains( 'is-active' ) ) {
+					card.click();
+				}
+			}
+			var step = document.getElementById( 'stonewright-application-password' );
+			if ( step && step.scrollIntoView ) {
+				step.scrollIntoView( { behavior: window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ? 'auto' : 'smooth', block: 'start' } );
+			}
+			method.focus( { preventScroll: true } );
+		} );
+	}
+
 	function initMethodPicker() {
 		var picker = document.querySelector( '[data-stonewright-method-picker]' );
 		if ( ! picker ) {
@@ -1354,6 +1386,7 @@
 		initSecretToggles();
 		initTokenGenerators();
 		initClientCards();
+		initUsePasswordLinks();
 		initMethodPicker();
 		initConnectionTest();
 		initConnectionVerify();
