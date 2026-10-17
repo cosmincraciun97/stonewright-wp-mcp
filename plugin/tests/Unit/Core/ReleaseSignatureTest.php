@@ -131,6 +131,7 @@ final class ReleaseSignatureTest extends TestCase {
 	public function test_the_shipped_public_keys_are_valid_and_distinct(): void {
 		$keys = ReleaseSignature::PUBLIC_KEYS;
 
+		self::assertGreaterThanOrEqual( 2, count( $keys ), 'Signing is on: ship the active key and the offline backup key.' );
 		self::assertLessThanOrEqual( 4, count( $keys ), 'Ship the active key and a backup, plus at most two during a key change.' );
 		self::assertSame( count( $keys ), count( array_unique( $keys ) ) );
 		foreach ( $keys as $key ) {

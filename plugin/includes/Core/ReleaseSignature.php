@@ -23,16 +23,20 @@ final class ReleaseSignature {
 	 * Ed25519 public keys trusted to sign SHA256SUMS.txt, base64 encoded (32
 	 * bytes each): the active release key first, then the backup key kept offline.
 	 *
-	 * Empty until the maintainer creates the release keys. While it is empty the
-	 * updater compares the package only with the SHA-256 in its release's
-	 * SHA256SUMS.txt. Once a version ships a key here, that version accepts an
-	 * update only with a valid signature by one of these keys, and the release
-	 * workflow signs every release and stops when it cannot. The release scripts
+	 * Because this version ships keys, it accepts an update only with a valid
+	 * signature by one of them, and the release workflow signs every release and
+	 * stops when it cannot. With an empty list the updater would compare the
+	 * package only with the SHA-256 in its release's SHA256SUMS.txt. A site checks
+	 * an update against the keys of the version it runs, so change this list only
+	 * as docs/releases/checklist.md#release-signing describes. The release scripts
 	 * (scripts/release-signature.mjs) read this list: keep one quoted key per line.
 	 *
 	 * @var list<string>
 	 */
-	public const PUBLIC_KEYS = [];
+	public const PUBLIC_KEYS = [
+		'5v6EcHKVuTu3PCZeDIY/tU7QEyQlUqUp+iUFjosoEfg=', // Active release key.
+		'qv/qsboB9h4x8cmQHolEBrQWdwfBl2UEE4dWu0ndCLc=', // Backup key, kept offline.
+	];
 
 	/** Largest SHA256SUMS.txt.sig accepted; one signature line takes 89 bytes. */
 	public const MAX_SIGNATURE_FILE_BYTES = 4096;
