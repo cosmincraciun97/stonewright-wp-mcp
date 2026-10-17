@@ -162,3 +162,30 @@ test('plugin zip inspection rejects a bundled .github folder', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('plugin zip inspection rejects a bundled stubs folder', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stonewright-artifacts-'));
+	try {
+		const pluginRoot = path.join(dir, 'stonewright');
+		fs.mkdirSync(path.join(pluginRoot, 'skills/agent-operating-rules'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, 'skills/playbooks'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, 'assets/visual'), { recursive: true });
+		fs.mkdirSync(path.join(pluginRoot, 'stubs'), { recursive: true });
+		fs.writeFileSync(
+			path.join(pluginRoot, 'stonewright.php'),
+			` * Version: ${version}\ndefine( 'STONEWRIGHT_VERSION', '${version}' );\n`,
+		);
+		fs.writeFileSync(path.join(pluginRoot, 'skills/agent-operating-rules/SKILL.md'), '# skill\n');
+		fs.writeFileSync(path.join(pluginRoot, 'skills/playbooks/demo.md'), '# playbook\n');
+		fs.writeFileSync(path.join(pluginRoot, 'assets/visual/workspace-browser.js'), 'console.log(1);\n');
+		fs.writeFileSync(path.join(pluginRoot, 'stubs/elementor.stub.php'), '<?php\n');
+		execFileSync('zip', ['-qr', 'with-stubs.zip', 'stonewright'], { cwd: dir });
+		assert.throws(() => inspectPluginZip(path.join(dir, 'with-stubs.zip'), version), /stubs/);
+
+		fs.rmSync(path.join(pluginRoot, 'stubs'), { recursive: true, force: true });
+		execFileSync('zip', ['-qr', 'without-stubs.zip', 'stonewright'], { cwd: dir });
+		assert.doesNotThrow(() => inspectPluginZip(path.join(dir, 'without-stubs.zip'), version));
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});

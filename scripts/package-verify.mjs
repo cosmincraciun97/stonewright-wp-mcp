@@ -94,6 +94,7 @@ const mustExclude = [
 	'phpstan.neon',
 	'phpcs.xml',
 	'phpunit.xml',
+	'stubs',
 	'.github',
 ];
 
@@ -124,6 +125,7 @@ const forbidden = included.filter(
 	(rel) =>
 		rel.startsWith('tests/') ||
 		rel.startsWith('bin/') ||
+		rel.startsWith('stubs/') ||
 		rel.split('/').includes('.github') ||
 		/^(phpunit|phpstan|phpcs)/.test(rel) ||
 		rel === 'composer.lock' ||
