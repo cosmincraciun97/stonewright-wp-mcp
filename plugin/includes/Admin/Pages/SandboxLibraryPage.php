@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\Ui\Nonce;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
 use Stonewright\WpMcp\Admin\Ui\Table;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\SandboxManifest;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
@@ -518,7 +519,7 @@ final class SandboxLibraryPage {
 	 */
 	private static function render_editor( string $file ): void {
 		$path  = SandboxFiles::stored_path( $file );
-		$mode  = get_option( 'stonewright_mode', 'development' );
+		$mode  = SiteMode::current();
 		$prod  = 'production-safe' === $mode;
 
 		// Size guard: refuse to load oversized files into the editor.
@@ -718,7 +719,7 @@ final class SandboxLibraryPage {
 	 * @param int    $timestamp Unix timestamp of the backup to roll back to.
 	 */
 	private static function render_rollback( string $file, int $timestamp ): void {
-		$mode = get_option( 'stonewright_mode', 'development' );
+		$mode = SiteMode::current();
 		$prod = 'production-safe' === $mode;
 
 		$token = '';
@@ -780,7 +781,7 @@ final class SandboxLibraryPage {
 	 * @param array<mixed, mixed> $registered_widgets
 	 */
 	private static function render_file_table( array $rows, array $registered_widgets, string $active_tab, bool $embedded ): void {
-		$mode = get_option( 'stonewright_mode', 'development' );
+		$mode = SiteMode::current();
 		$prod = 'production-safe' === $mode;
 
 		if ( empty( $rows ) ) {
@@ -980,7 +981,7 @@ final class SandboxLibraryPage {
 			exit;
 		}
 
-		$mode    = get_option( 'stonewright_mode', 'development' );
+		$mode    = SiteMode::current();
 		$is_prod = 'production-safe' === $mode;
 
 		// Retrieve caller-supplied confirmation token (may be empty in development mode).

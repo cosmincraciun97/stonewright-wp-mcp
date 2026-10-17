@@ -260,8 +260,12 @@ final class GitHubUpdater {
 	}
 
 	/**
-	 * Download and cryptographically verify the exact Stonewright release ZIP
-	 * before WordPress extracts or installs it.
+	 * Download the exact Stonewright release ZIP and check its SHA-256 digest
+	 * against the one listed in the same release's SHA256SUMS.txt before
+	 * WordPress extracts or installs it. The package and the manifest come from
+	 * the project's GitHub releases (the origin is restricted to them); the
+	 * release is not signed, so this detects a corrupt or mismatched download,
+	 * not a compromised release.
 	 *
 	 * @param mixed                $reply      Earlier upgrader filter result.
 	 * @param mixed                $upgrader   WordPress upgrader instance.
@@ -330,7 +334,7 @@ final class GitHubUpdater {
 		$actual = hash_file( 'sha256', $downloaded );
 		if ( ! is_string( $actual ) || ! hash_equals( $expected, strtolower( $actual ) ) ) {
 			wp_delete_file( $downloaded );
-			return new \WP_Error( 'stonewright_update_checksum_mismatch', __( 'The Stonewright update package checksum does not match the signed release manifest. The update was stopped.', 'stonewright' ) );
+			return new \WP_Error( 'stonewright_update_checksum_mismatch', __( 'The Stonewright update package checksum does not match the SHA256SUMS.txt of its release. The update was stopped.', 'stonewright' ) );
 		}
 
 		return $downloaded;

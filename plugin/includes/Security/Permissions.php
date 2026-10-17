@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\SiteMode;
+
 /**
  * Reusable permission callbacks. Abilities should call into these helpers
  * rather than declaring inline closures so that the policy lives in one file.
@@ -37,6 +39,32 @@ final class Permissions {
 		return current_user_can( 'manage_options' );
 	}
 
+	/** Capability an account needs to use the Stonewright MCP servers unless the site filters it. */
+	public const MCP_DEFAULT_CAPABILITY = 'edit_posts';
+
+	/**
+	 * The capability an account needs to use the Stonewright MCP servers, on the Application Password
+	 * route and on the OAuth route alike.
+	 *
+	 * Every account holds `read` and WordPress lets every account create an Application Password, so
+	 * `read` would admit a subscriber or a shop customer. The default is `edit_posts`, which contributors,
+	 * authors, editors and administrators hold. A site can lower or raise it with the
+	 * `stonewright_mcp_required_capability` filter; a value that is not a capability name is ignored.
+	 */
+	public static function mcp_required_capability(): string {
+		$capability = apply_filters( 'stonewright_mcp_required_capability', self::MCP_DEFAULT_CAPABILITY );
+
+		return is_string( $capability ) && '' !== $capability ? $capability : self::MCP_DEFAULT_CAPABILITY;
+	}
+
+	/**
+	 * Transport permission callback of the Application Password MCP server: the signed-in account
+	 * holds the capability the MCP servers require. The request is not consulted.
+	 */
+	public static function can_use_mcp_transport( mixed $request = null ): bool {
+		return current_user_can( self::mcp_required_capability() ); // phpcs:ignore WordPress.WP.Capabilities.Undetermined -- Capability is filtered and defaults to edit_posts.
+	}
+
 	/**
 	 * Whether a stored OAuth grant subject may still use the MCP server: the account
 	 * exists and holds the capability the MCP transport requires of a signed-in user.
@@ -47,7 +75,7 @@ final class Permissions {
 			return false;
 		}
 		$user = get_user_by( 'id', $user_id );
-		return false !== $user && user_can( $user, 'read' );
+		return false !== $user && user_can( $user, self::mcp_required_capability() ); // phpcs:ignore WordPress.WP.Capabilities.Undetermined -- Capability is filtered and defaults to edit_posts.
 	}
 
 	/**
@@ -119,15 +147,15 @@ final class Permissions {
 		if ( ! self::manage_options() ) {
 			return false;
 		}
-		return 'production-safe' !== get_option( 'stonewright_mode', 'development' );
+		return ! SiteMode::is_production_safe();
 	}
 
 	public static function not_production_safe(): bool {
-		return 'production-safe' !== get_option( 'stonewright_mode', 'development' );
+		return ! SiteMode::is_production_safe();
 	}
 
 	public static function is_production_safe(): bool {
-		return 'production-safe' === get_option( 'stonewright_mode', 'development' );
+		return SiteMode::is_production_safe();
 	}
 
 	/**

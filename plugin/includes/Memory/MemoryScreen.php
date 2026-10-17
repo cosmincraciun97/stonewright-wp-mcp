@@ -35,6 +35,25 @@ final class MemoryScreen {
 		return $rules;
 	}
 
+	/**
+	 * The refusal of custom instructions that break the screen. The text is read to agents as part of every
+	 * context, like memory, but has no needs_review state to wait in, so it is not saved at all.
+	 */
+	public static function instructions_refusal( string $text ): ?\WP_Error {
+		$rules = self::blocking_rules( 'Custom instructions', $text );
+		if ( [] === $rules ) {
+			return null;
+		}
+		return new \WP_Error(
+			'stonewright_instructions_need_review',
+			__( 'The text tells an agent to override the plugin rules or move credentials, so it was not saved. Custom instructions are read into every agent context. Reword the text, or leave it to an administrator in wp-admin.', 'stonewright' ),
+			[
+				'status'       => 400,
+				'review_rules' => $rules,
+			]
+		);
+	}
+
 	/** Every string of a value, one per line, in order. */
 	private static function text( mixed $value ): string {
 		if ( is_string( $value ) ) {

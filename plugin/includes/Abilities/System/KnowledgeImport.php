@@ -49,6 +49,10 @@ final class KnowledgeImport extends AbilityKernel {
 			'properties' => [
 				'ok'                    => [ 'type' => 'boolean' ],
 				'instructions_imported' => [ 'type' => 'integer' ],
+				'instructions_rejected' => [
+					'type'        => 'integer',
+					'description' => '1 when the bundle carried custom instructions text that tells an agent to override the plugin rules or move credentials. That text is not saved; the instructions on the site stay as they were.',
+				],
 				'memory_imported'       => [ 'type' => 'integer' ],
 				'memory_needs_review'   => [
 					'type'        => 'integer',

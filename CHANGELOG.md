@@ -11,6 +11,52 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Security
+
+- Check the tool surface on every way an ability can be run. An ability that runs or
+  writes code is refused unless an administrator chose the Full tool surface in
+  wp-admin, whether it is called as an MCP tool, through `execute-ability`, the
+  REST runner or WordPress's own Abilities API route, and a confirmation token no
+  longer lifts that refusal. `security-issue-confirmation-token` issues no token for
+  such an ability.
+- Validate the input of `POST /stonewright/v1/abilities/run` against the ability's
+  schema, as `execute-ability` does.
+- Make the Direct task-start and learning-record routes respect the master toggle
+  and the list of disabled abilities.
+- Read the site mode through one accessor. A missing mode follows the
+  environment, as it does on activation, and a damaged or unknown value counts as
+  production-safe, so neither can loosen a gate.
+- Require an administrator in wp-admin to make the mode less strict, switch a
+  disabled ability back on or change feature flags. Requests signed in with an
+  Application Password or OAuth can still make the mode stricter and switch
+  abilities off. The admin Abilities routes also need a person in wp-admin, and
+  feature flags are stored as a short list of on/off values.
+- Check custom instructions the way memory is checked before they are saved
+  through REST, `system-instructions-set` or a knowledge import.
+- Require `edit_posts` to use the MCP servers, on the Application Password route
+  and the OAuth route alike. Sites can change it with the
+  `stonewright_mcp_required_capability` filter. Subscribers and shop customers
+  can no longer connect.
+- Return site memory, custom instructions, recurring errors and incident actions
+  from `task-start` and `context-bootstrap` only to administrators, as the memory
+  and instructions abilities already do.
+- `search-query` needs `edit_posts` and lists a post type the caller cannot edit
+  only when the type is public. `oembed-resolve` needs `edit_posts`.
+  `stock-image-search` needs `upload_files` and encodes the search terms it sends
+  to the provider.
+
+### Changed
+
+- Describe the update package check accurately: the ZIP is compared with the
+  SHA-256 in its release's `SHA256SUMS.txt`. Releases are not signed.
+- Leave the PHPStan stub folder out of the plugin release ZIP.
+
+### Removed
+
+- Remove the `/stonewright/v1/sandbox/files` REST routes. Sandbox files are managed
+  on the Sandbox Library admin page and with the sandbox abilities on the Full
+  surface.
+
 ## [1.0.0-beta.16.2] - 2026-10-13
 
 ### Added

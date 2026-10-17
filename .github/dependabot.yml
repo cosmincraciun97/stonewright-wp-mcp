@@ -1,0 +1,62 @@
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: /plugin
+    target-branch: next
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      composer-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /companion
+    target-branch: next
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      companion-npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /visual
+    target-branch: next
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      visual-npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /e2e
+    target-branch: next
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      e2e-npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: next
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - minor
+          - patch

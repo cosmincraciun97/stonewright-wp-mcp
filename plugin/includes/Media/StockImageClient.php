@@ -78,14 +78,14 @@ final class StockImageClient {
 	 * @return array{ok:bool,provider:string,query:string,count:int,results:list<array<string,mixed>>,page:int,per_page:int}|\WP_Error
 	 */
 	private static function search_openverse( string $query, int $page, int $per_page ) {
-		$url = add_query_arg(
+		$url = self::url(
+			'https://api.openverse.org/v1/images/',
 			[
 				'q'         => $query,
 				'page'      => $page,
 				'page_size' => $per_page,
 				'format'    => 'json',
-			],
-			'https://api.openverse.org/v1/images/'
+			]
 		);
 
 		$body = self::get_json( $url, [] );
@@ -120,13 +120,13 @@ final class StockImageClient {
 	 */
 	private static function search_unsplash( string $query, int $page, int $per_page ) {
 		$key = self::unsplash_key();
-		$url = add_query_arg(
+		$url = self::url(
+			'https://api.unsplash.com/search/photos',
 			[
 				'query'    => $query,
 				'page'     => $page,
 				'per_page' => $per_page,
-			],
-			'https://api.unsplash.com/search/photos'
+			]
 		);
 
 		$body = self::get_json(
@@ -169,13 +169,13 @@ final class StockImageClient {
 	 */
 	private static function search_pexels( string $query, int $page, int $per_page ) {
 		$key = self::pexels_key();
-		$url = add_query_arg(
+		$url = self::url(
+			'https://api.pexels.com/v1/search',
 			[
 				'query'    => $query,
 				'page'     => $page,
 				'per_page' => $per_page,
-			],
-			'https://api.pexels.com/v1/search'
+			]
 		);
 
 		$body = self::get_json(
@@ -332,6 +332,16 @@ final class StockImageClient {
 		}
 
 		return trim( implode( ' ', $parts ) );
+	}
+
+	/**
+	 * The request URL with every value percent-encoded, so a search term holding & or = cannot add or
+	 * replace a parameter. add_query_arg() leaves its values as they are.
+	 *
+	 * @param array<string, string|int> $params
+	 */
+	private static function url( string $base, array $params ): string {
+		return $base . '?' . http_build_query( $params, '', '&', PHP_QUERY_RFC3986 );
 	}
 
 	/**

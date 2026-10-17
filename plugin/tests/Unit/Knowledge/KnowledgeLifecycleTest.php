@@ -29,7 +29,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
-		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_options'] = [ 'stonewright_enabled' => true ];
 		$GLOBALS['wpdb'] = self::wpdb();
 	}
 

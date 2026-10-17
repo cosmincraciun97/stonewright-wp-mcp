@@ -30,42 +30,60 @@ final class SearchQuery extends AbilityKernel {
 	public function output_schema(): array {
  return [ 'additionalProperties' => true, 'type'=>'object', 'properties'=>[ 'items'=>[ 'type'=>'array' ], 'total'=>[ 'type'=>'integer' ], 'page'=>[ 'type'=>'integer' ], 'per_page'=>[ 'type'=>'integer' ], 'total_pages'=>[ 'type'=>'integer' ] ], 'required'=>[ 'items' ] ]; }
 	public function permission_callback( array $args ): bool|\WP_Error {
- return Permissions::read(); }
+ return Permissions::edit_posts(); }
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_read(
 			$args,
 			static function ( array $args ) {
-				// Subscribers (read only) must not enumerate drafts/private posts.
-				$can_read_private = current_user_can( 'read_private_posts' )
-					|| current_user_can( 'edit_others_posts' )
-					|| current_user_can( 'edit_posts' );
+				$post_type = isset( $args['post_type'] ) ? (string) $args['post_type'] : 'any';
+				// A type the caller cannot edit is listed only when the site shows it. WP_Query lists the published
+				// items of any type it is given, which would hand out the entries of a private type (coupon codes).
+				if ( 'any' !== $post_type && ! self::may_list( $post_type ) ) {
+					return new \WP_Error(
+						'stonewright_search_post_type_not_allowed',
+						__( 'This post type is not public and you cannot edit it, so it cannot be searched.', 'stonewright' ),
+						[
+							'status'    => 403,
+							'post_type' => $post_type,
+						]
+					);
+				}
 
 				$per_page = max( 1, min( (int) ( $args['per_page'] ?? 20 ), 50 ) );
 				$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
 
-				$q = new \WP_Query(
-					[
-						's'              => (string) $args['search'],
-						'post_type'      => isset( $args['post_type'] ) ? (string) $args['post_type'] : 'any',
-						'posts_per_page' => $per_page,
-						'paged'          => $page,
-						'post_status'    => $can_read_private ? 'any' : 'publish',
-					]
-				);
+				// A caller who cannot edit other people's posts gets only what they may read from the database
+				// itself, so the totals and the pages count no post this caller is not shown.
+				$scope = current_user_can( 'edit_others_posts' ) ? 0 : get_current_user_id();
+				$query = [
+					's'              => (string) $args['search'],
+					'post_type'      => $post_type,
+					'posts_per_page' => $per_page,
+					'paged'          => $page,
+					'post_status'    => 'any',
+				];
+				if ( $scope > 0 ) {
+					$query[ self::SCOPE_VAR ] = $scope;
+					add_filter( 'posts_where', [ self::class, 'scope_where' ], 10, 2 );
+				}
+				try {
+					$q = new \WP_Query( $query );
+				} finally {
+					if ( $scope > 0 ) {
+						remove_filter( 'posts_where', [ self::class, 'scope_where' ], 10 );
+					}
+				}
 				$items   = [];
 				$skipped = 0;
 				foreach ( $q->posts as $p ) {
 					$status = (string) $p->post_status;
 					if ( 'publish' === $status ) {
-						// Public content is fine for any caller with the read ability gate.
-					} elseif ( ! $can_read_private ) {
-						++$skipped;
-						continue;
+						// Published content of a type the caller may list is fine for any caller with this gate.
 					} elseif (
 						! current_user_can( 'edit_post', (int) $p->ID )
 						&& ! current_user_can( 'read_post', (int) $p->ID )
-						&& ! current_user_can( 'edit_posts' )
 					) {
+						// Every caller holds edit_posts, so the capability for this one post decides.
 						++$skipped;
 						continue;
 					}
@@ -89,5 +107,42 @@ final class SearchQuery extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/** Query var that carries the user whose own unpublished posts a scoped search may return. */
+	public const SCOPE_VAR = 'stonewright_search_scope';
+
+	/**
+	 * Narrows the WHERE clause of a scoped search (posts_where): published posts and attachments, plus the
+	 * caller's own posts in any status. Other searches pass through unchanged.
+	 *
+	 * @param string $where The WHERE clause WP_Query built.
+	 * @param mixed  $query The query being run.
+	 */
+	public static function scope_where( string $where, mixed $query = null ): string {
+		$user_id = $query instanceof \WP_Query ? (int) $query->get( self::SCOPE_VAR ) : 0;
+		if ( $user_id <= 0 ) {
+			return $where;
+		}
+		global $wpdb;
+		$table = isset( $wpdb ) && is_object( $wpdb ) && isset( $wpdb->posts ) ? (string) $wpdb->posts : 'wp_posts';
+
+		return $where . sprintf( " AND ( %1\$s.post_status IN ( 'publish', 'inherit' ) OR %1\$s.post_author = %2\$d )", $table, $user_id );
+	}
+
+	/**
+	 * Whether the caller may search a post type: they can edit it, or the site shows it to visitors.
+	 */
+	private static function may_list( string $post_type ): bool {
+		$object = get_post_type_object( $post_type );
+		if ( ! is_object( $object ) ) {
+			return false;
+		}
+		$edit_cap = isset( $object->cap->edit_posts ) ? (string) $object->cap->edit_posts : '';
+		if ( '' !== $edit_cap && current_user_can( $edit_cap ) ) {
+			return true;
+		}
+
+		return is_post_type_viewable( $object );
 	}
 }

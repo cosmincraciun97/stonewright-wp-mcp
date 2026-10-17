@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Admin\Ui\KvList;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\PromotionGrant;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
@@ -202,7 +203,7 @@ final class SkillsPage {
 			'nonce'    => wp_create_nonce( SkillsRestApi::NONCE_ACTION ),
 			'view'     => self::current_view(),
 			'views'    => self::VIEWS,
-			'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
+			'mode'     => SiteMode::current(),
 			'can'      => [
 				'manageOptions' => Permissions::manage_options(),
 			],

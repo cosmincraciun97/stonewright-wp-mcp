@@ -21,7 +21,7 @@ final class AccessTokenValidatorTest extends TestCase {
 
 	protected function setUp(): void {
 		StorageRig::reset_globals();
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$this->rig = new StorageRig();
 	}
 
@@ -99,7 +99,7 @@ final class AccessTokenValidatorTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => false ] ];
 		$this->invalid( $pair->access_token );
 
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$GLOBALS['stonewright_test_missing_user_ids'] = [ 7 ];
 		$this->invalid( $pair->access_token );
 	}

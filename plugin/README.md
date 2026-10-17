@@ -122,7 +122,7 @@ npm test
 A site with no stored mode starts in the mode of its environment type: `production` gives
 `production-safe`, `staging` gives `staging`, anything else gives `development`. This includes
 every site of a network activation, on its first request, and a site created after one,
-when it is created.
+when it is created. A stored value that is not one of the three modes counts as `production-safe`.
 
 ### `stonewright_companion_url`
 

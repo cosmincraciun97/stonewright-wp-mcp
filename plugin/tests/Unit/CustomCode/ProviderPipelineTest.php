@@ -45,6 +45,9 @@ final class ProviderPipelineTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 9;
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_options']         = [
+			'stonewright_enabled' => true,
+			// The custom code provider is a Full-surface ability; its own gates are what these tests exercise.
+			'stonewright_mcp_surface' => 'full',
 			'stonewright_mode' => 'development',
 		];
 		$GLOBALS['stonewright_test_post_types']      = [];

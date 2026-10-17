@@ -55,6 +55,7 @@ final class SiteDefaultsTest extends TestCase {
 		UninstallSite::restore();
 		UninstallSite::$log = [];
 		unset( $GLOBALS['stonewright_test_environment_type'] );
+		unset( $GLOBALS['stonewright_test_filters']['default_option_stonewright_mode'] );
 	}
 
 	private static function environment( string $type ): void {
@@ -191,6 +192,36 @@ final class SiteDefaultsTest extends TestCase {
 		self::assertSame( '__absent__', self::option( 'stonewright_mcp_surface' ) );
 		self::assertSame( '__absent__', self::option( 'stonewright_essential_tools_mode' ) );
 		self::assertSame( STONEWRIGHT_VERSION, self::option( 'stonewright_version' ) );
+	}
+
+	public function test_a_registered_default_does_not_stop_the_mode_from_being_seeded(): void {
+		// A Network Admin subsite reads the registered default for a mode that was never stored.
+		$GLOBALS['stonewright_test_filters']['default_option_stonewright_mode'] = static fn ( mixed $default, string $option, bool $passed_default ): mixed => $passed_default ? $default : 'development';
+		self::environment( 'production' );
+
+		self::assertSame( 'development', get_option( 'stonewright_mode' ), 'The filter makes a plain read truthy.' );
+
+		SiteDefaults::seed( false );
+
+		self::assertSame( 'production-safe', self::option( 'stonewright_mode' ) );
+	}
+
+	public function test_an_invalid_stored_mode_is_not_replaced_by_seeding(): void {
+		self::environment( 'production' );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'foo';
+
+		SiteDefaults::seed( false );
+
+		self::assertSame( 'foo', self::option( 'stonewright_mode' ) );
+	}
+
+	public function test_an_empty_stored_mode_is_seeded(): void {
+		self::environment( 'staging' );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = '';
+
+		SiteDefaults::seed( false );
+
+		self::assertSame( 'staging', self::option( 'stonewright_mode' ) );
 	}
 
 	public function test_an_update_keeps_the_stored_mode(): void {

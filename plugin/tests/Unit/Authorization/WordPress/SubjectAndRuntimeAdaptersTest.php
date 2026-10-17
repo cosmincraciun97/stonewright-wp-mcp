@@ -40,7 +40,7 @@ final class SubjectAndRuntimeAdaptersTest extends TestCase {
 	}
 
 	public function test_an_existing_user_with_the_mcp_capability_is_allowed(): void {
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 
 		( new PermissionSubjectAuthority() )->require_allowed( '7', 'refresh', [ 'client_key' => 'c' ] );
 
@@ -48,11 +48,12 @@ final class SubjectAndRuntimeAdaptersTest extends TestCase {
 	}
 
 	public function test_missing_users_users_without_the_capability_and_malformed_subjects_are_refused(): void {
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ], 8 => [ 'read' => false ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ], 8 => [ 'read' => false ], 10 => [ 'read' => true ] ];
 		$GLOBALS['stonewright_test_missing_user_ids'] = [ 9 ];
 
 		$this->denied( '8' );
 		$this->denied( '9' );
+		$this->denied( '10' ); // A subscriber holds read but not the capability the MCP transport requires.
 		foreach ( [ '', '0', '-7', '7a', ' 7', '07', '99999999999999999999999' ] as $subject ) {
 			$this->denied( $subject );
 		}

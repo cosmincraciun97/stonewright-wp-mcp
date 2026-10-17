@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Memory\MemoryScreen;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -22,7 +23,7 @@ final class InstructionsSet extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces the Stonewright custom instructions.', 'stonewright' );
+		return __( 'Replaces the Stonewright custom instructions. Text that tells an agent to override the plugin rules or move credentials is refused.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -65,8 +66,13 @@ final class InstructionsSet extends AbilityKernel {
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit_write(
 			$args,
-			function ( array $a ): array {
+			function ( array $a ): array|\WP_Error {
 				$text = mb_substr( $a['text'], 0, 4000 );
+				// The text is read into every agent context, so it goes through the screen a memory save goes through.
+				$screened = MemoryScreen::instructions_refusal( $text );
+				if ( $screened instanceof \WP_Error ) {
+					return $screened;
+				}
 				update_option( 'stonewright_custom_instructions', $text );
 
 				if ( array_key_exists( 'enabled', $a ) ) {

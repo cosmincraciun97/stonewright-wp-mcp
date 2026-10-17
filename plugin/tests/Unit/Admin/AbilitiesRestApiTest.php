@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AbilitiesRestApi;
 use Stonewright\WpMcp\Admin\AbilityHubCatalog;
+use Stonewright\WpMcp\Security\LeashGuard;
 
 /**
  * The page's own REST routes. They change the same option, with the same capability and the same nonces, as the
@@ -20,12 +21,17 @@ final class AbilitiesRestApiTest extends TestCase {
 		$GLOBALS['stonewright_test_options']         = [ 'stonewright_enabled' => true, 'stonewright_disabled_abilities' => [] ];
 		$GLOBALS['stonewright_test_user_caps']       = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_current_user_id'] = 2;
+		$GLOBALS['stonewright_test_user_logged_in']  = true;
+		// The page's own script: a cookie sign-in, with the REST nonce on every call.
+		$GLOBALS['wp_rest_auth_cookie']             = true;
 		$GLOBALS['stonewright_test_rest_routes']     = [];
 		unset( $GLOBALS['stonewright_test_nonce_invalid'] );
 		AbilitiesRestApi::reset_for_tests();
 	}
 
 	protected function tearDown(): void {
+		unset( $GLOBALS['wp_rest_auth_cookie'] );
+		$GLOBALS['stonewright_test_user_logged_in']  = false;
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_user_caps']       = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
@@ -103,7 +109,7 @@ final class AbilitiesRestApiTest extends TestCase {
 
 		$no_rest_nonce = AbilitiesRestApi::check_permission( 'abilities.toggle', $this->request( 'POST', 'toggle', $toggle, false ) );
 		self::assertInstanceOf( \WP_Error::class, $no_rest_nonce );
-		self::assertSame( 'stonewright_abilities_invalid_nonce', $no_rest_nonce->get_error_code() );
+		self::assertSame( LeashGuard::ABILITIES_ERROR_CODE, $no_rest_nonce->get_error_code() );
 
 		unset( $toggle['action_nonce'] );
 		$no_form_nonce = AbilitiesRestApi::check_permission( 'abilities.toggle', $this->request( 'POST', 'toggle', $toggle ) );
@@ -116,8 +122,41 @@ final class AbilitiesRestApiTest extends TestCase {
 		self::assertSame( 403, $stale->get_error_data()['status'] );
 	}
 
-	public function test_reading_the_parameters_needs_no_nonce(): void {
-		self::assertTrue( AbilitiesRestApi::check_permission( 'abilities.parameters', $this->request( 'GET', 'parameters', [ 'name' => 'site-a/x' ], false ) ) );
+	public function test_reading_the_parameters_needs_no_form_nonce(): void {
+		self::assertTrue( AbilitiesRestApi::check_permission( 'abilities.parameters', $this->request( 'GET', 'parameters', [ 'name' => 'site-a/x' ] ) ) );
+	}
+
+	public function test_every_route_needs_a_person_in_wp_admin_not_an_application_password_or_a_bearer(): void {
+		// An Application Password or an OAuth bearer signs in without the cookie, whatever headers it sends.
+		unset( $GLOBALS['wp_rest_auth_cookie'] );
+
+		foreach ( [
+			[ 'abilities.toggle', $this->request( 'POST', 'toggle', [ 'name' => 'site-a/x', 'enabled' => true, 'action_nonce' => 'n' ] ) ],
+			[ 'abilities.bulk', $this->request( 'POST', 'bulk', [ 'action' => 'enable_selected', 'action_nonce' => 'n' ] ) ],
+			[ 'abilities.parameters', $this->request( 'GET', 'parameters', [ 'name' => 'site-a/x' ] ) ],
+		] as [ $route, $request ] ) {
+			$refused = AbilitiesRestApi::check_permission( $route, $request );
+			self::assertInstanceOf( \WP_Error::class, $refused, $route );
+			self::assertSame( 'stonewright_abilities_require_admin', $refused->get_error_code(), $route );
+			$data = $refused->get_error_data();
+			self::assertSame( 403, $data['status'], $route );
+			self::assertTrue( $data['approval_required'], $route );
+			self::assertTrue( $data['agent_must_stop'], $route );
+			self::assertStringContainsString( 'page=stonewright-abilities', $data['approval_url'], $route );
+		}
+
+		// The same requests from the page are accepted.
+		$GLOBALS['wp_rest_auth_cookie'] = true;
+		self::assertTrue( AbilitiesRestApi::check_permission( 'abilities.parameters', $this->request( 'GET', 'parameters', [ 'name' => 'site-a/x' ] ) ) );
+	}
+
+	public function test_a_cookie_sign_in_without_a_valid_rest_nonce_is_not_a_person_in_wp_admin(): void {
+		$GLOBALS['stonewright_test_nonce_invalid'] = true;
+
+		$refused = AbilitiesRestApi::check_permission( 'abilities.parameters', $this->request( 'GET', 'parameters', [ 'name' => 'site-a/x' ] ) );
+
+		self::assertInstanceOf( \WP_Error::class, $refused );
+		self::assertSame( 'stonewright_abilities_require_admin', $refused->get_error_code() );
 	}
 
 	public function test_toggle_changes_the_option_like_the_form_handler_and_returns_the_new_counts(): void {

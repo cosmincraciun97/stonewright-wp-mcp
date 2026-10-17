@@ -43,13 +43,16 @@ override default behavior.
    invalid specs with a structured `WP_Error` whose code is
    `stonewright_spec_invalid`.
 5. **Confirmation tokens for destructive operations.** When
-   `get_option( 'stonewright_mode', 'development' ) === 'production-safe'`,
+   `SiteMode::is_production_safe()` is true,
    every destructive ability must verify a token via
    `ConfirmationToken::verify( $token, $ability_name, $args )`. Tokens are
    issued by `stonewright/security-issue-confirmation-token`.
 6. **Mode support.** The plugin must always honor the three modes
    `development`, `staging`, and `production-safe`. The admin UI exposes the
-   toggle. Permissions and ability gates read the option.
+   toggle. Permissions and ability gates read the mode only through
+   `SiteMode::current()` or `SiteMode::is_production_safe()`, never with
+   `get_option( 'stonewright_mode' )`: a missing mode follows the environment
+   type and an invalid one counts as `production-safe`.
 7. **Companion WP-CLI stays tokenized; REST writes are a Direct mode
    exception.** The Node companion handles WP-CLI, health checks, and an
    optional MCP HTTP proxy. It must run WP-CLI with `execFile` argv tokens only,
