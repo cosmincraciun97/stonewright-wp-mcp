@@ -18,8 +18,8 @@ Run from `plugin/` unless noted.
       then `composer package:verify-manifests`.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
 - [ ] `cd .. && node scripts/check-docs-freshness.mjs` - versions, release notes, install prompts, and Markdown links are current.
-- [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs`
-      - prerelease/stable flags and exact published assets.
+- [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/release-signature.test.mjs`
+      - prerelease/stable flags, exact published assets, and the release signature.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms --history` - Git history is free of
       configured private project terms. Run it on a full clone; the scan stops on a shallow clone.
@@ -40,7 +40,9 @@ Run from `plugin/` unless noted.
       release workflow recipe; unpack and scan each archive for secrets,
       private terms, runtime state, development junk (including a `.github`
       folder), and missing dependencies.
-      Published assets are only those two archives plus `SHA256SUMS.txt`.
+      Published assets are only those two archives plus `SHA256SUMS.txt`
+      (and `SHA256SUMS.txt.sig` once releases are signed; see
+      [Release signing](#release-signing)).
 - [ ] `git diff --check` - zero whitespace errors.
 
 ## Publish
@@ -61,13 +63,60 @@ SemVer and is marked `Latest`. The native updater stays on the installed channel
    - `SHA256SUMS.txt`
 
    Its `publish` job runs in the `release` environment, re-checks the checksums,
-   and creates the GitHub release. When that environment requires reviewers,
+   signs `SHA256SUMS.txt` when signing is on, checks the assets again, records a
+   build provenance attestation (GitHub stores it; it is not an asset), and
+   creates the GitHub release. When that environment requires reviewers,
    approve the pending deployment in the Actions run.
 4. Confirm the GitHub release links to the expected assets and checksums.
 5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
    verification before upload.
 6. Download every published asset, run `sha256sum -c SHA256SUMS.txt`, and
    confirm the archive metadata reports the released plugin/companion version.
+   On a signed release, also run `node scripts/release-signature.mjs verify
+   --manifest <dir>/SHA256SUMS.txt --signature <dir>/SHA256SUMS.txt.sig`.
+
+## Release signing
+
+The updater verifies an Ed25519 signature of `SHA256SUMS.txt` in every
+Stonewright version that ships public keys in
+`plugin/includes/Core/ReleaseSignature.php` (`PUBLIC_KEYS`: the active key,
+then the backup key). The list is empty, so signing is off: releases carry the
+three assets of Hard rule 9 and the updater checks only the SHA-256. When the
+list holds keys, the `publish` job signs with the
+`STONEWRIGHT_RELEASE_SIGNING_KEY` secret of the `release` environment and stops
+when the secret is missing or its key is not in the list; the `package` job
+never sees the key.
+
+To switch signing on, once:
+
+1. Approve the fourth asset, `SHA256SUMS.txt.sig`, as a change to Hard rule 9
+   through the release decision gate.
+2. On a trusted computer, create two keys outside the repository:
+   `node scripts/release-signature.mjs keygen --out <folder>/stonewright-release-active.pem`
+   and the same with `stonewright-release-backup.pem`. Each run prints the
+   public key. Keep both private keys offline, for example in a password
+   manager; the backup key never goes to GitHub.
+3. In the repository settings, under **Environments → release**: require a
+   reviewer, limit deployments to tags matching `v*`, and add the secret
+   `STONEWRIGHT_RELEASE_SIGNING_KEY` with the full contents of the active PEM
+   file.
+4. In one pull request: add the two public keys to `PUBLIC_KEYS` (active
+   first), change Hard rule 9 and this checklist to four assets, say in
+   `docs/updates.md` and the release notes which version is signed first, and
+   add the changelog entry.
+5. Release as usual and run the signature check in step 6 of Publish.
+
+A site checks an update against the keys of the version it runs, and a site
+can skip versions. So sign only with a key that every supported version lists:
+
+- Planned key change: ship the new key in `PUBLIC_KEYS` next to the old ones
+  and keep signing with an old key. Switch the secret to the new key only once
+  no supported version lacks it, and drop the old key only after that.
+- Active key leaked or lost: put the backup key in the secret, then release a
+  version that removes the leaked key and adds a new backup key. A leaked key
+  keeps working for sites that have not updated, so tell operators to update.
+- Both keys lost: sites that list only those keys cannot update through
+  WordPress anymore and need a manual ZIP upload of a version with new keys.
 
 ## Client certification (tier-1)
 

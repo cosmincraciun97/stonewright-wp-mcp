@@ -396,6 +396,14 @@ companion recommendations cannot disagree. Versioned release notes declare
 support channel against SemVer before choosing GitHub's `Latest` or
 `Pre-release` state.
 
+At install time the updater compares the ZIP with the SHA-256 in its release's
+`SHA256SUMS.txt`, through the binding made when the update was queued. A
+version that lists release public keys in `ReleaseSignature::PUBLIC_KEYS` also
+requires `SHA256SUMS.txt.sig`, an Ed25519 signature of the exact manifest by one
+of those keys, and checks it before it reads the manifest or downloads the ZIP.
+The list is empty for now; [Updating Stonewright](updates.md#release-signature)
+describes the rollout.
+
 ### External browser consent boundary
 
 Stonewright does not embed or silently install a browser provider. Before

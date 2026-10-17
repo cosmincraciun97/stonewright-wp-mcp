@@ -35,6 +35,13 @@
   only when the type is public. `oembed-resolve` needs `edit_posts`.
   `stock-image-search` needs `upload_files` and encodes the search terms it sends
   to the provider.
+- Prepare signed releases. A Stonewright version that ships release public keys
+  installs an update only when the release's `SHA256SUMS.txt.sig`, an Ed25519
+  signature of `SHA256SUMS.txt`, verifies against one of them; the release
+  workflow then signs every release and stops when it cannot. No key ships yet,
+  so updates still use the checksum check only.
+- Record a GitHub build provenance attestation for the plugin ZIP and the
+  companion package of each release. It adds no release asset.
 
 ### Changed
 
