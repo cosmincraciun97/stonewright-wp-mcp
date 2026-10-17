@@ -206,6 +206,16 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'data.bridge.state', $body );
 	}
 
+	public function test_the_use_application_password_link_drives_the_existing_pickers(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initUsePasswordLinks();', $script );
+		self::assertStringContainsString( "[data-stonewright-use-password]", $script );
+		self::assertStringContainsString( "[data-stonewright-auth-method=\"application-password\"]", $script );
+		self::assertStringContainsString( "'data-stonewright-client-card'", $script );
+		self::assertStringContainsString( "getElementById( 'stonewright-application-password' )", $script );
+	}
+
 	public function test_setup_client_and_method_pickers_are_wired(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

@@ -269,6 +269,7 @@ final class SignInPanel {
 			}
 			$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $links );
 		}
+		$body .= self::managed_html( $guide );
 		foreach ( $guide['snippets'] as $snippet ) {
 			$body .= CodeBlock::render(
 				$snippet['code'],
@@ -301,6 +302,90 @@ final class SignInPanel {
 				'data-stonewright-connect-client' => $slug,
 				'open'                            => $open ? true : null,
 			],
+			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
+		);
+	}
+
+	/**
+	 * "Work account managed by an admin?": a closed disclosure with who may add a server, what to ask the admin for,
+	 * what a person can do locally and a button that copies a ready message for the admin. Every sentence is cut
+	 * around its values the same way the steps are, so a server name or URL is a copy chip.
+	 *
+	 * @param Guide $guide
+	 */
+	private static function managed_html( array $guide ): string {
+		$managed = $guide['managed'];
+		if ( null === $managed ) {
+			return '';
+		}
+		$slug   = $guide['slug'];
+		$prefix = 'sw-connect-' . $slug . '-managed';
+
+		$summary = Icon::render( 'chev-r' )
+			. Html::element( 'span', [ 'class' => 'sw-connect-managed__title' ], Html::text( __( 'Work account managed by an admin?', 'stonewright' ) ) )
+			. ( '' !== $managed['plans'] ? Html::element( 'span', [ 'class' => 'sw-ui-hint' ], Html::text( $managed['plans'] ) ) : '' );
+
+		$body = Html::element( 'p', [], self::parts_html( $managed['who']['parts'], $prefix . '-who', $managed['who']['text'] ) );
+
+		$steps = '';
+		foreach ( $managed['admin'] as $index => $step ) {
+			$steps .= Html::element( 'li', [], self::parts_html( $step['parts'], $prefix . '-a' . ( $index + 1 ), $step['text'] ) );
+		}
+		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
+		if ( null !== $managed['admin_link'] ) {
+			$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], self::link_html( $managed['admin_link'] ) );
+		}
+
+		foreach ( $managed['local'] as $index => $item ) {
+			if ( 'text' === $item['type'] && isset( $item['step'] ) ) {
+				$body .= Html::element( 'p', [], self::parts_html( $item['step']['parts'], $prefix . '-l' . ( $index + 1 ), $item['step']['text'] ) );
+			} elseif ( 'switch' === $item['type'] && isset( $item['label'], $item['slug'] ) ) {
+				// A link to step 2, so it works without script; the page script also picks the method and the client.
+				$body .= Html::element(
+					'div',
+					[ 'class' => 'sw-ui-actions' ],
+					Button::render( $item['label'], [ 'size' => 'sm', 'href' => '#stonewright-application-password', 'attrs' => [ 'data-stonewright-use-password' => $item['slug'] ] ] )
+				);
+			} elseif ( 'snippet' === $item['type'] && isset( $item['snippet'] ) ) {
+				$body .= CodeBlock::render(
+					$item['snippet']['code'],
+					[
+						'id'         => $prefix . '-code',
+						'title'      => $item['snippet']['title'],
+						'where'      => $item['snippet']['location'],
+						/* translators: 1: snippet title, 2: client name. */
+						'copy_label' => sprintf( __( '%1$s for %2$s', 'stonewright' ), $item['snippet']['title'], $guide['label'] ),
+						'body_class' => 'sw-connect-snippet__code',
+					]
+				);
+			}
+		}
+		if ( null !== $managed['note'] ) {
+			$body .= Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], self::parts_html( $managed['note']['parts'], $prefix . '-n', $managed['note']['text'] ) );
+		}
+
+		$status = $prefix . '-status';
+		$body  .= Html::element(
+			'div',
+			[ 'class' => 'sw-ui-actions' ],
+			Button::render(
+				__( 'Copy message for your admin', 'stonewright' ),
+				[
+					'size'  => 'sm',
+					'icon'  => 'copy',
+					'attrs' => [
+						'data-sw-ui-copy-text'         => $managed['message'],
+						'data-sw-ui-copy-status'       => '#' . $status,
+						'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+						'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+					],
+				]
+			) . Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'role' => 'status', 'id' => $status ], '' )
+		);
+
+		return Html::element(
+			'details',
+			[ 'class' => 'sw-ui-disclosure sw-connect-managed', 'id' => $prefix ],
 			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
 		);
 	}

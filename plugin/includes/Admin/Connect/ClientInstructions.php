@@ -27,11 +27,17 @@ use Stonewright\WpMcp\Admin\ClientCatalog;
  * cut around the values a person has to type or paste (the server name, the server URL), so the panel can
  * print each of those as a copyable value. Joining the values of the parts gives back the plain string.
  *
+ * "managed" is the guidance for a work account whose admin controls the client: who may add a server, what to ask
+ * the admin for, what a person can do locally and a message to send the admin. It is null for a client with no
+ * documented organization controls.
+ *
  * @phpstan-type Snippet array{key: string, title: string, format: string, location: string, code: string}
  * @phpstan-type Link array{label: string, url: string, schemes: list<string>}
  * @phpstan-type Part array{kind: string, value: string}
  * @phpstan-type Step array{text: string, parts: list<Part>}
- * @phpstan-type Guide array{slug: string, label: string, documented: bool, reach: string, tag: string, steps: list<string>, snippets: list<Snippet>, links: list<Link>, sign_in: string, limits: list<string>, step_parts: list<list<Part>>, sign_in_parts: list<Part>}
+ * @phpstan-type LocalItem array{type: string, step?: Step, label?: string, slug?: string, snippet?: Snippet}
+ * @phpstan-type Managed array{plans: string, who: Step, admin: list<Step>, admin_link: Link|null, local: list<LocalItem>, note: Step|null, message: string}
+ * @phpstan-type Guide array{slug: string, label: string, documented: bool, reach: string, tag: string, steps: list<string>, snippets: list<Snippet>, links: list<Link>, sign_in: string, limits: list<string>, step_parts: list<list<Part>>, sign_in_parts: list<Part>, managed: Managed|null}
  */
 final class ClientInstructions {
 
@@ -52,6 +58,8 @@ final class ClientInstructions {
 	private const CURSOR_INSTALL    = 'cursor://anysphere.cursor-deeplink/mcp/install';
 	private const CLAUDE_CONNECTORS = 'https://claude.ai/customize/connectors';
 	private const CHATGPT_PLUGINS   = 'https://chatgpt.com/plugins';
+
+	private const CLAUDE_ADMIN_CONNECTORS = 'https://claude.ai/admin-settings/connectors';
 
 	/**
 	 * Labels of the clients with published OAuth setup, keyed by catalog slug.
@@ -141,6 +149,7 @@ final class ClientInstructions {
 			'limits'        => $guide['limits'] ?? [],
 			'step_parts'    => array_column( $steps, 'parts' ),
 			'sign_in_parts' => $sign_in['parts'],
+			'managed'       => self::managed( $slug, $labels[ $slug ] ?? self::catalog_label( $slug ), $mcp_url, $name ),
 		];
 	}
 
@@ -205,7 +214,7 @@ final class ClientInstructions {
 				__( 'To share the server with a project, commit the .mcp.json entry instead; Claude Code asks for approval before it uses a project server.', 'stonewright' ),
 			],
 			'snippets' => [
-				self::snippet( 'add', __( 'Add the server', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp add --transport http ' . $name . ' ' . self::shell_word( $url ) ),
+				self::snippet( 'add', __( 'Add the server', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), self::claude_add_command( $name, $url ) ),
 				self::snippet( 'login', __( 'Sign in', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp login ' . $name ),
 				self::snippet( 'ssh', __( 'Sign in over SSH', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp login ' . $name . ' --no-browser' ),
 				self::snippet(
@@ -265,8 +274,10 @@ final class ClientInstructions {
 			? [ $cli, $share ]
 			: [
 				$cli,
-				__( 'ChatGPT desktop app: Settings > MCP servers > Add server > Streamable HTTP, enter the server URL, Save, then Restart. Click Authenticate when asked.', 'stonewright' ),
-				__( 'IDE extension: gear menu > MCP servers > Add server, Save, then Restart extension and click Authenticate.', 'stonewright' ),
+				/* translators: 1: suggested server name, 2: MCP server URL. */
+				self::step( __( 'ChatGPT desktop app: Settings > MCP servers > Add server > Streamable HTTP, enter a name such as %1$s and the server URL %2$s, Save, then Restart. Click Authenticate when asked.', 'stonewright' ), [ self::name( $name ), self::url( $url ) ] ),
+				/* translators: 1: suggested server name, 2: MCP server URL. */
+				self::step( __( 'IDE extension: gear menu > MCP servers > Add server, enter a name such as %1$s and the server URL %2$s, Save, then Restart extension and click Authenticate.', 'stonewright' ), [ self::name( $name ), self::url( $url ) ] ),
 				$share,
 			];
 		return [
@@ -374,7 +385,8 @@ final class ClientInstructions {
 		return [
 			'tag'      => __( 'Editor', 'stonewright' ),
 			'steps'    => [
-				__( 'Open Settings > AI > MCP Servers > Add Server > Add Remote Server, or add the entry to settings.json.', 'stonewright' ),
+				/* translators: %s: MCP server URL. */
+				self::step( __( 'Open Settings > AI > MCP Servers > Add Server > Add Remote Server and enter the server URL %s, or add the entry to settings.json.', 'stonewright' ), [ self::url( $url ) ] ),
 			],
 			'snippets' => [
 				self::snippet( 'config', __( 'Server entry', 'stonewright' ), 'json', __( 'settings.json (open it with zed: open settings file)', 'stonewright' ), self::json( [ 'context_servers' => [ $name => [ 'url' => $url ] ] ] ) ),
@@ -490,6 +502,197 @@ final class ClientInstructions {
 				__( 'Otherwise connect it with an Application Password: choose Application Password in step 2.', 'stonewright' ),
 			],
 		];
+	}
+
+	private static function claude_add_command( string $name, string $url ): string {
+		return 'claude mcp add --transport http ' . $name . ' ' . self::shell_word( $url );
+	}
+
+	/**
+	 * Work-account guidance for one client, or null where no organization controls are documented.
+	 *
+	 * @return Managed|null
+	 */
+	private static function managed( string $slug, string $label, string $url, string $name ): ?array {
+		if ( in_array( $slug, [ 'zed', 'grok-build' ], true ) ) {
+			return null;
+		}
+		$link   = null;
+		$local  = [];
+		$note   = null;
+		$plans  = '';
+		$hosted = in_array( $slug, [ 'claude-ai', 'claude-desktop', 'chatgpt' ], true );
+		$both   = [ self::name( $name ), self::url( $url ) ];
+
+		switch ( $slug ) {
+			case 'claude-ai':
+			case 'claude-desktop':
+				$plans = __( 'Team, Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'On Team plans only Owners can add a custom connector. On Enterprise plans, Owners or members with a custom role that can manage Libraries. Everyone else can only connect a connector the organization has added.', 'stonewright' ) );
+				$admin = [
+					/* translators: %s: MCP server URL. */
+					self::step( __( 'An Owner opens Organization settings > Connectors, chooses Add > Custom > Web and enters the server URL %s.', 'stonewright' ), [ self::url( $url ) ] ),
+					self::plain( __( "For the OAuth client, choose Use Claude's published identity or Register automatically. Stonewright needs no client ID or secret.", 'stonewright' ) ),
+					self::plain( __( 'Each member then opens Customize > Connectors, chooses the entry marked Custom, clicks Connect and approves the request on this site.', 'stonewright' ) ),
+				];
+				$link  = self::link( __( 'Open organization connector settings', 'stonewright' ), self::CLAUDE_ADMIN_CONNECTORS, 'https' );
+				if ( 'claude-desktop' === $slug ) {
+					$local = [
+						[
+							'type' => 'text',
+							'step' => self::plain( __( 'Claude Desktop can run Stonewright on your computer without an Owner: choose Application Password in step 2, then pick Claude Desktop and use its local configuration or the Claude Desktop extension.', 'stonewright' ) ),
+						],
+						[
+							'type'  => 'switch',
+							'label' => __( 'Use Application Password instead', 'stonewright' ),
+							'slug'  => 'claude-desktop',
+						],
+						[
+							'type' => 'text',
+							'step' => self::plain( __( 'Claude Code on your computer can connect too:', 'stonewright' ) ),
+						],
+						[
+							'type'    => 'snippet',
+							'snippet' => self::snippet( 'managed', __( 'Add the server', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), self::claude_add_command( $name, $url ) ),
+						],
+					];
+				} else {
+					$local = [
+						[
+							'type' => 'text',
+							'step' => self::plain( __( 'Claude on the web and on mobile has no local option. On your computer, use Claude Desktop with an Application Password or Claude Code instead; their cards show how.', 'stonewright' ) ),
+						],
+					];
+				}
+				$note  = self::plain( __( 'Admins can turn off local MCP servers and desktop extensions in Claude Desktop and can restrict servers in Claude Code. If they are off, ask your admin.', 'stonewright' ) );
+				$where = __( 'Organization settings > Connectors > Add > Custom > Web', 'stonewright' );
+				break;
+			case 'claude-code':
+				$plans = __( 'Team, Enterprise', 'stonewright' );
+				$who   = self::plain( __( "Anyone can add a server with claude mcp add unless your organization manages Claude Code's MCP settings.", 'stonewright' ) );
+				$admin = [
+					/* translators: %s: MCP server URL. */
+					self::step( __( 'If MCP servers are managed, ask your admin to allow the server URL %s (an allowedMcpServers entry with serverUrl) or to add it to managed-mcp.json.', 'stonewright' ), [ self::url( $url ) ] ),
+					self::plain( __( "A connector an Owner adds at claude.ai also appears in Claude Code when you sign in with your organization's Claude account.", 'stonewright' ) ),
+				];
+				$where = __( 'Claude Code managed settings: allowedMcpServers (serverUrl) or managed-mcp.json', 'stonewright' );
+				break;
+			case 'chatgpt':
+				$plans = __( 'Business, Enterprise, Edu', 'stonewright' );
+				$who   = self::plain( __( 'On Business plans only admins and owners can add a custom MCP server. On Enterprise and Edu plans, admins and owners, plus members who have the Create plugins with MCPs permission.', 'stonewright' ) );
+				$admin = [
+					/* translators: 1: suggested server name, 2: MCP server URL. */
+					self::step( __( 'An admin opens Plugins, chooses + > Add custom MCP server, enters the name %1$s and the URL %2$s, and chooses OAuth.', 'stonewright' ), $both ),
+					self::plain( __( 'The admin creates it as a plugin and publishes it to the workspace from the Admin console under Plugins.', 'stonewright' ) ),
+					self::plain( __( 'Members then add it from Plugins.', 'stonewright' ) ),
+				];
+				$local = [
+					[
+						'type' => 'text',
+						'step' => self::plain( __( 'ChatGPT on the web has no local option. The ChatGPT desktop app can connect from your computer; see Codex and the ChatGPT desktop app.', 'stonewright' ) ),
+					],
+				];
+				$where = __( 'Plugins > + > Add custom MCP server, then publish it to the workspace in the Admin console', 'stonewright' );
+				break;
+			case 'codex':
+			case 'codex-cli':
+				$plans = __( 'Business, Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'Anyone can add a server in Settings > MCP servers or in config.toml unless your organization limits MCP servers in a managed requirements.toml.', 'stonewright' ) );
+				$admin = [
+					/* translators: 1: suggested server name, 2: MCP server URL. */
+					self::step( __( 'Ask your admin to allow the server %1$s with the URL %2$s in requirements.toml (an mcp_servers entry with that name and identity URL).', 'stonewright' ), $both ),
+				];
+				$where = __( 'Managed requirements.toml: an mcp_servers entry with this name and URL', 'stonewright' );
+				break;
+			case 'cursor':
+				$plans = __( 'Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'Anyone can add a server in mcp.json unless an Enterprise admin enforces an MCP allowlist.', 'stonewright' ) );
+				$admin = [
+					/* translators: %s: suggested server name. */
+					self::step( __( 'Ask your admin to allow %s under MCP Configuration in the team dashboard, or to add it as a team server under Plugins & MCPs.', 'stonewright' ), [ self::name( $name ) ] ),
+				];
+				$where = __( 'Team dashboard > MCP Configuration (allowlist), or Plugins & MCPs', 'stonewright' );
+				break;
+			case 'vscode-copilot':
+			case 'github-copilot':
+				$plans = __( 'Copilot Business, Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'With Copilot Business or Enterprise, MCP servers work only after an admin turns on the MCP servers in Copilot policy, which is off by default. Copilot Free, Pro, Pro+ and Max are not affected.', 'stonewright' ) );
+				$admin = [
+					self::plain( __( 'Organization owner: Settings > Copilot > Policies > MCP servers in Copilot > Enabled. Enterprise owner: AI controls > MCP.', 'stonewright' ) ),
+					/* translators: %s: MCP server URL. */
+					self::step( __( 'If the organization limits MCP to a registry or an allowlist, ask them to allow %s.', 'stonewright' ), [ self::url( $url ) ] ),
+				];
+				$local = [
+					[
+						'type' => 'text',
+						'step' => self::plain( __( 'There is no local workaround while the policy is off.', 'stonewright' ) ),
+					],
+				];
+				$where = __( 'Settings > Copilot > Policies > MCP servers in Copilot, plus the MCP registry or allowlist if one is used', 'stonewright' );
+				break;
+			case 'windsurf':
+				$plans = __( 'Teams, Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'Anyone can add a server unless a Teams or Enterprise admin turned MCP off or set an allowlist. Once any server is on the allowlist, all others are blocked.', 'stonewright' ) );
+				$admin = [
+					/* translators: 1: suggested server name, 2: MCP server URL. */
+					self::step( __( 'Ask your admin to open Settings > Enterprise > Devin Desktop, allow MCP and add an allowlist entry whose Server ID is exactly %1$s, for the URL %2$s.', 'stonewright' ), $both ),
+				];
+				$where = __( 'Settings > Enterprise > Devin Desktop > MCP allowlist (the Server ID must match the name)', 'stonewright' );
+				break;
+			case 'gemini-cli':
+				$plans = __( 'Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'Anyone can add a server unless system settings limit the allowed MCP servers or the admin allowlist is on.', 'stonewright' ) );
+				$admin = [
+					/* translators: 1: suggested server name, 2: MCP server URL. */
+					self::step( __( 'Ask your admin to allow the server %1$s with the URL %2$s in the Gemini CLI system settings (mcp.allowed) or in the admin MCP allowlist.', 'stonewright' ), $both ),
+				];
+				$where = __( 'Gemini CLI system settings (mcp.allowed) or the admin MCP allowlist', 'stonewright' );
+				break;
+			case 'antigravity':
+			case 'antigravity-cli':
+				$plans = __( 'Gemini Enterprise', 'stonewright' );
+				$who   = self::plain( __( 'On Gemini Enterprise, MCP servers stay off until an admin turns them on.', 'stonewright' ) );
+				$admin = [
+					/* translators: %s: MCP server URL. */
+					self::step( __( 'An admin with the Gemini Enterprise Admin role opens Google Cloud console > Gemini Enterprise > Settings > AI developer tools, turns on MCP servers and adds %s to the allowed server configuration.', 'stonewright' ), [ self::url( $url ) ] ),
+				];
+				$where = __( 'Google Cloud console > Gemini Enterprise > Settings > AI developer tools', 'stonewright' );
+				break;
+			default:
+				$who   = self::plain( __( 'If your organization manages this client, an admin may need to allow the server first.', 'stonewright' ) );
+				$admin = [
+					/* translators: %s: MCP server URL. */
+					self::step( __( 'Ask your admin to allow the server URL %s. Stonewright signs people in with OAuth and supports dynamic client registration and client ID metadata documents, so no client ID or secret is needed.', 'stonewright' ), [ self::url( $url ) ] ),
+				];
+				$where = __( "The client's MCP server settings or allowlist", 'stonewright' );
+		}
+
+		/* translators: 1: client name, 2: suggested server name, 3: MCP server URL, 4: where the admin adds it. */
+		$message = sprintf( __( "Hello,\n\nPlease add the Stonewright MCP server for our WordPress site in %1\$s.\n\nName: %2\$s\nServer URL: %3\$s\nSign-in: OAuth. Each person signs in with their own WordPress account. Dynamic client registration and client ID metadata documents are supported, so no client ID or secret is needed.\nWhere: %4\$s", 'stonewright' ), $label, $name, $url, $where );
+		if ( $hosted ) {
+			/* translators: %s: client name. */
+			$message .= "\n" . sprintf( __( '%s connects from its own cloud, so this site must be reachable from the public internet.', 'stonewright' ), $label );
+		}
+		$message .= "\n\n" . __( 'Thank you!', 'stonewright' );
+
+		return [
+			'plans'      => $plans,
+			'who'        => $who,
+			'admin'      => $admin,
+			'admin_link' => $link,
+			'local'      => $local,
+			'note'       => $note,
+			'message'    => $message,
+		];
+	}
+
+	/**
+	 * A sentence with no placeholder as a step.
+	 *
+	 * @return Step
+	 */
+	private static function plain( string $text ): array {
+		return self::as_step( $text );
 	}
 
 	/**
