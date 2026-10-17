@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Admin\Connect;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\ClientCatalog;
+use Stonewright\WpMcp\Admin\Connect\ClientInstructions;
 use Stonewright\WpMcp\Admin\Connect\ConnectedClients;
 use Stonewright\WpMcp\Admin\Connect\SignInPanel;
 use Stonewright\WpMcp\Admin\Connect\SignInStatus;
@@ -117,6 +118,71 @@ final class SignInPanelTest extends TestCase {
 		}
 		self::assertStringContainsString( '<pre class="sw-ui-code__body sw-connect-snippet__code" id="sw-connect-claude-code-add" tabindex="0" aria-label="Add the server: Add the server for Claude Code"><code>claude mcp add --transport http stonewright-example-test https://example.com/wp-json/mcp/stonewright-oauth</code></pre>', $html );
 		self::assertStringContainsString( '.mcp.json', $html );
+	}
+
+	/** The guide of one client as the panel prints it, from its summary to the next one. */
+	private static function guide_markup( string $html, string $slug ): string {
+		self::assertSame( 1, preg_match( '/<details class="sw-ui-disclosure sw-connect-client" id="sw-connect-client-' . preg_quote( $slug, '/' ) . '".*?<\/details>/s', $html, $found ), $slug );
+
+		return $found[0];
+	}
+
+	public function test_the_server_name_and_url_in_a_step_are_copyable_values(): void {
+		$html  = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
+		$guide = self::guide_markup( $html, 'claude-ai' );
+		$url   = 'https://example.com/wp-json/mcp/stonewright-oauth';
+
+		self::assertStringContainsString( '<li>Enter a name such as <span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-ai-s2-1">stonewright-example-test</code>', $guide );
+		self::assertStringContainsString( '</span> and the server URL <span class="sw-ui-copy-chip"><code class="sw-ui-copy-chip__value" id="sw-connect-claude-ai-s2-2">' . $url . '</code>', $guide );
+		self::assertStringContainsString( 'aria-label="Copy server name" data-sw-ui-copy="#sw-connect-claude-ai-s2-1" data-sw-ui-copy-status="#sw-connect-claude-ai-s2-1-status"', $guide );
+		self::assertStringContainsString( 'aria-label="Copy MCP server URL" data-sw-ui-copy="#sw-connect-claude-ai-s2-2"', $guide );
+		self::assertSame( 2, substr_count( $guide, 'sw-ui-copy-chip__value' ) );
+		self::assertStringContainsString( '<li>In Claude, open Customize &gt; Connectors and choose Add custom connector.</li>', $guide, 'A step without values stays plain text.' );
+
+		self::assertSame( 1, substr_count( self::guide_markup( $html, 'claude-code' ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 2, substr_count( self::guide_markup( $html, 'chatgpt' ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 1, substr_count( self::guide_markup( $html, 'generic-mcp' ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 1, substr_count( self::guide_markup( $html, 'gemini-cli' ), 'sw-ui-copy-chip__value' ) );
+		self::assertSame( 0, substr_count( self::guide_markup( $html, 'cursor' ), 'sw-ui-copy-chip__value' ) );
+		self::assertStringContainsString( '<p class="sw-connect-signin"><strong>How sign-in starts:</strong> Sign-in starts on its own after the first 401 from this site. Inside the CLI, /mcp auth <span class="sw-ui-copy-chip">', self::guide_markup( $html, 'gemini-cli' ) );
+	}
+
+	public function test_every_chip_status_resolves_and_the_text_of_each_step_is_unchanged(): void {
+		$status = self::status();
+		$html   = self::html( static fn () => SignInPanel::render_guides( $status, '' ) );
+
+		self::assertGreaterThan( 8, (int) preg_match_all( '/data-sw-ui-copy-status="#([^"]+)"/', $html, $statuses ) );
+		foreach ( $statuses[1] as $target ) {
+			self::assertSame( 1, substr_count( $html, 'id="' . $target . '"' ), $target );
+		}
+		foreach ( ClientInstructions::all( $status['mcp_url'], $status['server_name'] ) as $guide ) {
+			$markup = self::guide_markup( $html, $guide['slug'] );
+			preg_match( '/<ol class="sw-connect-steps">(.*?)<\/ol>/s', $markup, $list );
+			preg_match_all( '/<li>(.*?)<\/li>/s', $list[1], $items );
+			$printed = array_map( static fn ( string $item ): string => html_entity_decode( strip_tags( (string) preg_replace( '/<button.*?<\/button>/s', '', $item ) ), ENT_QUOTES ), $items[1] );
+			self::assertSame( $guide['steps'], $printed, $guide['slug'] );
+		}
+	}
+
+	public function test_a_value_with_markup_in_a_step_is_escaped(): void {
+		$site = new SiteProfile(
+			true,
+			'production',
+			[
+				'issuer'                 => 'https://example.com',
+				'resource'               => 'https://example.com/wp-json/mcp/"><script>alert(1)</script>',
+				'authorization_endpoint' => 'https://example.com/wp-admin/admin.php?page=stonewright-oauth-authorize',
+				'consent_endpoint'       => 'https://example.com/wp-admin/admin.php?page=stonewright-oauth-consent',
+				'token_endpoint'         => 'https://example.com/wp-json/stonewright/v1/oauth/token',
+				'registration_endpoint'  => 'https://example.com/wp-json/stonewright/v1/oauth/register',
+				'revocation_endpoint'    => 'https://example.com/wp-json/stonewright/v1/oauth/revoke',
+				'introspection_endpoint' => 'https://example.com/wp-json/stonewright/v1/oauth/introspect',
+			]
+		);
+		$guide = self::guide_markup( self::html( static fn () => SignInPanel::render_guides( self::status( $site ), '' ) ), 'generic-mcp' );
+
+		self::assertStringNotContainsString( '<script', $guide );
+		self::assertStringContainsString( 'sw-connect-generic-mcp-s1-1">https://example.com/wp-json/mcp/&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;</code>', $guide );
 	}
 
 	public function test_install_links_keep_their_client_schemes(): void {

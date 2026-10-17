@@ -209,11 +209,21 @@
 	}
 
 	function copyViaTextarea( value ) {
+		var previous = document.activeElement;
 		var area = el( 'textarea' );
 		area.value = value;
 		area.setAttribute( 'readonly', '' );
+		area.setAttribute( 'aria-hidden', 'true' );
 		area.className = 'sw-ui-visually-hidden';
+		// The class only applies inside the layer, and the area sits on the body: keep it out of sight and out of the
+		// layout inline, so selecting it neither flashes nor scrolls the page.
+		area.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;pointer-events:none;';
 		document.body.appendChild( area );
+		try {
+			area.focus( { preventScroll: true } );
+		} catch ( error ) {
+			area.focus();
+		}
 		area.select();
 		var copied = false;
 		try {
@@ -222,6 +232,13 @@
 			copied = false;
 		}
 		document.body.removeChild( area );
+		if ( previous && previous.focus ) {
+			try {
+				previous.focus( { preventScroll: true } );
+			} catch ( error ) {
+				previous.focus();
+			}
+		}
 		return copied;
 	}
 

@@ -23,9 +23,15 @@ use Stonewright\WpMcp\Admin\ClientCatalog;
  * a value only when a shell would reinterpret it, so the common case can be pasted
  * unchanged into bash, zsh, PowerShell or cmd.
  *
+ * "steps" and "sign_in" stay plain translated strings. "step_parts" and "sign_in_parts" carry the same text
+ * cut around the values a person has to type or paste (the server name, the server URL), so the panel can
+ * print each of those as a copyable value. Joining the values of the parts gives back the plain string.
+ *
  * @phpstan-type Snippet array{key: string, title: string, format: string, location: string, code: string}
  * @phpstan-type Link array{label: string, url: string, schemes: list<string>}
- * @phpstan-type Guide array{slug: string, label: string, documented: bool, reach: string, tag: string, steps: list<string>, snippets: list<Snippet>, links: list<Link>, sign_in: string, limits: list<string>}
+ * @phpstan-type Part array{kind: string, value: string}
+ * @phpstan-type Step array{text: string, parts: list<Part>}
+ * @phpstan-type Guide array{slug: string, label: string, documented: bool, reach: string, tag: string, steps: list<string>, snippets: list<Snippet>, links: list<Link>, sign_in: string, limits: list<string>, step_parts: list<list<Part>>, sign_in_parts: list<Part>}
  */
 final class ClientInstructions {
 
@@ -37,6 +43,11 @@ final class ClientInstructions {
 
 	/** The client runs locally but signs in only to HTTPS sites on a public address. */
 	public const REACH_PUBLIC = 'public';
+
+	/** Part kinds: running text, the suggested server name and the MCP server URL. */
+	public const PART_TEXT = 'text';
+	public const PART_NAME = 'name';
+	public const PART_URL  = 'url';
 
 	private const CURSOR_INSTALL    = 'cursor://anysphere.cursor-deeplink/mcp/install';
 	private const CLAUDE_CONNECTORS = 'https://claude.ai/customize/connectors';
@@ -114,18 +125,22 @@ final class ClientInstructions {
 			'generic-mcp'                      => self::generic( $mcp_url ),
 			default                            => self::undocumented( $slug, $mcp_url ),
 		};
-		$labels = self::labels();
+		$labels  = self::labels();
+		$steps   = array_map( [ self::class, 'as_step' ], $guide['steps'] );
+		$sign_in = self::as_step( $guide['sign_in'] ?? '' );
 		return [
-			'slug'       => $slug,
-			'label'      => $labels[ $slug ] ?? self::catalog_label( $slug ),
-			'documented' => isset( $labels[ $slug ] ),
-			'reach'      => $guide['reach'] ?? self::REACH_LOCAL,
-			'tag'        => $guide['tag'],
-			'steps'      => $guide['steps'],
-			'snippets'   => $guide['snippets'] ?? [],
-			'links'      => $guide['links'] ?? [],
-			'sign_in'    => $guide['sign_in'] ?? '',
-			'limits'     => $guide['limits'] ?? [],
+			'slug'          => $slug,
+			'label'         => $labels[ $slug ] ?? self::catalog_label( $slug ),
+			'documented'    => isset( $labels[ $slug ] ),
+			'reach'         => $guide['reach'] ?? self::REACH_LOCAL,
+			'tag'           => $guide['tag'],
+			'steps'         => array_column( $steps, 'text' ),
+			'snippets'      => $guide['snippets'] ?? [],
+			'links'         => $guide['links'] ?? [],
+			'sign_in'       => $sign_in['text'],
+			'limits'        => $guide['limits'] ?? [],
+			'step_parts'    => array_column( $steps, 'parts' ),
+			'sign_in_parts' => $sign_in['parts'],
 		];
 	}
 
@@ -154,7 +169,7 @@ final class ClientInstructions {
 		$steps = [
 			__( 'In Claude, open Customize > Connectors and choose Add custom connector.', 'stonewright' ),
 			/* translators: 1: suggested connector name, 2: MCP server URL. */
-			sprintf( __( 'Enter a name such as %1$s and the server URL %2$s', 'stonewright' ), $name, $url ),
+			self::step( __( 'Enter a name such as %1$s and the server URL %2$s', 'stonewright' ), [ self::name( $name ), self::url( $url ) ] ),
 			__( "Under Authentication choose Sign in now. Under OAuth client choose Use Claude's published identity, or Register automatically.", 'stonewright' ),
 			__( 'Click Add, then Connect, and approve the request on this site.', 'stonewright' ),
 			__( 'Team and Enterprise plans: an Owner adds the URL under Organization settings > Connectors > Add > Custom > Web, then members click Connect on the Custom entry in Customize > Connectors.', 'stonewright' ),
@@ -186,12 +201,13 @@ final class ClientInstructions {
 				__( 'Run the add command. It saves the server for the current project; put --scope user before the name to use it in every project.', 'stonewright' ),
 				__( 'Sign in with claude mcp login (Claude Code 2.1.186 or later), or run /mcp in a session and follow the browser steps.', 'stonewright' ),
 				/* translators: %s: MCP server name. */
-				sprintf( __( 'Over SSH, run claude mcp login %s --no-browser and paste the redirect URL back.', 'stonewright' ), $name ),
+				self::step( __( 'Over SSH, run claude mcp login %s --no-browser and paste the redirect URL back.', 'stonewright' ), [ self::name( $name ) ] ),
 				__( 'To share the server with a project, commit the .mcp.json entry instead; Claude Code asks for approval before it uses a project server.', 'stonewright' ),
 			],
 			'snippets' => [
 				self::snippet( 'add', __( 'Add the server', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp add --transport http ' . $name . ' ' . self::shell_word( $url ) ),
 				self::snippet( 'login', __( 'Sign in', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp login ' . $name ),
+				self::snippet( 'ssh', __( 'Sign in over SSH', 'stonewright' ), 'shell', __( 'Terminal', 'stonewright' ), 'claude mcp login ' . $name . ' --no-browser' ),
 				self::snippet(
 					'project',
 					__( 'Share with a project', 'stonewright' ),
@@ -226,9 +242,9 @@ final class ClientInstructions {
 			'steps'   => [
 				__( 'Open chatgpt.com/plugins, select +, then Add custom MCP server.', 'stonewright' ),
 				/* translators: %s: suggested server name. */
-				sprintf( __( 'Enter a name such as %s and a short description.', 'stonewright' ), $name ),
+				self::step( __( 'Enter a name such as %s and a short description.', 'stonewright' ), [ self::name( $name ) ] ),
 				/* translators: %s: MCP server URL. */
-				sprintf( __( 'Under Connection enter the server URL %s', 'stonewright' ), $url ),
+				self::step( __( 'Under Connection enter the server URL %s', 'stonewright' ), [ self::url( $url ) ] ),
 				__( 'Configure authentication, accept the warning, then choose Create as a plugin.', 'stonewright' ),
 				__( "When this site's sign-in settings change, open the plugin and click Refresh.", 'stonewright' ),
 			],
@@ -384,7 +400,7 @@ final class ClientInstructions {
 				self::snippet( 'config', __( 'Server entry', 'stonewright' ), 'json', __( '~/.gemini/settings.json, or .gemini/settings.json for one project', 'stonewright' ), self::json( [ 'mcpServers' => [ $name => [ 'httpUrl' => $url ] ] ] ) ),
 			],
 			/* translators: %s: MCP server name. */
-			'sign_in'  => sprintf( __( 'Sign-in starts on its own after the first 401 from this site. Inside the CLI, /mcp auth %s signs in again.', 'stonewright' ), $name ),
+			'sign_in'  => self::step( __( 'Sign-in starts on its own after the first 401 from this site. Inside the CLI, /mcp auth %s signs in again.', 'stonewright' ), [ self::name( $name ) ] ),
 			'limits'   => [
 				__( 'Gemini CLI signs in only to HTTPS servers on a public address. It refuses plain HTTP and private, local and network addresses.', 'stonewright' ),
 				__( 'It needs a browser on the same machine, so sign-in does not work over SSH without a display or inside containers.', 'stonewright' ),
@@ -445,7 +461,7 @@ final class ClientInstructions {
 			'tag'     => __( 'Any client', 'stonewright' ),
 			'steps'   => [
 				/* translators: %s: MCP server URL. */
-				sprintf( __( 'Add %s as a remote MCP server with the Streamable HTTP transport and no Authorization header.', 'stonewright' ), $url ),
+				self::step( __( 'Add %s as a remote MCP server with the Streamable HTTP transport and no Authorization header.', 'stonewright' ), [ self::url( $url ) ] ),
 				__( 'A client that follows the MCP authorization specification finds the sign-in settings on this site and asks you to approve access.', 'stonewright' ),
 			],
 			'sign_in' => __( 'The client starts the sign-in when this site answers 401 and opens your browser to approve it.', 'stonewright' ),
@@ -470,9 +486,106 @@ final class ClientInstructions {
 				/* translators: %s: client name. */
 				sprintf( __( 'This page has no published browser sign-in steps for %s.', 'stonewright' ), $label ),
 				/* translators: 1: client name, 2: MCP server URL. */
-				sprintf( __( 'If %1$s can add a remote MCP server over Streamable HTTP with OAuth, add %2$s and approve the request on this site.', 'stonewright' ), $label, $url ),
+				self::step( __( 'If %1$s can add a remote MCP server over Streamable HTTP with OAuth, add %2$s and approve the request on this site.', 'stonewright' ), [ self::text( $label ), self::url( $url ) ] ),
 				__( 'Otherwise connect it with an Application Password: choose Application Password in step 2.', 'stonewright' ),
 			],
+		];
+	}
+
+	/**
+	 * A translated sentence with sprintf placeholders, filled with values and cut around them.
+	 *
+	 * The cut follows the translated string, so a translation that moves or reorders the placeholders
+	 * (%1$s, %2$s) still shows each value where its text puts it.
+	 *
+	 * @param list<Part> $values In placeholder order.
+	 * @return Step
+	 */
+	private static function step( string $format, array $values ): array {
+		$text   = vsprintf( $format, array_column( $values, 'value' ) );
+		$parts  = [];
+		$next   = 0;
+		$pieces = preg_split( '/(%(?:\d+\$)?s|%%)/', $format, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY );
+		foreach ( false === $pieces ? [ $format ] : $pieces as $piece ) {
+			if ( '%%' === $piece ) {
+				$parts[] = self::text( '%' );
+			} elseif ( 1 === preg_match( '/^%(?:(\d+)\$)?s$/', $piece, $slot ) ) {
+				$index   = isset( $slot[1] ) && '' !== $slot[1] ? (int) $slot[1] - 1 : $next++;
+				$parts[] = $values[ $index ] ?? self::text( '' );
+			} else {
+				$parts[] = self::text( $piece );
+			}
+		}
+		$parts = self::merge( $parts );
+		// A format with other specifiers than %s cannot be cut safely: print the sentence as plain text.
+		if ( implode( '', array_column( $parts, 'value' ) ) !== $text ) {
+			$parts = self::merge( [ self::text( $text ) ] );
+		}
+
+		return [
+			'text'  => $text,
+			'parts' => $parts,
+		];
+	}
+
+	/**
+	 * A guide entry as a step: a plain string is one text part.
+	 *
+	 * @param string|Step $entry
+	 * @return Step
+	 */
+	private static function as_step( string|array $entry ): array {
+		if ( is_array( $entry ) ) {
+			return $entry;
+		}
+
+		return [
+			'text'  => $entry,
+			'parts' => self::merge( [ self::text( $entry ) ] ),
+		];
+	}
+
+	/**
+	 * Adjacent text parts joined and empty text dropped.
+	 *
+	 * @param list<Part> $parts
+	 * @return list<Part>
+	 */
+	private static function merge( array $parts ): array {
+		$merged = [];
+		foreach ( $parts as $part ) {
+			$last = count( $merged ) - 1;
+			if ( self::PART_TEXT === $part['kind'] && $last >= 0 && self::PART_TEXT === $merged[ $last ]['kind'] ) {
+				$merged[ $last ]['value'] .= $part['value'];
+			} elseif ( self::PART_TEXT !== $part['kind'] || '' !== $part['value'] ) {
+				$merged[] = $part;
+			}
+		}
+
+		return $merged;
+	}
+
+	/** @return Part */
+	private static function text( string $value ): array {
+		return [
+			'kind'  => self::PART_TEXT,
+			'value' => $value,
+		];
+	}
+
+	/** @return Part */
+	private static function name( string $value ): array {
+		return [
+			'kind'  => self::PART_NAME,
+			'value' => $value,
+		];
+	}
+
+	/** @return Part */
+	private static function url( string $value ): array {
+		return [
+			'kind'  => self::PART_URL,
+			'value' => $value,
 		];
 	}
 

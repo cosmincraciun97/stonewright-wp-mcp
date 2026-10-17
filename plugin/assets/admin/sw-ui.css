@@ -1522,6 +1522,40 @@
 	}
 }
 
+/* Copy chip (Ui\CopyChip): a value inside a sentence, on a tint, with a small copy button after it. The value wraps
+   inside its box, and the chip never grows past its line, so a long URL cannot widen the card. */
+.sw-ui .sw-ui-copy-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-1);
+	max-width: 100%;
+	padding-inline-start: var(--sw-space-1);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-accent-soft);
+	color: var(--sw-text);
+}
+
+.sw-ui .sw-ui-copy-chip__value {
+	min-width: 0;
+	padding: 0 var(--sw-space-1);
+	border: 0;
+	background: transparent;
+	color: inherit;
+	user-select: all;
+}
+
+/* The button is the 24px extra small tertiary icon button: no frame of its own, so the chip reads as one piece. */
+:where(.sw-ui) .sw-ui-copy-chip .sw-ui-btn {
+	flex: none;
+}
+
+@media (forced-colors: active) {
+	.sw-ui .sw-ui-copy-chip {
+		border-color: ButtonText;
+	}
+}
+
 .sw-ui .sw-ui-code {
 	--sw-focus-ring: var(--sw-inverse-fg);
 	border: 1px solid var(--sw-inverse-border);

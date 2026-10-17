@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Show the suggested server name and the MCP server URL inside the setup steps
+  of each AI client on **Stonewright → Setup** as highlighted values with a
+  small copy button next to them. The hosted apps (Claude.ai, Claude Desktop,
+  ChatGPT), Claude Code, Gemini CLI, Other MCP clients and clients without
+  published steps get them; Claude Code also gets a copyable command for
+  signing in over SSH.
+
 ## [1.0.0-beta.16.2] - 2026-10-13
 
 ### Added

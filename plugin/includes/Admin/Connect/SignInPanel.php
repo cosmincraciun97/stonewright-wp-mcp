@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\Ui\Badge;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\CodeBlock;
+use Stonewright\WpMcp\Admin\Ui\CopyChip;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
@@ -30,7 +31,9 @@ use Stonewright\WpMcp\Admin\Ui\Table;
  *
  * Everything readable is server-rendered: disclosures are native details elements and disconnecting is a plain
  * form post, so nothing here needs JavaScript. Copy buttons use the shared UI script when it is present. Every
- * value is escaped at output; markup comes from the Ui helpers.
+ * value is escaped at output; markup comes from the Ui helpers. In a step, the server name and the server URL
+ * are printed as copy chips: the translated sentence is cut around them, so text is escaped as text and a
+ * value is never part of a translation.
  *
  * @phpstan-import-type Status from SignInStatus
  * @phpstan-import-type Guide from ClientInstructions
@@ -254,8 +257,8 @@ final class SignInPanel {
 			$body .= Notice::callout( 'warn', '', $warning );
 		}
 		$steps = '';
-		foreach ( $guide['steps'] as $step ) {
-			$steps .= Html::element( 'li', [], Html::text( $step ) );
+		foreach ( $guide['steps'] as $index => $step ) {
+			$steps .= Html::element( 'li', [], self::parts_html( $guide['step_parts'][ $index ] ?? [], 'sw-connect-' . $slug . '-s' . ( $index + 1 ), $step ) );
 		}
 		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
 
@@ -280,7 +283,7 @@ final class SignInPanel {
 			);
 		}
 		if ( '' !== $guide['sign_in'] ) {
-			$body .= Html::element( 'p', [ 'class' => 'sw-connect-signin' ], Html::element( 'strong', [], Html::text( __( 'How sign-in starts:', 'stonewright' ) ) ) . ' ' . Html::text( $guide['sign_in'] ) );
+			$body .= Html::element( 'p', [ 'class' => 'sw-connect-signin' ], Html::element( 'strong', [], Html::text( __( 'How sign-in starts:', 'stonewright' ) ) ) . ' ' . self::parts_html( $guide['sign_in_parts'], 'sw-connect-' . $slug . '-signin', $guide['sign_in'] ) );
 		}
 		if ( [] !== $guide['limits'] ) {
 			$limits = '';
@@ -300,6 +303,35 @@ final class SignInPanel {
 			],
 			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
 		);
+	}
+
+	/**
+	 * A sentence cut into text and values: text is escaped, a server name or URL becomes a copy chip.
+	 *
+	 * @param list<array{kind: string, value: string}> $parts
+	 * @param string                                   $fallback Printed as text when there are no parts.
+	 */
+	private static function parts_html( array $parts, string $id_prefix, string $fallback ): string {
+		if ( [] === $parts ) {
+			return Html::text( $fallback );
+		}
+		$html  = '';
+		$count = 0;
+		foreach ( $parts as $part ) {
+			$what = match ( $part['kind'] ) {
+				ClientInstructions::PART_URL  => __( 'MCP server URL', 'stonewright' ),
+				ClientInstructions::PART_NAME => __( 'server name', 'stonewright' ),
+				default                       => '',
+			};
+			if ( '' === $what ) {
+				$html .= Html::text( $part['value'] );
+				continue;
+			}
+			++$count;
+			$html .= CopyChip::render( $part['value'], [ 'id' => $id_prefix . '-' . $count, 'label' => $what ] );
+		}
+
+		return $html;
 	}
 
 	/** @param array{label: string, url: string, schemes: list<string>} $link */

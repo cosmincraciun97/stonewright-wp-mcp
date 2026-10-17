@@ -59,7 +59,7 @@ final class ClientInstructionsTest extends TestCase {
 		self::assertSame( $sorted, $labels );
 		foreach ( $guides as $guide ) {
 			$slug = $guide['slug'];
-			self::assertSame( [ 'slug', 'label', 'documented', 'reach', 'tag', 'steps', 'snippets', 'links', 'sign_in', 'limits' ], array_keys( $guide ), $slug );
+			self::assertSame( [ 'slug', 'label', 'documented', 'reach', 'tag', 'steps', 'snippets', 'links', 'sign_in', 'limits', 'step_parts', 'sign_in_parts' ], array_keys( $guide ), $slug );
 			self::assertNotSame( '', $guide['label'], $slug );
 			self::assertNotSame( '', $guide['tag'], $slug );
 			self::assertContains( $guide['reach'], [ ClientInstructions::REACH_LOCAL, ClientInstructions::REACH_HOSTED, ClientInstructions::REACH_PUBLIC ], $slug );
@@ -76,6 +76,91 @@ final class ClientInstructionsTest extends TestCase {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Every value a person has to type or paste, per client, in reading order: the step number (0 for the
+	 * sign-in line) is the key, the kinds the values.
+	 *
+	 * @return array<string, array<int, list<string>>>
+	 */
+	private static function expected_values(): array {
+		return [
+			'claude-ai'      => [ 2 => [ 'name', 'url' ] ],
+			'claude-desktop' => [ 3 => [ 'name', 'url' ] ],
+			'claude-code'    => [ 3 => [ 'name' ] ],
+			'chatgpt'        => [ 2 => [ 'name' ], 3 => [ 'url' ] ],
+			'gemini-cli'     => [ 0 => [ 'name' ] ],
+			'generic-mcp'    => [ 1 => [ 'url' ] ],
+			'cline'          => [ 2 => [ 'url' ] ],
+			'roo-code'       => [ 2 => [ 'url' ] ],
+		];
+	}
+
+	/** @return array<int, list<string>> Step number (0 is the sign-in line) => kinds of the values in it. */
+	private static function value_kinds( array $guide ): array {
+		$found = [];
+		foreach ( array_merge( [ $guide['sign_in_parts'] ], $guide['step_parts'] ) as $index => $parts ) {
+			$kinds = [];
+			foreach ( $parts as $part ) {
+				if ( ClientInstructions::PART_TEXT !== $part['kind'] ) {
+					$kinds[] = $part['kind'];
+				}
+			}
+			if ( [] !== $kinds ) {
+				$found[ $index ] = $kinds;
+			}
+		}
+
+		return $found;
+	}
+
+	public function test_step_parts_repeat_the_steps_and_mark_the_values_to_copy(): void {
+		foreach ( array_merge( self::DOCUMENTED, [ 'cline', 'roo-code' ] ) as $slug ) {
+			$guide = self::guide( $slug );
+
+			self::assertCount( count( $guide['steps'] ), $guide['step_parts'], $slug );
+			foreach ( $guide['step_parts'] as $index => $parts ) {
+				self::assertSame( $guide['steps'][ $index ], implode( '', array_column( $parts, 'value' ) ), $slug . ' step ' . ( $index + 1 ) );
+			}
+			self::assertSame( $guide['sign_in'], implode( '', array_column( $guide['sign_in_parts'], 'value' ) ), $slug );
+			foreach ( array_merge( [ $guide['sign_in_parts'] ], $guide['step_parts'] ) as $parts ) {
+				foreach ( $parts as $part ) {
+					self::assertSame( [ 'kind', 'value' ], array_keys( $part ), $slug );
+					if ( ClientInstructions::PART_NAME === $part['kind'] ) {
+						self::assertSame( self::NAME, $part['value'], $slug );
+					} elseif ( ClientInstructions::PART_URL === $part['kind'] ) {
+						self::assertSame( self::URL, $part['value'], $slug );
+					} else {
+						self::assertSame( ClientInstructions::PART_TEXT, $part['kind'], $slug );
+						self::assertNotSame( '', $part['value'], $slug );
+					}
+				}
+			}
+			self::assertSame( self::expected_values()[ $slug ] ?? [], self::value_kinds( $guide ), $slug );
+		}
+	}
+
+	public function test_a_translation_may_reorder_the_placeholders(): void {
+		$step = new \ReflectionMethod( ClientInstructions::class, 'step' );
+		$name = [ 'kind' => ClientInstructions::PART_NAME, 'value' => 'site-a' ];
+		$url  = [ 'kind' => ClientInstructions::PART_URL, 'value' => 'https://example.test/mcp' ];
+
+		$result = $step->invoke( null, 'URL %2$s, 100%% sure, name %1$s.', [ $name, $url ] );
+
+		self::assertSame( 'URL https://example.test/mcp, 100% sure, name site-a.', $result['text'] );
+		self::assertSame(
+			[
+				[ 'kind' => 'text', 'value' => 'URL ' ],
+				$url,
+				[ 'kind' => 'text', 'value' => ', 100% sure, name ' ],
+				$name,
+				[ 'kind' => 'text', 'value' => '.' ],
+			],
+			$result['parts']
+		);
+		self::assertSame( [ [ 'kind' => 'text', 'value' => 'No value here.' ] ], $step->invoke( null, 'No value here.', [] )['parts'] );
+		self::assertSame( [ $url ], $step->invoke( null, '%s', [ $url ] )['parts'] );
 	}
 
 	public function test_only_clients_with_published_instructions_are_documented(): void {
@@ -115,6 +200,7 @@ final class ClientInstructionsTest extends TestCase {
 
 		self::assertSame( 'claude mcp add --transport http stonewright-example-test https://example.test/wp-json/mcp/stonewright-oauth', $codes['add'] );
 		self::assertSame( 'claude mcp login stonewright-example-test', $codes['login'] );
+		self::assertSame( 'claude mcp login stonewright-example-test --no-browser', $codes['ssh'] );
 		self::assertSame( [ 'mcpServers' => [ self::NAME => [ 'type' => 'http', 'url' => self::URL ] ] ], json_decode( $codes['project'], true ) );
 		self::assertSame( '.mcp.json', self::locations( $guide )['project'] );
 		self::assertStringNotContainsString( '--url', implode( "\n", $codes ) );
