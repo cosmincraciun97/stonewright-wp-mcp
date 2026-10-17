@@ -462,6 +462,7 @@ if ( ! function_exists( 'update_option' ) ) {
 			$GLOBALS['stonewright_test_option_cache'][ $option ] = [ 'value' => $value ];
 		}
 		$value = apply_filters( 'pre_update_option', $value, $option, $old );
+		$value = apply_filters( "pre_update_option_{$option}", $value, $old, $option );
 		if ( ! empty( $GLOBALS['stonewright_test_update_option_failures'][ $option ] ) ) {
 			return false;
 		}
@@ -1146,6 +1147,12 @@ if ( ! function_exists( 'wp_is_application_passwords_available_for_user' ) ) {
 if ( ! function_exists( 'is_admin' ) ) {
 	function is_admin(): bool {
 		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
+	}
+}
+
+if ( ! function_exists( 'wp_is_serving_rest_request' ) ) {
+	function wp_is_serving_rest_request(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_serving_rest'] ?? false );
 	}
 }
 
@@ -3409,6 +3416,10 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		/** @param array<string, mixed> $params */
 		public function set_params( array $params ): void {
 			$this->params = $params;
+		}
+
+		public function set_param( string $key, mixed $value ): void {
+			$this->params[ $key ] = $value;
 		}
 
 		/** @return array<string, mixed> */

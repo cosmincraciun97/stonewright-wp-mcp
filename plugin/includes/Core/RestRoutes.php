@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\FullSurfaceGuard;
+use Stonewright\WpMcp\Security\LeashGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\SkillLibrary\Site\SkillLibraryService;
 use Stonewright\WpMcp\SkillLibrary\Site\WordPressBoundary;
@@ -252,12 +253,27 @@ final class RestRoutes {
 					],
 					'confirmation_token' => [
 						'type'        => 'string',
-						'description' => 'Required for every REST ability toggle.',
+						'description' => 'Required for every REST ability toggle. Switching an ability on also needs a person in wp-admin.',
 					],
 				],
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
 					$enabled = (bool) $request->get_param( 'enabled' );
+
+					// Only a Stonewright ability can be switched; the list never takes a name that is not one.
+					if ( '' === $name || null === AbilityRegistry::ability_by_name( $name ) ) {
+						return new \WP_Error(
+							'stonewright_unknown_ability',
+							__( 'That is not a registered Stonewright ability.', 'stonewright' ),
+							[ 'status' => 400 ]
+						);
+					}
+
+					// Switching an ability on again widens what agents can do, so it takes a person in wp-admin; a
+					// confirmation token, which the agent can issue to itself, does not stand in for one.
+					if ( $enabled && ! FullSurfaceGuard::human_in_wp_admin( $request ) ) {
+						return LeashGuard::abilities_refusal();
+					}
 
 					$token_error = RestRoutes::rest_toggle_confirmation_error( $request, $name, $enabled );
 					if ( $token_error instanceof \WP_Error ) {
@@ -456,6 +472,11 @@ final class RestRoutes {
 						$enabled = $request->get_param( 'enabled' );
 
 						if ( null !== $text ) {
+							// The text is read into every agent context, so it goes through the screen a memory save goes through.
+							$screened = MemoryScreen::instructions_refusal( (string) $text );
+							if ( $screened instanceof \WP_Error ) {
+								return $screened;
+							}
 							update_option( 'stonewright_custom_instructions', $text );
 							// The text can say anything: only its length and a hash of it are recorded.
 							SiteAdapter::note_admin_write( 'rest', 'stonewright_custom_instructions', 'Custom instructions changed (' . strlen( (string) $text ) . ' bytes, sha256 ' . substr( hash( 'sha256', (string) $text ), 0, 12 ) . ')' );
@@ -988,6 +1009,16 @@ final class RestRoutes {
 							return FullSurfaceGuard::refusal();
 						}
 
+						// The leash settings loosen only for a person in wp-admin. Like the check above, this refuses the whole
+						// request before anything in it is written.
+						$requested_mode = $request->get_param( 'mode' );
+						if ( $requested_mode && ! LeashGuard::mode_change_allowed( $request, (string) $requested_mode ) ) {
+							return LeashGuard::mode_refusal();
+						}
+						if ( is_array( $request->get_param( 'feature_flags' ) ) && ! FullSurfaceGuard::human_in_wp_admin( $request ) ) {
+							return LeashGuard::flags_refusal();
+						}
+
 						$mode = $request->get_param( 'mode' );
 						if ( $mode ) {
 							$previous_mode = SiteMode::current();
@@ -1005,7 +1036,8 @@ final class RestRoutes {
 
 						$flags = $request->get_param( 'feature_flags' );
 						if ( is_array( $flags ) ) {
-							update_option( 'stonewright_feature_flags', $flags );
+							$flags = LeashGuard::sanitize_feature_flags( $flags );
+							update_option( 'stonewright_feature_flags', $flags, false );
 							// Names of the flags only, never their values.
 							SiteAdapter::note_admin_write( 'rest', 'stonewright_feature_flags', 'Feature flags set: ' . implode( ', ', array_slice( array_map( 'sanitize_key', array_map( 'strval', array_keys( $flags ) ) ), 0, 8 ) ) );
 						}

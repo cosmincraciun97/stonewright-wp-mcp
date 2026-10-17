@@ -43,6 +43,7 @@ use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
+use Stonewright\WpMcp\Security\LeashGuard;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
@@ -160,6 +161,9 @@ final class PluginRegistration {
 		add_action( 'update_option_elementor_experiment-container', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
 		add_action( 'update_option_elementor_experiment-e_atomic_elements', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
 		add_action( 'update_option_elementor_experiment-nested-elements', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
+		// A REST request that is not a person in wp-admin cannot loosen the mode or switch an ability back on.
+		add_filter( 'pre_update_option_stonewright_mode', [ LeashGuard::class, 'guard_mode_write' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ], 10, 2 );
 
 		CrashRecovery::register();
 		WidgetLoader::register();

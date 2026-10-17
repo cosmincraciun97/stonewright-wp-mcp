@@ -505,6 +505,28 @@ screen applies the surface through admin-ajax with a nonce, and `options.php`
 saves it from the Settings form; both are cookie requests. No ability, settings
 import or blueprint writes the surface options.
 
+An agent does not loosen its own leash either. Making the site mode less strict
+(production-safe to staging or development, or staging to development), switching an
+ability back on, and setting the feature flags need a person in wp-admin, the same
+cookie sign-in with a valid REST nonce. `POST /stonewright/v1/settings` with a looser
+`mode` or any `feature_flags` and `POST /stonewright/v1/abilities/toggle` with
+`enabled:true` (a confirmation token alone does not stand in for the person) answer
+`stonewright_mode_requires_admin`, `stonewright_feature_flags_require_admin` or
+`stonewright_abilities_require_admin` (403, `approval_required`, `agent_must_stop`, the
+link where the person decides) and write nothing; the `/admin/abilities/*` routes of the
+AI Abilities page need the same sign-in. Making the mode stricter and switching an
+ability off keep working with an Application Password. `abilities/toggle` refuses a name
+that is not a registered Stonewright ability (400), and the feature flags are stored as a
+flat map of at most 32 boolean flags, not autoloaded. A filter on the two options
+themselves keeps the old value when any other REST request that is not a person in
+wp-admin tries to loosen them (for example through a restore), and leaves an event in
+the change ledger; WP-CLI, cron, activation and admin screens are not affected. Custom
+instructions, which every agent context carries, go through the screen a memory save
+goes through when they are set by the instructions route, `stonewright-system-instructions-set`
+or a knowledge import: text that tells an agent to override the plugin rules or move
+credentials is refused (`stonewright_instructions_need_review`), and an import reports it
+as `instructions_rejected`.
+
 A companion in front of a plugin older than this rule does not offer or forward a
 switch to `full` either. `stonewright-tool-profile` in the companion refuses a
 request for `full` (an activation, or a call with no `action`, which the plugin
