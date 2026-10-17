@@ -105,16 +105,19 @@ final class AbilityExecutionAuthorizationTest extends TestCase {
 		self::assertStringContainsString( 'administrator', $refused->get_error_message() );
 	}
 
-	public function test_it_refuses_a_hidden_ability(): void {
+	public function test_a_hidden_ability_that_runs_no_code_goes_on_to_its_own_handling(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/elementor-v4-update-node' );
 		self::assertNotNull( $ability );
 
-		$refused = AbilityRegistry::authorize_execution( $ability );
+		// Hidden from the tool list, not a security boundary: the central gate lets it through.
+		self::assertNull( AbilityRegistry::authorize_execution( $ability ) );
 
-		self::assertInstanceOf( \WP_Error::class, $refused );
-		self::assertSame( 'stonewright_ability_not_on_surface', $refused->get_error_code() );
-		self::assertTrue( $refused->get_error_data()['agent_must_stop'] );
+		// execute-ability still runs only what the current tool list offers.
+		$hidden = AbilityRegistry::surface_refusal( $ability );
+		self::assertInstanceOf( \WP_Error::class, $hidden );
+		self::assertSame( 'stonewright_ability_not_on_surface', $hidden->get_error_code() );
+		self::assertTrue( $hidden->get_error_data()['agent_must_stop'] );
 	}
 
 	public function test_it_lets_a_full_only_ability_through_on_the_full_surface(): void {

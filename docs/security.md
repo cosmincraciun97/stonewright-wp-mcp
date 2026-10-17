@@ -193,9 +193,11 @@ REST runner, and WordPress's own Abilities API route
 the list of disabled abilities (`stonewright_disabled_abilities`), and the tool
 surface. An ability that runs or writes code (`php-execute`, the sandbox writers,
 the WP-CLI command runners, `custom-code-provider`, the custom widget definers)
-and an ability the surface hides are refused with
-`stonewright_ability_not_on_surface` unless the surface an administrator chose
-in wp-admin, or the session profile, lists them. A confirmation token never lifts
+is refused with `stonewright_ability_not_on_surface` unless the surface an
+administrator chose in wp-admin, or the session profile, lists it. An ability the
+surface only hides from the tool list (section reuse switched off, Atomic
+abilities not turned on) answers that state itself; `execute-ability` still
+refuses it because it runs only what the tool list offers. A confirmation token never lifts
 that refusal: the REST runner refuses such an ability before it reads a token, and
 `security-issue-confirmation-token` issues no token for one (for the ability
 itself, or as the target of the REST runner). The refusal carries the settings

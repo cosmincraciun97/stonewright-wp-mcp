@@ -116,6 +116,11 @@ final class ExecuteAbility extends AbilityKernel {
 		if ( $refusal instanceof \WP_Error ) {
 			return $refusal;
 		}
+		// execute-ability runs only what the current tool list offers, so an ability the surface hides is refused too.
+		$hidden = AbilityRegistry::surface_refusal( $ability );
+		if ( $hidden instanceof \WP_Error ) {
+			return $hidden;
+		}
 
 		$input = $args['arguments'] ?? [];
 		$input = is_array( $input ) ? Utf8::deep_sanitize( $input ) : [];

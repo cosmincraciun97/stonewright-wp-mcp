@@ -290,16 +290,17 @@ final class AbilityRunRestRouteTest extends TestCase {
 		self::assertTrue( ConfirmationToken::verify_or_error( $token, 'stonewright/rest-abilities-run', $args ) );
 	}
 
-	public function test_run_route_refuses_a_hidden_ability_even_with_a_token(): void {
+	public function test_run_route_treats_a_hidden_ability_that_runs_no_code_like_any_out_of_profile_ability(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = false;
-		$name  = 'stonewright/elementor-v4-update-node';
+		$name = 'stonewright/elementor-v4-update-node';
+
+		// The surface gate does not stop it, with or without a token: the input check, the profile gate and the
+		// ability's own handling answer, as for any ability outside the profile.
 		$token = ConfirmationToken::issue( 'stonewright/rest-abilities-run', [ 'name' => $name, 'input' => [] ] );
-
-		$result = $this->run_route( $name, [], $token );
-
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_ability_not_on_surface', $result->get_error_code() );
-		self::assertSame( 403, $result->get_error_data()['status'] );
+		foreach ( [ '', $token ] as $confirmation ) {
+			$result = $this->run_route( $name, [], $confirmation );
+			self::assertFalse( $result instanceof \WP_Error && 'stonewright_ability_not_on_surface' === $result->get_error_code() );
+		}
 	}
 
 	public function test_run_route_lets_a_full_only_ability_reach_its_own_gates_on_the_full_surface(): void {

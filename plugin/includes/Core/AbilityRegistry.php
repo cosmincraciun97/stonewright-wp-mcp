@@ -964,9 +964,10 @@ final class AbilityRegistry {
 	 * name passes through it, through execute_with_context_guard(): MCP tools, execute-ability, the REST
 	 * runner, and the WordPress Abilities API route.
 	 *
-	 * An ability that runs or writes code, or that the surface hides, is refused unless the configured
-	 * surface or the session profile lists it. A confirmation token never lifts that refusal; only a
-	 * person choosing the Full surface in wp-admin does.
+	 * An ability that runs or writes code is refused unless the configured surface or the session profile
+	 * lists it. A confirmation token never lifts that refusal; only a person choosing the Full surface in
+	 * wp-admin does. An ability the surface only hides from the tool list (section reuse switched off,
+	 * Atomic abilities not turned on) goes on to its own handling, which answers that state itself.
 	 *
 	 * @return \WP_Error|null The refusal, or null when the ability may go on to its own gates.
 	 */
@@ -990,7 +991,7 @@ final class AbilityRegistry {
 			);
 		}
 
-		return self::surface_refusal( $ability );
+		return FullProfileOnlyAbilities::is_restricted( $name ) ? self::surface_refusal( $ability ) : null;
 	}
 
 	/**
