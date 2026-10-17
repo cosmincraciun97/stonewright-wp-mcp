@@ -401,6 +401,44 @@ final class LeashGuardTest extends TestCase {
 		self::assertSame( 'Use calm headings.', get_option( 'stonewright_custom_instructions' ) );
 	}
 
+	public function test_a_rejected_import_leaves_the_instructions_switch_as_it_was(): void {
+		update_option( 'stonewright_custom_instructions', 'Keep to the style guide.' );
+		update_option( 'stonewright_custom_instructions_enabled', true );
+		$bundle = [
+			'format'       => KnowledgeBundle::FORMAT,
+			'version'      => KnowledgeBundle::VERSION,
+			'instructions' => [ 'text' => self::OVERRIDE, 'enabled' => false ],
+		];
+
+		$result = KnowledgeBundle::import( $bundle );
+
+		self::assertSame( [ 0, 1 ], [ $result['instructions_imported'], $result['instructions_rejected'] ] );
+		self::assertTrue( get_option( 'stonewright_custom_instructions_enabled' ) );
+		self::assertSame( 'Keep to the style guide.', get_option( 'stonewright_custom_instructions' ) );
+	}
+
+	public function test_an_import_does_not_switch_on_stored_text_that_breaks_the_screen(): void {
+		// Text stored earlier, before screening, stays off when a bundle only flips the switch.
+		update_option( 'stonewright_custom_instructions', self::OVERRIDE );
+		update_option( 'stonewright_custom_instructions_enabled', false );
+		$bundle = [
+			'format'       => KnowledgeBundle::FORMAT,
+			'version'      => KnowledgeBundle::VERSION,
+			'instructions' => [ 'enabled' => true ],
+		];
+
+		$result = KnowledgeBundle::import( $bundle );
+
+		self::assertSame( 1, $result['instructions_rejected'] );
+		self::assertFalse( get_option( 'stonewright_custom_instructions_enabled' ) );
+
+		update_option( 'stonewright_custom_instructions', 'Use calm headings.' );
+		$result = KnowledgeBundle::import( $bundle );
+
+		self::assertSame( 0, $result['instructions_rejected'] );
+		self::assertTrue( get_option( 'stonewright_custom_instructions_enabled' ) );
+	}
+
 	// -------------------------------------------------------------------------
 	// The backstop on the options themselves
 	// -------------------------------------------------------------------------

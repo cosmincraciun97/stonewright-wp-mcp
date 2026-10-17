@@ -64,18 +64,27 @@ final class KnowledgeBundle {
 
 		$instructions = $bundle['instructions'] ?? null;
 		if ( is_array( $instructions ) ) {
+			$rejected = false;
 			if ( array_key_exists( 'text', $instructions ) ) {
 				$text = mb_substr( (string) $instructions['text'], 0, 4000 );
 				// Text that breaks the screen is left out of the import, as a memory save would not take it as active.
 				if ( MemoryScreen::instructions_refusal( $text ) instanceof \WP_Error ) {
 					++$instructions_rejected;
+					$rejected = true;
 				} else {
 					update_option( 'stonewright_custom_instructions', $text );
 					++$instructions_imported;
 				}
 			}
-			if ( array_key_exists( 'enabled', $instructions ) ) {
-				update_option( 'stonewright_custom_instructions_enabled', (bool) $instructions['enabled'] );
+			// A rejected text leaves the site's instructions as they were, on or off. Switching instructions on
+			// screens the text that would become active, so stored text that breaks the screen stays off.
+			if ( ! $rejected && array_key_exists( 'enabled', $instructions ) ) {
+				$enable = (bool) $instructions['enabled'];
+				if ( $enable && MemoryScreen::instructions_refusal( (string) get_option( 'stonewright_custom_instructions', '' ) ) instanceof \WP_Error ) {
+					++$instructions_rejected;
+				} else {
+					update_option( 'stonewright_custom_instructions_enabled', $enable );
+				}
 			}
 		}
 
