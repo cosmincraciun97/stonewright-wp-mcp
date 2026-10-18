@@ -175,8 +175,10 @@ Content-Type: application/json
 ```
 
 The runner uses the same registry, permission callbacks, master toggle,
-disabled-ability checks, UTF-8 sanitization, context-token gate, audit flow, and
-ability handlers as the MCP surface. It is not a shell workaround for agents
+disabled-ability checks, tool-surface check, input validation, UTF-8
+sanitization, context-token gate, audit flow, and ability handlers as the MCP
+surface. An ability that runs or writes code is refused unless the Full surface
+lists it, whatever confirmation token the call carries. It is not a shell workaround for agents
 when the MCP tool list did not load. Agents
 must not inspect private AI-client config files, create `query-mcp.js` or
 `run-ability.js`, create helper JSON argument files such as

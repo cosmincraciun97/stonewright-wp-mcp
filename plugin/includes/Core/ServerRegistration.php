@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Authorization\WordPress\ProtectedResource;
+use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\Logger;
 use Throwable;
 use WP_Error;
@@ -50,15 +51,18 @@ final class ServerRegistration {
 		$description      = $base_description . "\n\n" . AgentInstructions::server_bootstrap_summary();
 		$tools            = AbilityRegistry::mcp_server_ability_names();
 
-		self::create_server( $adapter, self::SERVER_ID, self::ROUTE, $description, $tools, $meta );
-		// The OAuth server admits only requests whose bearer credential ProtectedResource accepted.
+		// Both servers admit only an account that holds the capability the MCP servers require: the adapter's
+		// own default, read, would admit every account, and any account can create an Application Password.
+		self::create_server( $adapter, self::SERVER_ID, self::ROUTE, $description, $tools, $meta, [ Permissions::class, 'can_use_mcp_transport' ] );
+		// The OAuth server admits only requests whose bearer credential ProtectedResource accepted, for an account
+		// that holds that capability.
 		self::create_server( $adapter, self::OAUTH_SERVER_ID, self::OAUTH_ROUTE, $description, $tools, $meta, [ ProtectedResource::class, 'permit' ] );
 	}
 
 	/**
 	 * @param array<string,string> $meta
 	 * @param list<string>         $tools      Ability names.
-	 * @param callable|null        $permission Transport permission callback; null keeps the adapter default.
+	 * @param callable|null        $permission Transport permission callback; null keeps the adapter default (the read capability).
 	 */
 	private static function create_server(
 		object $adapter,

@@ -6,6 +6,7 @@
  * - plugin bootstrap and production vendor autoload exist (or would after composer --no-dev)
  * - required runtime paths are present
  * - development-only paths would be excluded from the ZIP (tests, bin, phpunit, …)
+ * - the release signing public keys the updater trusts are well formed
  *
  * Mirrors .github/workflows/release.yml rsync excludes.
  *
@@ -18,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertSigningKeySet, readEmbeddedPublicKeys } from './release-signature.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pluginRoot = path.join(repoRoot, 'plugin');
@@ -43,12 +45,26 @@ function warn(msg) {
 for (const rel of [
 	'stonewright.php',
 	'includes/Core/PluginRegistration.php',
+	'includes/Core/ReleaseSignature.php',
 	'uninstall.php',
 	'data/global-rules.json',
 	'data/ability-traits.php',
 	'data/elementor-native-contracts/manage-default-styles.json',
 ]) {
 	if (!exists(rel)) fail(`Missing required plugin path: plugin/${rel}`);
+}
+
+// The public keys the shipped updater trusts for SHA256SUMS.txt.sig: none, or
+// the active key and a backup, each a valid Ed25519 key.
+let releaseSigning = 'unknown';
+if (exists('includes/Core/ReleaseSignature.php')) {
+	try {
+		const keys = readEmbeddedPublicKeys(path.join(pluginRoot, 'includes/Core/ReleaseSignature.php'));
+		assertSigningKeySet(keys);
+		releaseSigning = keys.length > 0 ? 'on' : 'off';
+	} catch (error) {
+		fail(`Release signing keys: ${error instanceof Error ? error.message : String(error)}`);
+	}
 }
 
 // Composer production install evidence.
@@ -94,6 +110,7 @@ const mustExclude = [
 	'phpstan.neon',
 	'phpcs.xml',
 	'phpunit.xml',
+	'stubs',
 	'.github',
 ];
 
@@ -124,6 +141,7 @@ const forbidden = included.filter(
 	(rel) =>
 		rel.startsWith('tests/') ||
 		rel.startsWith('bin/') ||
+		rel.startsWith('stubs/') ||
 		rel.split('/').includes('.github') ||
 		/^(phpunit|phpstan|phpcs)/.test(rel) ||
 		rel === 'composer.lock' ||
@@ -194,6 +212,7 @@ const report = {
 	included_file_count: included.length,
 	vendor_present: fs.existsSync(vendorAutoload),
 	visual_bundle_staged: visualStaged,
+	release_signing: releaseSigning,
 	excludes: mustExclude,
 	warnings,
 	errors,

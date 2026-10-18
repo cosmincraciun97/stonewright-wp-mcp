@@ -1,10 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import { gotoAdmin } from './helpers/goto-admin';
 import {
+	chooseFullSurface,
 	runAbility,
 	runAbilityWithProfileConfirmation,
 	wpRestNonce,
 } from './helpers/wp-rest';
+
+// php-execute runs only on the Full surface an administrator chooses; put the previous surface back after each test.
+let restoreSurface: (() => Promise<void>) | undefined;
+test.afterEach(async () => {
+	await restoreSurface?.();
+	restoreSurface = undefined;
+});
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -29,6 +37,7 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 		'Responsive audit regression runs once at the former failure width.',
 	);
 	await login(page);
+	restoreSurface = await chooseFullSurface(page);
 	await page.goto('/wp-admin/admin.php?page=stonewright', {
 		waitUntil: 'domcontentloaded',
 	});

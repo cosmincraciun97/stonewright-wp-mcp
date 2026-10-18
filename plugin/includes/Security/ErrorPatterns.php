@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Memory\Memory;
 
 /**
@@ -209,7 +210,7 @@ final class ErrorPatterns {
 				'normalized_path' => self::safe_text( $meta['normalized_path'] ?? '' ),
 				'change_set_id' => self::safe_text( $meta['change_set_id'] ?? '' ),
 				'strategy_fingerprint' => self::safe_hash( $meta['strategy_fingerprint'] ?? '' ),
-				'mode'         => self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? get_option( 'stonewright_mode', '' ) ),
+				'mode'         => self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? SiteMode::current() ),
 				'target'       => self::pattern_target( $sanitized_args, $meta ),
 			];
 		}
@@ -227,7 +228,7 @@ final class ErrorPatterns {
 		$store[ $signature ]['normalized_path'] = self::safe_text( $meta['normalized_path'] ?? ( $store[ $signature ]['normalized_path'] ?? '' ) );
 		$store[ $signature ]['change_set_id'] = self::safe_text( $meta['change_set_id'] ?? ( $store[ $signature ]['change_set_id'] ?? '' ) );
 		$store[ $signature ]['strategy_fingerprint'] = self::safe_hash( $meta['strategy_fingerprint'] ?? ( $store[ $signature ]['strategy_fingerprint'] ?? '' ) );
-		$store[ $signature ]['mode']   = self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? ( $store[ $signature ]['mode'] ?? get_option( 'stonewright_mode', '' ) ) );
+		$store[ $signature ]['mode']   = self::safe_text( $meta['mode'] ?? $sanitized_args['mode'] ?? ( $store[ $signature ]['mode'] ?? SiteMode::current() ) );
 		$store[ $signature ]['target'] = self::pattern_target( $sanitized_args, $meta, (string) ( $store[ $signature ]['target'] ?? '' ) );
 		if ( 'verified_resolved' === (string) ( $store[ $signature ]['state'] ?? '' ) || 'promoted_learning' === (string) ( $store[ $signature ]['state'] ?? '' ) ) {
 			$store[ $signature ]['state'] = 'reopened';

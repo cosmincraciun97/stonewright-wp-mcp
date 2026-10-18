@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\Ui\KvList;
 use Stonewright\WpMcp\Admin\Ui\Table;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Core\LiveAbilities;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
@@ -93,7 +94,7 @@ final class StatusPage {
 		return [
 			'facts'           => $facts,
 			'effective_state' => PluginEffectiveState::effective_state(),
-			'mode'            => (string) get_option( 'stonewright_mode', 'development' ),
+			'mode'            => SiteMode::current(),
 			'tool_count'      => LiveAbilities::exposed_count(),
 			'surface'         => AbilityRegistry::mcp_surface(),
 			'last_activity'   => (string) ( $recent_entries[0]['created_at'] ?? '' ),

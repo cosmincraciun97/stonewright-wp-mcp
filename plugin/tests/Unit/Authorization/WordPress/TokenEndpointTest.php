@@ -26,7 +26,7 @@ final class TokenEndpointTest extends TestCase {
 
 	protected function setUp(): void {
 		StorageRig::reset_globals();
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$this->http = new HttpRig();
 		$this->client = $this->http->rig->register_client();
 	}
@@ -372,7 +372,7 @@ final class TokenEndpointTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps_by_id'] = [];
 
 		self::assert_error( $this->post( $this->code_fields( $code ) ), 400, 'invalid_grant' );
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		self::assertSame( 200, $this->post( $this->code_fields( $code ) )->status );
 	}
 

@@ -13,6 +13,7 @@ namespace Stonewright\WpMcp\Admin;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\FormField;
 use Stonewright\WpMcp\Core\RescueInstaller;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
@@ -1384,7 +1385,7 @@ final class RescuePage {
 	}
 
 	private static function mode_label(): string {
-		return match ( (string) get_option( 'stonewright_mode', 'development' ) ) {
+		return match ( SiteMode::current() ) {
 			'production-safe' => __( 'Production-safe', 'stonewright' ),
 			'staging'         => __( 'Staging', 'stonewright' ),
 			default           => __( 'Development', 'stonewright' ),

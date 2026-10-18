@@ -32,8 +32,8 @@ final class SiteDefaults {
 	 *                            the surface options are initialized as well.
 	 */
 	public static function seed( bool $first_install ): void {
-		if ( ! get_option( 'stonewright_mode' ) ) {
-			update_option( 'stonewright_mode', self::mode_for_environment() );
+		if ( null === SiteMode::stored() ) {
+			update_option( SiteMode::OPTION, self::mode_for_environment() );
 		}
 		// New installs start on the useful bounded surface. Bootstrap remains an explicit
 		// transport/profile diagnostic, never a permanent install default.

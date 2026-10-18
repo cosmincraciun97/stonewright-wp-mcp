@@ -3,7 +3,10 @@
  * Verify published Stonewright release assets.
  *
  * Checks local dist files or sanitized GitHub release metadata. Never reads
- * credentials. Extra or missing assets fail closed.
+ * credentials. Extra or missing assets fail closed. When
+ * plugin/includes/Core/ReleaseSignature.php lists public keys, releases are
+ * signed: SHA256SUMS.txt.sig is then required and must verify against them.
+ * The package job runs before signing and passes --before-signing.
  *
  *   node scripts/check-release-artifacts.mjs --version 1.0.0-beta.13.3 --dir dist
  *   node scripts/check-release-artifacts.mjs --version 1.0.0-beta.13.3 --github-json release.json
@@ -15,17 +18,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
+import { SIGNATURE_ASSET, readEmbeddedPublicKeys, verifyManifestSignature } from './release-signature.mjs';
 
-export function expectedReleaseAssetNames(version) {
-	return [`stonewright-${version}.zip`, `stonewright-companion-${version}.tgz`, 'SHA256SUMS.txt'].sort();
+export function expectedReleaseAssetNames(version, options = {}) {
+	const names = [`stonewright-${version}.zip`, `stonewright-companion-${version}.tgz`, 'SHA256SUMS.txt'];
+	if (options.signed) {
+		names.push(SIGNATURE_ASSET);
+	}
+	return names.sort();
 }
 
 export function expectedArchiveNames(version) {
 	return [`stonewright-${version}.zip`, `stonewright-companion-${version}.tgz`].sort();
 }
 
-export function assertExactAssetNames(names, version) {
-	const expected = expectedReleaseAssetNames(version);
+export function assertExactAssetNames(names, version, options = {}) {
+	const expected = expectedReleaseAssetNames(version, options);
 	const actual = [...names].sort();
 	if (actual.length !== expected.length || actual.some((name, index) => name !== expected[index])) {
 		throw new Error(
@@ -66,7 +74,7 @@ export function assertSha256SumsForArchives(text, version) {
 	return rows;
 }
 
-export function inspectGitHubReleaseMetadata(release, version) {
+export function inspectGitHubReleaseMetadata(release, version, options = {}) {
 	if (!release || typeof release !== 'object') {
 		throw new Error('GitHub release metadata is missing.');
 	}
@@ -80,6 +88,7 @@ export function inspectGitHubReleaseMetadata(release, version) {
 	assertExactAssetNames(
 		assets.map((asset) => (asset && typeof asset === 'object' ? String(asset.name ?? '') : '')),
 		version,
+		{ signed: (options.publicKeys ?? []).length > 0 },
 	);
 }
 
@@ -88,15 +97,24 @@ function listPublishedFiles(dir) {
 		.readdirSync(dir, { withFileTypes: true })
 		.filter((entry) => entry.isFile())
 		.map((entry) => entry.name)
-		.filter((name) => /^(stonewright-.*\.(zip|tgz)|SHA256SUMS\.txt)$/.test(name));
+		.filter((name) => /^(stonewright-.*\.(zip|tgz)|SHA256SUMS\.txt(\.sig)?)$/.test(name));
 }
 
 export function inspectLocalReleaseDir(dir, version, options = {}) {
+	const publicKeys = options.publicKeys ?? [];
+	const signed = publicKeys.length > 0 && !options.beforeSigning;
 	const published = listPublishedFiles(dir);
-	assertExactAssetNames(published, version);
+	assertExactAssetNames(published, version, { signed });
 	const sumsPath = path.join(dir, 'SHA256SUMS.txt');
 	const sums = fs.readFileSync(sumsPath, 'utf8');
 	const rows = assertSha256SumsForArchives(sums, version);
+	if (signed) {
+		verifyManifestSignature(
+			fs.readFileSync(sumsPath),
+			fs.readFileSync(path.join(dir, SIGNATURE_ASSET), 'utf8'),
+			publicKeys,
+		);
+	}
 	for (const row of rows) {
 		const filePath = path.join(dir, row.name);
 		const actual = createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
@@ -136,6 +154,7 @@ export function inspectPluginZip(zipPath, version, options = {}) {
 		(rel) =>
 			rel.startsWith('stonewright/tests/') ||
 			rel.startsWith('stonewright/bin/') ||
+			rel.startsWith('stonewright/stubs/') ||
 			rel.startsWith('stonewright/.github/') ||
 			rel.includes('/fixtures/') ||
 			rel.includes('synthetic-mcp-provider') ||
@@ -177,7 +196,7 @@ export function inspectCompanionTgz(tgzPath, version) {
 
 function printUsage() {
 	process.stderr.write(
-		'Usage: node scripts/check-release-artifacts.mjs --version <semver> (--dir <path> | --github-json <path>) [--inspect] [--require-production-vendor]\n',
+		'Usage: node scripts/check-release-artifacts.mjs --version <semver> (--dir <path> | --github-json <path>) [--inspect] [--require-production-vendor] [--before-signing]\n',
 	);
 }
 
@@ -193,10 +212,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 		}
 		const inspect = args.includes('--inspect');
 		const requireProductionVendor = args.includes('--require-production-vendor');
+		const beforeSigning = args.includes('--before-signing');
+		const publicKeys = readEmbeddedPublicKeys();
 		if (dirIndex >= 0) {
-			inspectLocalReleaseDir(args[dirIndex + 1], version, { inspect, requireProductionVendor });
+			inspectLocalReleaseDir(args[dirIndex + 1], version, { inspect, requireProductionVendor, beforeSigning, publicKeys });
 		} else if (githubIndex >= 0) {
-			inspectGitHubReleaseMetadata(JSON.parse(fs.readFileSync(args[githubIndex + 1], 'utf8')), version);
+			inspectGitHubReleaseMetadata(JSON.parse(fs.readFileSync(args[githubIndex + 1], 'utf8')), version, { publicKeys });
 		} else {
 			printUsage();
 			throw new Error('Expected --dir or --github-json.');

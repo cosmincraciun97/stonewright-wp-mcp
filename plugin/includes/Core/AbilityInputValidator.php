@@ -24,6 +24,10 @@ final class AbilityInputValidator {
 	 * @return true|\WP_Error An `ability_invalid_input` error with the reason.
 	 */
 	public static function validate( Ability $ability, array $input ): bool|\WP_Error {
+		// Callers pass the context token to every ability; one that does not need it drops it in the context
+		// guard, so it is neither required nor an unknown property here.
+		unset( $input['stonewright_context_token'] );
+
 		$schema = AbilityRegistry::input_schema_for_ability( $ability );
 		if ( isset( $schema['required'] ) && is_array( $schema['required'] ) ) {
 			$schema['required'] = array_values(

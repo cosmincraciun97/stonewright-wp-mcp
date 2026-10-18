@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Admin\Ui\Scope;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Gutenberg\Finalizer\BlockQueue;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\Permissions;
@@ -116,7 +117,7 @@ final class QueueConsole {
 		$base = plugins_url( 'assets/admin/', STONEWRIGHT_DIR . 'stonewright.php' );
 		wp_enqueue_style( 'stonewright-block-queue', $base . 'block-queue.css', [], STONEWRIGHT_VERSION );
 		wp_enqueue_script( 'stonewright-block-queue', $base . 'block-queue.js', [ 'wp-blocks', 'wp-data', 'wp-block-library', 'wp-api-fetch' ], STONEWRIGHT_VERSION, true );
-		wp_add_inline_script( 'stonewright-block-queue', 'window.stonewrightBlockQueue=' . wp_json_encode( [ 'base' => rest_url( 'stonewright/v1/block-finalizer/' ), 'nonce' => wp_create_nonce( 'wp_rest' ), 'token' => is_array( $scope ) ? $token : '', 'mode' => get_option( 'stonewright_mode', 'development' ), 'native' => $native, 'targets' => $native ? [] : self::target_summaries(), 'maxBytes' => BlockQueue::MAX_SERIALIZED_BYTES ] ) . ';', 'before' );
+		wp_add_inline_script( 'stonewright-block-queue', 'window.stonewrightBlockQueue=' . wp_json_encode( [ 'base' => rest_url( 'stonewright/v1/block-finalizer/' ), 'nonce' => wp_create_nonce( 'wp_rest' ), 'token' => is_array( $scope ) ? $token : '', 'mode' => SiteMode::current(), 'native' => $native, 'targets' => $native ? [] : self::target_summaries(), 'maxBytes' => BlockQueue::MAX_SERIALIZED_BYTES ] ) . ';', 'before' );
 	}
 
 	private static function lede(): string {

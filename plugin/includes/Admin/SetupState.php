@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 
@@ -64,8 +65,7 @@ final class SetupState {
 	}
 
 	public static function wordpress_mode(): string {
-		$mode = (string) get_option( 'stonewright_mode', 'development' );
-		return in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ? $mode : 'development';
+		return SiteMode::current();
 	}
 
 	public static function install_mode(): string {
@@ -174,7 +174,7 @@ final class SetupState {
 		$user_id = null !== $user_id ? $user_id : get_current_user_id();
 		$revision_before = AbilityRegistry::surface_revision();
 		$runtime_before  = [
-			'wordpress_mode'       => (string) get_option( 'stonewright_mode', 'development' ),
+			'wordpress_mode'       => SiteMode::current(),
 			'mcp_surface'          => AbilityRegistry::mcp_surface(),
 			'abilities_requested'  => PluginEffectiveState::enabled_requested(),
 			'elementor_v4_atomic'  => (bool) get_option( 'stonewright_elementor_v4_atomic', false ),
@@ -251,7 +251,7 @@ final class SetupState {
 		}
 
 		$runtime_after = [
-			'wordpress_mode'       => (string) get_option( 'stonewright_mode', 'development' ),
+			'wordpress_mode'       => SiteMode::current(),
 			'mcp_surface'          => AbilityRegistry::mcp_surface(),
 			'abilities_requested'  => PluginEffectiveState::enabled_requested(),
 			'elementor_v4_atomic'  => (bool) get_option( 'stonewright_elementor_v4_atomic', false ),

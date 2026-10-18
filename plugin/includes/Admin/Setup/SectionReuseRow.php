@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Admin\Setup;
 
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\SectionReuse\SectionReuseSetting;
 
 /**
@@ -41,7 +42,7 @@ final class SectionReuseRow {
 		$template_id = $option . '_callout_template';
 
 		$help = __( 'Let agents offer to copy a section from another page of this site into the page they are building. Turn it off and every section is built from scratch. The setting changes when you save.', 'stonewright' );
-		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
+		if ( SiteMode::is_production_safe() ) {
 			$help .= ' ' . __( 'In production-safe mode an Elementor V3 or Gutenberg copy needs a confirmation token like any other write, and copying an Elementor V4 section stays blocked.', 'stonewright' );
 		}
 

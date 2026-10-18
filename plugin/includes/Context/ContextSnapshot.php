@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Context;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\GlobalRules;
 
 /**
@@ -52,7 +53,7 @@ final class ContextSnapshot {
 			[
 				'php_version'         => PHP_VERSION,
 				'wordpress_version'   => function_exists( 'get_bloginfo' ) ? (string) get_bloginfo( 'version' ) : '',
-				'mode'                => (string) get_option( 'stonewright_mode', 'development' ),
+				'mode'                => SiteMode::current(),
 				'tool_profile'        => (string) ( $target['tool_profile'] ?? AbilityRegistry::mcp_surface() ),
 				'plugins'             => $plugins,
 				'safety_rules'        => GlobalRules::ids_for_severity( 'hard' ),

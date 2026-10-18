@@ -13,17 +13,11 @@ use Stonewright\WpMcp\Security\Permissions;
 /**
  * REST API extensions for admin features.
  *
- * Route: GET /wp-json/stonewright/v1/sandbox/files
- *   — listed in RestRoutes.php (which owns the primary /sandbox/* routes).
- *
- * This class registers an additional endpoint that returns sandbox file data
+ * This class registers an endpoint that returns sandbox file data (read only)
  * in a React-UI-friendly JSON envelope, permission-gated by
- * Permissions::can_view_sandbox().
- *
- * Note: The core /sandbox/files routes (GET/POST/PUT/DELETE) live in
- * Core/RestRoutes.php and are gated by manage_options. This endpoint is
- * separate, gated by can_view_sandbox(), and intended as the future React
- * UI data source.
+ * Permissions::can_view_sandbox(). The plugin has no REST route that writes,
+ * activates or deletes sandbox files: those go through the Sandbox Library
+ * admin page and the sandbox abilities on the Full tool surface.
  */
 final class RestApi {
 
