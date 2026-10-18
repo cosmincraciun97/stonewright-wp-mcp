@@ -49,10 +49,11 @@ filename and SHA-256 digest, and verifies the downloaded package before
 installation. Missing, malformed, forged, unavailable, empty, or mismatched
 checksum evidence fails closed; do not bypass that failure with an unverified
 package. The digest comes from the `SHA256SUMS.txt` of the same release as the
-ZIP and releases are not signed, so the check catches a corrupt, truncated, or
-mismatched download; it does not protect against a compromised release. The
-queued ZIP is also bound to its exact release version, canonical package path,
-and manifest when the update transient is created. A later cache
+ZIP. Without a release signature (see [Release signature](#release-signature)),
+that check catches a corrupt, truncated, or mismatched download; it does not
+protect against a compromised release. The queued ZIP is also bound to its
+exact release version, canonical package path, and manifest when the update
+transient is created. A later cache
 refresh, unavailable release feed, mismatched package, or query-string URL
 variant cannot bypass that binding. Non-Stonewright plugin downloads, including
 wordpress.org packages, are left unchanged; the gate fail-closes only for
@@ -65,6 +66,54 @@ only HTTPS links are clickable.
 An update runs schema migrations in place. It does not delete or reset existing
 memory, user-created skills, audit history, content, Elementor data, store data,
 or Stonewright settings.
+
+### Release signature
+
+Releases are signed from Stonewright 1.0.0-beta.17 on, the first version that
+ships release public keys. From that version on:
+
+- Each release has a fourth asset, `SHA256SUMS.txt.sig`: an Ed25519 signature
+  of the exact bytes of `SHA256SUMS.txt`, made with the maintainer's release
+  key. The release workflow signs in its protected `release` environment and
+  stops instead of publishing an unsigned release.
+- The updater of a version that ships keys downloads the signature with the
+  manifest and checks it against the keys of the installed version, the active
+  release key and an offline backup key, before it reads the manifest or
+  downloads the ZIP. Someone who can replace release assets but holds no
+  release key cannot make it install another ZIP.
+- A missing, unavailable, malformed, or non-matching signature stops the update
+  with `stonewright_update_signature_missing`,
+  `stonewright_update_signature_unavailable`,
+  `stonewright_update_signature_malformed`, or
+  `stonewright_update_signature_invalid`.
+  `stonewright_update_signature_unsupported` means the server cannot check
+  signatures; WordPress ships a fallback for servers without the PHP sodium
+  extension, so it should not appear. The messages name no key, signature, or
+  server detail.
+- A site on 1.0.0-beta.16.2 or earlier has no keys, so it installs
+  1.0.0-beta.17 with the checksum check only. Every update after that is
+  verified.
+
+To check a release by hand, run this next to the downloaded assets:
+
+```bash
+sha256sum -c SHA256SUMS.txt
+```
+
+On a signed release, also check the signature from a checkout of the release
+tag, with the paths of the downloaded files:
+
+```bash
+node scripts/release-signature.mjs verify --manifest path/to/SHA256SUMS.txt --signature path/to/SHA256SUMS.txt.sig
+```
+
+Releases published by the current release workflow also carry a GitHub build
+provenance attestation for the plugin ZIP and the companion package; older
+releases have none. It adds no release asset:
+
+```bash
+gh attestation verify stonewright-VERSION.zip --repo cosmincraciun97/stonewright-wp-mcp
+```
 
 ## Update the local companion
 

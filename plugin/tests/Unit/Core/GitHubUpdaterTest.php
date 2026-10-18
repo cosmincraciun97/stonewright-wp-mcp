@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Core\GitHubUpdater;
+use Stonewright\WpMcp\Core\ReleaseSignature;
 
 /**
  * @covers \Stonewright\WpMcp\Core\GitHubUpdater
@@ -153,10 +154,7 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertIsString( $downloaded );
 		file_put_contents( $downloaded, 'encoded semver package' );
 		$digest = hash_file( 'sha256', $downloaded );
-		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
-			'response' => [ 'code' => 200 ],
-			'body'     => $digest . '  stonewright-1.2.3+build-1.zip' . "\n",
-		];
+		$this->serve_signed_manifest( $digest . '  stonewright-1.2.3+build-1.zip' . "\n" );
 
 		$result = GitHubUpdater::verify_package_download(
 			$downloaded,
@@ -165,6 +163,10 @@ final class GitHubUpdaterTest extends TestCase {
 			[ 'plugin' => GitHubUpdater::plugin_basename() ]
 		);
 		self::assertSame( $downloaded, $result );
+		self::assertContains(
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.2.3%2Bbuild-1/SHA256SUMS.txt.sig',
+			array_column( $GLOBALS['stonewright_test_wp_remote_get_calls'], 'url' )
+		);
 		unlink( $downloaded );
 	}
 
@@ -937,10 +939,7 @@ final class GitHubUpdaterTest extends TestCase {
 		$digest   = hash_file( 'sha256', $package );
 		$filename = basename( $release['package'] );
 		$GLOBALS['stonewright_test_download_url'] = static fn(): string => $package;
-		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
-			'response' => [ 'code' => 200 ],
-			'body'     => $digest . '  ' . $filename . "\n",
-		];
+		$this->serve_signed_manifest( $digest . '  ' . $filename . "\n" );
 
 		$result = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
 
@@ -959,17 +958,13 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertIsString( $package );
 		file_put_contents( $package, 'tampered synthetic package' );
 		$GLOBALS['stonewright_test_download_url'] = static fn(): string => $package;
-		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): array => [
-			'response' => [ 'code' => 200 ],
-			'body'     => str_repeat( '0', 64 ) . '  ' . basename( $release['package'] ) . "\n",
-		];
+		$this->serve_signed_manifest( str_repeat( '0', 64 ) . '  ' . basename( $release['package'] ) . "\n" );
 
 		$mismatch = GitHubUpdater::verify_package_download( false, $release['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
 		self::assertInstanceOf( \WP_Error::class, $mismatch );
 		self::assertSame( 'stonewright_update_checksum_mismatch', $mismatch->get_error_code() );
-		// The check compares against the release's SHA256SUMS.txt; nothing is signed, so the message must not say so.
+		// The message names the manifest the digest comes from.
 		self::assertStringContainsString( 'SHA256SUMS.txt', $mismatch->get_error_message() );
-		self::assertStringNotContainsStringIgnoringCase( 'signed', $mismatch->get_error_message() );
 		self::assertFileDoesNotExist( $package );
 
 		$GLOBALS['stonewright_test_wp_remote_get'] = static fn(): \WP_Error => new \WP_Error( 'http_request_failed', 'private upstream detail' );
@@ -977,6 +972,127 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $network );
 		self::assertSame( 'stonewright_update_checksum_manifest_unavailable', $network->get_error_code() );
 		self::assertStringNotContainsString( 'private upstream detail', $network->get_error_message() );
+	}
+
+	public function test_a_version_without_signing_keys_keeps_the_checksum_only_check(): void {
+		// This version ships keys; an empty list stands for a version without them.
+		$this->trust_signing_keys( [] );
+		$update = $this->arrange_queued_update_with_package();
+		$this->serve_release_files( $update['manifest'], [ 'response' => [ 'code' => 200 ], 'body' => "not a signature\n" ] );
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertSame( $update['file'], $result );
+		self::assertSame( [ '/SHA256SUMS.txt' ], $this->requested_release_files() );
+		unlink( $update['file'] );
+	}
+
+	public function test_the_shipped_release_keys_refuse_an_unsigned_release(): void {
+		self::assertNotSame( [], ReleaseSignature::PUBLIC_KEYS, 'This version ships the release public keys.' );
+		$update = $this->arrange_queued_update_with_package();
+		$this->serve_release_files( $update['manifest'], [ 'response' => [ 'code' => 404 ], 'body' => 'Not Found' ] );
+		$GLOBALS['stonewright_test_download_url'] = static function (): never {
+			throw new \RuntimeException( 'An unverified package must not be downloaded' );
+		};
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_signature_missing', $result->get_error_code() );
+		self::assertSame( [ '/SHA256SUMS.txt', '/SHA256SUMS.txt.sig' ], $this->requested_release_files() );
+		unlink( $update['file'] );
+	}
+
+	public function test_a_signed_manifest_lets_the_verified_package_through(): void {
+		$active = $this->throwaway_signing_key();
+		$backup = $this->throwaway_signing_key();
+		$this->trust_signing_keys( [ $active['public'], $backup['public'] ] );
+		$update = $this->arrange_queued_update_with_package();
+		// The backup key signs, as it would after the active key was retired.
+		$this->serve_release_files( $update['manifest'], $this->signature_response( $update['manifest'], $backup ) );
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertSame( $update['file'], $result );
+		self::assertSame( [ '/SHA256SUMS.txt', '/SHA256SUMS.txt.sig' ], $this->requested_release_files() );
+		self::assertSame(
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.30/SHA256SUMS.txt.sig',
+			$GLOBALS['stonewright_test_wp_remote_get_calls'][1]['url']
+		);
+		self::assertLessThanOrEqual( 4097, $GLOBALS['stonewright_test_wp_remote_get_calls'][1]['args']['limit_response_size'] ?? PHP_INT_MAX );
+		unlink( $update['file'] );
+	}
+
+	/**
+	 * @dataProvider refused_signature_cases
+	 */
+	public function test_a_version_with_signing_keys_refuses_an_unverified_manifest_before_downloading( string $case, string $code ): void {
+		$trusted   = $this->throwaway_signing_key();
+		$untrusted = $this->throwaway_signing_key();
+		$this->trust_signing_keys( [ $trusted['public'] ] );
+		$update   = $this->arrange_queued_update_with_package();
+		$manifest = $update['manifest'];
+		$response = match ( $case ) {
+			'missing'     => [ 'response' => [ 'code' => 404 ], 'body' => 'Not Found' ],
+			'server'      => [ 'response' => [ 'code' => 503 ], 'body' => 'private upstream detail' ],
+			'network'     => new \WP_Error( 'http_request_failed', 'private upstream detail' ),
+			'malformed'   => [ 'response' => [ 'code' => 200 ], 'body' => "<html>private upstream detail</html>\n" ],
+			'untrusted'   => $this->signature_response( $manifest, $untrusted ),
+			'other bytes' => $this->signature_response( $manifest . "\n", $trusted ),
+			default       => self::fail( 'Unknown case ' . $case ),
+		};
+		$this->serve_release_files( $manifest, $response );
+		$GLOBALS['stonewright_test_download_url'] = static function (): never {
+			throw new \RuntimeException( 'An unverified package must not be downloaded' );
+		};
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( $code, $result->get_error_code() );
+		self::assertStringContainsString( 'The update was stopped.', $result->get_error_message() );
+		self::assertStringNotContainsString( 'private upstream detail', $result->get_error_message() );
+		self::assertStringNotContainsString( $trusted['public'], $result->get_error_message() );
+		unlink( $update['file'] );
+	}
+
+	/** @return iterable<string, array{string, string}> */
+	public static function refused_signature_cases(): iterable {
+		yield 'release without a signature' => [ 'missing', 'stonewright_update_signature_missing' ];
+		yield 'signature download failed on the server' => [ 'server', 'stonewright_update_signature_unavailable' ];
+		yield 'signature download failed on the network' => [ 'network', 'stonewright_update_signature_unavailable' ];
+		yield 'malformed signature file' => [ 'malformed', 'stonewright_update_signature_malformed' ];
+		yield 'signature by an untrusted key' => [ 'untrusted', 'stonewright_update_signature_invalid' ];
+		yield 'signature over other manifest bytes' => [ 'other bytes', 'stonewright_update_signature_invalid' ];
+	}
+
+	public function test_a_signed_manifest_of_another_release_cannot_be_replayed(): void {
+		$key = $this->throwaway_signing_key();
+		$this->trust_signing_keys( [ $key['public'] ] );
+		$update = $this->arrange_queued_update_with_package();
+		// A genuine, signed manifest of an older release served under the queued beta.30 tag.
+		$older = str_replace( 'stonewright-1.3.0-beta.30.zip', 'stonewright-1.3.0-beta.20.zip', $update['manifest'] );
+		$this->serve_release_files( $older, $this->signature_response( $older, $key ) );
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_checksum_manifest_package_missing', $result->get_error_code() );
+		unlink( $update['file'] );
+	}
+
+	public function test_a_signed_manifest_still_needs_the_matching_package_digest(): void {
+		$key = $this->throwaway_signing_key();
+		$this->trust_signing_keys( [ $key['public'] ] );
+		$update   = $this->arrange_queued_update_with_package();
+		$manifest = str_repeat( '0', 64 ) . '  stonewright-1.3.0-beta.30.zip' . "\n";
+		$this->serve_release_files( $manifest, $this->signature_response( $manifest, $key ) );
+
+		$result = GitHubUpdater::verify_package_download( false, $update['package'], null, [ 'plugin' => GitHubUpdater::plugin_basename() ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_update_checksum_mismatch', $result->get_error_code() );
+		self::assertFileDoesNotExist( $update['file'] );
 	}
 
 	public function test_upgrader_pre_download_rejects_unbound_stonewright_package_when_release_metadata_is_unavailable(): void {
@@ -1010,10 +1126,7 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertIsString( $downloaded );
 		file_put_contents( $downloaded, 'bound synthetic package' );
 		$digest = hash_file( 'sha256', $downloaded );
-		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
-			'response' => [ 'code' => 200 ],
-			'body'     => $digest . '  stonewright-1.3.0-beta.30.zip' . "\n",
-		];
+		$this->serve_signed_manifest( $digest . '  stonewright-1.3.0-beta.30.zip' . "\n" );
 
 		$result = GitHubUpdater::verify_package_download(
 			$downloaded,
@@ -1273,6 +1386,96 @@ final class GitHubUpdaterTest extends TestCase {
 
 	private function set_installed_version( string $version ): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_installed_version'] = static fn(): string => $version;
+	}
+
+	/**
+	 * Queue the beta.30 update for a site on beta.1 and stage a synthetic package
+	 * that download_url() returns, with the manifest line that matches it.
+	 *
+	 * @return array{package: string, file: string, manifest: string}
+	 */
+	private function arrange_queued_update_with_package(): array {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$release = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+		self::assertIsArray( $release );
+		self::assertSame( '1.3.0-beta.30', $release['version'] );
+		$file = tempnam( sys_get_temp_dir(), 'stonewright-signed-' );
+		self::assertIsString( $file );
+		file_put_contents( $file, 'signed synthetic package' );
+		$GLOBALS['stonewright_test_download_url']        = static fn(): string => $file;
+		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
+
+		return [
+			'package'  => $release['package'],
+			'file'     => $file,
+			'manifest' => hash_file( 'sha256', $file ) . '  ' . basename( $release['package'] ) . "\n",
+		];
+	}
+
+	/**
+	 * Serve SHA256SUMS.txt and SHA256SUMS.txt.sig of the queued release.
+	 *
+	 * @param array<string, mixed>|\WP_Error $signature_response
+	 */
+	private function serve_release_files( string $manifest, array|\WP_Error $signature_response ): void {
+		$GLOBALS['stonewright_test_wp_remote_get'] = static function ( string $url ) use ( $manifest, $signature_response ): array|\WP_Error {
+			if ( str_ends_with( $url, '/SHA256SUMS.txt.sig' ) ) {
+				return $signature_response;
+			}
+			if ( str_ends_with( $url, '/SHA256SUMS.txt' ) ) {
+				return [ 'response' => [ 'code' => 200 ], 'body' => $manifest ];
+			}
+			throw new \RuntimeException( 'Unexpected request to ' . $url );
+		};
+	}
+
+	/**
+	 * Serve SHA256SUMS.txt and a valid SHA256SUMS.txt.sig by a key the updater
+	 * trusts for this test only, as a signed release is served.
+	 */
+	private function serve_signed_manifest( string $manifest ): void {
+		$key = $this->throwaway_signing_key();
+		$this->trust_signing_keys( [ $key['public'] ] );
+		$this->serve_release_files( $manifest, $this->signature_response( $manifest, $key ) );
+	}
+
+	/** @return list<string> */
+	private function requested_release_files(): array {
+		return array_map(
+			static fn( array $call ): string => substr( (string) $call['url'], (int) strrpos( (string) $call['url'], '/' ) ),
+			$GLOBALS['stonewright_test_wp_remote_get_calls']
+		);
+	}
+
+	/** @param list<string> $keys Base64 public keys the updater trusts for this test only. */
+	private function trust_signing_keys( array $keys ): void {
+		( new \ReflectionProperty( GitHubUpdater::class, 'release_signing_keys_override' ) )->setValue( null, $keys );
+	}
+
+	/**
+	 * A key pair made for one test and never stored.
+	 *
+	 * @return array{public: string, secret: string}
+	 */
+	private function throwaway_signing_key(): array {
+		$pair = sodium_crypto_sign_keypair();
+		return [
+			'public' => base64_encode( sodium_crypto_sign_publickey( $pair ) ),
+			'secret' => sodium_crypto_sign_secretkey( $pair ),
+		];
+	}
+
+	/**
+	 * @param array{public: string, secret: string} $key
+	 * @return array{response: array{code: int}, body: string}
+	 */
+	private function signature_response( string $manifest, array $key ): array {
+		return [
+			'response' => [ 'code' => 200 ],
+			'body'     => base64_encode( sodium_crypto_sign_detached( $manifest, $key['secret'] ) ) . "\n",
+		];
 	}
 
 	private function cache_release( string $channel ): void {

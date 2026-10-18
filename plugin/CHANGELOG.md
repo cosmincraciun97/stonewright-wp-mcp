@@ -35,11 +35,20 @@
   only when the type is public. `oembed-resolve` needs `edit_posts`.
   `stock-image-search` needs `upload_files` and encodes the search terms it sends
   to the provider.
+- Sign releases. This version ships the release public keys, an active key and
+  an offline backup key, and installs an update only when the release's
+  `SHA256SUMS.txt.sig`, an Ed25519 signature of `SHA256SUMS.txt`, verifies
+  against one of them. The release workflow signs every release and stops when
+  it cannot, so each release now has this fourth asset. A site on an earlier
+  version installs this one with the checksum check only; every update after it
+  is verified.
+- Record a GitHub build provenance attestation for the plugin ZIP and the
+  companion package of each release. It adds no release asset.
 
 ### Changed
 
 - Describe the update package check accurately: the ZIP is compared with the
-  SHA-256 in its release's `SHA256SUMS.txt`. Releases are not signed.
+  SHA-256 in its release's `SHA256SUMS.txt`.
 - Leave the PHPStan stub folder out of the plugin release ZIP.
 
 ### Removed

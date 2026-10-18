@@ -33,6 +33,14 @@ final class GitHubUpdater {
 	 */
 	private static bool $forced_release_lookup_used = false;
 
+	/**
+	 * Release signing keys used instead of ReleaseSignature::PUBLIC_KEYS. Unit
+	 * tests set it through reflection; reset_request_lookup_state() clears it.
+	 *
+	 * @var list<string>|null
+	 */
+	private static ?array $release_signing_keys_override = null;
+
 	public static function register(): void {
 		add_filter( 'site_transient_update_plugins', [ self::class, 'inject_update' ] );
 		add_filter( 'pre_set_site_transient_update_plugins', [ self::class, 'inject_update' ] );
@@ -263,9 +271,12 @@ final class GitHubUpdater {
 	 * Download the exact Stonewright release ZIP and check its SHA-256 digest
 	 * against the one listed in the same release's SHA256SUMS.txt before
 	 * WordPress extracts or installs it. The package and the manifest come from
-	 * the project's GitHub releases (the origin is restricted to them); the
-	 * release is not signed, so this detects a corrupt or mismatched download,
-	 * not a compromised release.
+	 * the project's GitHub releases (the origin is restricted to them). When this
+	 * version ships release signing keys, SHA256SUMS.txt must also carry a valid
+	 * Ed25519 signature (SHA256SUMS.txt.sig) by one of them, so a release whose
+	 * assets were replaced is refused. A version without keys checks only the
+	 * digest, which detects a corrupt or mismatched download, not a compromised
+	 * release.
 	 *
 	 * @param mixed                $reply      Earlier upgrader filter result.
 	 * @param mixed                $upgrader   WordPress upgrader instance.
@@ -316,7 +327,11 @@ final class GitHubUpdater {
 		if ( is_wp_error( $manifest_response ) || 200 !== wp_remote_retrieve_response_code( $manifest_response ) ) {
 			return new \WP_Error( 'stonewright_update_checksum_manifest_unavailable', __( 'Stonewright could not securely retrieve the checksum manifest. The update was stopped.', 'stonewright' ) );
 		}
-		$manifest = wp_remote_retrieve_body( $manifest_response );
+		$manifest  = wp_remote_retrieve_body( $manifest_response );
+		$signature = self::verify_manifest_signature( $manifest, $identity['signature_url'] );
+		if ( is_wp_error( $signature ) ) {
+			return $signature;
+		}
 		$filename = $identity['filename'];
 		$expected = self::manifest_digest( $manifest, $filename );
 		if ( is_wp_error( $expected ) ) {
@@ -338,6 +353,50 @@ final class GitHubUpdater {
 		}
 
 		return $downloaded;
+	}
+
+	/**
+	 * Require a valid signature of the exact SHA256SUMS.txt bytes when this
+	 * version ships release signing keys. Without keys (the versions released
+	 * before signing started) the digest comparison alone applies.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function verify_manifest_signature( string $manifest, string $signature_url ): bool|\WP_Error {
+		$keys = self::release_signing_keys();
+		if ( [] === $keys ) {
+			return true;
+		}
+
+		$response = wp_remote_get(
+			$signature_url,
+			[
+				'timeout'             => 10,
+				// One byte over the limit, so an oversized file is refused instead of cut.
+				'limit_response_size' => ReleaseSignature::MAX_SIGNATURE_FILE_BYTES + 1,
+				'headers'             => [
+					'Accept'     => 'text/plain',
+					'User-Agent' => 'Stonewright/' . self::installed_version(),
+				],
+			]
+		);
+		if ( is_wp_error( $response ) ) {
+			return new \WP_Error( 'stonewright_update_signature_unavailable', __( 'Stonewright could not securely retrieve the release signature. The update was stopped.', 'stonewright' ) );
+		}
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( 404 === $status ) {
+			return new \WP_Error( 'stonewright_update_signature_missing', __( 'The Stonewright release has no SHA256SUMS.txt.sig signature, which this version requires. The update was stopped.', 'stonewright' ) );
+		}
+		if ( 200 !== $status ) {
+			return new \WP_Error( 'stonewright_update_signature_unavailable', __( 'Stonewright could not securely retrieve the release signature. The update was stopped.', 'stonewright' ) );
+		}
+
+		return ReleaseSignature::verify( $manifest, wp_remote_retrieve_body( $response ), $keys );
+	}
+
+	/** @return list<string> */
+	private static function release_signing_keys(): array {
+		return self::$release_signing_keys_override ?? ReleaseSignature::PUBLIC_KEYS;
 	}
 
 	/**
@@ -373,7 +432,7 @@ final class GitHubUpdater {
 		return self::PACKAGE_BINDING_CACHE_PREFIX . hash( 'sha256', $canonical_url );
 	}
 
-	/** @return array{canonical_url: string, manifest_url: string, version: string, filename: string}|null */
+	/** @return array{canonical_url: string, manifest_url: string, signature_url: string, version: string, filename: string}|null */
 	private static function package_identity( string $package ): ?array {
 		$parts = wp_parse_url( $package );
 		if (
@@ -412,6 +471,7 @@ final class GitHubUpdater {
 		return [
 			'canonical_url' => $release_prefix . rawurlencode( $filename ),
 			'manifest_url'  => $release_prefix . 'SHA256SUMS.txt',
+			'signature_url' => $release_prefix . ReleaseSignature::ASSET_NAME,
 			'version'       => $version,
 			'filename'      => $filename,
 		];
@@ -522,10 +582,12 @@ final class GitHubUpdater {
 	}
 
 	/**
-	 * Reset per-request force-lookup state. Used by unit tests only.
+	 * Reset per-request force-lookup state and the signing key override. Used by
+	 * unit tests only.
 	 */
 	public static function reset_request_lookup_state(): void {
-		self::$forced_release_lookup_used = false;
+		self::$forced_release_lookup_used    = false;
+		self::$release_signing_keys_override = null;
 	}
 
 	/**
