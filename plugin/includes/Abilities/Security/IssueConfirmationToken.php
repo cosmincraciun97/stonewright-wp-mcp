@@ -5,6 +5,9 @@ namespace Stonewright\WpMcp\Abilities\Security;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
+use Stonewright\WpMcp\Abilities\System\ExecuteAbility;
+use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\FullProfileOnlyAbilities;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -87,6 +90,12 @@ final class IssueConfirmationToken extends AbilityKernel {
 		$inner_args = is_array( $args['args'] ?? null ) ? $args['args'] : [];
 		$ttl        = isset( $args['ttl_seconds'] ) ? (int) $args['ttl_seconds'] : 300;
 
+		// A token never unlocks an ability that runs or writes code and is not on the current surface, so none is issued for one.
+		$refusal = $this->surface_refusal( $ability, $inner_args );
+		if ( $refusal instanceof \WP_Error ) {
+			return $refusal;
+		}
+
 		$inner_args = CodePayloadCanonicalizer::canonicalize( $ability, $inner_args );
 		if ( $inner_args instanceof \WP_Error ) {
 			return $inner_args;
@@ -110,5 +119,26 @@ final class IssueConfirmationToken extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * The refusal for a token whose target is an ability the current tool surface does not list: an ability that
+	 * runs or writes code, named directly or as the target of the REST runner. Only a person who chooses the Full
+	 * surface in wp-admin changes that, so a token would only mislead the caller.
+	 *
+	 * @param array<string, mixed> $inner_args The arguments the token is bound to.
+	 */
+	private function surface_refusal( string $ability, array $inner_args ): ?\WP_Error {
+		$target = ExecuteAbility::normalize_ability_name( $ability );
+		if ( 'stonewright/rest-abilities-run' === $target ) {
+			$target = ExecuteAbility::normalize_ability_name( is_string( $inner_args['name'] ?? null ) ? $inner_args['name'] : '' );
+		}
+		if ( ! FullProfileOnlyAbilities::is_restricted( $target ) ) {
+			return null;
+		}
+
+		$registered = AbilityRegistry::ability_by_name( $target );
+
+		return null === $registered ? null : AbilityRegistry::surface_refusal( $registered );
 	}
 }

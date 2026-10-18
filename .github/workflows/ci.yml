@@ -30,7 +30,7 @@ jobs:
       - run: node scripts/check-docs-freshness.mjs
       - run: node scripts/check-license-metadata.mjs
       - run: node scripts/check-admin-control-sizing.mjs
-      - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/package-verify.test.mjs
+      - run: node --test scripts/tests/release-flags.test.mjs scripts/tests/release-artifacts.test.mjs scripts/tests/package-verify.test.mjs scripts/tests/release-signature.test.mjs
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
@@ -118,6 +118,7 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist \
+            --exclude /stubs \
             --exclude .github
           php plugin/bin/verify-jetpack-manifests.php package-scan/stonewright
           cp LICENSE package-scan/stonewright/LICENSE
@@ -179,6 +180,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: companion/package-lock.json
+      # Shipped runtime dependencies only; reads the lockfile, so it runs before the install.
+      - name: Audit shipped dependencies
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -246,6 +250,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: visual/package-lock.json
+      # Shipped runtime dependencies only; reads the lockfile, so it runs before the install.
+      - name: Audit shipped dependencies
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
@@ -331,6 +338,7 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist \
+            --exclude /stubs \
             --exclude .github
           php plugin/bin/verify-jetpack-manifests.php dist/e2e/stonewright
           (cd dist/e2e && zip -qr stonewright.zip stonewright)

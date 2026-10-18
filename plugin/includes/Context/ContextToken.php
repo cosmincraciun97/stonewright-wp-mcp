@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Context;
 
+use Stonewright\WpMcp\Core\SiteMode;
+
 /**
  * Short-lived workflow token proving the agent loaded Stonewright context.
  */
@@ -26,7 +28,7 @@ final class ContextToken {
 				'scope'            => $scope,
 				'site_fingerprint' => self::site_fingerprint(),
 				'environment_type' => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
-				'stonewright_mode' => (string) get_option( 'stonewright_mode', 'development' ),
+				'stonewright_mode' => SiteMode::current(),
 				'backend'          => 'plugin',
 				'issued_at'        => time(),
 				'expires_at' => $expires_at,
@@ -75,7 +77,7 @@ final class ContextToken {
 		$current_context = [
 			'site_fingerprint' => self::site_fingerprint(),
 			'environment_type' => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
-			'stonewright_mode' => (string) get_option( 'stonewright_mode', 'development' ),
+			'stonewright_mode' => SiteMode::current(),
 			'backend'          => 'plugin',
 		];
 		foreach ( $current_context as $key => $value ) {

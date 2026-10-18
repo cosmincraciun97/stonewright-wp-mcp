@@ -45,7 +45,7 @@
     },
     "scripts": {
         "test": "phpunit",
-        "phpstan": "phpstan analyse --memory-limit=2G",
+        "phpstan": "phpstan analyse --memory-limit=3G",
         "phpcs": "phpcs",
         "phpcbf": "phpcbf",
         "docs:matrix": "php bin/generate-ability-matrix.php",

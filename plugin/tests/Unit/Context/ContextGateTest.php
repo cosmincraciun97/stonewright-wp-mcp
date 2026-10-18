@@ -23,10 +23,11 @@ final class ContextGateTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_current_user_id'] = 11;
 		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
 	}
 
 	protected function tearDown(): void {
-		unset( $GLOBALS['stonewright_test_home_url'] );
+		unset( $GLOBALS['stonewright_test_home_url'], $GLOBALS['stonewright_test_options']['stonewright_enabled'], $GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] );
 	}
 
 	public function test_write_ability_requires_context_token(): void {
@@ -165,6 +166,9 @@ final class ContextGateTest extends TestCase {
 	}
 
 	public function test_wp_cli_run_requires_context_token_but_status_and_discover_are_discovery(): void {
+		// wp-cli-run is a Full-surface ability; the context guard is what this test exercises.
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'full';
+
 		$run = AbilityRegistry::execute_with_context_guard(
 			new WpCliRun(),
 			[ 'command' => [ 'post', 'create', '--post_type=page' ] ]

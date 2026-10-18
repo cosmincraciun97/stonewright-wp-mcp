@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV4;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -71,7 +72,7 @@ final class Status extends AbilityKernel {
 				$atomic_flag  = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 				$build        = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '';
 				$widgets      = self::active_widget_types();
-				$v4_ready     = $v4_available && $atomic_flag && 'production-safe' !== get_option( 'stonewright_mode', 'development' );
+				$v4_ready     = $v4_available && $atomic_flag && ! SiteMode::is_production_safe();
 
 				$capabilities = [];
 				if ( $v4_available ) {

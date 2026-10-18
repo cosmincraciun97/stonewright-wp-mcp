@@ -55,7 +55,11 @@ final class AgentInstructions {
 		return implode( "\n", $parts );
 	}
 
-	public static function default( bool $include_visual = true ): string {
+	/**
+	 * @param bool $include_site_instructions Whether the site's custom instructions are appended; they are for
+	 *                                        administrators, like the memory and instructions abilities.
+	 */
+	public static function default( bool $include_visual = true, bool $include_site_instructions = true ): string {
 		$parts = [
 			'Stonewright build discipline:',
 			'- MCP clients expose Stonewright tools with hyphens. When calling tools via MCP, replace `/` with `-`: ability `stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`, and ability `stonewright/wp-cli-run` is MCP tool `stonewright-wp-cli-run`.',
@@ -155,7 +159,7 @@ final class AgentInstructions {
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
 		$custom_instructions  = (string) get_option( 'stonewright_custom_instructions', '' );
 
-		if ( $instructions_enabled && '' !== $custom_instructions ) {
+		if ( $include_site_instructions && $instructions_enabled && '' !== $custom_instructions ) {
 			$parts[] = '';
 			$parts[] = '## Site-specific instructions';
 			$parts[] = '';

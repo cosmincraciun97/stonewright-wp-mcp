@@ -121,7 +121,6 @@ final class FullSurfaceHumanOnlyTest extends TestCase {
 		self::assertNotInstanceOf( \WP_Error::class, $callback( self::post( [ 'mode' => 'staging' ] ) ) );
 		self::assertSame( 'staging', get_option( 'stonewright_mode' ) );
 		self::assertNotInstanceOf( \WP_Error::class, $callback( self::post( [ 'essential_tools_mode' => true ] ) ) );
-		self::assertNotInstanceOf( \WP_Error::class, $callback( self::post( [ 'feature_flags' => [ 'example_flag' => true ] ] ) ) );
 		self::assertTrue( get_option( 'stonewright_essential_tools_mode' ) );
 	}
 

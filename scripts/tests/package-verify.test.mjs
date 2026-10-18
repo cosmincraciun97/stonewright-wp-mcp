@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { generateSigningKey } from '../release-signature.mjs';
 
 const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseWorkflow = readFileSync(path.join(scriptsDir, '..', '.github', 'workflows', 'release.yml'), 'utf8');
@@ -15,14 +16,23 @@ function write(root, rel, body = 'x\n') {
 	writeFileSync(file, body);
 }
 
+function releaseSignatureSource(keys) {
+	const list = keys.length === 0 ? '[]' : `[\n${keys.map((key) => `\t\t'${key}',\n`).join('')}\t]`;
+	return `<?php\nfinal class ReleaseSignature {\n\tpublic const PUBLIC_KEYS = ${list};\n}\n`;
+}
+
 // package-verify resolves the plugin folder relative to its own location, so the
 // script runs from a throwaway repository layout that holds a minimal plugin.
-function runPackageVerify(extraPluginFiles) {
+function runPackageVerify(extraPluginFiles, { signatureSource = releaseSignatureSource([]) } = {}) {
 	const root = mkdtempSync(path.join(os.tmpdir(), 'stonewright-package-verify-'));
 	try {
 		mkdirSync(path.join(root, 'scripts'));
 		copyFileSync(path.join(scriptsDir, 'package-verify.mjs'), path.join(root, 'scripts', 'package-verify.mjs'));
+		copyFileSync(path.join(scriptsDir, 'release-signature.mjs'), path.join(root, 'scripts', 'release-signature.mjs'));
 		const plugin = path.join(root, 'plugin');
+		if (signatureSource !== null) {
+			write(plugin, 'includes/Core/ReleaseSignature.php', signatureSource);
+		}
 		for (const rel of [
 			'stonewright.php',
 			'includes/Core/PluginRegistration.php',
@@ -68,4 +78,49 @@ test('package dry run leaves out a .github folder at any depth', () => {
 test('release workflow excludes .github and rejects it in the built plugin zip', () => {
 	assert.match(releaseWorkflow, /--exclude \.github(\s|$)/);
 	assert.match(releaseWorkflow, /grep -E '\^stonewright\/\\\.github\(\/\|\$\)'/);
+});
+
+test('package dry run leaves out the PHPStan stubs folder', () => {
+	const withoutStubs = runPackageVerify([]);
+	const withStubs = runPackageVerify(['stubs/elementor.stub.php']);
+	assert.equal(withStubs.status, 0);
+	assert.ok(withStubs.report.excludes.includes('stubs'));
+	assert.equal(withStubs.report.included_file_count, withoutStubs.report.included_file_count);
+});
+
+test('package dry run reports release signing off while the plugin ships no public key', () => {
+	const result = runPackageVerify([]);
+	assert.equal(result.status, 0);
+	assert.equal(result.report.release_signing, 'off');
+});
+
+test('package dry run accepts an active and a backup public key', () => {
+	const keys = [generateSigningKey().publicKey, generateSigningKey().publicKey];
+	const result = runPackageVerify([], { signatureSource: releaseSignatureSource(keys) });
+	assert.equal(result.status, 0);
+	assert.equal(result.report.release_signing, 'on');
+});
+
+test('package dry run refuses a lone, malformed, or missing release key list', () => {
+	const lone = runPackageVerify([], { signatureSource: releaseSignatureSource([generateSigningKey().publicKey]) });
+	assert.equal(lone.status, 1);
+	assert.match(lone.report.errors.join('\n'), /active key and a backup key/);
+
+	const malformed = runPackageVerify([], {
+		signatureSource: releaseSignatureSource([generateSigningKey().publicKey, 'not-a-key']),
+	});
+	assert.equal(malformed.status, 1);
+	assert.match(malformed.report.errors.join('\n'), /not a base64 Ed25519 public key/);
+
+	const missing = runPackageVerify([], { signatureSource: null });
+	assert.equal(missing.status, 1);
+	assert.match(missing.report.errors.join('\n'), /includes\/Core\/ReleaseSignature\.php/);
+});
+
+test('packaging workflows exclude the stubs folder from the plugin root only', () => {
+	const ciWorkflow = readFileSync(path.join(scriptsDir, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+	// Anchored to the plugin root so a vendor package that ships its own stubs folder is untouched.
+	assert.match(releaseWorkflow, /--exclude \/stubs(\s|$)/);
+	assert.equal(ciWorkflow.match(/--exclude \/stubs(\s|$)/g)?.length, 2);
+	assert.match(releaseWorkflow, /grep -E '\^stonewright\/\(tests\|bin\|stubs\)\/\|/);
 });

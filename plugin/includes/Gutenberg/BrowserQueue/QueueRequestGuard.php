@@ -46,9 +46,6 @@ final class QueueRequestGuard {
 		if ( ! Permissions::edit_post( (int) $scope['post_id'] ) ) {
 			return new \WP_Error( 'stonewright_queue_forbidden', 'The queued target cannot be edited.', [ 'status' => 403, 'retryable' => false ] );
 		}
-		if ( ! in_array( get_option( 'stonewright_mode', 'development' ), [ 'development', 'staging', 'production-safe' ], true ) ) {
-			return new \WP_Error( 'stonewright_queue_mode', 'Unknown Stonewright safety mode.', [ 'status' => 403, 'retryable' => false ] );
-		}
 		return $scope;
 	}
 

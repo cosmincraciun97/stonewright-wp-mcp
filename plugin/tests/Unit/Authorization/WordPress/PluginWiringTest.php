@@ -83,7 +83,7 @@ final class PluginWiringTest extends TestCase {
 	private static function hidden_pages(): array {
 		$slugs = [];
 		foreach ( (array) ( $GLOBALS['stonewright_test_submenu_pages'] ?? [] ) as $slug => $page ) {
-			if ( 'options.php' === ( $page['parent'] ?? null ) && 'read' === ( $page['capability'] ?? null ) ) {
+			if ( 'options.php' === ( $page['parent'] ?? null ) && 'edit_posts' === ( $page['capability'] ?? null ) ) {
 				$slugs[] = (string) $slug;
 			}
 		}

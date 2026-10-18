@@ -130,7 +130,8 @@ final class FormAndCapabilityDiagnosticTest extends TestCase {
 	}
 
 	public function test_oauth_header_diagnostic_separates_oauth_and_application_password_paths(): void {
-		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		// An administrator: the OAuth route also needs the capability the MCP servers require (edit_posts).
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true, 'edit_posts' => true ];
 		$_SERVER['HTTP_AUTHORIZATION'] = 'Bearer SECRET-MUST-NOT-RETURN';
 
 		$result = ( new OAuthHeaderDiagnostic() )->execute( [ 'route' => '/mcp/stonewright-oauth/tools/list' ] );

@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
+use Stonewright\WpMcp\Core\SiteDefaults;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\HttpRig;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
@@ -194,7 +195,7 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 				'stonewright_settings stonewright_custom_instructions_enabled boolean default=true',
 				'stonewright_settings stonewright_essential_tools_mode boolean default=true',
 				'stonewright_settings stonewright_mcp_surface string default=\'essential\'',
-				'stonewright_settings stonewright_mode string default=\'development\'',
+				'stonewright_settings stonewright_mode string default=' . var_export( SiteDefaults::mode_for_environment(), true ),
 				'stonewright_settings stonewright_companion_url string default=\'http://127.0.0.1:8765\'',
 				'stonewright_settings stonewright_companion_token string default=\'\'',
 				'stonewright_settings stonewright_elementor_v4_atomic boolean default=false',
@@ -208,6 +209,53 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 			],
 			$saved
 		);
+	}
+
+	public function test_the_registered_mode_default_follows_the_environment(): void {
+		foreach ( [ 'production' => 'production-safe', 'staging' => 'staging', 'local' => 'development' ] as $environment => $expected ) {
+			$GLOBALS['stonewright_test_environment_type'] = $environment;
+			self::assertSame( $expected, self::mode_setting()['default'], $environment );
+		}
+	}
+
+	public function test_the_mode_sanitizer_keeps_the_current_mode_for_invalid_input(): void {
+		$sanitize = self::mode_setting()['sanitize_callback'];
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		foreach ( [ 'foo', '', 'production_safe', [ 'development' ], 5, null, true ] as $invalid ) {
+			self::assertSame( 'production-safe', $sanitize( $invalid ), 'Invalid input must not loosen the mode.' );
+		}
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'staging';
+		self::assertSame( 'staging', $sanitize( 'nonsense' ) );
+
+		// With nothing stored, invalid input keeps the environment default.
+		unset( $GLOBALS['stonewright_test_options']['stonewright_mode'] );
+		$GLOBALS['stonewright_test_environment_type'] = 'production';
+		self::assertSame( 'production-safe', $sanitize( 'nonsense' ) );
+	}
+
+	public function test_the_mode_sanitizer_accepts_each_valid_mode(): void {
+		$sanitize = self::mode_setting()['sanitize_callback'];
+
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		self::assertSame( 'development', $sanitize( ' Development ' ) );
+		self::assertSame( 'staging', $sanitize( 'staging' ) );
+		self::assertSame( 'production-safe', $sanitize( 'production-safe' ) );
+	}
+
+	/** @return array<string,mixed> */
+	private static function mode_setting(): array {
+		$GLOBALS['stonewright_test_registered_settings'] = [];
+		ConfigurationPage::register_settings();
+		$found = [];
+		foreach ( $GLOBALS['stonewright_test_registered_settings'] as $registered ) {
+			if ( 'stonewright_mode' === $registered['option'] ) {
+				$found = $registered['args'];
+			}
+		}
+		$GLOBALS['stonewright_test_registered_settings'] = [];
+		return $found;
 	}
 
 	// -------------------------------------------------------------------------

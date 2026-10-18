@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
+	chooseFullSurface,
 	restPost,
 	restRequest,
 	runAbility,
@@ -10,6 +11,13 @@ import {
 	cleanupElementorCssSentinels,
 	seedElementorCssSentinels,
 } from './helpers/wp-env';
+
+// php-execute runs only on the Full surface an administrator chooses; put the previous surface back after each test.
+let restoreSurface: (() => Promise<void>) | undefined;
+test.afterEach(async () => {
+	await restoreSurface?.();
+	restoreSurface = undefined;
+});
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
@@ -166,6 +174,7 @@ test('real Elementor regenerates only target post CSS and survives verification'
 	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Elementor CSS gate runs once.');
 	await login(page);
 	await ensureStonewrightEnabled(page);
+	restoreSurface = await chooseFullSurface(page);
 	const nonce = await wpRestNonce(page);
 
 	const task = await runAbility(page, nonce, 'stonewright/task-start', {

@@ -25,7 +25,7 @@ final class AuthorizationPagesTest extends TestCase {
 
 	protected function setUp(): void {
 		StorageRig::reset_globals();
-		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true, 'edit_posts' => true ] ];
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$this->http = new HttpRig();
 		$this->client = $this->http->rig->register_client();
@@ -347,6 +347,7 @@ final class AuthorizationPagesTest extends TestCase {
 		self::assert_error_page( $this->pages()->review( self::consent_query( str_repeat( '0', 32 ) ), 7 ), 400 );
 		self::assert_error_page( $this->pages()->review( 'page=stonewright-oauth-consent', 7 ), 400 );
 		$GLOBALS['stonewright_test_current_user_id'] = 8;
+		$GLOBALS['stonewright_test_user_caps_by_id'][8] = [ 'read' => true, 'edit_posts' => true ];
 		self::assert_error_page( $this->pages()->review( self::consent_query( $token ), 8 ), 400 );
 		self::assert_error_page( $this->pages()->decide( self::consent_query( $token ), [ '_wpnonce' => 'n', 'approve' => '1' ], 8 ), 400 );
 		self::assertCount( 1, $this->http->rig->rows( 'consents' ) );
@@ -403,6 +404,20 @@ final class AuthorizationPagesTest extends TestCase {
 
 		self::assert_error_page( $this->pages()->decide( self::consent_query( $token ), [ '_wpnonce' => 'n', 'approve' => '1' ], 7 ), 403 );
 		self::assertCount( 1, $this->http->rig->rows( 'consents' ) );
+	}
+
+	public function test_an_account_that_cannot_use_the_tools_is_not_offered_consent(): void {
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+
+		self::assert_error_page( $this->pages()->authorize( $this->query(), 7 ), 403 );
+		self::assertSame( [], $this->http->rig->rows( 'consents' ), 'No consent request is opened for a subscriber.' );
+	}
+
+	public function test_a_pending_consent_is_not_shown_once_the_account_lost_the_capability(): void {
+		$token = $this->pending_token();
+		$GLOBALS['stonewright_test_user_caps_by_id'] = [ 7 => [ 'read' => true ] ];
+
+		self::assert_error_page( $this->pages()->review( self::consent_query( $token ), 7 ), 403 );
 	}
 
 	public function test_state_and_callback_queries_survive_exactly(): void {

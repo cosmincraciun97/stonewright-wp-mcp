@@ -959,16 +959,78 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * The one place that decides whether an ability may run at all: the master toggle (stonewright/ping is
+	 * exempt), the administrator's disabled list, and the tool surface. Every path that runs an ability by
+	 * name passes through it, through execute_with_context_guard(): MCP tools, execute-ability, the REST
+	 * runner, and the WordPress Abilities API route.
+	 *
+	 * An ability that runs or writes code is refused unless the configured surface or the session profile
+	 * lists it. A confirmation token never lifts that refusal; only a person choosing the Full surface in
+	 * wp-admin does. An ability the surface only hides from the tool list (section reuse switched off,
+	 * Atomic abilities not turned on) goes on to its own handling, which answers that state itself.
+	 *
+	 * @return \WP_Error|null The refusal, or null when the ability may go on to its own gates.
+	 */
+	public static function authorize_execution( Ability $ability ): ?\WP_Error {
+		$name = $ability->name();
+
+		if ( 'stonewright/ping' !== $name && ! \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled() ) {
+			return new \WP_Error(
+				'stonewright_disabled',
+				__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
+		if ( in_array( $name, $disabled, true ) ) {
+			return new \WP_Error(
+				'stonewright_ability_disabled',
+				__( 'Ability is disabled.', 'stonewright' ),
+				[ 'status' => 403 ]
+			);
+		}
+
+		return FullProfileOnlyAbilities::is_restricted( $name ) ? self::surface_refusal( $ability ) : null;
+	}
+
+	/**
+	 * The refusal of an ability the current tool surface does not list: one that runs or writes code, or
+	 * that the surface hides. Null when the session may run it.
+	 *
+	 * @return \WP_Error|null
+	 */
+	public static function surface_refusal( Ability $ability ): ?\WP_Error {
+		if ( self::session_may_execute( $ability ) ) {
+			return null;
+		}
+
+		$message = FullProfileOnlyAbilities::is_restricted( $ability->name() )
+			? __( 'This ability runs or writes code and is not on the current tool surface. Only an administrator can choose the Full tool surface, in wp-admin under Stonewright > Setup > Settings > MCP tool surface; a confirmation token never unlocks it. Show the user the settings link and stop. Do not retry, and do not look for another way to run it.', 'stonewright' )
+			: __( 'This ability is not available on the current tool surface. It stays off until an administrator turns it on in wp-admin under Stonewright > Setup > Settings. Show the user the settings link and stop. Do not retry.', 'stonewright' );
+
+		return \Stonewright\WpMcp\Security\FullSurfaceGuard::refusal( 'stonewright_ability_not_on_surface', $message );
+	}
+
+	/**
 	 * Execute an ability after enforcing Stonewright's task context bootstrap.
 	 *
 	 * Read-only discovery abilities remain callable without a token so an agent
 	 * can fetch context, skills, memory, and knowledge. Mutating or destructive
 	 * abilities require the short-lived token from stonewright/context-bootstrap.
 	 *
+	 * authorize_execution() runs first, so the master toggle, the disabled list and
+	 * the tool surface hold on every path that reaches an ability from here.
+	 *
 	 * @param array<string, mixed> $input
 	 */
 	public static function execute_with_context_guard( Ability $ability, array $input ): mixed {
 		$name = $ability->name();
+
+		$refusal = self::authorize_execution( $ability );
+		if ( $refusal instanceof \WP_Error ) {
+			return $refusal;
+		}
 
 		// Read the projection out of this call's arguments and drop it before the
 		// ability runs. Nothing is stored: registry ability instances are reused

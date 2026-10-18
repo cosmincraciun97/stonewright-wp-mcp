@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\V4;
 
+use Stonewright\WpMcp\Core\SiteMode;
+
 /** Central gate for experimental Elementor V4 writes. */
 final class V4FeatureGate {
 	/** @var bool|null */
@@ -24,7 +26,7 @@ final class V4FeatureGate {
 				]
 			);
 		}
-		if ( $write && 'production-safe' === get_option( 'stonewright_mode', 'development' ) ) {
+		if ( $write && SiteMode::is_production_safe() ) {
 			return new \WP_Error( 'stonewright_v4_experimental_production_block', 'Elementor V4 writes remain blocked in production-safe mode until the adapter is promoted stable.' );
 		}
 		return true;

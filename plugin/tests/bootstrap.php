@@ -430,6 +430,7 @@ $GLOBALS['stonewright_test_options'] ??= [];
 
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( string $option, mixed $default = false ): mixed {
+		$passed_default = func_num_args() > 1;
 		// With the flag set, behave like WordPress's per-request option cache: the first read of an option is
 		// kept until it is written here or its cache entry is deleted, whatever another request stores meanwhile.
 		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) ) {
@@ -439,12 +440,13 @@ if ( ! function_exists( 'get_option' ) ) {
 					: null;
 			}
 			$cached = $GLOBALS['stonewright_test_option_cache'][ $option ];
-			return null === $cached ? $default : $cached['value'];
+			return null === $cached ? apply_filters( "default_option_{$option}", $default, $option, $passed_default ) : $cached['value'];
 		}
 		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
 			return $GLOBALS['stonewright_test_options'][ $option ];
 		}
-		return $default;
+		// Like WordPress, a missing option passes through default_option_{option}; the third argument says whether the caller gave a default.
+		return apply_filters( "default_option_{$option}", $default, $option, $passed_default );
 	}
 }
 
@@ -460,6 +462,7 @@ if ( ! function_exists( 'update_option' ) ) {
 			$GLOBALS['stonewright_test_option_cache'][ $option ] = [ 'value' => $value ];
 		}
 		$value = apply_filters( 'pre_update_option', $value, $option, $old );
+		$value = apply_filters( "pre_update_option_{$option}", $value, $old, $option );
 		if ( ! empty( $GLOBALS['stonewright_test_update_option_failures'][ $option ] ) ) {
 			return false;
 		}
@@ -502,6 +505,14 @@ if ( ! function_exists( 'add_option' ) ) {
 if ( ! function_exists( 'maybe_serialize' ) ) {
 	function maybe_serialize( mixed $value ): mixed {
 		return is_array( $value ) || is_object( $value ) ? serialize( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_get' ) ) {
+	// A test seeds $GLOBALS['stonewright_test_object_cache'][ $group ][ $key ]; anything else is a cache miss.
+	function wp_cache_get( int|string $key, string $group = '', bool $force = false, ?bool &$found = null ): mixed {
+		$found = isset( $GLOBALS['stonewright_test_object_cache'][ $group ] ) && array_key_exists( $key, $GLOBALS['stonewright_test_object_cache'][ $group ] );
+		return $found ? $GLOBALS['stonewright_test_object_cache'][ $group ][ $key ] : false;
 	}
 }
 
@@ -1147,6 +1158,12 @@ if ( ! function_exists( 'is_admin' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_is_serving_rest_request' ) ) {
+	function wp_is_serving_rest_request(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_serving_rest'] ?? false );
+	}
+}
+
 if ( ! function_exists( 'current_theme_supports' ) ) {
 	function current_theme_supports( string $feature, mixed ...$args ): bool {
 		return false;
@@ -1439,6 +1456,15 @@ $GLOBALS['stonewright_test_post_types'] ??= [];
 if ( ! function_exists( 'get_post_type_object' ) ) {
 	function get_post_type_object( string $post_type ): ?object {
 		return $GLOBALS['stonewright_test_post_types'][ $post_type ] ?? null;
+	}
+}
+
+if ( ! function_exists( 'is_post_type_viewable' ) ) {
+	/** Mirrors core: publicly queryable, or a public built-in type; an unregistered type is not viewable. */
+	function is_post_type_viewable( string|object $post_type ): bool {
+		$object = is_object( $post_type ) ? $post_type : get_post_type_object( $post_type );
+
+		return is_object( $object ) && ( ! empty( $object->publicly_queryable ) || ( ! empty( $object->_builtin ) && ! empty( $object->public ) ) );
 	}
 }
 
@@ -3407,6 +3433,10 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		/** @param array<string, mixed> $params */
 		public function set_params( array $params ): void {
 			$this->params = $params;
+		}
+
+		public function set_param( string $key, mixed $value ): void {
+			$this->params[ $key ] = $value;
 		}
 
 		/** @return array<string, mixed> */
