@@ -11,6 +11,22 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Show the suggested server name and the MCP server URL inside the setup steps
+  of each AI client on **Stonewright → Setup** as highlighted values with a
+  small copy button next to them. The hosted apps (Claude.ai, Claude Desktop,
+  ChatGPT), Claude Code, Codex, Zed, Gemini CLI, Other MCP clients and clients
+  without published steps get them; Claude Code also gets a copyable command for
+  signing in over SSH.
+- Add a closed **Work account managed by an admin?** section to the OAuth guides
+  on **Stonewright → Setup**. It says who can add a custom MCP server on
+  organization plans, lists the admin steps with copyable values, offers a
+  **Copy message for your admin** button with the server name and URL, and,
+  where the client allows it, shows how to connect from your own computer
+  instead, for example Claude Desktop with an Application Password or Claude
+  Code.
+
 ## [1.0.0-beta.17] - 2026-10-18
 
 ### Security
