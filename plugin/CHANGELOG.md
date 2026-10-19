@@ -14,11 +14,11 @@
   signing in over SSH.
 - Add a closed **Work account managed by an admin?** section to the OAuth guides
   on **Stonewright → Setup**. It says who can add a custom MCP server on
-  organization plans, lists the admin steps with copyable values, offers a
-  **Copy message for your admin** button with the server name and URL, and,
-  where the client allows it, shows how to connect from your own computer
-  instead, for example Claude Desktop with an Application Password or Claude
-  Code.
+  organization plans, lists the admin steps with copyable values, shows a
+  message for your admin with the server name and URL next to a **Copy message
+  for your admin** button, and, where the client allows it, shows how to connect
+  from your own computer instead, for example Claude Desktop with an Application
+  Password or Claude Code.
 
 ## [1.0.0-beta.17] - 2026-10-18
 

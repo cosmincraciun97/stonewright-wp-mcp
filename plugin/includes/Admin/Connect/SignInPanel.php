@@ -335,13 +335,16 @@ final class SignInPanel {
 		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
 
 		// One row under the steps: the message to send, and for the Claude connectors the organization settings.
-		$status = $prefix . '-status';
-		$row    = Button::render(
+		// The message also shows below the row, so a blocked clipboard still leaves it selected for Ctrl+C.
+		$status  = $prefix . '-status';
+		$message = $prefix . '-message';
+		$row     = Button::render(
 			__( 'Copy message for your admin', 'stonewright' ),
 			[
 				'size'  => 'sm',
 				'icon'  => 'copy',
 				'attrs' => [
+					'data-sw-ui-copy'              => '#' . $message,
 					'data-sw-ui-copy-text'         => $managed['message'],
 					'data-sw-ui-copy-status'       => '#' . $status,
 					'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
@@ -354,6 +357,21 @@ final class SignInPanel {
 		}
 		$row  .= Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'role' => 'status', 'id' => $status ], '' );
 		$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $row );
+		$body .= Html::element(
+			'div',
+			[ 'class' => 'sw-ui-code sw-connect-managed__message' ],
+			Html::element( 'div', [ 'class' => 'sw-ui-code__head' ], Html::element( 'span', [], Html::text( __( 'Message for your admin', 'stonewright' ) ) ) )
+			. Html::element(
+				'pre',
+				[
+					'class'      => 'sw-ui-code__body',
+					'id'         => $message,
+					'tabindex'   => '0',
+					'aria-label' => __( 'Message for your admin', 'stonewright' ),
+				],
+				Html::text( $managed['message'] )
+			)
+		);
 
 		$note = null !== $managed['note'] ? Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], self::parts_html( $managed['note']['parts'], $prefix . '-n', $managed['note']['text'] ) ) : '';
 		if ( [] === $managed['local'] ) {

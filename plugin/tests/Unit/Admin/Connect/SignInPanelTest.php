@@ -244,6 +244,24 @@ final class SignInPanelTest extends TestCase {
 		}
 	}
 
+	public function test_the_message_for_the_admin_stays_selectable_when_the_clipboard_is_blocked(): void {
+		$status = self::status();
+		$html   = self::html( static fn () => SignInPanel::render_guides( $status, '' ) );
+
+		foreach ( ClientInstructions::all( $status['mcp_url'], $status['server_name'] ) as $guide ) {
+			if ( null === $guide['managed'] ) {
+				continue;
+			}
+			$managed = self::managed_markup( $html, $guide['slug'] );
+			$target  = 'sw-connect-' . $guide['slug'] . '-managed-message';
+
+			// The button names the block, so the copy helper can select it when copying fails.
+			self::assertMatchesRegularExpression( '/<button[^>]*data-sw-ui-copy="#' . preg_quote( $target, '/' ) . '"[^>]*>[^<]*<svg.*?<\/svg>Copy message for your admin<\/button>/s', $managed, $guide['slug'] );
+			self::assertSame( 1, preg_match( '/<pre class="sw-ui-code__body" id="' . preg_quote( $target, '/' ) . '" tabindex="0" aria-label="Message for your admin">(.*?)<\/pre>/s', $managed, $block ), $guide['slug'] );
+			self::assertSame( $guide['managed']['message'], html_entity_decode( $block[1], ENT_QUOTES ), $guide['slug'] );
+		}
+	}
+
 	public function test_claude_desktop_offers_the_application_password_route_and_a_local_command(): void {
 		$html    = self::html( static fn () => SignInPanel::render_guides( self::status(), '' ) );
 		$managed = self::managed_markup( $html, 'claude-desktop' );
