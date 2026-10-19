@@ -43,6 +43,9 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      # Newer releases pull php-wasm packages that need Node 24.18; the e2e job and local runs use Node 22.
+      - dependency-name: "@wordpress/env"
     groups:
       e2e-npm-minor-patch:
         update-types:
