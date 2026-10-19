@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "01f8bd70ff27265fa0fb326c7d641e20",
+    "content-hash": "9ca976cdebdb1b350efb879dab1da045",
     "packages": [
         {
             "name": "automattic/jetpack-autoloader",
@@ -379,16 +379,16 @@
         },
         {
             "name": "wordpress/abilities-api",
-            "version": "v0.1.1",
+            "version": "v0.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/WordPress/abilities-api.git",
-                "reference": "21af812bc2dc3677aa71b3a6875dc5407a477adf"
+                "reference": "0759075aed37c4247adbf273bdebec096d52e825"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/WordPress/abilities-api/zipball/21af812bc2dc3677aa71b3a6875dc5407a477adf",
-                "reference": "21af812bc2dc3677aa71b3a6875dc5407a477adf",
+                "url": "https://api.github.com/repos/WordPress/abilities-api/zipball/0759075aed37c4247adbf273bdebec096d52e825",
+                "reference": "0759075aed37c4247adbf273bdebec096d52e825",
                 "shasum": ""
             },
             "require": {
@@ -397,7 +397,6 @@
             "require-dev": {
                 "automattic/vipwpcs": "^3.0",
                 "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
-                "php-coveralls/php-coveralls": "^2.5",
                 "phpcompatibility/php-compatibility": "10.x-dev as 9.99.99",
                 "phpcompatibility/phpcompatibility-wp": "^2.1",
                 "phpstan/extension-installer": "^1.3",
@@ -450,7 +449,7 @@
                 "source": "https://github.com/WordPress/abilities-api"
             },
             "abandoned": true,
-            "time": "2025-09-05T07:28:21+00:00"
+            "time": "2025-10-29T05:35:31+00:00"
         },
         {
             "name": "wordpress/mcp-adapter",
