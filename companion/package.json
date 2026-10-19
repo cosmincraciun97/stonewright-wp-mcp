@@ -66,7 +66,7 @@
 		"@modelcontextprotocol/sdk": "^1.32.1",
 		"dotenv": "^16.4.5",
 		"smol-toml": "1.9.1",
-		"zod": "^3.23.8"
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@emnapi/core": "^1.11.3",
