@@ -177,7 +177,8 @@ async function openOAuthGuide(page: Page, slug: string): Promise<Locator> {
 	const guide = page.locator(`[data-stonewright-connect-client="${slug}"]`);
 	await expect(guide, `${slug} must have an OAuth guide`).toBeVisible();
 	if (!(await guide.evaluate((node) => (node as HTMLDetailsElement).open))) {
-		await guide.locator('summary').click();
+		// The guide's own summary: a guide also holds the closed "Work account managed by an admin?" disclosure.
+		await guide.locator(':scope > summary').click();
 	}
 	await expect(guide).toHaveJSProperty('open', true);
 	return guide;

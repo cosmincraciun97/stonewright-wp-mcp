@@ -59,7 +59,7 @@ final class ClientInstructionsTest extends TestCase {
 		self::assertSame( $sorted, $labels );
 		foreach ( $guides as $guide ) {
 			$slug = $guide['slug'];
-			self::assertSame( [ 'slug', 'label', 'documented', 'reach', 'tag', 'steps', 'snippets', 'links', 'sign_in', 'limits' ], array_keys( $guide ), $slug );
+			self::assertSame( [ 'slug', 'label', 'documented', 'reach', 'tag', 'steps', 'snippets', 'links', 'sign_in', 'limits', 'step_parts', 'sign_in_parts', 'managed' ], array_keys( $guide ), $slug );
 			self::assertNotSame( '', $guide['label'], $slug );
 			self::assertNotSame( '', $guide['tag'], $slug );
 			self::assertContains( $guide['reach'], [ ClientInstructions::REACH_LOCAL, ClientInstructions::REACH_HOSTED, ClientInstructions::REACH_PUBLIC ], $slug );
@@ -76,6 +76,96 @@ final class ClientInstructionsTest extends TestCase {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Every value a person has to type or paste, per client, in reading order: the step number (0 for the
+	 * sign-in line) is the key, the kinds the values.
+	 *
+	 * @return array<string, array<int, list<string>>>
+	 */
+	private static function expected_values(): array {
+		return [
+			'claude-ai'      => [ 2 => [ 'name', 'url' ] ],
+			'claude-desktop' => [ 3 => [ 'name', 'url' ] ],
+			'claude-code'    => [ 3 => [ 'name' ] ],
+			'codex'          => [
+				2 => [ 'name', 'url' ],
+				3 => [ 'name', 'url' ],
+			],
+			'zed'            => [ 1 => [ 'url' ] ],
+			'chatgpt'        => [ 2 => [ 'name' ], 3 => [ 'url' ] ],
+			'gemini-cli'     => [ 0 => [ 'name' ] ],
+			'generic-mcp'    => [ 1 => [ 'url' ] ],
+			'cline'          => [ 2 => [ 'url' ] ],
+			'roo-code'       => [ 2 => [ 'url' ] ],
+		];
+	}
+
+	/** @return array<int, list<string>> Step number (0 is the sign-in line) => kinds of the values in it. */
+	private static function value_kinds( array $guide ): array {
+		$found = [];
+		foreach ( array_merge( [ $guide['sign_in_parts'] ], $guide['step_parts'] ) as $index => $parts ) {
+			$kinds = [];
+			foreach ( $parts as $part ) {
+				if ( ClientInstructions::PART_TEXT !== $part['kind'] ) {
+					$kinds[] = $part['kind'];
+				}
+			}
+			if ( [] !== $kinds ) {
+				$found[ $index ] = $kinds;
+			}
+		}
+
+		return $found;
+	}
+
+	public function test_step_parts_repeat_the_steps_and_mark_the_values_to_copy(): void {
+		foreach ( array_merge( self::DOCUMENTED, [ 'cline', 'roo-code' ] ) as $slug ) {
+			$guide = self::guide( $slug );
+
+			self::assertCount( count( $guide['steps'] ), $guide['step_parts'], $slug );
+			foreach ( $guide['step_parts'] as $index => $parts ) {
+				self::assertSame( $guide['steps'][ $index ], implode( '', array_column( $parts, 'value' ) ), $slug . ' step ' . ( $index + 1 ) );
+			}
+			self::assertSame( $guide['sign_in'], implode( '', array_column( $guide['sign_in_parts'], 'value' ) ), $slug );
+			foreach ( array_merge( [ $guide['sign_in_parts'] ], $guide['step_parts'] ) as $parts ) {
+				foreach ( $parts as $part ) {
+					self::assertSame( [ 'kind', 'value' ], array_keys( $part ), $slug );
+					if ( ClientInstructions::PART_NAME === $part['kind'] ) {
+						self::assertSame( self::NAME, $part['value'], $slug );
+					} elseif ( ClientInstructions::PART_URL === $part['kind'] ) {
+						self::assertSame( self::URL, $part['value'], $slug );
+					} else {
+						self::assertSame( ClientInstructions::PART_TEXT, $part['kind'], $slug );
+						self::assertNotSame( '', $part['value'], $slug );
+					}
+				}
+			}
+			self::assertSame( self::expected_values()[ $slug ] ?? [], self::value_kinds( $guide ), $slug );
+		}
+	}
+
+	public function test_a_translation_may_reorder_the_placeholders(): void {
+		$step = new \ReflectionMethod( ClientInstructions::class, 'step' );
+		$name = [ 'kind' => ClientInstructions::PART_NAME, 'value' => 'site-a' ];
+		$url  = [ 'kind' => ClientInstructions::PART_URL, 'value' => 'https://example.test/mcp' ];
+
+		$result = $step->invoke( null, 'URL %2$s, 100%% sure, name %1$s.', [ $name, $url ] );
+
+		self::assertSame( 'URL https://example.test/mcp, 100% sure, name site-a.', $result['text'] );
+		self::assertSame(
+			[
+				[ 'kind' => 'text', 'value' => 'URL ' ],
+				$url,
+				[ 'kind' => 'text', 'value' => ', 100% sure, name ' ],
+				$name,
+				[ 'kind' => 'text', 'value' => '.' ],
+			],
+			$result['parts']
+		);
+		self::assertSame( [ [ 'kind' => 'text', 'value' => 'No value here.' ] ], $step->invoke( null, 'No value here.', [] )['parts'] );
+		self::assertSame( [ $url ], $step->invoke( null, '%s', [ $url ] )['parts'] );
 	}
 
 	public function test_only_clients_with_published_instructions_are_documented(): void {
@@ -115,6 +205,7 @@ final class ClientInstructionsTest extends TestCase {
 
 		self::assertSame( 'claude mcp add --transport http stonewright-example-test https://example.test/wp-json/mcp/stonewright-oauth', $codes['add'] );
 		self::assertSame( 'claude mcp login stonewright-example-test', $codes['login'] );
+		self::assertSame( 'claude mcp login stonewright-example-test --no-browser', $codes['ssh'] );
 		self::assertSame( [ 'mcpServers' => [ self::NAME => [ 'type' => 'http', 'url' => self::URL ] ] ], json_decode( $codes['project'], true ) );
 		self::assertSame( '.mcp.json', self::locations( $guide )['project'] );
 		self::assertStringNotContainsString( '--url', implode( "\n", $codes ) );
@@ -259,6 +350,120 @@ final class ClientInstructionsTest extends TestCase {
 		self::assertSame( [], $guide['snippets'] );
 		self::assertStringContainsString( self::URL, self::text( $guide ) );
 		self::assertStringContainsString( 'Streamable HTTP', self::text( $guide ) );
+	}
+
+	/** The chips of a managed section in reading order: who, admin steps, local lines, note. */
+	private static function managed_kinds( array $managed ): array {
+		$found = [];
+		foreach ( array_merge( [ $managed['who'] ], $managed['admin'], array_column( array_filter( $managed['local'], static fn ( array $item ): bool => 'text' === $item['type'] ), 'step' ), [ $managed['note'] ?? [ 'parts' => [] ] ] ) as $step ) {
+			$found[] = array_values( array_map( static fn ( array $part ): string => $part['kind'], array_filter( $step['parts'], static fn ( array $part ): bool => 'text' !== $part['kind'] ) ) );
+		}
+
+		return array_values( array_filter( $found ) );
+	}
+
+	public function test_clients_without_documented_organization_controls_have_no_managed_section(): void {
+		foreach ( [ 'zed', 'grok-build' ] as $slug ) {
+			self::assertNull( self::guide( $slug )['managed'], $slug );
+		}
+		foreach ( array_diff( self::DOCUMENTED, [ 'zed', 'grok-build' ] ) as $slug ) {
+			self::assertIsArray( self::guide( $slug )['managed'], $slug );
+		}
+		self::assertIsArray( self::guide( 'cline' )['managed'] );
+	}
+
+	public function test_managed_sections_name_the_plans_and_map_placeholders_to_values(): void {
+		$expected = [
+			'claude-ai'       => [ 'Team, Enterprise', [ [ 'url' ] ] ],
+			'claude-desktop'  => [ 'Team, Enterprise', [ [ 'url' ] ] ],
+			'claude-code'     => [ 'Team, Enterprise', [ [ 'url' ] ] ],
+			'chatgpt'         => [ 'Business, Enterprise, Edu', [ [ 'name', 'url' ] ] ],
+			'codex'           => [ 'Business, Enterprise', [ [ 'name', 'url' ] ] ],
+			'codex-cli'       => [ 'Business, Enterprise', [ [ 'name', 'url' ] ] ],
+			'cursor'          => [ 'Enterprise', [ [ 'name' ] ] ],
+			'vscode-copilot'  => [ 'Copilot Business, Enterprise', [ [ 'url' ] ] ],
+			'github-copilot'  => [ 'Copilot Business, Enterprise', [ [ 'url' ] ] ],
+			'windsurf'        => [ 'Teams, Enterprise', [ [ 'name', 'url' ] ] ],
+			'gemini-cli'      => [ 'Enterprise', [ [ 'name', 'url' ] ] ],
+			'antigravity'     => [ 'Gemini Enterprise', [ [ 'url' ] ] ],
+			'antigravity-cli' => [ 'Gemini Enterprise', [ [ 'url' ] ] ],
+			'generic-mcp'     => [ '', [ [ 'url' ] ] ],
+			'cline'           => [ '', [ [ 'url' ] ] ],
+		];
+		foreach ( $expected as $slug => [ $plans, $kinds ] ) {
+			$managed = self::guide( $slug )['managed'];
+
+			self::assertSame( $plans, $managed['plans'], $slug );
+			self::assertSame( $kinds, self::managed_kinds( $managed ), $slug );
+			foreach ( array_merge( [ $managed['who'] ], $managed['admin'] ) as $step ) {
+				self::assertNotSame( '', $step['text'], $slug );
+				self::assertSame( $step['text'], implode( '', array_column( $step['parts'], 'value' ) ), $slug );
+				foreach ( $step['parts'] as $part ) {
+					if ( ClientInstructions::PART_NAME === $part['kind'] ) {
+						self::assertSame( self::NAME, $part['value'], $slug );
+					} elseif ( ClientInstructions::PART_URL === $part['kind'] ) {
+						self::assertSame( self::URL, $part['value'], $slug );
+					}
+				}
+			}
+		}
+	}
+
+	public function test_only_the_claude_connector_guides_link_to_the_organization_settings(): void {
+		foreach ( ClientInstructions::all( self::URL, self::NAME ) as $guide ) {
+			$link = $guide['managed']['admin_link'] ?? null;
+			if ( in_array( $guide['slug'], [ 'claude-ai', 'claude-desktop' ], true ) ) {
+				self::assertSame( [ 'https' ], $link['schemes'], $guide['slug'] );
+				self::assertSame( 'https://claude.ai/admin-settings/connectors', $link['url'], $guide['slug'] );
+				self::assertSame( 'Open organization connector settings', $link['label'], $guide['slug'] );
+			} else {
+				self::assertNull( $link, $guide['slug'] );
+			}
+		}
+	}
+
+	public function test_claude_desktop_can_switch_to_an_application_password_and_add_claude_code_locally(): void {
+		$local = self::guide( 'claude-desktop' )['managed']['local'];
+
+		self::assertSame( [ 'text', 'switch', 'text', 'snippet' ], array_column( $local, 'type' ) );
+		self::assertSame( 'claude-desktop', $local[1]['slug'] );
+		self::assertSame( 'Use Application Password instead', $local[1]['label'] );
+		self::assertSame( self::codes( self::guide( 'claude-code' ) )['add'], $local[3]['snippet']['code'] );
+		self::assertSame( 'shell', $local[3]['snippet']['format'] );
+		self::assertSame( [ 'text' ], array_column( self::guide( 'claude-ai' )['managed']['local'], 'type' ) );
+		self::assertStringStartsWith( 'Admins can turn off local MCP servers', self::guide( 'claude-desktop' )['managed']['note']['text'] );
+	}
+
+	public function test_copilot_has_no_local_route_only_a_note(): void {
+		foreach ( [ 'vscode-copilot', 'github-copilot' ] as $slug ) {
+			$managed = self::guide( $slug )['managed'];
+
+			self::assertSame( [], $managed['local'], $slug );
+			self::assertSame( 'There is no local workaround while the policy is off.', $managed['note']['text'], $slug );
+		}
+	}
+
+	public function test_the_admin_message_names_the_client_the_server_and_where_to_add_it(): void {
+		$message = self::guide( 'windsurf' )['managed']['message'];
+
+		self::assertStringStartsWith( "Hello,\n\nPlease add the Stonewright MCP server for our WordPress site in Windsurf (Devin Desktop).\n\nName: stonewright-example-test\nServer URL: " . self::URL . "\nSign-in: OAuth.", $message );
+		self::assertStringContainsString( "\nWhere: Settings > Enterprise > Devin Desktop > MCP allowlist (the Server ID must match the name)\n\nThank you!", $message );
+		self::assertStringNotContainsString( 'public internet', $message );
+		self::assertStringEndsWith( 'Thank you!', $message );
+
+		foreach ( [ 'claude-ai', 'claude-desktop', 'chatgpt' ] as $slug ) {
+			$hosted = self::guide( $slug )['managed']['message'];
+			self::assertStringContainsString( self::URL, $hosted, $slug );
+			self::assertStringContainsString( self::NAME, $hosted, $slug );
+			self::assertMatchesRegularExpression( '/\n.+ connects from its own cloud, so this site must be reachable from the public internet\.\n\nThank you!$/', $hosted, $slug );
+		}
+		foreach ( ClientInstructions::all( self::URL, self::NAME ) as $guide ) {
+			if ( null !== $guide['managed'] ) {
+				self::assertStringContainsString( self::URL, $guide['managed']['message'], $guide['slug'] );
+				self::assertStringContainsString( 'Name: ' . self::NAME, $guide['managed']['message'], $guide['slug'] );
+				self::assertStringContainsString( 'in ' . $guide['label'] . '.', $guide['managed']['message'], $guide['slug'] );
+			}
+		}
 	}
 
 	public function test_server_names_are_reduced_to_portable_characters(): void {

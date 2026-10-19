@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Admin\Ui\Badge;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\CodeBlock;
+use Stonewright\WpMcp\Admin\Ui\CopyChip;
 use Stonewright\WpMcp\Admin\Ui\CopyField;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
@@ -30,7 +31,9 @@ use Stonewright\WpMcp\Admin\Ui\Table;
  *
  * Everything readable is server-rendered: disclosures are native details elements and disconnecting is a plain
  * form post, so nothing here needs JavaScript. Copy buttons use the shared UI script when it is present. Every
- * value is escaped at output; markup comes from the Ui helpers.
+ * value is escaped at output; markup comes from the Ui helpers. In a step, the server name and the server URL
+ * are printed as copy chips: the translated sentence is cut around them, so text is escaped as text and a
+ * value is never part of a translation.
  *
  * @phpstan-import-type Status from SignInStatus
  * @phpstan-import-type Guide from ClientInstructions
@@ -254,8 +257,8 @@ final class SignInPanel {
 			$body .= Notice::callout( 'warn', '', $warning );
 		}
 		$steps = '';
-		foreach ( $guide['steps'] as $step ) {
-			$steps .= Html::element( 'li', [], Html::text( $step ) );
+		foreach ( $guide['steps'] as $index => $step ) {
+			$steps .= Html::element( 'li', [], self::parts_html( $guide['step_parts'][ $index ] ?? [], 'sw-connect-' . $slug . '-s' . ( $index + 1 ), $step ) );
 		}
 		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
 
@@ -266,6 +269,7 @@ final class SignInPanel {
 			}
 			$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $links );
 		}
+		$body .= self::managed_html( $guide );
 		foreach ( $guide['snippets'] as $snippet ) {
 			$body .= CodeBlock::render(
 				$snippet['code'],
@@ -280,7 +284,7 @@ final class SignInPanel {
 			);
 		}
 		if ( '' !== $guide['sign_in'] ) {
-			$body .= Html::element( 'p', [ 'class' => 'sw-connect-signin' ], Html::element( 'strong', [], Html::text( __( 'How sign-in starts:', 'stonewright' ) ) ) . ' ' . Html::text( $guide['sign_in'] ) );
+			$body .= Html::element( 'p', [ 'class' => 'sw-connect-signin' ], Html::element( 'strong', [], Html::text( __( 'How sign-in starts:', 'stonewright' ) ) ) . ' ' . self::parts_html( $guide['sign_in_parts'], 'sw-connect-' . $slug . '-signin', $guide['sign_in'] ) );
 		}
 		if ( [] !== $guide['limits'] ) {
 			$limits = '';
@@ -300,6 +304,150 @@ final class SignInPanel {
 			],
 			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
 		);
+	}
+
+	/**
+	 * "Work account managed by an admin?": a closed disclosure with who may add a server, what to ask the admin for,
+	 * what a person can do locally and a button that copies a ready message for the admin. Every sentence is cut
+	 * around its values the same way the steps are, so a server name or URL is a copy chip.
+	 *
+	 * @param Guide $guide
+	 */
+	private static function managed_html( array $guide ): string {
+		$managed = $guide['managed'];
+		if ( null === $managed ) {
+			return '';
+		}
+		$slug   = $guide['slug'];
+		$prefix = 'sw-connect-' . $slug . '-managed';
+
+		$summary = Icon::render( 'chev-r' )
+			. Html::element( 'span', [ 'class' => 'sw-connect-managed__title' ], Html::text( __( 'Work account managed by an admin?', 'stonewright' ) ) )
+			. ( '' !== $managed['plans'] ? Html::element( 'span', [ 'class' => 'sw-ui-hint' ], Html::text( $managed['plans'] ) ) : '' );
+
+		$body = Html::element( 'p', [], self::parts_html( $managed['who']['parts'], $prefix . '-who', $managed['who']['text'] ) )
+			. Html::element( 'h4', [ 'class' => 'sw-connect__subtitle' ], Html::text( __( 'Ask your admin', 'stonewright' ) ) );
+
+		$steps = '';
+		foreach ( $managed['admin'] as $index => $step ) {
+			$steps .= Html::element( 'li', [], self::parts_html( $step['parts'], $prefix . '-a' . ( $index + 1 ), $step['text'] ) );
+		}
+		$body .= Html::element( 'ol', [ 'class' => 'sw-connect-steps' ], $steps );
+
+		// One row under the steps: the message to send, and for the Claude connectors the organization settings.
+		// The message also shows below the row, so a blocked clipboard still leaves it selected for Ctrl+C.
+		$status  = $prefix . '-status';
+		$message = $prefix . '-message';
+		$row     = Button::render(
+			__( 'Copy message for your admin', 'stonewright' ),
+			[
+				'size'  => 'sm',
+				'icon'  => 'copy',
+				'attrs' => [
+					'data-sw-ui-copy'              => '#' . $message,
+					'data-sw-ui-copy-text'         => $managed['message'],
+					'data-sw-ui-copy-status'       => '#' . $status,
+					'data-sw-ui-copied-label'      => __( 'Copied', 'stonewright' ),
+					'data-sw-ui-copy-failed-label' => __( 'Press Ctrl+C', 'stonewright' ),
+				],
+			]
+		);
+		if ( null !== $managed['admin_link'] ) {
+			$row .= self::link_html( $managed['admin_link'] );
+		}
+		$row  .= Html::element( 'span', [ 'class' => 'sw-ui-copy__status', 'role' => 'status', 'id' => $status ], '' );
+		$body .= Html::element( 'div', [ 'class' => 'sw-ui-actions' ], $row );
+		$body .= Html::element(
+			'div',
+			[ 'class' => 'sw-ui-code sw-connect-managed__message' ],
+			Html::element( 'div', [ 'class' => 'sw-ui-code__head' ], Html::element( 'span', [], Html::text( __( 'Message for your admin', 'stonewright' ) ) ) )
+			. Html::element(
+				'pre',
+				[
+					'class'      => 'sw-ui-code__body',
+					'id'         => $message,
+					'tabindex'   => '0',
+					'aria-label' => __( 'Message for your admin', 'stonewright' ),
+				],
+				Html::text( $managed['message'] )
+			)
+		);
+
+		$note = null !== $managed['note'] ? Html::element( 'p', [ 'class' => 'sw-ui-field__help' ], self::parts_html( $managed['note']['parts'], $prefix . '-n', $managed['note']['text'] ) ) : '';
+		if ( [] === $managed['local'] ) {
+			$body .= $note;
+		} else {
+			$body .= Html::element( 'h4', [ 'class' => 'sw-connect__subtitle' ], Html::text( __( 'Or connect from your computer', 'stonewright' ) ) );
+			foreach ( $managed['local'] as $index => $item ) {
+				if ( 'text' === $item['type'] && isset( $item['step'] ) ) {
+					$body .= Html::element( 'p', [], self::parts_html( $item['step']['parts'], $prefix . '-l' . ( $index + 1 ), $item['step']['text'] ) );
+				} elseif ( 'switch' === $item['type'] && isset( $item['label'], $item['slug'] ) ) {
+					// A link to step 2, so it works without script; the page script also picks the method and the client.
+					$body .= Html::element(
+						'div',
+						[ 'class' => 'sw-ui-actions' ],
+						Button::render( $item['label'], [ 'size' => 'sm', 'href' => '#stonewright-application-password', 'attrs' => [ 'data-stonewright-switch-sign-in' => $item['slug'] ] ] )
+					);
+				} elseif ( 'snippet' === $item['type'] && isset( $item['snippet'] ) ) {
+					$body .= CodeBlock::render(
+						$item['snippet']['code'],
+						[
+							'id'         => $prefix . '-code',
+							'title'      => $item['snippet']['title'],
+							'where'      => $item['snippet']['location'],
+							/* translators: 1: snippet title, 2: client name. */
+							'copy_label' => sprintf( __( '%1$s for %2$s', 'stonewright' ), $item['snippet']['title'], $guide['label'] ),
+							'body_class' => 'sw-connect-snippet__code',
+						]
+					);
+				}
+			}
+			$body .= $note;
+		}
+
+		return Html::element(
+			'details',
+			[ 'class' => 'sw-ui-disclosure sw-connect-managed', 'id' => $prefix ],
+			Html::element( 'summary', [], $summary ) . Html::element( 'div', [ 'class' => 'sw-ui-disclosure__body sw-ui-stack' ], $body )
+		);
+	}
+
+	/**
+	 * A sentence cut into text and values: text is escaped, a server name or URL becomes a copy chip.
+	 *
+	 * @param list<array{kind: string, value: string}> $parts
+	 * @param string                                   $fallback Printed as text when there are no parts.
+	 */
+	private static function parts_html( array $parts, string $id_prefix, string $fallback ): string {
+		if ( [] === $parts ) {
+			return Html::text( $fallback );
+		}
+		$html  = '';
+		$count = 0;
+		$skip  = 0;
+		foreach ( $parts as $index => $part ) {
+			$what = match ( $part['kind'] ) {
+				ClientInstructions::PART_URL  => __( 'MCP server URL', 'stonewright' ),
+				ClientInstructions::PART_NAME => __( 'server name', 'stonewright' ),
+				default                       => '',
+			};
+			if ( '' === $what ) {
+				$html .= Html::text( substr( $part['value'], $skip ) );
+				$skip  = 0;
+				continue;
+			}
+			++$count;
+			// The punctuation right after a value ("." or ",") is printed with its chip, so a line cannot break between them.
+			$next  = $parts[ $index + 1 ] ?? null;
+			$trail = '';
+			if ( null !== $next && ClientInstructions::PART_TEXT === $next['kind'] && 1 === preg_match( '/^[.,;:!?)\]]+/', $next['value'], $found ) ) {
+				$trail = $found[0];
+				$skip  = strlen( $trail );
+			}
+			$html .= CopyChip::render( $part['value'], [ 'id' => $id_prefix . '-' . $count, 'label' => $what, 'trail' => $trail ] );
+		}
+
+		return $html;
 	}
 
 	/** @param array{label: string, url: string, schemes: list<string>} $link */

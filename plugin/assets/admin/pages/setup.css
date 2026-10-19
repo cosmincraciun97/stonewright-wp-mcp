@@ -56,6 +56,12 @@
 	font-size: var(--sw-fs-lg);
 }
 
+/* The message for the admin is prose: it wraps, and stays selectable when the clipboard is blocked. */
+.sw-setup .sw-connect-managed__message .sw-ui-code__body {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
 .sw-setup .sw-connect-issue__fix {
 	display: block;
 	color: var(--sw-text-secondary);
