@@ -950,7 +950,9 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 		if ( method_exists( $snippet, 'set_code' ) ) {
 			$snippet->set_code( $code );
 		} else {
-			$snippet->code = $code;
+			// WPCode_Snippet::save() hands the code to wp_update_post(), which unslashes it, and WPCode's
+			// own callers pass it slashed. Unslashed, every backslash in the code would be lost.
+			$snippet->code = wp_slash( $code );
 		}
 		$saved = $snippet->save();
 		if ( false === $saved ) {

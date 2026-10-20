@@ -15,6 +15,11 @@
 - Run that check in the custom-code dry run of a WPCode snippet too. A change the
   apply would refuse is now refused before an approval is asked for, not after
   the grant is issued.
+- Keep the backslashes in the code of a WPCode snippet when Stonewright saves it
+  or rolls it back. The code reached WordPress unslashed, so escape sequences
+  such as `\n` and `\u{00A0}`, regular expressions, and namespaced names lost
+  their backslashes. The readback then did not match and the write was rolled
+  back, and when the previous code had backslashes, the rollback lost them too.
 
 ## [1.0.0-beta.17.1] - 2026-10-19
 

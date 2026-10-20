@@ -12,6 +12,8 @@ use Stonewright\WpMcp\Security\CustomCodeGrant;
  * snippet as a `wpcode_type` term and has no snippet list API, so the provider lists snippets with a
  * WP_Query and has to ask WPCode for each type. Before an apply, the provider parses the active PHP
  * snippets together; an active CSS, JavaScript or HTML snippet is not PHP and stays out of that check.
+ * WPCode_Snippet::save() writes through wp_update_post(), which unslashes, so a saved or restored body
+ * keeps its backslashes only when the provider slashes it first.
  *
  * Every test runs in its own process: the WPCode functions and post_type_exists()
  * (Fixtures/wpcode-functions-stub.php) cannot be unloaded, and the other tests run without WPCode.
@@ -147,6 +149,49 @@ final class WpCodeLiveProviderTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_php_candidate_invalid', $result->get_error_code() );
 		self::assertSame( "echo 'before';\n", $GLOBALS['stonewright_test_posts'][ self::TARGET ]->post_content );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_apply_saves_the_backslashes_of_the_candidate(): void {
+		require_once __DIR__ . '/Fixtures/wpcode-functions-stub.php';
+		$this->add_snippet( self::TARGET, 'php', "echo 'before';\n", true );
+
+		$candidate = <<<'PHP'
+$nbsp   = "\u{00A0}";
+$digits = preg_replace( '/\D+/', '', (string) get_option( 'admin_phone' ) );
+PHP;
+		$applied   = $this->apply_granted( new WpCodeProvider(), $candidate );
+
+		self::assertIsArray( $applied, $applied instanceof \WP_Error ? $applied->get_error_message() : '' );
+		self::assertSame( $candidate, $GLOBALS['stonewright_test_posts'][ self::TARGET ]->post_content );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_rollback_puts_back_the_backslashes_of_the_previous_code(): void {
+		require_once __DIR__ . '/Fixtures/wpcode-functions-stub.php';
+		$previous = <<<'PHP'
+$words = preg_split( '/\s+/', 'one two' );
+PHP;
+		$this->add_snippet( self::TARGET, 'php', $previous, true );
+		$applied = $this->apply_granted( new WpCodeProvider(), "echo 'after';\n" );
+		self::assertIsArray( $applied, $applied instanceof \WP_Error ? $applied->get_error_message() : '' );
+
+		$rolled_back = ( new WpCodeProvider() )->rollback(
+			[
+				'snapshot_id' => $applied['snapshot_id'],
+				'target_id'   => (string) self::TARGET,
+			]
+		);
+
+		self::assertIsArray( $rolled_back );
+		self::assertTrue( $rolled_back['effect_verified'] );
+		self::assertSame( $previous, $GLOBALS['stonewright_test_posts'][ self::TARGET ]->post_content );
 	}
 
 	/**
