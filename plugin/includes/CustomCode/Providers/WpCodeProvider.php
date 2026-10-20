@@ -120,7 +120,7 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 				$items[] = [
 					'id'       => (string) $id,
 					'title'    => get_the_title( (int) $id ),
-					'language' => sanitize_key( (string) get_post_meta( (int) $id, '_wpcode_auto_insert_code_type', true ) ?: 'php' ),
+					'language' => $this->map_language( $this->stored_code_type( (int) $id ) ),
 					'active'   => 'publish' === get_post_status( (int) $id ),
 					'path'     => $this->path_for( (string) $id ),
 				];
@@ -179,6 +179,10 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 		if ( ! in_array( $language, [ 'php', 'css', 'js', 'html' ], true ) ) {
 			$language = 'php';
 		}
+		$checked = $this->check_candidate( $snippet, $target, $code, $language );
+		if ( $checked instanceof \WP_Error ) {
+			return $checked;
+		}
 		return ProviderSupport::dry_run_handoff(
 			$this->id(),
 			$this->path_for( $target ),
@@ -227,22 +231,9 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 			return $conflict;
 		}
 
-		$validation = ProviderSupport::validate_code( $code, $language );
-		if ( $validation instanceof \WP_Error ) {
-			return $validation;
-		}
-
-		if ( $this->needs_runtime_preflight( $snippet, $language ) ) {
-			$preflight = WpCodeRuntimeValidator::preflight(
-				function ( string $op, array $api_args ) {
-					return $this->dispatch( $op, $api_args );
-				},
-				$target,
-				$code
-			);
-			if ( $preflight instanceof \WP_Error ) {
-				return $preflight;
-			}
+		$checked = $this->check_candidate( $snippet, $target, $code, $language );
+		if ( $checked instanceof \WP_Error ) {
+			return $checked;
 		}
 
 		$grant = ProviderSupport::consume_grant(
@@ -696,6 +687,18 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 		return [ 'id' => '', 'title' => '', 'language' => 'php', 'active' => false, 'path' => '' ];
 	}
 
+	/**
+	 * The code type WPCode keeps for a snippet post. WPCode stores it as a `wpcode_type` term, not as
+	 * post meta, so it is read through the snippet getter.
+	 */
+	private function stored_code_type( int $id ): string {
+		$snippet = $this->load_live_snippet_object( (string) $id );
+		if ( is_object( $snippet ) && method_exists( $snippet, 'get_code_type' ) ) {
+			return (string) $snippet->get_code_type();
+		}
+		return '';
+	}
+
 	private function map_language( string $type ): string {
 		$type = strtolower( $type );
 		if ( str_contains( $type, 'css' ) ) {
@@ -760,6 +763,31 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 			}
 		}
 		return self::PLUGIN_FILE;
+	}
+
+	/**
+	 * What a candidate must pass before a grant is asked for (dry run) or used (apply): its own syntax
+	 * and, for an active PHP snippet, the parse of every active PHP snippet with the candidate in place.
+	 *
+	 * @param array{id:string,title:string,code:string,language:string,active:bool} $snippet
+	 * @return true|\WP_Error
+	 */
+	private function check_candidate( array $snippet, string $target, string $code, string $language ) {
+		$validation = ProviderSupport::validate_code( $code, $language );
+		if ( $validation instanceof \WP_Error ) {
+			return $validation;
+		}
+		if ( ! $this->needs_runtime_preflight( $snippet, $language ) ) {
+			return true;
+		}
+		$preflight = WpCodeRuntimeValidator::preflight(
+			function ( string $op, array $api_args ) {
+				return $this->dispatch( $op, $api_args );
+			},
+			$target,
+			$code
+		);
+		return $preflight instanceof \WP_Error ? $preflight : true;
 	}
 
 	/**
@@ -837,6 +865,11 @@ final class WpCodeProvider implements ProviderInterface, OwnsPostTypesInterface,
 			}
 			$id      = sanitize_text_field( (string) ( $item['id'] ?? '' ) );
 			$snippet = $this->load_live_snippet_object( $id );
+			// WPCode runs only its `php` type as PHP code. A universal, text or blocks snippet is listed
+			// as php too, but it starts as HTML and does not belong in the parse.
+			if ( is_object( $snippet ) && method_exists( $snippet, 'get_code_type' ) && 'php' !== (string) $snippet->get_code_type() ) {
+				continue;
+			}
 			$code    = '';
 			if ( is_object( $snippet ) && method_exists( $snippet, 'get_code' ) ) {
 				$code = (string) $snippet->get_code();
