@@ -27,6 +27,17 @@
   saved, and a client that retried could apply the change twice. Every object a
   path passes through now keeps the keys its schema requires, and a projection
   that would still not match the output schema returns the full response.
+- Store complete Custom Post Type UI entries from `cpt-register`,
+  `taxonomy-register` and `content-model-loop-grid-flow`. An entry held only the
+  few settings the call named, and CPT UI reads most settings without checking
+  that they exist: every request logged PHP warnings (`Undefined array key …`),
+  enough to fill a site's `error_log` with gigabytes, and each missing setting
+  counted as false, so a type registered as public came back on later requests
+  hidden from wp-admin, without permalinks and without a query var. A stored
+  entry now holds every setting CPT UI reads, with the values WordPress gives
+  the type the ability registers, and keeps the settings it already had. An
+  incomplete entry from an earlier version is completed the next time one of
+  these abilities writes it.
 
 ## [1.0.0-beta.17.1] - 2026-10-19
 
