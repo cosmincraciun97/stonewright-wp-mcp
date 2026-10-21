@@ -233,6 +233,205 @@ final class ResponseProjectionTest extends TestCase {
 		);
 	}
 
+	/**
+	 * Output contract of a write that reports a change set.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function change_set_schema(): array {
+		return [
+			'type'       => 'object',
+			'properties' => [
+				'change_set' => [
+					'type'     => 'object',
+					'required' => [ 'schema', 'change_set_id' ],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function change_set_payload(): array {
+		return [
+			'ok'         => true,
+			'path'       => 'style.css',
+			'change_set' => [
+				'schema'        => 'ChangeSetV1',
+				'change_set_id' => 'cs-1',
+				'after_hash'    => '9c27f4',
+				'verification'  => [
+					'status'   => 'verified',
+					'evidence' => [ 'counts' => [ 'applied' => 1 ] ],
+				],
+			],
+		];
+	}
+
+	public function test_an_object_on_a_path_keeps_the_keys_its_schema_requires(): void {
+		// WordPress validates the projected response against the output schema, so a change set
+		// trimmed to its verification would be refused for the missing schema and id.
+		self::assertSame(
+			[
+				'ok'         => true,
+				'change_set' => [
+					'schema'        => 'ChangeSetV1',
+					'change_set_id' => 'cs-1',
+					'verification'  => [ 'status' => 'verified' ],
+				],
+			],
+			ResponseProjection::apply( self::change_set_payload(), [ 'change_set.verification.status' ], [], self::change_set_schema() )
+		);
+	}
+
+	public function test_a_path_that_does_not_resolve_brings_back_no_required_keys(): void {
+		self::assertSame(
+			[ 'ok' => true ],
+			ResponseProjection::apply( self::change_set_payload(), [ 'change_set.nope' ], [], self::change_set_schema() )
+		);
+	}
+
+	public function test_keys_the_schema_requires_at_the_top_survive_projection(): void {
+		$schema = [
+			'type'     => 'object',
+			'required' => [ 'post_id' ],
+		];
+
+		self::assertSame(
+			[
+				'ok'      => true,
+				'post_id' => 41,
+				'hash'    => 'abc123',
+			],
+			ResponseProjection::apply( self::payload(), [ 'hash' ], [], $schema )
+		);
+	}
+
+	public function test_list_members_keep_the_keys_their_item_schema_requires(): void {
+		$schema  = [
+			'type'       => 'object',
+			'properties' => [
+				'items' => [
+					'type'  => 'array',
+					'items' => [
+						'type'     => 'object',
+						'required' => [ 'id', 'url' ],
+					],
+				],
+			],
+		];
+		$payload = [
+			'ok'    => true,
+			'items' => [
+				[
+					'id'    => 7,
+					'url'   => 'https://example.com/a.jpg',
+					'title' => 'A',
+					'sizes' => [ 'thumbnail' => 150 ],
+				],
+				[
+					'id'    => 8,
+					'url'   => 'https://example.com/b.jpg',
+					'sizes' => [ 'thumbnail' => 150 ],
+				],
+				[
+					'id'    => 9,
+					'url'   => 'https://example.com/c.jpg',
+					'title' => 'C',
+				],
+			],
+		];
+
+		// The member without a title still drops out: the path does not reach it.
+		self::assertSame(
+			[
+				'ok'    => true,
+				'items' => [
+					[
+						'id'    => 7,
+						'url'   => 'https://example.com/a.jpg',
+						'title' => 'A',
+					],
+					[
+						'id'    => 9,
+						'url'   => 'https://example.com/c.jpg',
+						'title' => 'C',
+					],
+				],
+			],
+			ResponseProjection::apply( $payload, [ 'items.title' ], [], $schema )
+		);
+	}
+
+	/**
+	 * @return array<string, array{0: array<string, mixed>}>
+	 */
+	public static function combined_item_schemas(): array {
+		$object = [
+			'type'     => 'object',
+			'required' => [ 'ability', 'mcp_tool' ],
+		];
+
+		return [
+			'oneOf' => [ [ 'oneOf' => [ [ 'type' => 'string' ], $object ] ] ],
+			'anyOf' => [ [ 'anyOf' => [ [ 'type' => 'string' ], $object ] ] ],
+			'allOf' => [
+				[
+					'allOf' => [
+						[
+							'type'     => 'object',
+							'required' => [ 'ability' ],
+						],
+						[ 'required' => [ 'mcp_tool' ] ],
+					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider combined_item_schemas
+	 *
+	 * @param array<string, mixed> $item_schema
+	 */
+	public function test_keys_a_combined_schema_requires_are_kept( array $item_schema ): void {
+		$schema  = [
+			'type'       => 'object',
+			'properties' => [
+				'tools' => [
+					'type'  => 'array',
+					'items' => $item_schema,
+				],
+			],
+		];
+		$payload = [
+			'ok'    => true,
+			'tools' => [
+				[
+					'ability'  => 'stonewright/ping',
+					'mcp_tool' => 'stonewright-ping',
+					'priority' => 1,
+					'why'      => 'Health check.',
+				],
+			],
+		];
+
+		self::assertSame(
+			[
+				'ok'    => true,
+				'tools' => [
+					[
+						'ability'  => 'stonewright/ping',
+						'mcp_tool' => 'stonewright-ping',
+						'priority' => 1,
+					],
+				],
+			],
+			ResponseProjection::apply( $payload, [ 'tools.priority' ], [], $schema )
+		);
+	}
+
 	public function test_schema_property_declares_an_optional_string_or_list(): void {
 		$property = ResponseProjection::schema_property();
 

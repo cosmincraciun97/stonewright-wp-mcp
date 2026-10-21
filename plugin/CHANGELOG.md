@@ -20,6 +20,13 @@
   such as `\n` and `\u{00A0}`, regular expressions, and namespaced names lost
   their backslashes. The readback then did not match and the write was rolled
   back, and when the previous code had backslashes, the rollback lost them too.
+- Keep the success response of a write valid when `stonewright_fields` names a
+  path inside an object, such as `change_set.change_set_id`. The projection kept
+  only the named keys of that object and dropped the ones the output schema
+  requires, so WordPress answered "invalid output" for a write it had already
+  saved, and a client that retried could apply the change twice. Every object a
+  path passes through now keeps the keys its schema requires, and a projection
+  that would still not match the output schema returns the full response.
 
 ## [1.0.0-beta.17.1] - 2026-10-19
 

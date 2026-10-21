@@ -18,6 +18,11 @@ namespace Stonewright\WpMcp\Support;
  * the arguments of one call. Ability instances are reused across requests in the
  * registry, so a projection remembered anywhere on an instance would leak one
  * caller's request into the next caller's response.
+ *
+ * A projected response is still the ability's response, and it is checked as one:
+ * WordPress validates it against the declared output schema, and MCP clients check
+ * it against the tool's outputSchema. So every object a path passes through keeps
+ * the keys its schema node requires, along with the parts the caller named.
  */
 final class ResponseProjection {
 
@@ -66,19 +71,22 @@ final class ResponseProjection {
 	/**
 	 * Project a successful response.
 	 *
-	 * @param array<string, mixed> $result Ability response.
-	 * @param mixed                $fields Raw parameter value as it came off the wire.
-	 * @param list<string>         $required_keys Top-level keys required by the declared output schema.
+	 * @param array<string, mixed>    $result Ability response.
+	 * @param mixed                   $fields Raw parameter value as it came off the wire.
+	 * @param list<string>            $required_keys Top-level keys kept whatever the paths name.
+	 * @param array<array-key, mixed> $schema Declared output schema, with arrays only. Each object a
+	 *                                        path passes through keeps the keys its schema node requires.
 	 * @return array<string, mixed>
 	 */
-	public static function apply( array $result, mixed $fields, array $required_keys = [] ): array {
+	public static function apply( array $result, mixed $fields, array $required_keys = [], array $schema = [] ): array {
 		$paths = self::normalize( $fields );
 		if ( [] === $paths ) {
 			return $result;
 		}
 
+		$schemas   = self::schemas( $schema );
 		$projected = [];
-		foreach ( array_values( array_unique( [ ...self::ALWAYS_KEPT, ...$required_keys ] ) ) as $key ) {
+		foreach ( array_values( array_unique( [ ...self::ALWAYS_KEPT, ...$required_keys, ...self::required_keys( $schemas ) ] ) ) as $key ) {
 			if ( array_key_exists( $key, $result ) ) {
 				$projected[ $key ] = $result[ $key ];
 			}
@@ -86,7 +94,7 @@ final class ResponseProjection {
 
 		$list_nodes = [];
 		foreach ( $paths as $path ) {
-			$projected = self::merge( $projected, self::pick( $result, $path, [], $list_nodes ) );
+			$projected = self::merge( $projected, self::pick( $result, $schemas, $path, [], $list_nodes ) );
 		}
 
 		return self::close_gaps( $projected, [], $list_nodes );
@@ -141,13 +149,14 @@ final class ResponseProjection {
 	/**
 	 * Extract one path from a node, as a partial array shaped like the source.
 	 *
-	 * @param array<array-key, mixed> $node
-	 * @param list<string>            $segments
-	 * @param list<string>            $trail      Keys already walked, for node identity.
-	 * @param array<string, true>     $list_nodes Nodes picked member-wise from a list, by trail.
+	 * @param array<array-key, mixed>       $node
+	 * @param list<array<array-key, mixed>> $schemas    Schema nodes that describe $node.
+	 * @param list<string>                  $segments
+	 * @param list<string>                  $trail      Keys already walked, for node identity.
+	 * @param array<string, true>           $list_nodes Nodes picked member-wise from a list, by trail.
 	 * @return array<array-key, mixed> Empty when the path does not resolve.
 	 */
-	private static function pick( array $node, array $segments, array $trail, array &$list_nodes ): array {
+	private static function pick( array $node, array $schemas, array $segments, array $trail, array &$list_nodes ): array {
 		$key = array_shift( $segments );
 		if ( null === $key || ! array_key_exists( $key, $node ) ) {
 			return [];
@@ -163,16 +172,19 @@ final class ResponseProjection {
 			return [];
 		}
 
-		$trail[] = $key;
+		$trail[]       = $key;
+		$value_schemas = self::property_schemas( $schemas, $key );
 
 		if ( self::is_list_of_arrays( $value ) ) {
-			$items = [];
+			$item_schemas  = self::item_schemas( $value_schemas );
+			$item_required = self::required_keys( $item_schemas );
+			$items         = [];
 			foreach ( $value as $index => $item ) {
 				if ( ! is_array( $item ) ) {
 					continue;
 				}
 
-				$picked = self::pick( $item, $segments, [], $list_nodes );
+				$picked = self::pick( $item, $item_schemas, $segments, [], $list_nodes );
 				if ( [] === $picked ) {
 					continue;
 				}
@@ -180,7 +192,7 @@ final class ResponseProjection {
 				// Source indexes are kept so two paths through the same list
 				// merge member-for-member instead of appending. Gaps are closed
 				// by close_gaps() once every path has been merged in.
-				$items[ $index ] = $picked;
+				$items[ $index ] = self::with_keys( $item, $item_required, $picked );
 			}
 
 			if ( [] === $items ) {
@@ -195,9 +207,107 @@ final class ResponseProjection {
 			return [ $key => $items ];
 		}
 
-		$picked = self::pick( $value, $segments, $trail, $list_nodes );
+		$picked = self::pick( $value, $value_schemas, $segments, $trail, $list_nodes );
 
-		return [] === $picked ? [] : [ $key => $picked ];
+		return [] === $picked ? [] : [ $key => self::with_keys( $value, self::required_keys( $value_schemas ), $picked ) ];
+	}
+
+	/**
+	 * A node picked down to part of its keys, with the keys its schema requires put back whole.
+	 *
+	 * @param array<array-key, mixed> $node     Source node.
+	 * @param list<string>            $required Keys its schema requires.
+	 * @param array<array-key, mixed> $picked   What the path took from it.
+	 * @return array<array-key, mixed>
+	 */
+	private static function with_keys( array $node, array $required, array $picked ): array {
+		$kept = [];
+		foreach ( $required as $key ) {
+			if ( array_key_exists( $key, $node ) ) {
+				$kept[ $key ] = $node[ $key ];
+			}
+		}
+
+		return [] === $kept ? $picked : self::merge( $kept, $picked );
+	}
+
+	/**
+	 * A schema node with every allOf, anyOf and oneOf branch below it.
+	 *
+	 * All branches count, whichever one the value matches: a key that only another
+	 * branch requires is still the caller's own data, so keeping it costs a little
+	 * size, where dropping a key the matching branch requires would fail the
+	 * response. A node that is not an array says nothing.
+	 *
+	 * @return list<array<array-key, mixed>>
+	 */
+	private static function schemas( mixed $schema ): array {
+		if ( ! is_array( $schema ) || [] === $schema ) {
+			return [];
+		}
+
+		$schemas = [ $schema ];
+		foreach ( [ 'allOf', 'anyOf', 'oneOf' ] as $keyword ) {
+			if ( ! is_array( $schema[ $keyword ] ?? null ) ) {
+				continue;
+			}
+
+			foreach ( $schema[ $keyword ] as $branch ) {
+				array_push( $schemas, ...self::schemas( $branch ) );
+			}
+		}
+
+		return $schemas;
+	}
+
+	/**
+	 * Schema nodes of one property of an object the given nodes describe.
+	 *
+	 * @param list<array<array-key, mixed>> $schemas
+	 * @return list<array<array-key, mixed>>
+	 */
+	private static function property_schemas( array $schemas, string $key ): array {
+		$found = [];
+		foreach ( $schemas as $schema ) {
+			$properties = $schema['properties'] ?? null;
+			if ( is_array( $properties ) && array_key_exists( $key, $properties ) ) {
+				array_push( $found, ...self::schemas( $properties[ $key ] ) );
+			}
+		}
+
+		return $found;
+	}
+
+	/**
+	 * Schema nodes of the members of a list the given nodes describe.
+	 *
+	 * @param list<array<array-key, mixed>> $schemas
+	 * @return list<array<array-key, mixed>>
+	 */
+	private static function item_schemas( array $schemas ): array {
+		$found = [];
+		foreach ( $schemas as $schema ) {
+			array_push( $found, ...self::schemas( $schema['items'] ?? null ) );
+		}
+
+		return $found;
+	}
+
+	/**
+	 * Keys the given schema nodes require.
+	 *
+	 * @param list<array<array-key, mixed>> $schemas
+	 * @return list<string>
+	 */
+	private static function required_keys( array $schemas ): array {
+		$keys = [];
+		foreach ( $schemas as $schema ) {
+			if ( is_array( $schema['required'] ?? null ) ) {
+				array_push( $keys, ...array_values( array_filter( $schema['required'], 'is_string' ) ) );
+			}
+		}
+
+		return array_values( array_unique( $keys ) );
 	}
 
 	/**

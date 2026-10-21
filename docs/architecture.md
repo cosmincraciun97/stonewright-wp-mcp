@@ -766,9 +766,15 @@ Two mechanisms trim read cost without weakening any gate:
   result. `ResponseProjection` is pure and stateless because registry ability
   instances are reused across requests — a projection remembered on an instance
   would leak one caller's request into the next caller's response. Projection
-  runs *after* the ability has produced its output and always retains top-level
-  fields declared required by that ability's output schema. Declared contracts
-  therefore remain valid even when the caller requests a smaller payload.
+  runs inside the execute callback: *after* the ability has produced its output,
+  but *before* WordPress validates that output against the declared output
+  schema, and an MCP client checks it against the tool's `outputSchema` as well.
+  A write has committed by then, so a projected response that broke the schema
+  would report a saved change as a failure. Projection therefore keeps the
+  fields the output schema requires at the top level and in every object a path
+  passes through (read through `properties`, `items`, `allOf`, `anyOf` and
+  `oneOf`), and a projection that would still fail the schema check WordPress
+  runs is dropped for the full response.
   Projection runs *before* the task-start nudge is attached, so the nudge cannot
   be projected away. Errors pass through unprojected: trimming a `WP_Error`
   would hide why the call failed. The parameter is advertised on every strict
