@@ -269,7 +269,9 @@ jobs:
   e2e-admin-ui-group:
     name: e2e-admin-ui (${{ matrix.group }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # A group takes 15 to 20 minutes. The limit leaves room for a slow runner and for a delay on GitHub's side
+    # in closing a job whose steps have all finished.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
