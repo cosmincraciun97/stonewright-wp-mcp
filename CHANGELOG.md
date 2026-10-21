@@ -13,6 +13,29 @@ development builds were never stable releases.
 
 ### Fixed
 
+- Let a custom-code apply change an active WPCode PHP snippet on a site that also
+  has active CSS, JavaScript, HTML, universal, or text snippets. The check before
+  the write parses the active PHP snippets together, and it took every snippet
+  for PHP: the snippet list read the code type from a post meta WPCode does not
+  write. The apply then stopped with a syntax error in a snippet it did not
+  change. The list now takes each code type from WPCode, so the `list` action of
+  `custom-code-provider` reports CSS, JavaScript, and HTML snippets as such, and
+  only snippets of WPCode's `php` type are parsed.
+- Run that check in the custom-code dry run of a WPCode snippet too. A change the
+  apply would refuse is now refused before an approval is asked for, not after
+  the grant is issued.
+- Keep the backslashes in the code of a WPCode snippet when Stonewright saves it
+  or rolls it back. The code reached WordPress unslashed, so escape sequences
+  such as `\n` and `\u{00A0}`, regular expressions, and namespaced names lost
+  their backslashes. The readback then did not match and the write was rolled
+  back, and when the previous code had backslashes, the rollback lost them too.
+- Keep the success response of a write valid when `stonewright_fields` names a
+  path inside an object, such as `change_set.change_set_id`. The projection kept
+  only the named keys of that object and dropped the ones the output schema
+  requires, so WordPress answered "invalid output" for a write it had already
+  saved, and a client that retried could apply the change twice. Every object a
+  path passes through now keeps the keys its schema requires, and a projection
+  that would still not match the output schema returns the full response.
 - Store complete Custom Post Type UI entries from `cpt-register`,
   `taxonomy-register` and `content-model-loop-grid-flow`. An entry held only the
   few settings the call named, and CPT UI reads most settings without checking

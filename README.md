@@ -381,9 +381,11 @@ Two optional inputs cut payload without losing precision:
 - **`stonewright_fields`** — available on every ability. Give it dot-separated
   response paths, as a list or a comma-separated string
   (`"meta.title, outline.id"`), and the response carries only those branches.
-  Unknown paths are ignored rather than raising an error, top-level fields
-  required by the ability output schema remain present, and errors come back
-  unprojected so you can still see why a call failed.
+  Unknown paths are ignored rather than raising an error, fields required by
+  the ability output schema remain present (at the top level and in every
+  object a path passes through, so `change_set.change_set_id` also returns the
+  change set's other required fields), and errors come back unprojected so you
+  can still see why a call failed.
 - **`knownHash`** on `stonewright-elementor-v3-get-page-structure` — pass the
   `hash` a previous read returned. If the document has not moved, the answer is
   `{ post_id, active, hash, unchanged: true }` and no outline or tree is built.

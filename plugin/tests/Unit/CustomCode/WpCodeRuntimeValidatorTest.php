@@ -100,6 +100,30 @@ final class WpCodeRuntimeValidatorTest extends TestCase {
 		self::assertSame( "<?php\necho 'before';\n", $this->store['12']['code'] );
 	}
 
+	public function test_dry_run_refuses_a_change_the_apply_would_refuse_before_any_approval_is_asked(): void {
+		$this->store['99'] = [
+			'code'     => '<?php this other snippet is invalid {{{',
+			'title'    => 'Broken neighbor',
+			'language' => 'php',
+			'active'   => true,
+		];
+		$provider = ProviderRegistry::get( 'wpcode' );
+		self::assertNotNull( $provider );
+
+		$dry = $provider->dry_run(
+			[
+				'target_id' => '12',
+				'code'      => "<?php\nreturn 1;\n",
+				'language'  => 'php',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $dry );
+		self::assertSame( 'stonewright_php_candidate_invalid', $dry->get_error_code() );
+		self::assertSame( [ 'read', 'list_active', 'assemble_runtime', 'lint_runtime' ], $this->calls );
+		self::assertSame( [], $this->staged_proposals() );
+	}
+
 	public function test_native_api_missing_fails_closed_for_active_php(): void {
 		$this->native_missing = true;
 		$result               = $this->apply_granted( '12', "<?php\nreturn 2;\n" );
@@ -218,6 +242,16 @@ final class WpCodeRuntimeValidatorTest extends TestCase {
 				'active'   => true,
 			],
 		];
+	}
+
+	/**
+	 * The approval proposals a dry run has staged for wp-admin.
+	 *
+	 * @return list<string>
+	 */
+	private function staged_proposals(): array {
+		$names = array_map( 'strval', array_keys( $GLOBALS['stonewright_test_transients'] ?? [] ) );
+		return array_values( array_filter( $names, static fn( string $name ): bool => str_starts_with( $name, CustomCodeGrant::PROPOSAL_PREFIX ) ) );
 	}
 
 	/**
