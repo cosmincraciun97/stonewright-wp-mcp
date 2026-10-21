@@ -14,11 +14,17 @@ use Stonewright\WpMcp\Tests\Unit\RescueRuntime\Support\MuRuntime;
  * The child runs on PHP_BINARY and on every binary listed in STONEWRIGHT_TEST_PHP_BINARIES
  * (separated like PATH), so the MU-plugin can be exercised on PHP 7.4 while the suite runs on 8.x.
  *
+ * A binary that ends a script at memory_limit without running shutdown functions skips the
+ * memory case: no shutdown handler can record that fatal error there.
+ *
  * @coversNothing The MU-plugin lives outside includes/.
  */
 final class RescueFatalProcessTest extends TestCase {
 
 	private const NOW = 2_000_000_000;
+
+	/** @var array<string, bool> Whether a binary runs shutdown functions after memory_limit, by binary. */
+	private static array $shutdown_after_memory_limit = [];
 
 	private string $root = '';
 
@@ -109,8 +115,31 @@ final class RescueFatalProcessTest extends TestCase {
 		return [ $code, $stdout . $stderr, is_file( $log ) ? (string) file_get_contents( $log ) : '' ];
 	}
 
+	/**
+	 * Whether the binary runs shutdown functions after a script reaches memory_limit. PHP 8.1 builds with
+	 * PHP's minimal mitigation for CVE-2026-109618 print the fatal error to stderr and exit at once instead.
+	 */
+	private function runs_shutdown_functions_after_memory_limit( string $binary ): bool {
+		if ( ! isset( self::$shutdown_after_memory_limit[ $binary ] ) ) {
+			$probe = $this->root . '/memory-probe.php';
+			file_put_contents( $probe, "<?php\nregister_shutdown_function( function () { echo 'shutdown ran'; } );\nini_set( 'memory_limit', '24M' );\n\$held = array();\nwhile ( true ) {\n\t\$held[] = str_repeat( 'x', 1048576 );\n}\n" );
+			$process = proc_open( [ $binary, '-d', 'display_errors=0', '-d', 'log_errors=0', $probe ], [ 1 => [ 'pipe', 'w' ], 2 => [ 'pipe', 'w' ] ], $pipes );
+			self::assertIsResource( $process );
+			$stdout = (string) stream_get_contents( $pipes[1] );
+			stream_get_contents( $pipes[2] );
+			fclose( $pipes[1] );
+			fclose( $pipes[2] );
+			proc_close( $process );
+			self::$shutdown_after_memory_limit[ $binary ] = 'shutdown ran' === $stdout;
+		}
+		return self::$shutdown_after_memory_limit[ $binary ];
+	}
+
 	/** @dataProvider binaries_and_scenarios */
 	public function test_a_real_fatal_error_in_a_touched_file_is_recorded( string $binary, string $scenario ): void {
+		if ( 'memory' === $scenario && ! $this->runs_shutdown_functions_after_memory_limit( $binary ) ) {
+			self::markTestSkipped( $binary . ' ends a script at memory_limit without running shutdown functions, as PHP 8.1 builds with the minimal mitigation for CVE-2026-109618 do.' );
+		}
 		$this->theme_file( $scenario );
 		$journal = $this->arm_journal();
 
