@@ -1076,10 +1076,16 @@ final class AbilityRegistry {
 	 * Apply a caller's field projection to a successful array response.
 	 *
 	 * Errors pass through untouched — a projection describes the shape of a
-	 * payload, and trimming a WP_Error would hide why the call failed. Declared
-	 * output schemas describe the full response; a projected response is a
-	 * caller-requested subset of it, so the projection runs after the ability has
-	 * produced (and validated) its own output, never before.
+	 * payload, and trimming a WP_Error would hide why the call failed.
+	 *
+	 * The projected response is the one that gets checked. This runs inside the
+	 * execute callback, so WordPress validates the projection against the declared
+	 * output schema after it returns, and an MCP client checks it against the
+	 * outputSchema the tool lists. A write has committed by then, and a response
+	 * that fails either check reports it as a failure that a retry would apply
+	 * twice. So the projection keeps the keys the schema requires at every object
+	 * it keeps, and one that still fails the check WordPress runs is dropped for
+	 * the full response.
 	 *
 	 * @param Ability $ability Current ability, including its declared output contract.
 	 * @param mixed   $result Ability result.
@@ -1091,12 +1097,15 @@ final class AbilityRegistry {
 			return $result;
 		}
 
-		$output_schema = $ability->output_schema();
-		$required      = is_array( $output_schema['required'] ?? null )
-			? array_values( array_filter( $output_schema['required'], 'is_string' ) )
-			: [];
+		// The schema as RegisteredAbility::validate_output() reads it.
+		$schema = AbilityInputValidator::rest_schema( self::output_schema_for_ability( $ability ) );
+		if ( ! is_array( $schema ) || [] === $schema ) {
+			return ResponseProjection::apply( $result, $fields );
+		}
 
-		return ResponseProjection::apply( $result, $fields, $required );
+		$projected = ResponseProjection::apply( $result, $fields, [], $schema );
+
+		return rest_validate_value_from_schema( $projected, $schema, 'output' ) instanceof \WP_Error ? $result : $projected;
 	}
 
 	/**
