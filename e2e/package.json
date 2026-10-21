@@ -14,7 +14,7 @@
     "wp-env:destroy": "wp-env destroy"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.1",
     "@wordpress/env": "^11.12.0"
   },
