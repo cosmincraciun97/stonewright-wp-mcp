@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Tests\Unit\ContentModel\Fixtures\CptUiRegistration;
 
 require_once dirname( __DIR__ ) . '/Unit/Elementor/Loop/SyntheticLoopWidgets.php';
 
@@ -376,6 +377,24 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		self::assertSame( 'Speakers', $entry['label'] );
 		self::assertFalse( $result['post_type']['persistent'] );
 		unset( $GLOBALS['stonewright_test_cptui_active'] );
+	}
+
+	public function test_cpt_ui_registers_the_stored_entry_as_the_type_the_flow_registered(): void {
+		$this->include_registered_post_types_in_loop_schema();
+
+		$result = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $result );
+		$entry = $GLOBALS['stonewright_test_options']['cptui_post_types']['speaker'];
+		self::assertArrayNotHasKey( 'registered_runtime', $entry, 'Not a CPT UI setting.' );
+		self::assertArrayNotHasKey( 'slug', $entry, 'Not a CPT UI setting.' );
+
+		// CPT UI's own translation of the entry, which raises a warning for any key it reads that is missing.
+		$args = CptUiRegistration::post_type_args( $entry );
+		self::assertTrue( $args['show_ui'] );
+		self::assertTrue( $args['show_in_menu'] );
+		self::assertSame( [ 'slug' => 'speaker', 'with_front' => true ], $args['rewrite'] );
+		self::assertTrue( $args['query_var'] );
 	}
 
 	private function last_audit_row( string $ability ): array {
