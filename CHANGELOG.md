@@ -11,6 +11,25 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Let a custom-code apply change an active WPCode PHP snippet on a site that also
+  has active CSS, JavaScript, HTML, universal, or text snippets. The check before
+  the write parses the active PHP snippets together, and it took every snippet
+  for PHP: the snippet list read the code type from a post meta WPCode does not
+  write. The apply then stopped with a syntax error in a snippet it did not
+  change. The list now takes each code type from WPCode, so the `list` action of
+  `custom-code-provider` reports CSS, JavaScript, and HTML snippets as such, and
+  only snippets of WPCode's `php` type are parsed.
+- Run that check in the custom-code dry run of a WPCode snippet too. A change the
+  apply would refuse is now refused before an approval is asked for, not after
+  the grant is issued.
+- Keep the backslashes in the code of a WPCode snippet when Stonewright saves it
+  or rolls it back. The code reached WordPress unslashed, so escape sequences
+  such as `\n` and `\u{00A0}`, regular expressions, and namespaced names lost
+  their backslashes. The readback then did not match and the write was rolled
+  back, and when the previous code had backslashes, the rollback lost them too.
+
 ## [1.0.0-beta.17.1] - 2026-10-19
 
 ### Added

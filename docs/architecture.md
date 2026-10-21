@@ -230,10 +230,13 @@ Generic content create, update, duplicate, bulk create, and bulk upsert reject
 provider-owned executable-code post types before sanitization with
 `stonewright_custom_code_provider_required` and
 `next_ability: stonewright-custom-code-provider`. They never skip KSES to
-preserve PHP. WPCode active PHP uses the provider's public `save()` path, lints
-candidate and assembled runtime when that contract is available, rebuilds the
-provider cache, and rolls back on verification failure. Inactive drafts must
-not appear in the execution cache.
+preserve PHP. WPCode active PHP uses the provider's public `save()` path, with
+the code slashed as `wp_update_post()` expects. The dry run and the apply lint
+the candidate and the assembled runtime when that contract is available; the
+runtime holds the active snippets of WPCode's `php` code type, read from WPCode,
+so CSS, JavaScript, HTML, universal, and text snippets stay out of it. The apply
+then rebuilds the provider cache and rolls back on verification failure.
+Inactive drafts must not appear in the execution cache.
 
 Setup step 2 chooses OAuth or an Application Password, and step 3 shows the
 panel of the chosen method. The OAuth panel has one guide per AI client, with
