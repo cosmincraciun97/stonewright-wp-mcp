@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.17.2] - 2026-10-22
+
+### Changed
+
+- Align the companion version with the plugin. No other companion change.
+
 ## [1.0.0-beta.17.1] - 2026-10-19
 
 ### Changed
