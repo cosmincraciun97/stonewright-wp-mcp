@@ -370,10 +370,24 @@ final class PluginRegistration {
 		echo '</a></p></div>';
 	}
 
-	public function on_deactivate(): void {
+	/**
+	 * Deactivation unschedules the events and clears the runtime state (locks, back-offs, cached verdicts, the
+	 * helper's remembered state, editor baselines). Settings, tables, keys and the rescue helper stay, so a
+	 * reactivation finds the site as it was.
+	 *
+	 * @param bool $network_wide Whether the plugin is deactivated for the whole network: the events and the runtime
+	 *                           state of every site go then, not only those of the current one.
+	 */
+	public function on_deactivate( bool $network_wide = false ): void {
+		global $wpdb;
+		$network = $network_wide && is_multisite();
 		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
 		ChangeLedgerRetention::unschedule();
+		if ( $network ) {
+			Uninstaller::unschedule_events();
+		}
+		RuntimeState::clear_everywhere( $wpdb, $network );
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

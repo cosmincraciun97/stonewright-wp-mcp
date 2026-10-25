@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor;
 
+use Stonewright\WpMcp\Core\RuntimeState;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -186,16 +187,7 @@ final class EditorSaveGuard {
 		if ( ! is_object( $wpdb ) ) {
 			return 0;
 		}
-		$removed = 0;
-		foreach ( [ '_transient_' . self::OPTION_PREFIX, '_transient_timeout_' . self::OPTION_PREFIX, self::OPTION_PREFIX ] as $prefix ) {
-			$found = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $prefix ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The options table name is WordPress's own; the value is prepared.
-			foreach ( is_array( $found ) ? $found : [] as $name ) {
-				if ( delete_option( (string) $name ) ) {
-					++$removed;
-				}
-			}
-		}
-		return $removed;
+		return RuntimeState::delete_rows( $wpdb, [ '_transient_' . self::OPTION_PREFIX, '_transient_timeout_' . self::OPTION_PREFIX, self::OPTION_PREFIX ] );
 	}
 
 	/** @internal */
