@@ -128,4 +128,24 @@ final class WriteFreezeSettingsTest extends TestCase {
 		self::assertCount( 1, $GLOBALS['stonewright_test_wpdb_inserts'] );
 		self::assertStringContainsString( 'write-freeze-setting', (string) json_encode( $GLOBALS['stonewright_test_wpdb_inserts'][0]['data'] ) );
 	}
+
+	public function test_the_card_offers_the_three_pacing_modes_with_the_stored_one_chosen(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_write_pacing'] = 'strict';
+
+		$html = WriteFreezeSettings::settings_html();
+
+		self::assertStringContainsString( 'name="stonewright_elementor_write_pacing"', $html );
+		self::assertMatchesRegularExpression( '/<option value="strict" selected/', $html );
+		self::assertStringContainsString( 'value="warn"', $html );
+		self::assertStringContainsString( 'value="off"', $html );
+	}
+
+	public function test_pacing_sanitize_takes_a_known_mode_and_keeps_the_current_one_otherwise(): void {
+		self::assertSame( 'strict', WriteFreezeSettings::sanitize_pacing( ' Strict ' ) );
+		self::assertSame( 'off', WriteFreezeSettings::sanitize_pacing( 'off' ) );
+		self::assertSame( 'warn', WriteFreezeSettings::sanitize_pacing( 'banana' ), 'Without a stored mode the default is warn.' );
+
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_write_pacing'] = 'strict';
+		self::assertSame( 'strict', WriteFreezeSettings::sanitize_pacing( [ 'off' ] ) );
+	}
 }

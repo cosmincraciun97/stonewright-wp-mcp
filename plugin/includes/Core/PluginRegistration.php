@@ -27,6 +27,7 @@ use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
@@ -159,6 +160,7 @@ final class PluginRegistration {
 		add_filter( 'pre_update_option_stonewright_mode', [ LeashGuard::class, 'guard_mode_write' ], 10, 2 );
 		add_filter( 'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ], 10, 2 );
 		add_filter( 'pre_update_option_stonewright_write_freeze', [ LeashGuard::class, 'guard_write_freeze_write' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_elementor_write_pacing', [ LeashGuard::class, 'guard_write_pacing_write' ], 10, 2 );
 		WriteFreezeSettings::register();
 
 		CrashRecovery::register();
@@ -176,6 +178,7 @@ final class PluginRegistration {
 		EditorSaveGuard::register();
 		// Agents learn from every ability response when the site is under load.
 		AgentNotices::register_field( 'site_pressure', [ SitePressure::class, 'notice' ] );
+		AgentNotices::register_field( 'write_pacing', [ WritePacing::class, 'notice' ] );
 		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
 		NativeObserver::register();
 		BasicAuthCredentials::register();

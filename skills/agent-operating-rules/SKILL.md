@@ -142,6 +142,10 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - Then verify desktop, tablet, and mobile in the separate frontend tab. For a
   boxed container, measure the outer element and its direct `.e-con-inner`.
 - A successful meta readback is not completion.
+- Honour `write_pacing` and `site_pressure` in a response: when the site reports
+  load or a third save of one post, stop saving, fold the remaining changes into
+  one `stonewright-elementor-v3-batch-mutate` apply, and wait; never retry a
+  `stonewright_write_pacing` or `stonewright_write_freeze` refusal.
 
 ## Native digest-registry rules
 

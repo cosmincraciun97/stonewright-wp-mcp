@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\Ui\Card;
 use Stonewright\WpMcp\Admin\Ui\FormField;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Notice;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\WriteFreeze;
 
@@ -39,10 +40,13 @@ final class WriteFreezeSettings {
 	public static function register(): void {
 		add_action( 'update_option_' . WriteFreeze::OPTION, [ self::class, 'audit_change' ], 10, 2 );
 		add_action( 'add_option_' . WriteFreeze::OPTION, [ self::class, 'audit_added' ], 10, 2 );
+		add_action( 'update_option_' . WritePacing::OPTION, [ self::class, 'audit_pacing_change' ], 10, 2 );
+		add_action( 'add_option_' . WritePacing::OPTION, [ self::class, 'audit_pacing_added' ], 10, 2 );
 	}
 
 	/** The freeze joins the Settings API group of Setup, so one form and one nonce save it. */
 	public static function register_settings(): void {
+		self::register_pacing_setting();
 		register_setting(
 			ConfigurationPage::OPTION_GROUP,
 			WriteFreeze::OPTION,
@@ -53,6 +57,30 @@ final class WriteFreezeSettings {
 				'show_in_rest'      => false,
 			]
 		);
+	}
+
+	public static function register_pacing_setting(): void {
+		register_setting(
+			ConfigurationPage::OPTION_GROUP,
+			WritePacing::OPTION,
+			[
+				'type'              => 'string',
+				'default'           => WritePacing::MODE_WARN,
+				'sanitize_callback' => [ self::class, 'sanitize_pacing' ],
+				'show_in_rest'      => false,
+			]
+		);
+	}
+
+	/**
+	 * What is stored for the posted pacing mode: one of the three modes, and the mode in force for anything else.
+	 *
+	 * @param mixed $value The posted value.
+	 */
+	public static function sanitize_pacing( mixed $value ): string {
+		$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+
+		return isset( WritePacing::MODES[ $value ] ) ? $value : WritePacing::mode();
 	}
 
 	/**
@@ -139,9 +167,25 @@ final class WriteFreezeSettings {
 			)
 			: '';
 
+		$pacing = FormField::select(
+			__( 'Elementor write pacing', 'stonewright' ),
+			WritePacing::OPTION,
+			[
+				WritePacing::MODE_WARN   => __( 'Warn (default)', 'stonewright' ),
+				WritePacing::MODE_STRICT => __( 'Strict: refuse the sixth save', 'stonewright' ),
+				WritePacing::MODE_OFF    => __( 'Off', 'stonewright' ),
+			],
+			[
+				'id'    => 'stonewright_elementor_write_pacing',
+				'size'  => 'md',
+				'value' => WritePacing::mode(),
+				'help'  => __( 'Repeated saves of one Elementor page slow a busy site. Warn tells the agent from the third save to batch its changes; strict also refuses the sixth until ten minutes have passed.', 'stonewright' ),
+			]
+		);
+
 		return Card::render(
 			__( 'Busy sites', 'stonewright' ),
-			$status . Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $until . $reason ),
+			Html::element( 'div', [ 'class' => 'sw-ui-stack' ], $status . $until . $reason . $pacing ),
 			[
 				'id'   => self::SECTION_ID,
 				'desc' => __( 'Guard rails for a site under load. Only an administrator in wp-admin can lift them.', 'stonewright' ),
@@ -204,6 +248,50 @@ final class WriteFreezeSettings {
 	public static function audit_added( mixed $option, mixed $value ): void {
 		unset( $option );
 		self::audit_change( [], $value );
+	}
+
+	/**
+	 * Audits a change of the pacing mode (update_option_{option} action).
+	 *
+	 * @param mixed $old_value The value before.
+	 * @param mixed $value     The value after.
+	 */
+	public static function audit_pacing_change( mixed $old_value, mixed $value ): void {
+		$was = is_string( $old_value ) && isset( WritePacing::MODES[ $old_value ] ) ? $old_value : WritePacing::MODE_WARN;
+		$now = is_string( $value ) && isset( WritePacing::MODES[ $value ] ) ? $value : WritePacing::MODE_WARN;
+		if ( $was === $now ) {
+			return;
+		}
+		try {
+			AuditLog::record(
+				'stonewright/write-pacing-setting',
+				[
+					'_meta'   => [
+						'operation_class'  => 'write_pacing_setting',
+						'resource_type'    => 'option',
+						'resource_ref'     => 'elementor_write_pacing',
+						'execution_status' => 'executed',
+					],
+					'setting' => 'elementor_write_pacing',
+					'from'    => $was,
+					'to'      => $now,
+				],
+				'ok'
+			);
+		} catch ( \Throwable $failure ) {
+			unset( $failure );
+		}
+	}
+
+	/**
+	 * Audits the first time the pacing mode is saved (add_option_{option} action).
+	 *
+	 * @param mixed $option The option name.
+	 * @param mixed $value  The value saved.
+	 */
+	public static function audit_pacing_added( mixed $option, mixed $value ): void {
+		unset( $option );
+		self::audit_pacing_change( WritePacing::MODE_WARN, $value );
 	}
 
 	/** A date and time as the control posts it, read in the site's timezone; null when it is not one. */

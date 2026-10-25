@@ -109,7 +109,12 @@ final class EditorSaveGuard {
 	 */
 	public static function on_before_save( object $document, mixed $data = null ): void {
 		unset( $data );
-		$error = self::assert_persist( self::document_post_id( $document ) );
+		$post_id = self::document_post_id( $document );
+		$error   = self::assert_persist( $post_id );
+		if ( ! $error instanceof \WP_Error ) {
+			// A site that paces saves in strict mode refuses the next one before it persists.
+			$error = WritePacing::check( $post_id );
+		}
 		if ( $error instanceof \WP_Error ) {
 			throw new \RuntimeException( $error->get_error_message() );
 		}
@@ -124,6 +129,7 @@ final class EditorSaveGuard {
 		$post_id = self::document_post_id( $document );
 		if ( $post_id > 0 ) {
 			self::refresh_after_save( $post_id );
+			WritePacing::note_save( $post_id );
 		}
 	}
 

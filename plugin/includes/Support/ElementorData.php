@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Elementor\Write\EditorKses;
 use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Elementor\WritePacing;
 
 /**
  * Read/write helpers for Elementor V3 page data, which lives in the
@@ -154,6 +155,14 @@ final class ElementorData {
 	public static function write( int $post_id, array $tree, array $options = [] ): bool {
 		self::clear_write_context();
 
+		// A site that paces saves in strict mode refuses the next save of a post that was saved too often.
+		$pacing = WritePacing::check( $post_id );
+		if ( $pacing instanceof \WP_Error ) {
+			self::$last_write_error             = $pacing;
+			self::$last_elementor_write_receipt = self::new_write_receipt( $post_id, $tree, $options, self::read( $post_id ) )->fail( $pacing, 'pacing' )->to_array();
+			return false;
+		}
+
 		$provided_owner = isset( $options['lock_owner'] ) ? sanitize_key( (string) $options['lock_owner'] ) : '';
 		if ( '' !== $provided_owner ) {
 			if ( ! PostWriteLock::owned_by( $post_id, $provided_owner ) ) {
@@ -258,6 +267,7 @@ final class ElementorData {
 			self::$last_write_receipt = PostCacheInvalidator::invalidate( $post_id );
 			// The writer's own editor baseline now matches the document it just wrote.
 			EditorSaveGuard::refresh_current_user( $post_id );
+			WritePacing::note_save( $post_id );
 			$after_hash = TreeHasher::hash( self::read( $post_id ) );
 			$receipt->set_hashes( $before_hash, $planned_hash, $after_hash, $after_hash )->verified();
 			self::$last_elementor_write_receipt = $receipt->to_array();
