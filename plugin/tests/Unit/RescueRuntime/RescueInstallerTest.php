@@ -220,7 +220,8 @@ final class RescueInstallerTest extends TestCase {
 		$GLOBALS['stonewright_test_options']['stonewright_rescue_mu_state'] = [ 'failed_at' => time() - RescueInstaller::RETRY_SECONDS - 5, 'reason' => 'write_failed' ];
 		RescueInstaller::verify_and_repair();
 		self::assertFileExists( RescueInstaller::target_path() );
-		self::assertSame( [], $GLOBALS['stonewright_test_options']['stonewright_rescue_mu_state'], 'the failure is forgotten once it works' );
+		$state = $GLOBALS['stonewright_test_options']['stonewright_rescue_mu_state'];
+		self::assertSame( [ 'checked_at', 'size', 'mtime' ], array_keys( $state ), 'the failure is forgotten once it works, the check is remembered' );
 	}
 
 	public function test_activation_installs_whatever_an_earlier_failure_said(): void {

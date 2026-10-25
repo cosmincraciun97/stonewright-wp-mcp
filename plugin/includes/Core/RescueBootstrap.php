@@ -22,9 +22,10 @@ use Stonewright\WpMcp\Security\RescueSafeBoot;
  *
  * - activation installs the MU-plugin and deactivation removes the rescue keys and sessions that
  *   are still waiting (the MU-plugin file stays and does nothing while the plugin is inactive);
- * - init installs it again when the plugin version or file name changed; every admin page load compares
- *   its hash with the bundled file and writes it again when it is missing or was changed, and an
- *   admin notice says so when it cannot be installed;
+ * - init installs it again when the plugin version or file name changed; an admin page load compares
+ *   the hash of the helper with the bundled file at most every twelve hours, at once when the file's
+ *   size or time changed or after an update, and writes it again when it is missing or was changed,
+ *   and an admin notice says so when it cannot be installed;
  * - the recovery mode email gets the safe mode link, the entry into safe boot is audited, and the
  *   optional MCP route setting is on Settings > General;
  * - when WP-CLI runs, "wp stonewright rescue" and "wp stonewright changes" are registered.
@@ -46,6 +47,7 @@ final class RescueBootstrap {
 		}
 		add_action( 'init', [ RescueInstaller::class, 'maybe_upgrade' ], 16, 0 );
 		add_action( 'admin_init', [ RescueInstaller::class, 'on_admin_init' ], 10, 0 );
+		add_action( 'upgrader_process_complete', [ RescueInstaller::class, 'force_next_check' ], 10, 0 );
 		add_action( 'admin_notices', [ RescueInstaller::class, 'admin_notice' ] );
 		add_action( 'network_admin_notices', [ RescueInstaller::class, 'admin_notice' ] );
 
