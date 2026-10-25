@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Support\LateLoad;
+
 /**
  * Keeps plugin/mu/stonewright-rescue.php installed in the must-use plugins directory.
  *
@@ -195,6 +197,9 @@ final class RescueInstaller {
 	 * Installs the helper again when the plugin version or the plugin file name changed. Runs on init.
 	 */
 	public static function maybe_upgrade(): void {
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
 		if ( (string) get_option( self::OPTION_VERSION, '' ) === $version && (string) get_option( self::OPTION_PLUGIN, '' ) === self::plugin_basename() ) {
 			return;
@@ -212,6 +217,9 @@ final class RescueInstaller {
 	 * every other request costs one stat.
 	 */
 	public static function on_admin_init(): void {
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
 		if ( self::check_due() ) {
 			self::verify_and_repair();
 			return;
@@ -448,6 +456,18 @@ final class RescueInstaller {
 			update_option( self::OPTION_PLUGIN, self::plugin_basename(), true );
 		}
 		self::remember_state_dir();
+	}
+
+	/**
+	 * False when a class this class loads late is gone from disk, as in a request that outlives the deletion
+	 * of the plugin folder: the hooks that run after plugins_loaded return then instead of reaching the autoloader.
+	 */
+	private static function late_load_ready(): bool {
+		return LateLoad::ready(
+			\Stonewright\WpMcp\Security\ChangeJournal::class,
+			\Stonewright\WpMcp\Security\ChangeJournalFile::class,
+			\Stonewright\WpMcp\Security\AuditLog::class
+		);
 	}
 
 	private static function remember_state_dir(): void {

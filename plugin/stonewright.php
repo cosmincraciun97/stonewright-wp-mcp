@@ -62,6 +62,8 @@ define( 'STONEWRIGHT_MIN_PHP', '8.1' );
 define( 'STONEWRIGHT_MIN_WP', '6.7' );
 
 require_once STONEWRIGHT_DIR . 'includes/Support/Requirements.php';
+// Loaded now: a late hook asks it whether the plugin's files are still there, which it cannot if they are gone.
+require_once STONEWRIGHT_DIR . 'includes/Support/LateLoad.php';
 
 if ( ! Stonewright\WpMcp\Support\Requirements::met() ) {
 	add_action( 'admin_notices', [ Stonewright\WpMcp\Support\Requirements::class, 'render_notice' ] );

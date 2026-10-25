@@ -12,6 +12,8 @@ namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Admin\RescuePage;
 use Stonewright\WpMcp\Support\AgentNotices;
+use Stonewright\WpMcp\Support\LateLoad;
+use Stonewright\WpMcp\Support\OptionLock;
 
 /**
  * Registers what Rescue needs on every request: the pending-incident banner for agents, the
@@ -37,6 +39,10 @@ final class RescueHooks {
 	}
 
 	public static function sync_journal(): void {
+		// A request that loaded the plugin can get here after its folder was deleted or replaced.
+		if ( ! LateLoad::ready( ChangeJournal::class, ChangeJournalFile::class, OptionLock::class, AuditLog::class, SensitiveContent::class ) ) {
+			return;
+		}
 		ChangeJournal::sync_from_file();
 	}
 }

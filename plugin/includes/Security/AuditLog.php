@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\LateLoad;
 use Stonewright\WpMcp\Support\Logger;
 use Stonewright\WpMcp\Support\SchemaGate;
 use Stonewright\WpMcp\Support\StoreSchemaRepair;
@@ -623,6 +624,10 @@ final class AuditLog {
 	}
 
 	public static function run_scheduled_retention(): void {
+		// A scheduled event can fire in a request that outlives the deletion of the plugin folder.
+		if ( ! LateLoad::ready( StoreSchemaRepair::class, ErrorPatterns::class, SchemaGate::class, Logger::class ) ) {
+			return;
+		}
 		// The daily look at the four owned tables and the pending lesson migrations; the rest of this job is
 		// retention, which a failure in either must not skip.
 		try {
