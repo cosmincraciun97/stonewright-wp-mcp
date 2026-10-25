@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -52,6 +53,7 @@ final class BootOptionsTest extends TestCase {
 			'generated widget scan verdicts'  => [ ScanCache::class, 'OPTION' ],
 			'locked domain'                   => [ DomainLock::class, 'OPTION_LOCKED' ],
 			'domain mismatch record'          => [ DomainLock::class, 'OPTION_MISMATCH' ],
+			'change journal file name'        => [ ChangeJournal::class, 'FILE_OPTION' ],
 		];
 	}
 
@@ -98,7 +100,7 @@ final class BootOptionsTest extends TestCase {
 			$expected[] = self::option_name( $class, $constant );
 		}
 
-		self::assertCount( 17, BootOptions::NAMES );
+		self::assertCount( 18, BootOptions::NAMES );
 		self::assertSame( BootOptions::NAMES, array_values( array_unique( BootOptions::NAMES ) ), 'no name twice' );
 		self::assertEqualsCanonicalizing( $expected, BootOptions::NAMES );
 	}
@@ -170,13 +172,12 @@ final class BootOptionsTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_without_the_wordpress_6_4_function_each_stored_option_is_re_added_autoloaded(): void {
+	public function test_without_the_wordpress_6_4_function_stored_options_are_left_alone_and_seeds_are_still_created(): void {
 		self::assertFalse( function_exists( 'wp_set_option_autoload_values' ), 'this process has no WordPress 6.4 function' );
-		$stored                                      = [
+		$GLOBALS['stonewright_test_options']         = [
 			'stonewright_registered_widgets'    => [ 'hero-card' ],
 			'stonewright_memory_schema_version' => '7',
 		];
-		$GLOBALS['stonewright_test_options']         = $stored;
 		$GLOBALS['stonewright_test_option_autoload'] = [
 			'stonewright_registered_widgets'    => false,
 			'stonewright_memory_schema_version' => false,
@@ -184,10 +185,41 @@ final class BootOptionsTest extends TestCase {
 
 		BootOptions::autoload_all();
 
-		foreach ( $stored as $name => $value ) {
-			self::assertSame( $value, get_option( $name ), $name . ' keeps its value' );
-			self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ $name ], $name . ' is autoloaded now' );
+		self::assertSame( [ 'hero-card' ], get_option( 'stonewright_registered_widgets' ), 'no delete and add: nothing is lost between the two' );
+		self::assertFalse( $GLOBALS['stonewright_test_option_autoload']['stonewright_registered_widgets'], 'the plugin requires WordPress 6.7: a site without the switch is left alone' );
+		foreach ( array_keys( BootOptions::SEED ) as $name ) {
+			self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ $name ], $name . ' is created autoloaded' );
 		}
-		self::assertEqualsCanonicalizing( array_keys( $stored ), array_keys( $GLOBALS['stonewright_test_options'] ), 'an option that was never stored is not created' );
+	}
+
+	public function test_the_seeds_are_the_two_options_that_are_absent_on_a_healthy_site(): void {
+		self::assertSame(
+			[ self::option_name( DomainLock::class, 'OPTION_MISMATCH' ), ChangeJournal::FILE_OPTION ],
+			array_keys( BootOptions::SEED )
+		);
+		self::assertSame( [ '', '' ], array_values( BootOptions::SEED ), 'an empty string means "none" to every reader' );
+		foreach ( array_keys( BootOptions::SEED ) as $name ) {
+			self::assertContains( $name, BootOptions::NAMES, 'a seed that exists is converted like any other name' );
+		}
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_autoload_all_creates_the_seed_options_autoloaded_and_leaves_existing_values_alone(): void {
+		require_once __DIR__ . '/Fixtures/AutoloadValuesFunction.php';
+		$mismatch                            = self::option_name( DomainLock::class, 'OPTION_MISMATCH' );
+		$GLOBALS['stonewright_test_options'] = [ ChangeJournal::FILE_OPTION => 'journal-' . str_repeat( 'a', 32 ) . '.json' ];
+		$GLOBALS['stonewright_test_option_autoload'] = [ ChangeJournal::FILE_OPTION => false ];
+
+		BootOptions::autoload_all();
+
+		self::assertSame( '', get_option( $mismatch, 'absent' ), 'created with its default' );
+		self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ $mismatch ] );
+		self::assertSame( 'journal-' . str_repeat( 'a', 32 ) . '.json', get_option( ChangeJournal::FILE_OPTION ), 'an existing value is not replaced by the default' );
+
+		BootOptions::autoload_all();
+		self::assertSame( '', get_option( $mismatch, 'absent' ), 'running it again changes nothing' );
 	}
 }

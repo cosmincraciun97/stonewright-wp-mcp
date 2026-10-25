@@ -81,6 +81,41 @@ final class DomainLockTest extends TestCase {
 		$this->assertTrue( (bool) get_option( 'stonewright_enabled', false ) );
 	}
 
+	public function test_clearing_a_mismatch_leaves_an_autoloaded_empty_row_instead_of_deleting_it(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+		DomainLock::record_mismatch();
+		$this->assertNotNull( DomainLock::mismatch() );
+
+		DomainLock::clear_mismatch();
+
+		$this->assertNull( DomainLock::mismatch(), 'an empty string reads as no mismatch' );
+		$this->assertSame( '', $GLOBALS['stonewright_test_options']['stonewright_domain_mismatch'], 'the row stays so that boot does not query for a missing option' );
+		$this->assertTrue( $GLOBALS['stonewright_test_option_autoload']['stonewright_domain_mismatch'] );
+	}
+
+	public function test_reset_also_leaves_the_mismatch_row_as_an_autoloaded_empty_string(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_options']['stonewright_domain_mismatch'] = [ 'fingerprint' => 'stale' ];
+		DomainLock::reset();
+
+		$this->assertNull( DomainLock::mismatch() );
+		$this->assertSame( '', $GLOBALS['stonewright_test_options']['stonewright_domain_mismatch'] );
+		$this->assertTrue( $GLOBALS['stonewright_test_option_autoload']['stonewright_domain_mismatch'] );
+	}
+
+	public function test_an_empty_mismatch_row_is_not_a_record_and_a_new_mismatch_is_recorded_over_it(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_options']['stonewright_domain_mismatch'] = '';
+		$GLOBALS['stonewright_test_home_url']                               = 'https://cloned.example/';
+
+		$this->assertNull( DomainLock::mismatch() );
+		$payload = DomainLock::record_mismatch();
+
+		$this->assertSame( $payload, DomainLock::mismatch() );
+		$this->assertTrue( $GLOBALS['stonewright_test_option_autoload']['stonewright_domain_mismatch'] );
+	}
+
 	public function test_record_mismatch_is_idempotent_for_same_fingerprint(): void {
 		DomainLock::lock();
 		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';

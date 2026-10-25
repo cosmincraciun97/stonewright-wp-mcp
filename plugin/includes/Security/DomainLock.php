@@ -77,7 +77,7 @@ final class DomainLock {
 		}
 
 		delete_option( self::OPTION_LOCKED );
-		delete_option( self::OPTION_MISMATCH );
+		self::clear_mismatch();
 		delete_option( self::OPTION_PRIOR );
 
 		return true;
@@ -220,8 +220,12 @@ final class DomainLock {
 		return is_array( $raw ) ? $raw : null;
 	}
 
+	/**
+	 * Forgets the mismatch record. The row stays, empty and autoloaded: it is read on every boot, and
+	 * an option that does not exist costs a query each time.
+	 */
 	public static function clear_mismatch(): void {
-		delete_option( self::OPTION_MISMATCH );
+		update_option( self::OPTION_MISMATCH, '', true );
 	}
 
 	/**

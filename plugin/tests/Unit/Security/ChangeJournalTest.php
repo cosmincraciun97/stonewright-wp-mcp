@@ -824,6 +824,18 @@ final class ChangeJournalTest extends TestCase {
 		self::assertNotSame( $first['id'], $second['id'] );
 	}
 
+	public function test_a_seeded_empty_file_option_means_no_file_and_arming_replaces_it_with_an_autoloaded_name(): void {
+		update_option( ChangeJournal::FILE_OPTION, '', true );
+
+		self::assertSame( 0, ChangeJournal::sync_from_file(), 'an empty name is no file: reading imports nothing' );
+		self::assertSame( '', get_option( ChangeJournal::FILE_OPTION ), 'and reading creates nothing' );
+
+		self::assertNotNull( ChangeJournal::arm( self::spec() ) );
+
+		self::assertTrue( ChangeJournalFile::is_valid_file_name( (string) get_option( ChangeJournal::FILE_OPTION, '' ) ) );
+		self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ ChangeJournal::FILE_OPTION ] );
+	}
+
 	public function test_an_invalid_spec_is_refused_without_writing_anything(): void {
 		self::assertNull( ChangeJournal::arm( [ 'ability' => 'not valid', 'resource_type' => 'theme_file', 'resource_key' => 'x' ] ) );
 		self::assertFalse( get_option( ChangeJournal::FILE_OPTION, false ) );
