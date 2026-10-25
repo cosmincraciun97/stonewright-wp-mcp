@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ChangeLedger;
+use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\StaticAnalysis;
@@ -49,6 +50,8 @@ final class BootOptionsTest extends TestCase {
 			'dangerous functions notice'      => [ StaticAnalysis::class, 'NOTICE_OPTION' ],
 			'registered widget slugs'         => [ RegisteredWidgets::class, 'OPTION_KEY' ],
 			'generated widget scan verdicts'  => [ ScanCache::class, 'OPTION' ],
+			'locked domain'                   => [ DomainLock::class, 'OPTION_LOCKED' ],
+			'domain mismatch record'          => [ DomainLock::class, 'OPTION_MISMATCH' ],
 		];
 	}
 
@@ -95,7 +98,7 @@ final class BootOptionsTest extends TestCase {
 			$expected[] = self::option_name( $class, $constant );
 		}
 
-		self::assertCount( 15, BootOptions::NAMES );
+		self::assertCount( 17, BootOptions::NAMES );
 		self::assertSame( BootOptions::NAMES, array_values( array_unique( BootOptions::NAMES ) ), 'no name twice' );
 		self::assertEqualsCanonicalizing( $expected, BootOptions::NAMES );
 	}

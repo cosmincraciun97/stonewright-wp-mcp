@@ -16,7 +16,8 @@ namespace Stonewright\WpMcp\Core;
  * WordPress loads the autoloaded options in one query at start-up. An option stored without
  * autoload costs its own query on every request when the object cache is cold or absent, so a
  * handful of small version flags and lists cost a handful of round trips per page. All of these
- * hold a few bytes: a schema version, a done flag, a short slug list, a timestamped notice.
+ * hold a few bytes: a schema version, a done flag, a short slug list, a timestamped notice, the
+ * locked origin and the record of a domain mismatch.
  *
  * The names are literal strings so the list reads without loading the classes; a test asserts that
  * each equals the constant of the class that owns it.
@@ -42,6 +43,9 @@ final class BootOptions {
 		'stonewright_dangerous_functions_notice',
 		'stonewright_registered_widgets',
 		'stonewright_widget_scan_cache',
+		// The domain lock, checked on plugins_loaded.
+		'stonewright_locked_domain',
+		'stonewright_domain_mismatch',
 	];
 
 	/**

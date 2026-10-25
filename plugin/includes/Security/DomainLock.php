@@ -33,7 +33,7 @@ final class DomainLock {
 		if ( '' !== self::locked_domain() ) {
 			return;
 		}
-		update_option( self::OPTION_LOCKED, self::current_origin(), false );
+		update_option( self::OPTION_LOCKED, self::current_origin(), true );
 	}
 
 	/**
@@ -208,7 +208,7 @@ final class DomainLock {
 			'recorded_at'      => time(),
 			'reason'           => 'domain_mismatch',
 		];
-		update_option( self::OPTION_MISMATCH, $payload, false );
+		update_option( self::OPTION_MISMATCH, $payload, true );
 		return $payload;
 	}
 
@@ -253,7 +253,7 @@ final class DomainLock {
 			);
 		}
 
-		update_option( self::OPTION_LOCKED, $current, false );
+		update_option( self::OPTION_LOCKED, $current, true );
 		self::clear_mismatch();
 
 		AuditLog::record(
@@ -306,7 +306,7 @@ final class DomainLock {
 		}
 
 		$current = self::locked_domain();
-		update_option( self::OPTION_LOCKED, self::normalize_origin( $origin ), false );
+		update_option( self::OPTION_LOCKED, self::normalize_origin( $origin ), true );
 		delete_option( self::OPTION_PRIOR );
 
 		// If live origin no longer matches restored lock, record mismatch again.
