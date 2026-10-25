@@ -206,6 +206,21 @@ final class IncidentStore {
 	}
 
 	/**
+	 * Updates one row by incident id, repairing the table once and retrying when the update fails on a missing column.
+	 *
+	 * @param array<string, mixed> $data Column => value.
+	 * @return int|false Rows changed, false on failure.
+	 */
+	private static function update_row( array $data, mixed $incident_id ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'incident',
+			static fn(): int|false => $wpdb->update( self::table_name(), $data, [ 'incident_id' => $incident_id ] ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Plugin-owned table.
+			[ self::class, 'repair_table' ]
+		);
+	}
+
+	/**
 	 * @param array<string, mixed> $event
 	 * @return array<string, mixed>|null
 	 * @throws \RuntimeException When the owned incident row cannot be persisted.
@@ -847,7 +862,7 @@ final class IncidentStore {
 			$data = $row;
 			unset( $data['id'] );
 			$result = $update
-				? $wpdb->update( $table, $data, [ 'incident_id' => $row['incident_id'] ] ) // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
+				? self::update_row( $data, $row['incident_id'] )
 				: self::insert_row( $data );
 			if ( false === $result ) {
 				throw new \RuntimeException( 'Incident persistence failed.' );

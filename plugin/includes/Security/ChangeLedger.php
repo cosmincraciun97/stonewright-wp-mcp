@@ -231,6 +231,21 @@ final class ChangeLedger {
 		);
 	}
 
+	/**
+	 * Updates one row by change id, repairing the table once and retrying when the update fails on a missing column.
+	 *
+	 * @param array<string, mixed> $data Column => value.
+	 * @return int|false Rows changed, false on failure.
+	 */
+	private static function update_row( array $data, string $change_id ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'changes',
+			static fn(): int|false => $wpdb->update( self::table_name(), $data, [ 'change_id' => $change_id ] ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned table.
+			[ self::class, 'repair_table' ]
+		);
+	}
+
 	// -----------------------------------------------------------------------
 	// Write.
 	// -----------------------------------------------------------------------
@@ -417,9 +432,7 @@ final class ChangeLedger {
 			$data['restorable_reason'] = '' !== $given ? $given : 'not_restorable';
 		}
 
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned table.
-		$updated = $wpdb->update( self::table_name(), $data, [ 'change_id' => $change_id ] );
+		$updated = self::update_row( $data, $change_id );
 		if ( false === $updated ) {
 			return self::invalid( 'stonewright_change_ledger_unavailable', 'The change could not be settled.' );
 		}

@@ -26,7 +26,15 @@ final class OpenBasedirTest extends TestCase {
 		self::assertFalse( OpenBasedir::allows( '/var/www/site-other/openssl.cnf', '/var/www/site' ), 'a sibling sharing the name prefix is outside' );
 	}
 
-	public function test_windows_separators_are_normalised(): void {
+	public function test_backslashes_in_the_path_are_normalised(): void {
+		self::assertTrue( OpenBasedir::allows( '\var\www\site\data\openssl.cnf', '/var/www/site' ) );
+		self::assertFalse( OpenBasedir::allows( '\etc\ssl\openssl.cnf', '/var/www/site' ) );
+	}
+
+	public function test_windows_drive_paths_are_normalised(): void {
+		if ( ';' !== PATH_SEPARATOR ) {
+			self::markTestSkipped( 'A drive letter cannot appear in an open_basedir list where the separator is a colon.' );
+		}
 		self::assertTrue( OpenBasedir::allows( 'C:\www\site\data\openssl.cnf', 'C:\www\site' ) );
 		self::assertTrue( OpenBasedir::allows( 'C:/www/site/data/openssl.cnf', 'C:\www\site' ) );
 		self::assertFalse( OpenBasedir::allows( 'C:\php\extras\ssl\openssl.cnf', 'C:\www\site' ) );

@@ -171,6 +171,22 @@ final class Memory {
 		);
 	}
 
+	/**
+	 * Updates one row by id, repairing the table once and retrying when the update fails on a missing column.
+	 *
+	 * @param array<string, mixed> $data    Column => value.
+	 * @param array<int, string>   $formats Placeholder per column.
+	 * @return int|false Rows changed, false on failure.
+	 */
+	private static function update_row( array $data, int $id, array $formats ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'memory',
+			static fn(): int|false => $wpdb->update( self::table_name(), $data, [ 'id' => $id ], $formats, [ '%d' ] ),
+			[ self::class, 'repair_table' ]
+		);
+	}
+
 	public static function put( string $scope, string $key, mixed $value, float $confidence = 1.0 ): void {
 		global $wpdb;
 		$table = self::table_name();
@@ -195,7 +211,7 @@ final class Memory {
 
 		$held = MemoryAdapter::before_write( (int) $existing );
 		if ( $existing ) {
-			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], [ '%s', '%s', '%s', '%f', '%d', '%s' ], [ '%d' ] );
+			self::update_row( $data, (int) $existing, [ '%s', '%s', '%s', '%f', '%d', '%s' ] );
 			MemoryAdapter::after_write( (int) $existing, $held );
 		} else {
 			$data['created_at'] = $data['updated_at'];
@@ -406,7 +422,7 @@ final class Memory {
 		$held = MemoryAdapter::before_write( $existing_id );
 
 		if ( $existing_id > 0 ) {
-			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
+			$result = self::update_row( $data, $existing_id, $formats );
 			if ( false !== $result ) {
 				MemoryAdapter::after_write( $existing_id, $held );
 				return $existing_id;
@@ -757,7 +773,7 @@ final class Memory {
 		$data['updated_at'] = current_time( 'mysql', true );
 		$formats[]          = '%s';
 
-		$result = $wpdb->update( $table, $data, [ 'id' => $id ], $formats, [ '%d' ] );
+		$result = self::update_row( $data, $id, $formats );
 		return ( false !== $result );
 	}
 

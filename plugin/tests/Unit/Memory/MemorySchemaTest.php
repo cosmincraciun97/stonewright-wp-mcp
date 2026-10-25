@@ -586,6 +586,50 @@ final class MemorySchemaTest extends TestCase {
 		self::assertSame( 1, $GLOBALS['wpdb']->installs );
 	}
 
+	public function test_a_schema_error_on_update_of_an_existing_entry_triggers_one_repair_and_one_retry(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public $prefix        = 'wp_';
+			public $last_error    = '';
+			public $insert_id     = 0;
+			public int $updates   = 0;
+			public int $installs  = 0;
+
+			public function get_charset_collate(): string {
+				++$this->installs;
+				return 'DEFAULT CHARSET=utf8mb4';
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return 0 === $this->installs ? [ 'id' ] : [ 'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence', 'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence', 'created_by', 'created_at', 'updated_at', 'last_retrieved_at' ];
+			}
+
+			public function get_var( string $query ): mixed {
+				return '5';
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+				++$this->updates;
+				if ( 1 === $this->updates ) {
+					$this->last_error = "Unknown column 'updated_at' in 'field list'";
+					return false;
+				}
+				$this->last_error = '';
+				return 1;
+			}
+		};
+
+		Memory::put( 'project', 'update-retry', [ 'x' => 1 ] );
+
+		self::assertSame( 2, $GLOBALS['wpdb']->updates );
+		self::assertSame( 1, $GLOBALS['wpdb']->installs );
+	}
+
 	/**
 	 * @param array<int, string> $columns
 	 */
