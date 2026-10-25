@@ -120,6 +120,48 @@ final class RescueInstallerCheckThrottleTest extends TestCase {
 		self::assertEqualsWithDelta( time(), self::state()['checked_at'], 5 );
 	}
 
+	public function test_a_clean_remembered_state_is_not_read_again_after_the_retry_interval(): void {
+		RescueInstaller::install();
+		self::tamper_without_a_trace();
+
+		self::age_the_check( RescueInstaller::RETRY_SECONDS + 5 );
+		RescueInstaller::on_admin_init();
+
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'no failure is remembered: the five minute retry does not apply' );
+	}
+
+	public function test_a_failed_repair_of_a_changed_helper_is_tried_again_after_the_retry_interval_and_not_before(): void {
+		RescueInstaller::install();
+		file_put_contents( RescueInstaller::target_path(), "<?php\n// changed by someone\n" );
+		clearstatcache();
+		// What a repair that could not write the file leaves behind: the failure, and the file as it was then.
+		$remember = static function ( int $seconds_ago ): void {
+			clearstatcache();
+			self::set_state(
+				[
+					'failed_at'  => time() - $seconds_ago,
+					'reason'     => 'write_failed',
+					'checked_at' => time() - $seconds_ago,
+					'size'       => (int) filesize( RescueInstaller::target_path() ),
+					'mtime'      => (int) filemtime( RescueInstaller::target_path() ),
+				]
+			);
+		};
+
+		$remember( 10 );
+		RescueInstaller::on_admin_init();
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'a failure seconds old is not tried again' );
+
+		$remember( RescueInstaller::RETRY_SECONDS - 30 );
+		RescueInstaller::on_admin_init();
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'half a minute short of the retry interval' );
+
+		$remember( RescueInstaller::RETRY_SECONDS + 1 );
+		RescueInstaller::on_admin_init();
+		self::assertSame( self::bundled_hash(), self::installed_hash(), 'past the retry interval the repair is tried again, not after twelve hours' );
+		self::assertArrayNotHasKey( 'failed_at', self::state() );
+	}
+
 	public function test_the_check_interval_is_twelve_hours(): void {
 		self::assertSame( 12 * 3600, RescueInstaller::CHECK_SECONDS );
 	}

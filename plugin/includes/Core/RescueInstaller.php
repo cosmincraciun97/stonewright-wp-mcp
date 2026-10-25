@@ -522,8 +522,9 @@ final class RescueInstaller {
 	/**
 	 * Whether this admin request reads and hashes the helper: no check is remembered, the last one is
 	 * twelve hours old, or the file's size or time are not the remembered ones. A file that is not
-	 * there counts as a change, except when the last check saw it missing too: that is tried again
-	 * after RETRY_SECONDS, as a failed install always was.
+	 * there counts as a change, except when the last check saw it missing too. A remembered failure,
+	 * missing file or a repair that could not be written, is tried again after RETRY_SECONDS, as a
+	 * failed install always was.
 	 */
 	private static function check_due(): bool {
 		$state = self::remembered_check();
@@ -533,6 +534,10 @@ final class RescueInstaller {
 		$age = self::now() - $state['checked_at'];
 		if ( $age >= self::CHECK_SECONDS || $age < -self::CHECK_SECONDS || ! self::looks_unchanged( $state ) ) {
 			return true;
+		}
+		if ( isset( $state['failed_at'] ) ) {
+			// The same clock as recently_failed(), so a retry that is due is not held back again.
+			return self::now() - (int) $state['failed_at'] >= self::RETRY_SECONDS;
 		}
 		return null === $state['size'] && $age >= self::RETRY_SECONDS;
 	}
