@@ -27,9 +27,9 @@ final class OpenBasedirTest extends TestCase {
 	}
 
 	public function test_windows_separators_are_normalised(): void {
-		self::assertTrue( OpenBasedir::allows( 'C:\laragon\www\site\data\openssl.cnf', 'C:\laragon\www\site' ) );
-		self::assertTrue( OpenBasedir::allows( 'C:/laragon/www/site/data/openssl.cnf', 'C:\laragon\www\site' ) );
-		self::assertFalse( OpenBasedir::allows( 'C:\php\extras\ssl\openssl.cnf', 'C:\laragon\www\site' ) );
+		self::assertTrue( OpenBasedir::allows( 'C:\www\site\data\openssl.cnf', 'C:\www\site' ) );
+		self::assertTrue( OpenBasedir::allows( 'C:/www/site/data/openssl.cnf', 'C:\www\site' ) );
+		self::assertFalse( OpenBasedir::allows( 'C:\php\extras\ssl\openssl.cnf', 'C:\www\site' ) );
 	}
 
 	public function test_several_entries_allow_a_path_inside_any_of_them(): void {

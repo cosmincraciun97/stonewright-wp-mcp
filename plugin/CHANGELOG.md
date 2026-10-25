@@ -15,13 +15,19 @@
 - Keep the options Stonewright reads while it starts in WordPress's autoloaded
   set, so they arrive with the other autoloaded options in one query instead of
   one query each on a site without a persistent object cache. This covers the
-  table schema versions, the migration flags, the dangerous-function notice, the
-  registered widget slugs, the widget scan verdicts, and the locked domain with
-  its mismatch record. An existing site is switched on its next version change
-  or when the plugin is activated again.
+  table schema versions, the dangerous-function notice, the registered widget
+  slugs, the widget scan verdicts, the locked domain with its mismatch record,
+  and the name of the change journal file. The mismatch record and the journal
+  file name do not exist on a healthy site, and a missing option costs a query
+  too, so both are now stored empty and clearing the mismatch record empties it
+  instead of deleting it. An existing site is switched on its next version
+  change or when the plugin is activated again.
+- Run the upgrade steps that follow a plugin update in one request at a time,
+  so concurrent requests on a busy site do not each repeat them, and keep a
+  table repair that fails from stopping the update or an activation.
 - Run the two lesson migrations once on upgrade and then once a day, with at
-  most five attempts, instead of scanning the memory table on every
-  request. An attempt that a resource limit killed counts as an attempt.
+  most five attempts, instead of scanning the memory table on every request. An
+  attempt that a resource limit killed counts as an attempt.
 - Cache the MCP compatibility check for an hour per set of active plugins
   instead of repeating it on every request.
 - Resolve the OpenSSL configuration for OAuth key generation only when a key is
@@ -38,11 +44,9 @@
   remembered by its size and modification time instead of being rewritten on
   every admin and REST request.
 - Check the rescue helper's integrity every twelve hours, at once when its size
-  or modification time changes, and after an update, instead of reading and
-  hashing it on every wp-admin request. A repair that failed is tried again
-  after five minutes.
-- No ability changed its contract, and no permission, backup, token,
-  validation, or audit gate changed.
+  or modification time changes, and when the plugin version changes or after an
+  update, instead of reading and hashing it on every wp-admin request. A repair
+  that failed is tried again after five minutes.
 
 ## [1.0.0-beta.17.2] - 2026-10-22
 
