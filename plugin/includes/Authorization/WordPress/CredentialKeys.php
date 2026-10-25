@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Authorization\WordPress;
 
 use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\OpenBasedir;
 
 /**
  * Owns the two key options: an RSA-2048 private key (PKCS#8 PEM) that signs access
@@ -22,7 +23,9 @@ use Stonewright\WpMcp\Support\Logger;
  *   the stored winner. An empty stored value is filled once.
  * - Creation never throws. Key generation tries the process default OpenSSL
  *   configuration, then OPENSSL_CONF, then extras/ssl/openssl.cnf next to the PHP
- *   binary, then the configuration bundled in data/openssl. A failure is kept,
+ *   binary, then the configuration bundled in data/openssl. The candidates are
+ *   resolved only when a key is about to be generated, never on construction, and a
+ *   path that open_basedir forbids is skipped without being probed. A failure is kept,
  *   bounded, in stonewright_oauth_key_error for the admin notice; Application
  *   Passwords do not depend on these keys.
  * - Options are written with autoload off.
@@ -41,8 +44,11 @@ final class CredentialKeys {
 	/** @var \Closure(int): string */
 	private \Closure $random;
 
-	/** @var list<?string> */
-	private array $configurations;
+	/** @var list<?string>|null Null until a key is generated. */
+	private ?array $configurations;
+
+	/** @var (\Closure(): list<?string>)|null Test seam for the default candidates. */
+	private static ?\Closure $candidate_resolver = null;
 
 	/** @var array<string, string> sha256 of a private key => its public key. */
 	private array $public_keys = [];
@@ -58,7 +64,7 @@ final class CredentialKeys {
 	public function __construct( private Database $db, ?\Closure $rsa = null, ?\Closure $random = null, ?array $configurations = null ) {
 		$this->rsa = $rsa ?? static fn ( ?string $configuration ): array => self::openssl_attempt( $configuration );
 		$this->random = $random ?? static fn ( int $length ): string => random_bytes( $length );
-		$this->configurations = $configurations ?? self::default_configurations();
+		$this->configurations = $configurations;
 	}
 
 	/** Create whichever key is missing; true when both keys exist and are usable. Never throws. */
@@ -67,6 +73,7 @@ final class CredentialKeys {
 		$private = $this->ensure_key(
 			self::PRIVATE_KEY_OPTION,
 			function () use ( &$problems ): ?string {
+				$this->configurations ??= self::default_configurations();
 				[ $pem, $notes ] = self::generate_rsa( $this->configurations, $this->rsa );
 				if ( null === $pem ) {
 					$problems[] = 'OpenSSL could not create the signing key (' . ( [] === $notes ? 'no configuration worked' : implode( '; ', $notes ) ) . ').';
@@ -166,13 +173,16 @@ final class CredentialKeys {
 
 	/**
 	 * Ordered candidates: the process default (null), OPENSSL_CONF, extras/ssl/openssl.cnf
-	 * beside the PHP binary, then the bundled file. Unreadable or repeated paths are skipped.
+	 * beside the PHP binary, then the bundled file. Repeated, unreadable and open_basedir-forbidden
+	 * paths are skipped; a forbidden path is never passed to $readable.
 	 *
 	 * @param (\Closure(string): bool)|null $readable
+	 * @param (\Closure(string): bool)|null $allowed Whether open_basedir allows a path; defaults to OpenBasedir::allows().
 	 * @return list<?string>
 	 */
-	public static function configuration_candidates( ?string $environment, string $php_binary, string $bundled, ?\Closure $readable = null ): array {
+	public static function configuration_candidates( ?string $environment, string $php_binary, string $bundled, ?\Closure $readable = null, ?\Closure $allowed = null ): array {
 		$readable ??= static fn ( string $path ): bool => is_readable( $path );
+		$allowed ??= static fn ( string $path ): bool => OpenBasedir::allows( $path );
 		$paths = [];
 		if ( null !== $environment && '' !== $environment ) {
 			$paths[] = $environment;
@@ -183,7 +193,7 @@ final class CredentialKeys {
 		$paths[] = $bundled;
 		$candidates = [ null ];
 		foreach ( $paths as $path ) {
-			if ( ! in_array( $path, $candidates, true ) && $readable( $path ) ) {
+			if ( ! in_array( $path, $candidates, true ) && $allowed( $path ) && $readable( $path ) ) {
 				$candidates[] = $path;
 			}
 		}
@@ -192,9 +202,21 @@ final class CredentialKeys {
 
 	/** @return list<?string> */
 	public static function default_configurations(): array {
+		if ( null !== self::$candidate_resolver ) {
+			return ( self::$candidate_resolver )();
+		}
 		$environment = getenv( 'OPENSSL_CONF' );
 		$plugin = defined( 'STONEWRIGHT_DIR' ) ? (string) constant( 'STONEWRIGHT_DIR' ) : dirname( __DIR__, 3 );
 		return self::configuration_candidates( is_string( $environment ) ? $environment : null, PHP_BINARY, rtrim( $plugin, '/\\' ) . '/data/openssl/openssl.cnf' );
+	}
+
+	/**
+	 * Replace how default_configurations() finds its candidates; tests only, null restores the real lookup.
+	 *
+	 * @param (\Closure(): list<?string>)|null $resolver
+	 */
+	public static function set_candidate_resolver( ?\Closure $resolver ): void {
+		self::$candidate_resolver = $resolver;
 	}
 
 	/**
