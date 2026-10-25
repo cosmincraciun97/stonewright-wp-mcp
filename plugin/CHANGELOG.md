@@ -8,23 +8,25 @@
   always a setting an administrator turns on. See `docs/busy-sites.md`.
   - A site pressure signal: one timed `SELECT 1`, with the machine load and the
     memory in use, read only when optional work is about to start and reused for
-    30 seconds. While the level is `elevated` or `critical`, schema repairs, the
-    lesson migrations, the change journal rewrite and the rescue helper check
-    wait, and the health probe asks for the front page alone (one short request
-    at `critical`). Ability responses carry `site_pressure` with the level and a
-    hint to batch writes. The thresholds are filterable
-    (`stonewright_site_pressure_thresholds`).
+    30 seconds. While the level is `elevated` or `critical`, the lesson
+    migrations and the rescue helper check wait, and the health probe asks for
+    the front page alone. At `critical` schema repairs and the change journal
+    rewrite wait as well, and any probe is one short request. The memory a
+    request uses counts for that request only. Ability responses carry
+    `site_pressure` with the level and a hint to batch writes. The thresholds
+    are filterable (`stonewright_site_pressure_thresholds`).
   - A write freeze set in wp-admin under Setup > Settings > Busy sites: a time and a
     reason. While it is on, abilities that change the site answer
     `stonewright_write_freeze` (status 423) with the end time and the reason; reads,
-    the task start, rollbacks and restores keep working. Only a person in wp-admin
-    lifts the freeze or ends it sooner.
+    the task start, and the rollbacks and restores of the change history keep
+    working. Only a person in wp-admin lifts the freeze or ends it sooner.
   - Elementor write pacing: saves of one document are counted in a ten-minute
     window, whoever makes them. The response of the third save carries
     `write_pacing` with a hint to use one `elementor-v3-batch-mutate` apply. The new
     setting `stonewright_elementor_write_pacing` is `warn` by default; `strict` also
     refuses the sixth save with `stonewright_write_pacing` (status 429, with
-    `retry_after`), and `off` counts nothing. Only a person in wp-admin makes it looser.
+    `retry_after`), and `off` counts nothing. Editor autosaves are not counted.
+    Only a person in wp-admin makes it looser.
   - Cache-purge advisories: with LiteSpeed Cache active and its Auto Purge Rules
     set to purge all pages on a save, or to purge everything on an update,
     `stonewright-task-start` (`site.cache_purge`), `stonewright-site-pulse`, the
@@ -37,7 +39,7 @@
   `stonewright-plugin-activate`, `stonewright-plugin-deactivate`,
   `stonewright-sandbox-activate` and `stonewright-sandbox-deactivate` carry
   `cache_purge`. The permission gate changed: write abilities are refused during a
-  freeze (rollbacks and restores are exempt). Backup, token, validation and audit
+  freeze (rollbacks and restores of the change history are exempt). Backup, token, validation and audit
   gates are unchanged, and a change of the freeze or the pacing setting is audited.
 
 ### Fixed

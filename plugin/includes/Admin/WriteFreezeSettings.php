@@ -87,7 +87,10 @@ final class WriteFreezeSettings {
 	 * What is stored for the posted freeze: `[ 'until' => unix time, 'reason' => text ]`, or an empty array for no
 	 * freeze. A refusal keeps the stored value.
 	 *
-	 * @param mixed $value The posted value: an array with `until` and `reason`.
+	 * The value can arrive twice. WordPress runs the sanitizer again when it adds an option that was never saved
+	 * (core ticket 21989), and then `until` is already a unix time: a clean value must come back as it is.
+	 *
+	 * @param mixed $value The posted value: an array with `until` (the control's text, or a unix time) and `reason`.
 	 * @return array{until?: int, reason?: string}
 	 */
 	public static function sanitize_freeze( mixed $value, ?int $now = null ): array {
@@ -97,15 +100,27 @@ final class WriteFreezeSettings {
 			return $kept;
 		}
 
-		$field = isset( $value['until'] ) && is_string( $value['until'] ) ? trim( $value['until'] ) : '';
-		if ( '' === $field ) {
-			return [];
-		}
-
-		$until = self::parse_local_time( $field );
-		if ( null === $until ) {
-			self::refuse( __( 'Freeze writes until: enter a date and time. The previous freeze was kept.', 'stonewright' ) );
-			return $kept;
+		$raw = $value['until'] ?? '';
+		if ( is_int( $raw ) ) {
+			if ( $raw < 1 ) {
+				return [];
+			}
+			$until = $raw;
+		} else {
+			$field = is_string( $raw ) ? trim( $raw ) : '';
+			if ( '' === $field ) {
+				return [];
+			}
+			$gap   = false;
+			$until = self::parse_local_time( $field, $gap );
+			if ( null === $until ) {
+				self::refuse(
+					$gap
+						? __( 'Freeze writes until: that time does not exist in the site timezone (the clocks change then). Pick another time. The previous freeze was kept.', 'stonewright' )
+						: __( 'Freeze writes until: enter a date and time. The previous freeze was kept.', 'stonewright' )
+				);
+				return $kept;
+			}
 		}
 		// The form shows minutes: a freeze that is posted back as it was shown is not a change.
 		if ( null !== $stored && intdiv( $stored['until'], 60 ) === intdiv( $until, 60 ) ) {
@@ -115,7 +130,7 @@ final class WriteFreezeSettings {
 			return $kept;
 		}
 
-		$reason = isset( $value['reason'] ) && is_string( $value['reason'] ) ? sanitize_text_field( wp_unslash( $value['reason'] ) ) : '';
+		$reason = isset( $value['reason'] ) && is_string( $value['reason'] ) ? sanitize_text_field( $value['reason'] ) : '';
 		if ( mb_strlen( $reason ) > WriteFreeze::MAX_REASON ) {
 			$reason = mb_substr( $reason, 0, WriteFreeze::MAX_REASON );
 		}
@@ -294,10 +309,18 @@ final class WriteFreezeSettings {
 		self::audit_pacing_change( WritePacing::MODE_WARN, $value );
 	}
 
-	/** A date and time as the control posts it, read in the site's timezone; null when it is not one. */
-	private static function parse_local_time( string $field ): ?int {
+	/**
+	 * A date and time as the control posts it, read in the site's timezone; null when it is not one. $gap says the time
+	 * is a real date that the clocks of the site skip.
+	 */
+	private static function parse_local_time( string $field, bool &$gap ): ?int {
 		$date = \DateTimeImmutable::createFromFormat( '!' . self::FIELD_FORMAT, $field, wp_timezone() );
-		if ( false === $date || $date->format( self::FIELD_FORMAT ) !== $field ) {
+		if ( false === $date ) {
+			return null;
+		}
+		if ( $date->format( self::FIELD_FORMAT ) !== $field ) {
+			// A time that was skipped when the clocks went forward is shifted by the parser.
+			$gap = true;
 			return null;
 		}
 

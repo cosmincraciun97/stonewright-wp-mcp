@@ -148,4 +148,46 @@ final class WriteFreezeSettingsTest extends TestCase {
 		$GLOBALS['stonewright_test_options']['stonewright_elementor_write_pacing'] = 'strict';
 		self::assertSame( 'strict', WriteFreezeSettings::sanitize_pacing( [ 'off' ] ) );
 	}
+
+	public function test_the_sanitizer_is_idempotent_because_wordpress_runs_it_twice_on_a_first_save(): void {
+		$first  = WriteFreezeSettings::sanitize_freeze( [ 'until' => self::field( 7200 ), 'reason' => 'Launch day' ] );
+		$second = WriteFreezeSettings::sanitize_freeze( $first );
+
+		self::assertNotSame( [], $first );
+		self::assertSame( $first, $second, 'A clean value comes back as it is.' );
+		self::assertSame( [], $GLOBALS['stonewright_test_settings_errors'] );
+	}
+
+	public function test_a_first_save_through_update_option_stores_the_freeze(): void {
+		// The settings API registers [] as the default, so update_option adds the option and sanitizes twice.
+		add_filter( 'sanitize_option_' . WriteFreeze::OPTION, [ WriteFreezeSettings::class, 'sanitize_freeze' ] );
+		$once  = apply_filters( 'sanitize_option_' . WriteFreeze::OPTION, [ 'until' => self::field( 3600 ), 'reason' => 'Launch' ] );
+		$twice = apply_filters( 'sanitize_option_' . WriteFreeze::OPTION, $once );
+
+		self::assertSame( $once, $twice );
+		self::assertGreaterThan( time(), $twice['until'] );
+	}
+
+	public function test_a_unix_time_in_the_past_is_refused_like_a_typed_one(): void {
+		self::assertSame( [], WriteFreezeSettings::sanitize_freeze( [ 'until' => time() - 60, 'reason' => 'x' ] ) );
+		self::assertCount( 1, get_settings_errors( WriteFreezeSettings::ERRORS ) );
+		self::assertSame( [], WriteFreezeSettings::sanitize_freeze( [ 'until' => 0, 'reason' => '' ] ) );
+	}
+
+	public function test_a_backslash_in_the_reason_is_kept(): void {
+		// options.php has already removed the slashes WordPress added to the post; removing them again would eat this one.
+		$clean = WriteFreezeSettings::sanitize_freeze( [ 'until' => self::field( 600 ), 'reason' => 'Backup in C:\\temp' ] );
+
+		self::assertSame( 'Backup in C:\\temp', $clean['reason'] );
+	}
+
+	public function test_a_time_the_clocks_skip_gets_its_own_message(): void {
+		$GLOBALS['stonewright_test_timezone'] = 'Europe/Bucharest';
+		$year                                 = (int) gmdate( 'Y' ) + 1;
+		// The last Sunday of March, 03:30, does not exist in Bucharest: the clocks go from 03:00 to 04:00.
+		$sunday = ( new \DateTimeImmutable( 'last sunday of march ' . $year, new \DateTimeZone( 'Europe/Bucharest' ) ) )->format( 'Y-m-d' );
+
+		self::assertSame( [], WriteFreezeSettings::sanitize_freeze( [ 'until' => $sunday . 'T03:30', 'reason' => '' ] ) );
+		self::assertStringContainsString( 'does not exist', get_settings_errors( WriteFreezeSettings::ERRORS )[0]['message'] );
+	}
 }

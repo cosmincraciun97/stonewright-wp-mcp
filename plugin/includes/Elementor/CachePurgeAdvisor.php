@@ -32,8 +32,8 @@ final class CachePurgeAdvisor {
 	 * @var array<string, array{effect: string, label: string}>
 	 */
 	public const LITESPEED_RULES = [
-		'purge-post_all' => [ 'effect' => 'post_save', 'label' => 'Auto Purge Rules: All pages' ],
-		'purge-post_p'   => [ 'effect' => 'post_save', 'label' => 'Auto Purge Rules: Pages' ],
+		'purge-post_all' => [ 'effect' => 'post_save_all', 'label' => 'Auto Purge Rules: All pages' ],
+		'purge-post_p'   => [ 'effect' => 'post_save_pages', 'label' => 'Auto Purge Rules: Pages' ],
 		'purge-upgrade'  => [ 'effect' => 'upgrade', 'label' => 'Purge All On Upgrade' ],
 	];
 
@@ -47,12 +47,19 @@ final class CachePurgeAdvisor {
 	public static function advisories(): array {
 		$active     = self::active_rules();
 		$advisories = [];
-		if ( isset( $active['post_save'] ) ) {
+		if ( isset( $active['post_save_all'] ) ) {
 			$advisories[] = [
 				'plugin'  => 'LiteSpeed Cache',
-				'setting' => implode( '; ', $active['post_save'] ),
+				'setting' => implode( '; ', array_merge( $active['post_save_all'], $active['post_save_pages'] ?? [] ) ),
 				'effect'  => __( 'Every page is purged on each post or page save.', 'stonewright' ),
 				'hint'    => self::post_save_hint(),
+			];
+		} elseif ( isset( $active['post_save_pages'] ) ) {
+			$advisories[] = [
+				'plugin'  => 'LiteSpeed Cache',
+				'setting' => implode( '; ', $active['post_save_pages'] ),
+				'effect'  => __( 'The cached WordPress pages are purged on each post or page save.', 'stonewright' ),
+				'hint'    => self::post_save_hint( false ),
 			];
 		}
 		if ( isset( $active['upgrade'] ) ) {
@@ -105,14 +112,20 @@ final class CachePurgeAdvisor {
 	 * page; once the notice is there, later writes leave it alone, so it is pushed once per hour.
 	 */
 	public static function note_write( ?int $now = null ): void {
-		if ( ! isset( self::active_rules()['post_save'] ) || AgentNotices::has( self::NOTICE_KEY, $now ) ) {
+		$active = self::active_rules();
+		if ( ( ! isset( $active['post_save_all'] ) && ! isset( $active['post_save_pages'] ) ) || AgentNotices::has( self::NOTICE_KEY, $now ) ) {
 			return;
 		}
-		AgentNotices::push( self::NOTICE_KEY, self::post_save_hint(), HOUR_IN_SECONDS, $now );
+		AgentNotices::push( self::NOTICE_KEY, self::post_save_hint( isset( $active['post_save_all'] ) ), HOUR_IN_SECONDS, $now );
 	}
 
-	private static function post_save_hint(): string {
-		return __( 'This site purges its whole page cache on every page save (LiteSpeed Cache › Cache › Purge › Auto Purge Rules). Batch your changes: one apply per post, and avoid saves during traffic peaks.', 'stonewright' );
+	/**
+	 * The advice for a cache that purges on a save: $whole says every page is purged, not only the WordPress pages.
+	 */
+	private static function post_save_hint( bool $whole = true ): string {
+		return $whole
+			? __( 'This site purges its whole page cache on every page save (LiteSpeed Cache › Cache › Purge › Auto Purge Rules). Batch your changes: one apply per post, and avoid saves during traffic peaks.', 'stonewright' )
+			: __( 'This site purges its cached WordPress pages on every post or page save (LiteSpeed Cache › Cache › Purge › Auto Purge Rules › Pages). Batch your changes: one apply per post, and avoid saves during traffic peaks.', 'stonewright' );
 	}
 
 	/**

@@ -220,4 +220,24 @@ final class WritePacingTest extends TestCase {
 		self::assertStringContainsString( "'pre_update_option_stonewright_elementor_write_pacing', [ LeashGuard::class, 'guard_write_pacing_write' ]", $source );
 		self::assertStringContainsString( "AgentNotices::register_field( 'write_pacing', [ WritePacing::class, 'notice' ] )", $source );
 	}
+
+	public function test_editor_autosaves_and_revisions_are_not_counted_or_refused(): void {
+		$GLOBALS['stonewright_test_options'][ WritePacing::OPTION ] = 'strict';
+		$autosave = new class() {
+			public function get_main_id(): int {
+				return WritePacingTest::POST_ID;
+			}
+
+			public function get_id(): int {
+				return WritePacingTest::POST_ID + 1000;
+			}
+		};
+		for ( $i = 0; $i < 8; $i++ ) {
+			EditorSaveGuard::on_before_save( $autosave );
+			EditorSaveGuard::on_after_save( $autosave );
+		}
+
+		self::assertNull( WritePacing::notice() );
+		self::assertFalse( get_transient( WritePacing::TRANSIENT_PREFIX . self::POST ), 'Eight autosaves count for nothing.' );
+	}
 }

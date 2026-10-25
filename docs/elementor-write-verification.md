@@ -248,6 +248,7 @@ the saves of each Elementor document in a ten-minute window, whoever makes them
   `stonewright_write_pacing` (status 429, with `retry_after` in seconds and the same
   hint) until the window has passed. The default is warn, which never refuses; off
   counts nothing. Only a person in wp-admin makes the setting looser.
+- The editor's autosaves and revisions are not saves of the post and are not counted.
 - The count lives in the transient `stonewright_elementor_saves_<post id>`, which
   expires with the window. A write that is refused is not counted, and a rollback is
   never paced.

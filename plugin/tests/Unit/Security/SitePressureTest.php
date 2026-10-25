@@ -207,4 +207,24 @@ final class SitePressureTest extends TestCase {
 			$this->assertStringContainsString( $needle, (string) file_get_contents( $root . $file ), $file . ' consults the pressure level.' );
 		}
 	}
+
+	public function test_the_memory_of_another_request_never_decides_this_requests_level(): void {
+		// A heavy request stored 95% memory beside a quick database; this request is calm.
+		update_option( SitePressure::OPTION, self::sample( [ 'db_ms' => 4.0, 'memory_pct' => 95.0, 'at' => 2000 ] ), true );
+		SitePressure::set_probe(
+			function (): float {
+				$this->fail( 'A fresh stored sample must not be measured again.' );
+			}
+		);
+		$this->assertSame( 'normal', SitePressure::level( 2010 ) );
+
+		// The memory this process uses still counts for this process.
+		SitePressure::set_environment( [ 'memory_pct' => 90.0, 'load_per_core' => null ] );
+		$this->assertSame( 'critical', SitePressure::level( 2011 ) );
+
+		// A slow database is shared through the stored sample.
+		SitePressure::set_environment( [ 'memory_pct' => 10.0, 'load_per_core' => null ] );
+		update_option( SitePressure::OPTION, self::sample( [ 'db_ms' => 1500.0, 'memory_pct' => 10.0, 'at' => 2000 ] ), true );
+		$this->assertSame( 'critical', SitePressure::level( 2012 ) );
+	}
 }

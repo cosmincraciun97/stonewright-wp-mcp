@@ -92,6 +92,17 @@ final class WriteFreezeTest extends TestCase {
 		self::assertNull( WriteFreeze::gate( 'stonewright/site-info' ) );
 	}
 
+	public function test_a_restore_that_is_not_tied_to_the_change_history_stays_frozen(): void {
+		self::freeze( 3600 );
+
+		// A post revision or a theme backup can put any older content on the site: that is a write.
+		foreach ( [ 'stonewright/post-revision-restore', 'stonewright/theme-backup-restore' ] as $name ) {
+			$refused = WriteFreeze::gate( $name );
+			self::assertInstanceOf( \WP_Error::class, $refused, $name );
+			self::assertSame( 'stonewright_write_freeze', $refused->get_error_code() );
+		}
+	}
+
 	public function test_an_expired_freeze_is_inactive(): void {
 		self::freeze( -5 );
 

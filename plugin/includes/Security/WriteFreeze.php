@@ -16,8 +16,10 @@ use Stonewright\WpMcp\Core\AbilityAnnotations;
  *
  * An ability counts as a write when the recorded ability facts say so (Core\AbilityAnnotations). The exempt list
  * holds what an agent needs to undo a change or to keep working safely during the freeze: the rollbacks and
- * restores, the confirmation token a production-safe rollback needs, the incident record, the task start, and the
- * records of what the agent learned or was told, none of which changes the site's content.
+ * restores of the change history, the confirmation token a production-safe rollback needs, the incident record, the task start, and the
+ * records of what the agent learned or was told, none of which changes the site's content. A restore that is not
+ * tied to a change of the history (a post revision, a theme backup) can put any older content on the site, so it
+ * stays frozen like any other write.
  */
 final class WriteFreeze {
 

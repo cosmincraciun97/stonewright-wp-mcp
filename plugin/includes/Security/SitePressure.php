@@ -16,6 +16,10 @@ namespace Stonewright\WpMcp\Security;
  * Thresholds: a database round trip of 250 ms is elevated and of one second critical; memory at 85% of the limit is
  * critical; load per core of 4 is elevated, and only together with a database that is slower than 100 ms, because a
  * busy machine with a quick database is not a reason to hold work back. Load alone never makes the level critical.
+ *
+ * The database time and the load describe the site and are shared through the stored measurement. The memory
+ * describes the process that reads it, so it is read again by each request and never taken from the stored sample:
+ * one request that used its whole memory limit must not hold optional work back from every other request.
  */
 final class SitePressure {
 
@@ -67,7 +71,7 @@ final class SitePressure {
 		return [
 			'db_ms'         => round( $db_ms, 1 ),
 			'load_per_core' => self::$environment_override['load_per_core'] ?? self::load_per_core(),
-			'memory_pct'    => self::$environment_override['memory_pct'] ?? self::memory_pct(),
+			'memory_pct'    => self::current_memory_pct(),
 			'at'            => time(),
 		];
 	}
@@ -107,7 +111,8 @@ final class SitePressure {
 		$now    = $now ?? time();
 		$stored = get_option( self::OPTION, [] );
 		if ( is_array( $stored ) && isset( $stored['at'], $stored['db_ms'] ) && $now - (int) $stored['at'] >= 0 && $now - (int) $stored['at'] < self::REUSE_SECONDS ) {
-			self::$memo = self::classify( $stored );
+			$stored['memory_pct'] = self::current_memory_pct();
+			self::$memo           = self::classify( $stored );
 			return self::$memo;
 		}
 
@@ -227,6 +232,10 @@ final class SitePressure {
 		$count = preg_match_all( '/^processor\s*:/m', $info );
 
 		return $count > 0 ? $count : null;
+	}
+
+	private static function current_memory_pct(): float {
+		return self::$environment_override['memory_pct'] ?? self::memory_pct();
 	}
 
 	private static function memory_pct(): float {

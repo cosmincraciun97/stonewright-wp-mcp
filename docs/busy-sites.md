@@ -38,7 +38,9 @@ three levels:
 The level comes from one `SELECT 1`, timed, together with the machine's load and the
 memory in use. It is measured only when something is about to do optional work, never
 on a plain front-end request, and the measurement is reused for 30 seconds. A
-measurement that fails counts as `normal`.
+measurement that fails counts as `normal`. The database time and the load describe the
+site and are shared through the stored measurement; the memory describes one request,
+so each request reads its own and one heavy request never holds work back from the others.
 
 | Reading | Threshold |
 |---|---|
@@ -72,10 +74,12 @@ While the freeze is on:
 
 - Abilities that change the site answer `stonewright_write_freeze` (HTTP status 423)
   with the end time and the reason. The agent shows the settings link and stops.
-- Reads, `stonewright/task-start`, rollbacks and restores
+- Reads, `stonewright/task-start`, the rollbacks and restores of the change history
   (`rescue-rollback`, `change-rollback`, `change-restore`), the confirmation token a
   production-safe rollback needs, the incident record, and the records of what the
   agent learned keep working, so a change can still be taken back during a freeze.
+  A restore that is not tied to the change history (`post-revision-restore`,
+  `theme-backup-restore`) is a write like any other and stays frozen.
 - Only a person in wp-admin can lift the freeze or end it sooner. A request with an
   Application Password or an OAuth bearer that tries is not stored: the freeze stays as it was. Making the freeze longer
   stays open to anyone with `manage_options`, like every other setting that
@@ -87,6 +91,7 @@ A freeze that has passed its end time is inactive; nothing needs to lift it.
 
 Every save of an Elementor document is counted per post in a ten-minute window,
 whoever makes it: an agent through a Stonewright writer or a person in the editor.
+The editor's autosaves are not saves of the post and are not counted.
 What the count does depends on **Elementor write pacing** under
 **Stonewright > Setup > Settings > Busy sites**:
 

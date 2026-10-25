@@ -111,7 +111,7 @@ final class EditorSaveGuard {
 		unset( $data );
 		$post_id = self::document_post_id( $document );
 		$error   = self::assert_persist( $post_id );
-		if ( ! $error instanceof \WP_Error ) {
+		if ( ! $error instanceof \WP_Error && ! self::is_revision_document( $document ) ) {
 			// A site that paces saves in strict mode refuses the next one before it persists.
 			$error = WritePacing::check( $post_id );
 		}
@@ -129,7 +129,9 @@ final class EditorSaveGuard {
 		$post_id = self::document_post_id( $document );
 		if ( $post_id > 0 ) {
 			self::refresh_after_save( $post_id );
-			WritePacing::note_save( $post_id );
+			if ( ! self::is_revision_document( $document ) ) {
+				WritePacing::note_save( $post_id );
+			}
 		}
 	}
 
@@ -201,6 +203,14 @@ final class EditorSaveGuard {
 		}
 		$known[] = $user_id;
 		update_option( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ), false );
+	}
+
+	/**
+	 * Whether Elementor is saving an autosave or a revision of the post, which has an id of its own: the editor
+	 * autosaves about once a minute, and that is not a save of the post as far as the page cache or pacing go.
+	 */
+	private static function is_revision_document( object $document ): bool {
+		return method_exists( $document, 'get_id' ) && method_exists( $document, 'get_main_id' ) && (int) $document->get_id() !== (int) $document->get_main_id();
 	}
 
 	private static function document_post_id( object $document ): int {

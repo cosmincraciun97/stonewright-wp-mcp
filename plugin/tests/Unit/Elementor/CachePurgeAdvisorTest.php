@@ -181,4 +181,19 @@ final class CachePurgeAdvisorTest extends TestCase {
 			self::assertStringContainsString( 'CachePurgeAdvisor::note_write()', (string) file_get_contents( $root . $file . '.php' ), $file );
 		}
 	}
+
+	public function test_the_pages_rule_alone_does_not_claim_the_whole_cache_is_purged(): void {
+		// LiteSpeed Cache ships with this rule on, so the wording must not overstate it.
+		$GLOBALS['stonewright_test_options']['litespeed.conf.purge-post_p'] = '1';
+
+		$advisories = CachePurgeAdvisor::advisories();
+
+		self::assertCount( 1, $advisories );
+		self::assertStringNotContainsString( 'whole page cache', $advisories[0]['hint'] );
+		self::assertStringContainsString( 'cached WordPress pages', $advisories[0]['hint'] );
+		self::assertStringContainsString( 'one apply per post', $advisories[0]['hint'] );
+
+		CachePurgeAdvisor::note_write( 1_800_000_000 );
+		self::assertStringContainsString( 'cached WordPress pages', $this->notice_lines( 1_800_000_000 )[0] );
+	}
 }
