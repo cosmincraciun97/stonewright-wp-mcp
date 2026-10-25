@@ -129,16 +129,6 @@ final class PluginRegistration {
 		add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ], 25, 0 );
 		add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
-		// Idempotent: supersede legacy unresolved audit lessons into incident history.
-		// Void wrapper — WP action callbacks must not return values (PHPStan).
-		add_action(
-			'init',
-			static function (): void {
-				ErrorPatterns::migrate_legacy_audit_lessons();
-				ErrorPatterns::return_unapproved_draft_lessons();
-			},
-			20
-		);
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
@@ -277,6 +267,8 @@ final class PluginRegistration {
 		WidgetSchemaRepository::invalidate();
 		// Options an earlier version stored without autoload cost a query each per request; move them into the autoloaded set.
 		BootOptions::autoload_all();
+		// Supersede legacy unresolved audit lessons and return unapproved draft lessons; the daily job retries a failed run.
+		ErrorPatterns::run_pending_migrations();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 

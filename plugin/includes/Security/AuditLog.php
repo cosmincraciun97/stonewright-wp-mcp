@@ -623,8 +623,18 @@ final class AuditLog {
 	}
 
 	public static function run_scheduled_retention(): void {
-		// The daily look at the four owned tables; the rest of this job is retention.
-		StoreSchemaRepair::repair_unhealthy();
+		// The daily look at the four owned tables and the pending lesson migrations; the rest of this job is
+		// retention, which a failure in either must not skip.
+		try {
+			StoreSchemaRepair::repair_unhealthy();
+		} catch ( \Throwable $throwable ) {
+			Logger::warning( 'schema_repair_failed', [ 'error' => $throwable->getMessage() ] );
+		}
+		try {
+			ErrorPatterns::run_pending_migrations();
+		} catch ( \Throwable $throwable ) {
+			Logger::warning( 'lesson_migrations_failed', [ 'error' => $throwable->getMessage() ] );
+		}
 		self::enforce_retention( true );
 	}
 

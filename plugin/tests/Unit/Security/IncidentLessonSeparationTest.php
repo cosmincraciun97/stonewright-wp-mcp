@@ -225,7 +225,11 @@ final class IncidentLessonSeparationTest extends TestCase {
 
 		self::assertSame( 0, $result['migrated'] );
 		self::assertSame( 1, $result['write_failed'] );
-		self::assertSame( '0', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION, '0' ) );
+		// Not done: the option records the failed attempt, so the next run scans again.
+		$state = get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION, '0' );
+		self::assertIsArray( $state );
+		self::assertSame( 1, $state['attempts'] );
+		self::assertFalse( ErrorPatterns::migrate_legacy_audit_lessons()['already_done'] );
 	}
 
 	public function test_error_pattern_draft_stays_draft_and_is_excluded_from_task_start(): void {

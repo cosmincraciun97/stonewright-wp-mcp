@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Groups recurring audit ERROR signatures into incident-style patterns.
@@ -23,9 +24,15 @@ final class ErrorPatterns {
 	public const MAX_PATTERNS = 200;
 	/** Days without a new occurrence after which a pattern leaves the recurring list. */
 	public const STALE_DAYS = 30;
-	/** Set once the one-time return of unapproved active draft lessons has completed. */
+	/**
+	 * Set once the one-time return of unapproved active draft lessons has completed: '1' when done,
+	 * [ 'attempts' => int, 'last' => int ] while attempts have failed, 'abandoned' after the last allowed one.
+	 */
 	public const DRAFT_LESSON_RETURN_OPTION = 'stonewright_draft_lessons_returned_v1';
+	/** Same values as DRAFT_LESSON_RETURN_OPTION, for the supersede of legacy unresolved audit lessons. */
 	public const LEGACY_LESSON_MIGRATION_OPTION = 'stonewright_legacy_audit_lessons_migrated_v1';
+	/** Failed runs after which a lesson migration stops running on its own; deleting its option arms it again. */
+	public const MIGRATION_MAX_ATTEMPTS = 5;
 	public const LEARNING_NUDGE_COUNT = 5;
 	public const DRAFT_LESSON_COUNT   = 10;
 
@@ -656,22 +663,77 @@ final class ErrorPatterns {
 	}
 
 	/**
-	 * Reversible migration: identify legacy generic `learning-audit-error-*` /
-	 * "unknown error" rows and mark them superseded (archived into incident
-	 * history metadata). Never deletes rows. Leaves user-created and verified
-	 * learning untouched.
+	 * Both one-time lesson migrations, for the places that run maintenance (a plugin upgrade and the daily job)
+	 * and never for a page request. A migration that is done or has given up reads one option and nothing else.
 	 *
-	 * @return array{migrated:int,skipped:int,already_done:bool,write_failed?:int}
+	 * @return array{legacy:array<string, mixed>,draft:array<string, mixed>}
 	 */
+	public static function run_pending_migrations(): array {
+		return [
+			'legacy' => self::run_guarded(
+				self::LEGACY_LESSON_MIGRATION_OPTION,
+				'legacy_audit_lessons',
+				[ self::class, 'migrate_legacy_audit_lessons' ],
+				[ 'migrated' => 0, 'skipped' => 0, 'already_done' => false, 'write_failed' => 1 ]
+			),
+			'draft'  => self::run_guarded(
+				self::DRAFT_LESSON_RETURN_OPTION,
+				'draft_lessons',
+				[ self::class, 'return_unapproved_draft_lessons' ],
+				[ 'returned' => 0, 'failed' => 1, 'already_done' => false ]
+			),
+		];
+	}
+
+	/**
+	 * A migration that throws counts as a failed attempt, so it cannot run on every upgrade request forever.
+	 *
+	 * @param callable():array<string, mixed> $migration
+	 * @param array<string, mixed>            $failed_result
+	 * @return array<string, mixed>
+	 */
+	private static function run_guarded( string $option, string $name, callable $migration, array $failed_result ): array {
+		try {
+			return $migration();
+		} catch ( \Throwable $throwable ) {
+			Logger::warning( 'lesson_migration_failed', [ 'migration' => $name, 'error' => $throwable->getMessage() ] );
+			self::record_failed_attempt( $option, $name, 1 );
+			return $failed_result;
+		}
+	}
+
+	/** True when the option says the migration needs no further run: done, or given up. */
+	private static function migration_settled( string $option ): bool {
+		$state = get_option( $option, '' );
+		return is_scalar( $state ) && in_array( (string) $state, [ '1', 'abandoned' ], true );
+	}
+
+	/**
+	 * Count one failed run of a migration. The last allowed attempt turns the option into 'abandoned' and
+	 * logs it once; the option is autoloaded because the daily job and an upgrade read it.
+	 */
+	private static function record_failed_attempt( string $option, string $name, int $failed ): void {
+		$state    = get_option( $option, '' );
+		$attempts = is_array( $state ) ? max( 0, (int) ( $state['attempts'] ?? 0 ) ) + 1 : 1;
+		if ( $attempts >= self::MIGRATION_MAX_ATTEMPTS ) {
+			update_option( $option, 'abandoned', true );
+			Logger::warning( 'lesson_migration_abandoned', [ 'migration' => $name, 'failed' => $failed ] );
+			return;
+		}
+		update_option( $option, [ 'attempts' => $attempts, 'last' => time() ], true );
+	}
+
 	/**
 	 * One-time repair: proposed lessons that are active without a recorded
 	 * administrator approval go back to draft, so they stop influencing agents
-	 * until someone approves them.
+	 * until someone approves them. Runs from run_pending_migrations(); a run
+	 * that fails is counted and the migration is abandoned after
+	 * MIGRATION_MAX_ATTEMPTS (already_done is true for a migration that gave up).
 	 *
 	 * @return array{returned:int,failed:int,already_done:bool}
 	 */
 	public static function return_unapproved_draft_lessons(): array {
-		if ( '1' === (string) get_option( self::DRAFT_LESSON_RETURN_OPTION, '' ) ) {
+		if ( self::migration_settled( self::DRAFT_LESSON_RETURN_OPTION ) ) {
 			return [ 'returned' => 0, 'failed' => 0, 'already_done' => true ];
 		}
 		$returned = 0;
@@ -702,12 +764,23 @@ final class ErrorPatterns {
 		}
 		if ( 0 === $failed ) {
 			update_option( self::DRAFT_LESSON_RETURN_OPTION, '1', true );
+		} else {
+			self::record_failed_attempt( self::DRAFT_LESSON_RETURN_OPTION, 'draft_lessons', $failed );
 		}
 		return [ 'returned' => $returned, 'failed' => $failed, 'already_done' => false ];
 	}
 
+	/**
+	 * Reversible migration: identify legacy generic `learning-audit-error-*` /
+	 * "unknown error" rows and mark them superseded (archived into incident
+	 * history metadata). Never deletes rows. Leaves user-created and verified
+	 * learning untouched. Runs from run_pending_migrations(), with the same
+	 * attempt limit as return_unapproved_draft_lessons().
+	 *
+	 * @return array{migrated:int,skipped:int,already_done:bool,write_failed?:int}
+	 */
 	public static function migrate_legacy_audit_lessons(): array {
-		if ( '1' === (string) get_option( self::LEGACY_LESSON_MIGRATION_OPTION, '' ) ) {
+		if ( self::migration_settled( self::LEGACY_LESSON_MIGRATION_OPTION ) ) {
 			return [ 'migrated' => 0, 'skipped' => 0, 'already_done' => true ];
 		}
 
@@ -817,6 +890,8 @@ final class ErrorPatterns {
 
 		if ( 0 === $write_failed ) {
 			update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', true );
+		} else {
+			self::record_failed_attempt( self::LEGACY_LESSON_MIGRATION_OPTION, 'legacy_audit_lessons', $write_failed );
 		}
 
 		return [
