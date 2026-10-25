@@ -492,7 +492,8 @@ if ( ! function_exists( 'add_option' ) ) {
 		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
 			return false;
 		}
-		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		$GLOBALS['stonewright_test_options'][ $option ]         = $value;
+		$GLOBALS['stonewright_test_option_autoload'][ $option ] = $autoload;
 		if ( is_callable( $GLOBALS['stonewright_test_after_add_option'] ?? null ) ) {
 			$callback = $GLOBALS['stonewright_test_after_add_option'];
 			unset( $GLOBALS['stonewright_test_after_add_option'] );
