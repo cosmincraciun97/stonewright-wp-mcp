@@ -61,6 +61,7 @@ import {
 	type ReconnectToolResult,
 	type TransportDiagnostic,
 } from './index.js';
+import { TOOLS_LIST_TRUNCATED_FIX } from './transport-diagnostic.js';
 import { OAuthReauthRequiredError } from '../oauth-token-manager.js';
 
 export interface WordPressMcpConnectionStatus extends Record<string, unknown> {
@@ -125,6 +126,8 @@ export interface ConnectionRuntime {
 	reconnect: ReconnectController;
 	reconnectCoordinator: { run: (reason: string) => Promise<ReconnectResult> };
 	lastTransportDiagnostic: TransportDiagnostic | null;
+	/** Pages and response bytes of the latest successful tools/list; null until one succeeds. */
+	toolsListStats: { pages: number; bytes: number } | null;
 	invokedToolNames: Set<string>;
 	observedToolNames: Set<string>;
 	processStartId: string;
@@ -223,6 +226,7 @@ export function createConnectionRuntime(args: {
 		reconnect: null as unknown as ReconnectController,
 		reconnectCoordinator: null as unknown as { run: (reason: string) => Promise<ReconnectResult> },
 		lastTransportDiagnostic: null,
+		toolsListStats: null,
 		invokedToolNames,
 		observedToolNames,
 		processStartId,
@@ -875,6 +879,11 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				errorCode = 'reauthentication_required';
 				nextAction = v3.authentication.user_action
 					?? 'Reauthenticate this Stonewright server in the active MCP client, then run stonewright-task-start again.';
+			} else if (diagnostic?.safe_cause_code === 'response_truncated') {
+				errorCode = diagnostic.phase === 'tools_list' ? 'tools_list_response_truncated' : 'response_truncated';
+				nextAction = diagnostic.phase === 'tools_list'
+					? TOOLS_LIST_TRUNCATED_FIX
+					: 'The plugin answered with a body over the 1 MiB read cap; update the plugin, then call stonewright-reconnect with force_probe=true.';
 			} else if (diagnostic?.kind === 'plugin_route_missing') {
 				errorCode = 'plugin_route_missing';
 				nextAction = 'Restore the Stonewright MCP route, then call stonewright-reconnect with force_probe=true.';
@@ -923,6 +932,9 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 					plugin: v3.plugin,
 					surface: v3.surface,
 					transport_kind: diagnostic?.kind ?? null,
+					transport_cause_code: diagnostic?.safe_cause_code ?? null,
+					tools_list_pages: runtime.toolsListStats?.pages ?? null,
+					tools_list_bytes: runtime.toolsListStats?.bytes ?? null,
 					permanent_gateways: [...PERMANENT_GATEWAY_TOOL_NAMES],
 				},
 				primary_next_action: nextAction,

@@ -166,6 +166,8 @@ final class PluginRegistration {
 		McpAbilitiesCompatibilityPreflight::register();
 		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
 		McpOriginGuard::register();
+		// tools/list answers over a byte budget are paged with MCP cursors, so a large surface stays under the companion's read cap.
+		ToolsListPagination::register();
 		EditorSaveGuard::register();
 		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
 		NativeObserver::register();

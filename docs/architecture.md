@@ -1099,6 +1099,10 @@ Profile and surface switching is transport-specific. Agents should treat
 - Each `tools/list` request reads the saved site surface plus an optional,
   expiring profile bound to `Mcp-Session-Id`. Bootstrap task-start activates
   only that session; it never rewrites the site option or another session.
+- `Core\ToolsListPagination` pages the `tools/list` answer on both MCP routes at the
+  REST boundary (`rest_post_dispatch`), by a 768 KiB byte budget, with MCP cursors
+  (`nextCursor` / `params.cursor`); the vendored adapter is not forked. See
+  [tools/list pagination](companion-contract.md#toolslist-pagination).
 - The vendor initialize payload may not declare `tools.listChanged`. Clients
   must honor `re_list_instruction` in the ability response and call `tools/list`
   again even when no `notifications/tools/list_changed` arrives.

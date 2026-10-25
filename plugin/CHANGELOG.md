@@ -47,6 +47,17 @@
   or modification time changes, and when the plugin version changes or after an
   update, instead of reading and hashing it on every wp-admin request. A repair
   that failed is tried again after five minutes.
+- Page `tools/list` by byte budget with MCP cursors, so a site whose tool surface
+  passes 1 MiB (for example the `full` profile with Elementor Pro and WooCommerce)
+  still connects. The companion read at most 1 MiB of a response and reported a
+  longer `tools/list` as an HTTP 200 failure, so `stonewright-reconnect` failed
+  although the credentials worked. A page now holds at most 768 KiB of tools, and
+  a client that does not send a cursor still gets the whole `essential` surface on
+  one page. A stale cursor is answered with `-32602` and the message
+  `Invalid cursor`. `STONEWRIGHT_MCP_TOOLS_LIST_PAGE_BYTES` or the
+  `stonewright_mcp_tools_list_page_bytes` filter sets the budget, and `0` turns
+  paging off. `composer tokens:measure` also reports each surface's
+  `tools_list_bytes`, `largest_tool` and `pages_at_default_budget`.
 
 ## [1.0.0-beta.17.2] - 2026-10-22
 
