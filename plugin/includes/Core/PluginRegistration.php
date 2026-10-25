@@ -51,6 +51,7 @@ use Stonewright\WpMcp\Security\RescueHooks;
 use Stonewright\WpMcp\Security\StaticAnalysis;
 use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\OptionLock;
 
 /**
  * Boots the Stonewright plugin and wires WordPress hooks.
@@ -210,10 +211,11 @@ final class PluginRegistration {
 
 	public function on_activate(): void {
 		// Not the version-gated install: activation re-checks every table and adds what is missing.
-		Memory::repair_table();
-		AuditLog::repair_table();
-		ChangeLedger::repair_table();
-		IncidentStore::repair_table();
+		// A store that fails must not stop the activation: its table is repaired again by the daily job.
+		self::attempt( 'memory_table', static fn () => Memory::repair_table() );
+		self::attempt( 'audit_table', static fn () => AuditLog::repair_table() );
+		self::attempt( 'changes_table', static fn () => ChangeLedger::repair_table() );
+		self::attempt( 'incident_table', static fn () => IncidentStore::repair_table() );
 		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
 		AuthorizationLifecycle::activate();
 		SkillTables::install();
@@ -256,25 +258,59 @@ final class PluginRegistration {
 		if ( $stored === STONEWRIGHT_VERSION ) {
 			return;
 		}
-		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
-		// on its first request without a mode; an update can find one missing too.
-		SiteDefaults::seed( '' === $stored );
-		// An update can bring a column a table lacks; init no longer looks, so repair all four now.
-		Memory::repair_table();
-		AuditLog::repair_table();
-		ChangeLedger::repair_table();
-		IncidentStore::repair_table();
-		SkillTables::ensure();
-		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
-		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
-		LegacyMirrorCleanup::run();
-		// A schema captured by an earlier version may lack controls the new one reads.
-		WidgetSchemaRepository::invalidate();
-		// Options an earlier version stored without autoload cost a query each per request; move them into the autoloaded set.
-		BootOptions::autoload_all();
-		// Supersede legacy unresolved audit lessons and return unapproved draft lessons; the daily job retries a failed run.
-		ErrorPatterns::run_pending_migrations();
-		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
+		// One request runs the chain: on a busy site every request that boots before the first one stores
+		// the version would otherwise run all of it, and count each run as a migration attempt. A request
+		// that does not get the lock goes on; the version stays unstored and a later request tries again.
+		if ( ! OptionLock::acquire( 'upgrade', 300 ) ) {
+			return;
+		}
+		try {
+			// The holder before us may have finished between our version read and our lock.
+			wp_cache_delete( 'alloptions', 'options' );
+			wp_cache_delete( 'stonewright_version', 'options' );
+			if ( (string) get_option( 'stonewright_version', '' ) === STONEWRIGHT_VERSION ) {
+				return;
+			}
+			// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
+			// on its first request without a mode; an update can find one missing too.
+			SiteDefaults::seed( '' === $stored );
+			// An update can bring a column a table lacks; init no longer looks, so repair all four now.
+			// A store that fails must not keep the version from being stored: the daily job repairs it again.
+			self::attempt( 'memory_table', static fn () => Memory::repair_table() );
+			self::attempt( 'audit_table', static fn () => AuditLog::repair_table() );
+			self::attempt( 'changes_table', static fn () => ChangeLedger::repair_table() );
+			self::attempt( 'incident_table', static fn () => IncidentStore::repair_table() );
+			SkillTables::ensure();
+			SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
+			// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
+			LegacyMirrorCleanup::run();
+			// A schema captured by an earlier version may lack controls the new one reads.
+			WidgetSchemaRepository::invalidate();
+			// Options an earlier version stored without autoload cost a query each per request; move them into the autoloaded set.
+			BootOptions::autoload_all();
+			// Supersede legacy unresolved audit lessons and return unapproved draft lessons; the daily job retries a failed run.
+			ErrorPatterns::run_pending_migrations();
+			update_option( 'stonewright_version', STONEWRIGHT_VERSION );
+		} finally {
+			OptionLock::release( 'upgrade' );
+		}
+	}
+
+	/**
+	 * Runs one step whose failure must not stop the ones after it, and logs the failure.
+	 */
+	private static function attempt( string $step, callable $run ): void {
+		try {
+			$run();
+		} catch ( \Throwable $failure ) {
+			Logger::warning(
+				'upgrade_step_failed',
+				[
+					'step'        => $step,
+					'error_class' => get_class( $failure ),
+				]
+			);
+		}
 	}
 
 	/**
