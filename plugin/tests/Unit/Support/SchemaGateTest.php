@@ -51,7 +51,7 @@ final class SchemaGateTest extends TestCase {
 		$GLOBALS['stonewright_test_option_autoload'] = [];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_transient_ttls']  = [];
-		unset( $GLOBALS['stonewright_test_after_add_option'] );
+		unset( $GLOBALS['stonewright_test_after_option_insert'] );
 	}
 
 	public function test_current_version_runs_no_check_and_no_install(): void {
@@ -224,7 +224,7 @@ final class SchemaGateTest extends TestCase {
 
 	public function test_a_version_installed_by_the_lock_holder_is_not_installed_again(): void {
 		// The previous holder finished between our version read and our own lock: the re-read finds the version current.
-		$GLOBALS['stonewright_test_after_add_option'] = static function (): void {
+		$GLOBALS['stonewright_test_after_option_insert'] = static function (): void {
 			$GLOBALS['stonewright_test_options'][ self::VERSION_OPTION ] = 4;
 		};
 		$fail = static function (): never {

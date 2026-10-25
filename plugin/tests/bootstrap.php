@@ -517,6 +517,14 @@ if ( ! function_exists( 'wp_cache_get' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_cache_set' ) ) {
+	// Writes where wp_cache_get() reads.
+	function wp_cache_set( int|string $key, mixed $data, string $group = '', int $expire = 0 ): bool {
+		$GLOBALS['stonewright_test_object_cache'][ $group ][ $key ] = $data;
+		return true;
+	}
+}
+
 if ( ! function_exists( 'wp_cache_delete' ) ) {
 	function wp_cache_delete( string $key, string $group = '' ): bool {
 		if ( ! empty( $GLOBALS['stonewright_test_option_cache_enabled'] ) && 'options' === $group ) {
@@ -669,6 +677,21 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<int, string>   $format
 		 */
 		public function insert( string $table, array $data, array $format = [] ): int|false {
+			if ( $this->options === $table && isset( $data['option_name'] ) ) {
+				// The options table has a unique key on option_name: an existing row is a duplicate-key error.
+				$option = (string) $data['option_name'];
+				if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
+					return false;
+				}
+				$GLOBALS['stonewright_test_options'][ $option ]         = $data['option_value'] ?? '';
+				$GLOBALS['stonewright_test_option_autoload'][ $option ] = 'no' !== ( $data['autoload'] ?? 'yes' );
+				if ( is_callable( $GLOBALS['stonewright_test_after_option_insert'] ?? null ) ) {
+					$callback = $GLOBALS['stonewright_test_after_option_insert'];
+					unset( $GLOBALS['stonewright_test_after_option_insert'] );
+					$callback( $option, $data['option_value'] ?? '' );
+				}
+				return 1;
+			}
 			$this->insert_id++;
 			if ( ! str_contains( $table, 'stonewright_incidents' ) ) {
 				$GLOBALS['stonewright_test_wpdb_inserts'][] = [
@@ -828,6 +851,13 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		}
 
 		public function get_var( string $query ): mixed {
+			// An option row, read straight from the table: the value as stored, null when there is no row.
+			if ( str_contains( $query, 'FROM ' . $this->options . ' ' ) && preg_match( "/option_name = '((?:[^']|'')*)'/", $query, $match ) ) {
+				$option = str_replace( "''", "'", $match[1] );
+				return array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					? maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] )
+					: null;
+			}
 			// Existing-key probe for put_typed returns null (insert path).
 			if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'stonewright_memory' ) ) {
 				return null;
@@ -965,6 +995,9 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		}
 	};
 }
+
+// Tests swap $GLOBALS['wpdb'] for table doubles that know nothing of the options table: the lock rows stay on this one.
+\Stonewright\WpMcp\Support\OptionLock::use_database( $GLOBALS['wpdb'] );
 
 if ( ! function_exists( 'rest_url' ) ) {
 	function rest_url( string $path = '' ): string {
