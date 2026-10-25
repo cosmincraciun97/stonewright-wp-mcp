@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Security\SitePressure;
 use Throwable;
 
 /**
@@ -13,7 +14,8 @@ use Throwable;
  * that refuses the change is asked once per BACKOFF_SECONDS and not on every request. repair() is for activation,
  * a plugin upgrade and the daily jobs: it ignores the version and the back-off (a person or a once-a-day job asks,
  * not every request) but still takes the lock. A write that hit a missing column repairs through write_or_repair(),
- * which keeps the back-off.
+ * which keeps the back-off. While the site is under critical pressure a repair waits: it is skipped and the store
+ * backs off for a minute, because a repair is optional work that a struggling database should not be asked to do.
  */
 final class SchemaGate {
 
@@ -22,6 +24,9 @@ final class SchemaGate {
 
 	/** Seconds after which an install lock counts as left by a request that died. */
 	public const LOCK_SECONDS = 60;
+
+	/** Seconds a repair that was held back by critical site pressure stays off the request path. */
+	public const PRESSURE_BACKOFF_SECONDS = 60;
 
 	private const BACKOFF_PREFIX = 'stonewright_schema_backoff_';
 
@@ -57,6 +62,11 @@ final class SchemaGate {
 	 * @return bool True when the table is healthy afterwards.
 	 */
 	public static function repair( string $key, string $version_option, int $version, callable $install, callable $healthy ): bool {
+		if ( SitePressure::CRITICAL === SitePressure::level() ) {
+			set_transient( self::BACKOFF_PREFIX . $key, time(), self::PRESSURE_BACKOFF_SECONDS );
+			return false;
+		}
+
 		return self::run( $key, $version_option, $version, $install, $healthy, false, false );
 	}
 

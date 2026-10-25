@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Security\SitePressure;
+
 /**
  * Keeps plugin/mu/stonewright-rescue.php installed in the must-use plugins directory.
  *
@@ -212,7 +214,8 @@ final class RescueInstaller {
 	 * every other request costs one stat.
 	 */
 	public static function on_admin_init(): void {
-		if ( self::check_due() ) {
+		// The check reads and hashes two files and may write one: it waits while the site is under any pressure.
+		if ( self::check_due() && SitePressure::NORMAL === SitePressure::level() ) {
 			self::verify_and_repair();
 			return;
 		}

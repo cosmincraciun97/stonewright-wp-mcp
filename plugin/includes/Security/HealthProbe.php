@@ -77,7 +77,8 @@ final class HealthProbe {
 	}
 
 	/**
-	 * The legs that fit a kind of change.
+	 * The legs that fit a kind of change. A site that is under load gets the front page alone for a site-wide
+	 * check: three loopback requests are the first thing a struggling host cannot afford.
 	 *
 	 * @return list<string>
 	 */
@@ -85,7 +86,7 @@ final class HealthProbe {
 		return match ( $scope ) {
 			'light' => [ 'home' ],
 			'post'  => [ 'post' ],
-			default => [ 'home', 'admin', 'rest' ],
+			default => SitePressure::NORMAL === SitePressure::level() ? [ 'home', 'admin', 'rest' ] : [ 'home' ],
 		};
 	}
 
@@ -105,7 +106,8 @@ final class HealthProbe {
 
 		// A host whose loopback requests fail would make every write wait for every leg to time out.
 		// While that holds, a probe is one short request until the site answers again.
-		$quick = false !== get_transient( self::COOLDOWN_KEY );
+		// Under critical pressure the same applies: one short request, so the probe adds as little as it can.
+		$quick = false !== get_transient( self::COOLDOWN_KEY ) || ( count( $legs ) > 1 && SitePressure::CRITICAL === SitePressure::level() );
 		if ( $quick ) {
 			$legs               = array_slice( $legs, 0, 1 );
 			$context['timeout'] = self::QUICK_TIMEOUT;

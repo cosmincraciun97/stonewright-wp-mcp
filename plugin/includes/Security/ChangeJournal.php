@@ -401,6 +401,11 @@ final class ChangeJournal {
 			return 0;
 		}
 
+		// A rewrite of the file is optional work: a site under critical pressure leaves it for a later request.
+		if ( SitePressure::CRITICAL === SitePressure::level() ) {
+			return 0;
+		}
+
 		// One request rewrites the file at a time; another one that loads meanwhile leaves it to this one.
 		if ( ! OptionLock::acquire( self::SYNC_CLAIM, self::SYNC_CLAIM_SECONDS ) ) {
 			return 0;

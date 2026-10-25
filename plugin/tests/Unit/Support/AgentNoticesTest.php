@@ -121,6 +121,8 @@ final class AgentNoticesTest extends TestCase {
 		$declared = AgentNotices::declare_in_schema( $strict );
 
 		self::assertArrayHasKey( 'pending_incident', $declared['properties'] );
+		self::assertArrayHasKey( 'site_pressure', $declared['properties'] );
+		self::assertArrayHasKey( 'write_pacing', $declared['properties'] );
 		self::assertArrayHasKey( 'notices', $declared['properties'] );
 		self::assertSame( [ 'ok' ], $declared['required'], 'The notice fields stay optional.' );
 		self::assertSame( [ 'ok' ], array_keys( $strict['properties'] ), 'The input is not modified.' );

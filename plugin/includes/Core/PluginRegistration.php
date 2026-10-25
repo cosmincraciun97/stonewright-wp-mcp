@@ -48,7 +48,9 @@ use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\RescueHooks;
+use Stonewright\WpMcp\Security\SitePressure;
 use Stonewright\WpMcp\Security\StaticAnalysis;
+use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
 use Stonewright\WpMcp\Support\OptionLock;
@@ -169,6 +171,8 @@ final class PluginRegistration {
 		// tools/list answers over a byte budget are paged with MCP cursors, so a large surface stays under the companion's read cap.
 		ToolsListPagination::register();
 		EditorSaveGuard::register();
+		// Agents learn from every ability response when the site is under load.
+		AgentNotices::register_field( 'site_pressure', [ SitePressure::class, 'notice' ] );
 		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
 		NativeObserver::register();
 		BasicAuthCredentials::register();
