@@ -139,6 +139,60 @@ final class SchemaGateTest extends TestCase {
 		self::assertTrue( OptionLock::acquire( 'schema_memory', 60 ), 'The lock is released.' );
 	}
 
+	public function test_repair_runs_the_install_during_an_active_backoff(): void {
+		// A failed attempt (activation, a request, the daily job) started a back-off.
+		self::assertFalse( SchemaGate::maybe_install( 'memory', self::VERSION_OPTION, 4, static function (): void {}, static fn(): bool => false ) );
+		self::assertArrayHasKey( self::BACKOFF, $GLOBALS['stonewright_test_transients'] );
+		$installs = 0;
+
+		$repaired = SchemaGate::repair(
+			'memory',
+			self::VERSION_OPTION,
+			4,
+			static function () use ( &$installs ): void {
+				++$installs;
+			},
+			static fn(): bool => true
+		);
+
+		self::assertTrue( $repaired );
+		self::assertSame( 1, $installs, 'A repair is asked for by a person or a daily job: the back-off does not stop it.' );
+		self::assertArrayNotHasKey( self::BACKOFF, $GLOBALS['stonewright_test_transients'], 'A successful repair clears the back-off.' );
+		self::assertSame( 4, $GLOBALS['stonewright_test_options'][ self::VERSION_OPTION ] );
+	}
+
+	public function test_a_failed_repair_during_a_backoff_keeps_it_going(): void {
+		set_transient( self::BACKOFF, 1, SchemaGate::BACKOFF_SECONDS );
+
+		self::assertFalse( SchemaGate::repair( 'memory', self::VERSION_OPTION, 4, static function (): void {}, static fn(): bool => false ) );
+		self::assertSame( SchemaGate::BACKOFF_SECONDS, $GLOBALS['stonewright_test_transient_ttls'][ self::BACKOFF ] );
+	}
+
+	public function test_repair_still_skips_when_another_process_holds_the_lock(): void {
+		self::assertTrue( OptionLock::acquire( 'schema_memory', 60 ) );
+		$fail = static function (): never {
+			self::fail( 'The install must not run while another process holds the lock.' );
+		};
+
+		self::assertFalse( SchemaGate::repair( 'memory', self::VERSION_OPTION, 4, $fail, $fail ) );
+	}
+
+	public function test_a_write_during_a_backoff_is_neither_repaired_nor_retried(): void {
+		$GLOBALS['wpdb'] = (object) [ 'last_error' => "Unknown column 'event_type' in 'field list'" ];
+		set_transient( self::BACKOFF, 1, SchemaGate::BACKOFF_SECONDS );
+		$writes = 0;
+		$write  = static function () use ( &$writes ): int|false {
+			++$writes;
+			return false;
+		};
+		$repair = static function (): bool {
+			self::fail( 'A failing database is not asked again while the back-off lasts.' );
+		};
+
+		self::assertFalse( SchemaGate::write_or_repair( 'memory', $write, $repair ) );
+		self::assertSame( 1, $writes );
+	}
+
 	public function test_repair_that_stays_unhealthy_starts_backoff(): void {
 		$GLOBALS['stonewright_test_options'][ self::VERSION_OPTION ] = 4;
 

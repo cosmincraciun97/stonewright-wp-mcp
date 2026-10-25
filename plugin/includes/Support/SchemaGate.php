@@ -10,8 +10,10 @@ use Throwable;
  *
  * A request trusts the version option (autoloaded, so already in memory) and runs nothing when it is current.
  * Otherwise one process at a time installs, under an OptionLock. A failed install starts a back-off, so a database
- * that refuses the change is asked once per BACKOFF_SECONDS and not on every request. repair() is the same without
- * the version short-circuit, for activation, a plugin upgrade, the daily jobs and a write that hit a missing column.
+ * that refuses the change is asked once per BACKOFF_SECONDS and not on every request. repair() is for activation,
+ * a plugin upgrade and the daily jobs: it ignores the version and the back-off (a person or a once-a-day job asks,
+ * not every request) but still takes the lock. A write that hit a missing column repairs through write_or_repair(),
+ * which keeps the back-off.
  */
 final class SchemaGate {
 
@@ -40,11 +42,12 @@ final class SchemaGate {
 		if ( (int) get_option( $version_option, 0 ) >= $version ) {
 			return true;
 		}
-		return self::run( $key, $version_option, $version, $install, $healthy, true );
+		return self::run( $key, $version_option, $version, $install, $healthy, true, true );
 	}
 
 	/**
-	 * Installs the table whatever the stored version says.
+	 * Installs the table whatever the stored version and the back-off say. A successful repair clears the back-off, a
+	 * failed one starts it.
 	 *
 	 * @param string   $key            Short store name; names the lock and the back-off.
 	 * @param string   $version_option Option holding the installed version.
@@ -54,7 +57,7 @@ final class SchemaGate {
 	 * @return bool True when the table is healthy afterwards.
 	 */
 	public static function repair( string $key, string $version_option, int $version, callable $install, callable $healthy ): bool {
-		return self::run( $key, $version_option, $version, $install, $healthy, false );
+		return self::run( $key, $version_option, $version, $install, $healthy, false, false );
 	}
 
 	/**
@@ -68,7 +71,7 @@ final class SchemaGate {
 	 */
 	public static function write_or_repair( string $key, callable $write, callable $repair ): int|false {
 		$result = $write();
-		if ( false !== $result || isset( self::$repaired[ $key ] ) ) {
+		if ( false !== $result || isset( self::$repaired[ $key ] ) || self::backing_off( $key ) ) {
 			return $result;
 		}
 
@@ -90,7 +93,7 @@ final class SchemaGate {
 	}
 
 	/**
-	 * Drops the lock and the back-off of a store (unit tests only).
+	 * Drops the back-off, the once-per-request repair flag and this process's lock of a store (unit tests only).
 	 */
 	public static function reset_for_tests( string $key ): void {
 		unset( self::$repaired[ $key ] );
@@ -98,8 +101,8 @@ final class SchemaGate {
 		OptionLock::release( 'schema_' . $key );
 	}
 
-	private static function run( string $key, string $version_option, int $version, callable $install, callable $healthy, bool $recheck_version ): bool {
-		if ( false !== get_transient( self::BACKOFF_PREFIX . $key ) ) {
+	private static function run( string $key, string $version_option, int $version, callable $install, callable $healthy, bool $recheck_version, bool $honour_backoff ): bool {
+		if ( $honour_backoff && self::backing_off( $key ) ) {
 			return false;
 		}
 		if ( ! OptionLock::acquire( 'schema_' . $key, self::LOCK_SECONDS ) ) {
@@ -127,6 +130,10 @@ final class SchemaGate {
 		} finally {
 			OptionLock::release( 'schema_' . $key );
 		}
+	}
+
+	private static function backing_off( string $key ): bool {
+		return false !== get_transient( self::BACKOFF_PREFIX . $key );
 	}
 
 	private static function fail( string $key, int $version, string $error_class ): void {

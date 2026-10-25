@@ -35,7 +35,9 @@ final class PersistentStateLifecycleTest extends TestCase {
 		$hooks   = self::method_source( PluginRegistration::class, 'register_hooks' );
 
 		self::assertStringContainsString( '->refresh_bundled_pack()', $upgrade );
-		self::assertStringContainsString( 'IncidentStore::repair_table()', $upgrade );
+		foreach ( [ 'Memory', 'AuditLog', 'ChangeLedger', 'IncidentStore' ] as $store ) {
+			self::assertStringContainsString( $store . '::repair_table()', $upgrade );
+		}
 		self::assertStringContainsString( "get_option( 'stonewright_version'", $upgrade );
 		self::assertStringContainsString( 'STONEWRIGHT_VERSION', $upgrade );
 		self::assertStringContainsString( 'maybe_upgrade', $hooks );

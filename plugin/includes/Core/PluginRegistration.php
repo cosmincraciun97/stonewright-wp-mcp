@@ -264,6 +264,10 @@ final class PluginRegistration {
 		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
 		// on its first request without a mode; an update can find one missing too.
 		SiteDefaults::seed( '' === $stored );
+		// An update can bring a column a table lacks; init no longer looks, so repair all four now.
+		Memory::repair_table();
+		AuditLog::repair_table();
+		ChangeLedger::repair_table();
 		IncidentStore::repair_table();
 		SkillTables::ensure();
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();

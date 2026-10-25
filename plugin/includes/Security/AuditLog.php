@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
 use Stonewright\WpMcp\Support\SchemaGate;
+use Stonewright\WpMcp\Support\StoreSchemaRepair;
 
 /**
  * Append-only audit log for Stonewright-owned mutations and abilities.
@@ -622,6 +623,8 @@ final class AuditLog {
 	}
 
 	public static function run_scheduled_retention(): void {
+		// The daily look at the four owned tables; the rest of this job is retention.
+		StoreSchemaRepair::repair_unhealthy();
 		self::enforce_retention( true );
 	}
 
