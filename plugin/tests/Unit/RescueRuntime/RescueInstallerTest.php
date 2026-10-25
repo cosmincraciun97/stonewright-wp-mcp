@@ -221,7 +221,7 @@ final class RescueInstallerTest extends TestCase {
 		RescueInstaller::verify_and_repair();
 		self::assertFileExists( RescueInstaller::target_path() );
 		$state = $GLOBALS['stonewright_test_options']['stonewright_rescue_mu_state'];
-		self::assertSame( [ 'checked_at', 'size', 'mtime' ], array_keys( $state ), 'the failure is forgotten once it works, the check is remembered' );
+		self::assertSame( [ 'checked_at', 'version', 'size', 'mtime' ], array_keys( $state ), 'the failure is forgotten once it works, the check is remembered' );
 	}
 
 	public function test_activation_installs_whatever_an_earlier_failure_said(): void {

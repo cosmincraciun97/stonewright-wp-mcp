@@ -275,20 +275,103 @@ final class RescueInstallerCheckThrottleTest extends TestCase {
 		self::assertSame( STONEWRIGHT_VERSION, $GLOBALS['stonewright_test_options']['stonewright_rescue_mu_version'] );
 	}
 
-	public function test_a_version_change_during_a_recent_failure_asks_for_the_next_admin_check(): void {
+	/** @return list<string> The options written by update_option() while $work runs. */
+	private static function option_writes( callable $work ): array {
+		$writes = [];
+		$GLOBALS['stonewright_test_filters']['pre_update_option'] = static function ( mixed $value, string $option ) use ( &$writes ): mixed {
+			$writes[] = $option;
+			return $value;
+		};
+		try {
+			$work();
+		} finally {
+			unset( $GLOBALS['stonewright_test_filters']['pre_update_option'] );
+		}
+		return $writes;
+	}
+
+	public function test_a_version_change_during_a_recent_failure_writes_nothing_on_the_next_request(): void {
 		RescueInstaller::install();
 		self::tamper_without_a_trace();
 		self::set_state( array_merge( self::state(), [ 'failed_at' => time() - 10, 'reason' => 'write_failed' ] ) );
 		$GLOBALS['stonewright_test_options']['stonewright_rescue_mu_version'] = '0.0.1-older';
+		$before                                                               = self::state();
 
-		RescueInstaller::maybe_upgrade();
-		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'a try that failed seconds ago is not repeated' );
-		self::assertArrayNotHasKey( 'checked_at', self::state() );
-		self::assertSame( 'write_failed', self::state()['reason'] );
+		$writes = self::option_writes( static fn () => RescueInstaller::maybe_upgrade() );
+
+		self::assertSame( [], $writes );
+		self::assertSame( $before, self::state(), 'a try that failed seconds ago is not repeated and the state is left as it was' );
+		self::assertNotSame( self::bundled_hash(), self::installed_hash() );
 
 		self::set_state( array_merge( self::state(), [ 'failed_at' => time() - RescueInstaller::RETRY_SECONDS - 5 ] ) );
 		RescueInstaller::on_admin_init();
 		self::assertSame( self::bundled_hash(), self::installed_hash() );
+	}
+
+	public function test_a_site_that_cannot_install_the_helper_writes_no_option_on_front_end_requests(): void {
+		file_put_contents( RescueInstaller::target_dir(), 'not a directory' );
+
+		RescueInstaller::maybe_upgrade();
+		self::assertSame( 'unwritable', self::state()['reason'], 'the first request records the failure' );
+		self::assertArrayNotHasKey( 'stonewright_rescue_mu_version', $GLOBALS['stonewright_test_options'], 'nothing was installed, so the version stays unwritten' );
+
+		for ( $request = 0; $request < 3; $request++ ) {
+			self::assertSame( [], self::option_writes( static fn () => RescueInstaller::maybe_upgrade() ), 'request ' . $request . ' inside the retry window' );
+		}
+	}
+
+	public function test_an_admin_request_after_a_failed_install_does_not_read_the_helper_inside_the_retry_window(): void {
+		file_put_contents( RescueInstaller::target_dir(), 'not a directory' );
+		RescueInstaller::maybe_upgrade();
+		$state = self::state();
+
+		// A read now would find the bundled file missing and record source_invalid.
+		RescueInstaller::override_source( $this->scratch . '/nowhere.php' );
+		$writes = self::option_writes( static fn () => RescueInstaller::on_admin_init() );
+
+		self::assertSame( [], $writes, 'the check is remembered and the failure is five minutes old at most' );
+		self::assertSame( $state, self::state() );
+	}
+
+	public function test_the_remembered_check_names_the_plugin_version_and_a_clean_state_is_not_read_within_twelve_hours(): void {
+		RescueInstaller::install();
+		self::assertSame( STONEWRIGHT_VERSION, self::state()['version'] );
+		self::tamper_without_a_trace();
+
+		self::age_the_check( 3600 );
+		$writes = self::option_writes( static fn () => RescueInstaller::on_admin_init() );
+
+		self::assertSame( [], $writes );
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'same version, an hour old: no read and no hash' );
+	}
+
+	public function test_a_new_plugin_version_makes_the_next_admin_check_due(): void {
+		RescueInstaller::install();
+		self::tamper_without_a_trace();
+		RescueInstaller::on_admin_init();
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'the throttle holds' );
+
+		self::set_state( array_merge( self::state(), [ 'version' => '0.0.1-older' ] ) );
+		RescueInstaller::on_admin_init();
+
+		self::assertSame( self::bundled_hash(), self::installed_hash() );
+		self::assertSame( STONEWRIGHT_VERSION, self::state()['version'], 'the check is remembered under the running version' );
+	}
+
+	public function test_a_remembered_check_without_a_version_is_due_once_and_then_carries_it(): void {
+		RescueInstaller::install();
+		$state = self::state();
+		unset( $state['version'] );
+		self::set_state( $state );
+		self::tamper_without_a_trace();
+
+		RescueInstaller::on_admin_init();
+
+		self::assertSame( self::bundled_hash(), self::installed_hash() );
+		self::assertSame( STONEWRIGHT_VERSION, self::state()['version'] );
+		self::tamper_without_a_trace();
+		RescueInstaller::on_admin_init();
+		self::assertNotSame( self::bundled_hash(), self::installed_hash(), 'and then it is left alone' );
 	}
 
 	public function test_an_update_forces_the_next_admin_check(): void {

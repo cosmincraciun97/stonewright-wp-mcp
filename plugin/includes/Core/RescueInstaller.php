@@ -200,7 +200,6 @@ final class RescueInstaller {
 			return;
 		}
 		if ( self::recently_failed() ) {
-			self::force_next_check();
 			return;
 		}
 		if ( 'ok' === self::install()['state'] ) {
@@ -222,14 +221,15 @@ final class RescueInstaller {
 
 	/**
 	 * The next admin page load reads the helper whatever the last check says. Action callback for
-	 * upgrader_process_complete. A record of a failed install stays, so that one is not retried at once.
+	 * upgrader_process_complete, which fires at a real update only. A record of a failed install stays, so
+	 * that one is not retried at once.
 	 */
 	public static function force_next_check(): void {
 		$state = get_option( self::OPTION_STATE, [] );
 		if ( ! is_array( $state ) ) {
 			return;
 		}
-		$kept = array_diff_key( $state, array_flip( [ 'checked_at', 'size', 'mtime' ] ) );
+		$kept = array_diff_key( $state, array_flip( [ 'checked_at', 'size', 'mtime', 'version' ] ) );
 		if ( $kept !== $state ) {
 			update_option( self::OPTION_STATE, $kept, true );
 		}
@@ -486,13 +486,17 @@ final class RescueInstaller {
 		return [ 'size' => (int) $size, 'mtime' => (int) $mtime ];
 	}
 
+	private static function running_version(): string {
+		return defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
+	}
+
 	/**
-	 * What a check remembers: when it ran and how the file looked.
+	 * What a check remembers: when it ran, how the file looked and which plugin version ran the check.
 	 *
-	 * @return array{checked_at:int,size:?int,mtime:?int}
+	 * @return array{checked_at:int,size:?int,mtime:?int,version:string}
 	 */
 	private static function file_memory(): array {
-		return [ 'checked_at' => self::now() ] + self::file_stat();
+		return [ 'checked_at' => self::now(), 'version' => self::running_version() ] + self::file_stat();
 	}
 
 	/**
@@ -521,7 +525,8 @@ final class RescueInstaller {
 
 	/**
 	 * Whether this admin request reads and hashes the helper: no check is remembered, the last one is
-	 * twelve hours old, or the file's size or time are not the remembered ones. A file that is not
+	 * twelve hours old, another plugin version made it (an older record without a version counts), or the
+	 * file's size or time are not the remembered ones. A file that is not
 	 * there counts as a change, except when the last check saw it missing too. A remembered failure,
 	 * missing file or a repair that could not be written, is tried again after RETRY_SECONDS, as a
 	 * failed install always was.
@@ -532,6 +537,9 @@ final class RescueInstaller {
 			return true;
 		}
 		$age = self::now() - $state['checked_at'];
+		if ( (string) ( $state['version'] ?? '' ) !== self::running_version() ) {
+			return true;
+		}
 		if ( $age >= self::CHECK_SECONDS || $age < -self::CHECK_SECONDS || ! self::looks_unchanged( $state ) ) {
 			return true;
 		}
@@ -566,7 +574,7 @@ final class RescueInstaller {
 	 * A failed install or check. failed_at holds back the next install for RETRY_SECONDS; the memory
 	 * keeps the file from being read again for twelve hours.
 	 *
-	 * @param array{checked_at:int,size:?int,mtime:?int}|null $memory Taken before the file was read, or now.
+	 * @param array{checked_at:int,size:?int,mtime:?int,version:string}|null $memory Taken before the file was read, or now.
 	 */
 	private static function record_failure( string $reason, ?array $memory = null ): void {
 		update_option( self::OPTION_STATE, [ 'failed_at' => self::now(), 'reason' => $reason ] + ( $memory ?? self::file_memory() ), true );
@@ -575,7 +583,7 @@ final class RescueInstaller {
 	/**
 	 * A check that found the helper in place.
 	 *
-	 * @param array{checked_at:int,size:?int,mtime:?int} $memory Taken before the file was read.
+	 * @param array{checked_at:int,size:?int,mtime:?int,version:string} $memory Taken before the file was read.
 	 */
 	private static function record_success( array $memory ): void {
 		update_option( self::OPTION_STATE, $memory, true );
