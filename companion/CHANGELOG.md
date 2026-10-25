@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Follow `nextCursor` when listing the plugin's tools (up to 64 pages, with a guard
+  against a repeated cursor), so a tool surface larger than the 1 MiB read cap
+  connects. A response body over the cap is now reported as `WordPress MCP
+  response over the 1 MiB read cap during tools_list`, with the transport
+  diagnostic `safe_cause_code: response_truncated`, not as an HTTP 200 failure.
+- `stonewright doctor` lists the tools and prints `tools_list_pages` and
+  `tools_list_bytes`, and the fix when a body passes the cap.
+  `stonewright-connect-doctor` reports the same fix and carries both fields in
+  its `diagnosis`.
+
 ### Security
 
 - Update the shipped dependencies that `npm audit` flagged: body-parser 2.4.0

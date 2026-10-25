@@ -3500,6 +3500,10 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 			return $this->data;
 		}
 
+		public function set_data( mixed $data ): void {
+			$this->data = $data;
+		}
+
 		public function get_status(): int {
 			return $this->status;
 		}

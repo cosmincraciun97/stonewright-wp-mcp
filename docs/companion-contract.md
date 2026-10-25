@@ -314,6 +314,45 @@ Degraded `stonewright-task-start` reconnects once. Recovery fields report
 whether the last good catalog is preserved and whether remote calls are
 available.
 
+## tools/list pagination
+
+A site with many active plugins can list a tool surface larger than the 1 MiB the
+companion reads from one response body. The plugin therefore pages `tools/list`
+by byte budget, following the MCP pagination utility, on both MCP routes
+(`/wp-json/mcp/stonewright` and `/wp-json/mcp/stonewright-oauth`) and for single
+and batch JSON-RPC requests:
+
+- A page holds tools up to 768 KiB of JSON (`786432` bytes) and at least one tool,
+  so a tool larger than the budget still gets a page of its own.
+- When more tools remain, `result.nextCursor` is an opaque string. The client sends
+  it back as `params.cursor` and repeats until `nextCursor` is absent.
+- A cursor carries an offset and a digest of the tool names. A cursor from another
+  surface (the profile changed or a plugin was activated between two pages) is
+  answered with JSON-RPC error `-32602` and the message `Invalid cursor`. The
+  companion does not restart inside the same listing: it fails that listing, and
+  the next reconnect lists again from the first page.
+- A client that sends no cursor gets the first page. The `essential` surface and
+  the smaller profiles fit one page, so a client that ignores `nextCursor` still
+  sees them whole. Only large `full` surfaces span several pages.
+- The budget is `STONEWRIGHT_MCP_TOOLS_LIST_PAGE_BYTES` in `wp-config.php`, or the
+  `stonewright_mcp_tools_list_page_bytes` filter. `0` turns pagination off, which
+  restores the single-page answer and its size. `composer tokens:measure` in
+  `plugin/` prints `tools_list_bytes`, `largest_tool` and
+  `pages_at_default_budget` for each surface.
+
+The companion follows `nextCursor` while it lists tools, up to 64 pages. A repeated
+cursor, or a 65th page, stops the listing with a transport error
+(`tools/list cursor loop during tools_list`). It keeps the 1 MiB cap on each body as
+a safety bound. A body over the cap is reported as `WordPress MCP response over the
+1 MiB read cap during tools_list`, with the transport diagnostic
+`safe_cause_code: response_truncated`, instead of a bare HTTP status.
+`stonewright doctor` lists the tools as the companion does at startup and prints
+`tools_list_pages` and `tools_list_bytes`; when a body passes the cap it prints
+`fix: the plugin answered tools/list in one page over 1 MiB; update the plugin to a release that paginates tools/list`.
+The `stonewright-connect-doctor` tool reports the same fix as its `next_action`
+(`error_code: tools_list_response_truncated`) and carries `tools_list_pages` and
+`tools_list_bytes` in its `diagnosis`.
+
 ## Schema Files
 
 The companion keeps the stable health schema in `companion/src/contracts/`.
