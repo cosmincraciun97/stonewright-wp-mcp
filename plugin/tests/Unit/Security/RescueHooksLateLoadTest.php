@@ -44,6 +44,61 @@ final class RescueHooksLateLoadTest extends TestCase {
 	}
 
 	/**
+	 * The journal files themselves are still there, but a class the import reaches later (the one that masks what it
+	 * records) is gone: the import must not start.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_sync_journal_returns_when_a_class_the_import_reaches_later_is_gone(): void {
+		mkdir( $this->empty_root . 'includes/Security', 0700, true );
+		$present = [ 'ChangeJournal', 'ChangeJournalFile', 'AuditLog' ];
+		foreach ( $present as $name ) {
+			file_put_contents( $this->empty_root . 'includes/Security/' . $name . '.php', "<?php\n" );
+		}
+		LateLoad::set_root( $this->empty_root );
+
+		try {
+			RescueHooks::sync_journal();
+
+			self::assertFalse( class_exists( ChangeJournal::class, false ), 'SensitiveContent.php is missing, so the import was not started.' );
+		} finally {
+			foreach ( $present as $name ) {
+				unlink( $this->empty_root . 'includes/Security/' . $name . '.php' );
+			}
+			rmdir( $this->empty_root . 'includes/Security' );
+			rmdir( $this->empty_root . 'includes' );
+		}
+	}
+
+	/**
+	 * The autoloader that failed in the field maps each class to a path and requires it without checking that the
+	 * file exists. Put one in front: asking it for the journal would end the process, so the test passing means the
+	 * hook never asked.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_a_classmap_autoloader_that_requires_blindly_is_never_asked_for_a_vanished_class(): void {
+		LateLoad::set_root( $this->empty_root );
+		$asked = [];
+		spl_autoload_register(
+			static function ( string $class ) use ( &$asked ): void {
+				if ( str_starts_with( $class, 'Stonewright\\WpMcp\\Security\\ChangeJournal' ) ) {
+					$asked[] = $class;
+					require __DIR__ . '/this-file-was-deleted-with-the-plugin-folder.php';
+				}
+			},
+			true,
+			true
+		);
+
+		RescueHooks::sync_journal();
+
+		self::assertSame( [], $asked );
+	}
+
+	/**
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
