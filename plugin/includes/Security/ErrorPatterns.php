@@ -697,43 +697,66 @@ final class ErrorPatterns {
 			return $migration();
 		} catch ( \Throwable $throwable ) {
 			Logger::warning( 'lesson_migration_failed', [ 'migration' => $name, 'error' => $throwable->getMessage() ] );
-			self::record_failed_attempt( $option, $name, 1 );
+			self::settle_failed_run( $option, $name, null );
 			return $failed_result;
 		}
 	}
 
-	/** True when the option says the migration needs no further run: done, or given up. */
-	private static function migration_settled( string $option ): bool {
+	/**
+	 * Decide whether a migration may start, and record the attempt before it does. False when it is done or
+	 * has given up. The record is written first because a PHP fatal (time limit, memory, a host killing the
+	 * process) during the scan leaves no other trace: each killed run still counts, and the run that finds
+	 * the limit reached gives up instead of scanning again. The option is autoloaded because an upgrade and
+	 * the daily job read it.
+	 */
+	private static function begin_migration( string $option, string $name ): bool {
 		$state = get_option( $option, '' );
-		return is_scalar( $state ) && in_array( (string) $state, [ '1', 'abandoned' ], true );
+		if ( is_scalar( $state ) && in_array( (string) $state, [ '1', 'abandoned' ], true ) ) {
+			return false;
+		}
+		$attempts = is_array( $state ) ? max( 0, (int) ( $state['attempts'] ?? 0 ) ) : 0;
+		if ( $attempts >= self::MIGRATION_MAX_ATTEMPTS ) {
+			self::abandon_migration( $option, $name, null );
+			return false;
+		}
+		update_option( $option, [ 'attempts' => $attempts + 1, 'last' => time() ], true );
+		return true;
 	}
 
 	/**
-	 * Count one failed run of a migration. The last allowed attempt turns the option into 'abandoned' and
-	 * logs it once; the option is autoloaded because the daily job and an upgrade read it.
+	 * A run that reported failures or threw. begin_migration() already counted it, so the record stays as it
+	 * is, except that the last allowed attempt gives up now rather than at the next run.
+	 *
+	 * @param int|null $failed Failed writes, or null when the run threw and the count is unknown.
 	 */
-	private static function record_failed_attempt( string $option, string $name, int $failed ): void {
-		$state    = get_option( $option, '' );
-		$attempts = is_array( $state ) ? max( 0, (int) ( $state['attempts'] ?? 0 ) ) + 1 : 1;
-		if ( $attempts >= self::MIGRATION_MAX_ATTEMPTS ) {
-			update_option( $option, 'abandoned', true );
-			Logger::warning( 'lesson_migration_abandoned', [ 'migration' => $name, 'failed' => $failed ] );
-			return;
+	private static function settle_failed_run( string $option, string $name, ?int $failed ): void {
+		$state = get_option( $option, '' );
+		if ( is_array( $state ) && (int) ( $state['attempts'] ?? 0 ) >= self::MIGRATION_MAX_ATTEMPTS ) {
+			self::abandon_migration( $option, $name, $failed );
 		}
-		update_option( $option, [ 'attempts' => $attempts, 'last' => time() ], true );
+	}
+
+	/** Stop a migration for good (until its option is deleted) and say so once. */
+	private static function abandon_migration( string $option, string $name, ?int $failed ): void {
+		update_option( $option, 'abandoned', true );
+		Logger::warning(
+			'lesson_migration_abandoned',
+			null === $failed ? [ 'migration' => $name ] : [ 'migration' => $name, 'failed' => $failed ]
+		);
 	}
 
 	/**
 	 * One-time repair: proposed lessons that are active without a recorded
 	 * administrator approval go back to draft, so they stop influencing agents
-	 * until someone approves them. Runs from run_pending_migrations(); a run
-	 * that fails is counted and the migration is abandoned after
-	 * MIGRATION_MAX_ATTEMPTS (already_done is true for a migration that gave up).
+	 * until someone approves them. Runs from run_pending_migrations(); every
+	 * run is counted before it scans, and the migration is abandoned after
+	 * MIGRATION_MAX_ATTEMPTS runs that did not finish (already_done is true
+	 * for a migration that gave up).
 	 *
 	 * @return array{returned:int,failed:int,already_done:bool}
 	 */
 	public static function return_unapproved_draft_lessons(): array {
-		if ( self::migration_settled( self::DRAFT_LESSON_RETURN_OPTION ) ) {
+		if ( ! self::begin_migration( self::DRAFT_LESSON_RETURN_OPTION, 'draft_lessons' ) ) {
 			return [ 'returned' => 0, 'failed' => 0, 'already_done' => true ];
 		}
 		$returned = 0;
@@ -765,7 +788,7 @@ final class ErrorPatterns {
 		if ( 0 === $failed ) {
 			update_option( self::DRAFT_LESSON_RETURN_OPTION, '1', true );
 		} else {
-			self::record_failed_attempt( self::DRAFT_LESSON_RETURN_OPTION, 'draft_lessons', $failed );
+			self::settle_failed_run( self::DRAFT_LESSON_RETURN_OPTION, 'draft_lessons', $failed );
 		}
 		return [ 'returned' => $returned, 'failed' => $failed, 'already_done' => false ];
 	}
@@ -780,7 +803,7 @@ final class ErrorPatterns {
 	 * @return array{migrated:int,skipped:int,already_done:bool,write_failed?:int}
 	 */
 	public static function migrate_legacy_audit_lessons(): array {
-		if ( self::migration_settled( self::LEGACY_LESSON_MIGRATION_OPTION ) ) {
+		if ( ! self::begin_migration( self::LEGACY_LESSON_MIGRATION_OPTION, 'legacy_audit_lessons' ) ) {
 			return [ 'migrated' => 0, 'skipped' => 0, 'already_done' => true ];
 		}
 
@@ -891,7 +914,7 @@ final class ErrorPatterns {
 		if ( 0 === $write_failed ) {
 			update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', true );
 		} else {
-			self::record_failed_attempt( self::LEGACY_LESSON_MIGRATION_OPTION, 'legacy_audit_lessons', $write_failed );
+			self::settle_failed_run( self::LEGACY_LESSON_MIGRATION_OPTION, 'legacy_audit_lessons', $write_failed );
 		}
 
 		return [

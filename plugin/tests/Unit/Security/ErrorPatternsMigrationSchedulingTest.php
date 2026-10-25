@@ -247,6 +247,89 @@ final class ErrorPatternsMigrationSchedulingTest extends TestCase {
 		self::assertSame( 1, get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION )['attempts'] );
 	}
 
+	public function test_an_attempt_is_recorded_before_the_scan_so_a_fatal_counts(): void {
+		$store           = $this->store( [ $this->legacy_row( 1 ), $this->draft_row( 2 ) ] );
+		$GLOBALS['wpdb'] = $store;
+		$seen            = [];
+		$store->on_scan  = function () use ( &$seen ): void {
+			$seen[] = [
+				'legacy' => get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION ),
+				'draft'  => get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION ),
+			];
+		};
+
+		ErrorPatterns::migrate_legacy_audit_lessons();
+		ErrorPatterns::return_unapproved_draft_lessons();
+
+		self::assertSame( 1, $seen[0]['legacy']['attempts'], 'the legacy scan finds its attempt already counted' );
+		self::assertGreaterThan( 0, $seen[0]['legacy']['last'] );
+		self::assertSame( 1, $seen[1]['draft']['attempts'], 'the draft scan finds its attempt already counted' );
+		self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION ] );
+		self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ ErrorPatterns::DRAFT_LESSON_RETURN_OPTION ] );
+		self::assertSame( '1', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION ), 'success replaces the record with done' );
+		self::assertSame( '1', get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION ) );
+	}
+
+	public function test_a_failed_run_is_not_counted_twice(): void {
+		$store               = $this->store( [ $this->legacy_row( 1 ), $this->draft_row( 2 ) ] );
+		$store->fail_updates = true;
+		$GLOBALS['wpdb']     = $store;
+
+		ErrorPatterns::run_pending_migrations();
+
+		self::assertSame( 1, get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION )['attempts'], 'a reported write failure' );
+		self::assertSame( 1, get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION )['attempts'] );
+
+		$store->fail_updates = false;
+		$store->on_scan      = static function (): void {
+			throw new \RuntimeException( 'Synthetic scan failure' );
+		};
+		ErrorPatterns::run_pending_migrations();
+
+		self::assertSame( 2, get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION )['attempts'], 'a thrown error' );
+		self::assertSame( 2, get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION )['attempts'] );
+	}
+
+	public function test_five_killed_runs_abandon_the_migration_without_a_sixth_scan(): void {
+		$store          = $this->store( [ $this->legacy_row( 1 ), $this->draft_row( 2 ) ] );
+		$GLOBALS['wpdb'] = $store;
+		// Called directly, so nothing after the scan runs: what a fatal leaves behind.
+		$store->on_scan = static function (): void {
+			throw new \Error( 'Synthetic fatal' );
+		};
+
+		for ( $run = 1; $run <= ErrorPatterns::MIGRATION_MAX_ATTEMPTS; ++$run ) {
+			foreach ( [ 'migrate_legacy_audit_lessons', 'return_unapproved_draft_lessons' ] as $migration ) {
+				try {
+					ErrorPatterns::$migration();
+					self::fail( 'the scan was meant to be killed' );
+				} catch ( \Error $error ) {
+					self::assertSame( 'Synthetic fatal', $error->getMessage() );
+				}
+			}
+			self::assertSame( $run, get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION )['attempts'], 'killed run ' . $run );
+			self::assertSame( $run, get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION )['attempts'], 'killed run ' . $run );
+		}
+		self::assertStringNotContainsString( 'lesson_migration_abandoned', (string) file_get_contents( $this->log_file ) );
+		$scans = $store->scans;
+
+		$sixth = ErrorPatterns::run_pending_migrations();
+
+		self::assertSame( $scans, $store->scans, 'no sixth scan' );
+		self::assertSame( 'abandoned', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION ) );
+		self::assertSame( 'abandoned', get_option( ErrorPatterns::DRAFT_LESSON_RETURN_OPTION ) );
+		self::assertTrue( $sixth['legacy']['already_done'] );
+		self::assertTrue( $sixth['draft']['already_done'] );
+		$log = (string) file_get_contents( $this->log_file );
+		self::assertSame( 2, substr_count( $log, 'stonewright.lesson_migration_abandoned' ), 'one warning per migration' );
+		self::assertStringNotContainsString( '"failed"', $log, 'a killed run has no failure count to report' );
+
+		ErrorPatterns::run_pending_migrations();
+
+		self::assertSame( $scans, $store->scans );
+		self::assertSame( 2, substr_count( (string) file_get_contents( $this->log_file ), 'stonewright.lesson_migration_abandoned' ), 'no second warning' );
+	}
+
 	private static function method_source( string $class, string $method ): string {
 		$reflection = new ReflectionMethod( $class, $method );
 		$lines      = file( (string) $reflection->getFileName() );
@@ -318,6 +401,8 @@ final class ErrorPatternsMigrationSchedulingTest extends TestCase {
 			public string $prefix     = 'wp_';
 			public string $last_error = '';
 			public int $scans         = 0;
+			/** Runs at the start of every listing, where a time limit or a killed process would hit. */
+			public ?\Closure $on_scan = null;
 			public bool $fail_updates = false;
 			public int $insert_id     = 100;
 			/** @var list<array<string, mixed>> */
@@ -336,6 +421,9 @@ final class ErrorPatternsMigrationSchedulingTest extends TestCase {
 			/** @return list<array<string, mixed>> */
 			public function get_results( string $query, mixed $output = null ): array {
 				++$this->scans;
+				if ( null !== $this->on_scan ) {
+					( $this->on_scan )();
+				}
 				$type   = (string) ( $this->args[0] ?? '' );
 				$limit  = (int) ( $this->args[1] ?? PHP_INT_MAX );
 				$offset = (int) ( $this->args[2] ?? 0 );
