@@ -62,4 +62,15 @@ final class HealthProbePressureTest extends TestCase {
 		$probe = HealthProbe::run( [ 'legs' => [ 'home', 'rest' ], 'user_id' => 7 ] );
 		$this->assertCount( 2, $probe['legs'] );
 	}
+
+	public function test_critical_pressure_shortens_the_timeout_of_a_single_leg_probe_too(): void {
+		SitePressure::set_probe( static fn (): float => 1500.0 );
+		HealthProbe::run( [ 'legs' => HealthProbe::legs_for( 'site' ), 'user_id' => 7 ] );
+		HealthProbe::run( [ 'legs' => [ 'home' ], 'user_id' => 7 ] );
+
+		$this->assertCount( 2, $this->requests );
+		foreach ( $this->requests as $request ) {
+			$this->assertLessThanOrEqual( HealthProbe::QUICK_TIMEOUT, $request['args']['timeout'] ?? 99 );
+		}
+	}
 }

@@ -107,7 +107,7 @@ final class HealthProbe {
 		// A host whose loopback requests fail would make every write wait for every leg to time out.
 		// While that holds, a probe is one short request until the site answers again.
 		// Under critical pressure the same applies: one short request, so the probe adds as little as it can.
-		$quick = false !== get_transient( self::COOLDOWN_KEY ) || ( count( $legs ) > 1 && SitePressure::CRITICAL === SitePressure::level() );
+		$quick = false !== get_transient( self::COOLDOWN_KEY ) || SitePressure::CRITICAL === SitePressure::level();
 		if ( $quick ) {
 			$legs               = array_slice( $legs, 0, 1 );
 			$context['timeout'] = self::QUICK_TIMEOUT;
