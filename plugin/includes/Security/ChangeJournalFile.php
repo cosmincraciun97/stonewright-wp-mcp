@@ -33,6 +33,9 @@ final class ChangeJournalFile {
 	/** How long a writer waits for the lock before it gives up. */
 	public const LOCK_TIMEOUT_MS = 3000;
 
+	/** How long the import that runs on an admin or REST load waits: a request that finds the lock busy skips it. */
+	public const SYNC_LOCK_TIMEOUT_MS = 250;
+
 	public const STATES = [ 'armed', 'verified', 'rolled_back', 'rollback_failed', 'probe_unavailable', 'incident' ];
 
 	public const RESOURCE_TYPES = [ 'theme_file', 'option', 'plugin', 'sandbox', 'post', 'custom_code' ];
