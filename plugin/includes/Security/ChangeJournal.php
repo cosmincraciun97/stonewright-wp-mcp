@@ -407,8 +407,8 @@ final class ChangeJournal {
 		}
 		try {
 			$result = self::mutate( static fn ( array &$store ): bool => false, ChangeJournalFile::SYNC_LOCK_TIMEOUT_MS );
-			if ( ! $result['file_locked'] ) {
-				// The file lock was not free in time: nothing was read or written, so a later request tries again.
+			if ( ! $result['file_read'] ) {
+				// The file lock was not free in time, so the file was not read: a later request tries again.
 				return 0;
 			}
 			// A rewrite that could not replace the file leaves it oversize: remember that file, not a hash.
@@ -562,7 +562,7 @@ final class ChangeJournal {
 	 *
 	 * @param callable(array{version:int,entries:array<string,array<string,mixed>>}):bool $change
 	 * @param int $lock_timeout_ms How long to wait for the file lock; writers that record an incident wait the long default.
-	 * @return array{persisted:bool,imported:list<array<string,mixed>>,file_locked:bool}
+	 * @return array{persisted:bool,imported:list<array<string,mixed>>,file_read:bool}
 	 */
 	private static function mutate( callable $change, int $lock_timeout_ms = ChangeJournalFile::LOCK_TIMEOUT_MS ): array {
 		$imported = [];
@@ -597,7 +597,7 @@ final class ChangeJournal {
 			$oversize = $file->is_oversize();
 			$file->transaction( static fn ( array $document ): ?array => $run( $document, true, $oversize ), $lock_timeout_ms );
 		}
-		$file_locked = $ran;
+		$file_read = $ran;
 		if ( ! $ran ) {
 			// No usable file, or the lock could not be taken: keep the database copy current.
 			$run( ChangeJournalFile::empty_document(), false, false );
@@ -612,7 +612,7 @@ final class ChangeJournal {
 		return [
 			'persisted'   => $ran,
 			'imported'    => $imported,
-			'file_locked' => $file_locked,
+			'file_read'   => $file_read,
 		];
 	}
 

@@ -35,6 +35,7 @@ final class ChangeJournalTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		ChangeJournalFile::$replace_hook = null;
 		if ( null === $this->original_upload_dir ) {
 			unset( $GLOBALS['stonewright_test_upload_dir'] );
 		} else {
@@ -470,6 +471,35 @@ final class ChangeJournalTest extends TestCase {
 		self::assertGreaterThan( ChangeJournalFile::MAX_BYTES, filesize( $this->journal_path() ), 'The remembered file was not touched.' );
 		self::assertSame( $before, md5_file( $this->journal_path() ) );
 		self::assertSame( $mtime, filemtime( $this->journal_path() ) );
+	}
+
+	public function test_an_oversize_file_whose_replacement_fails_is_remembered_and_not_retried(): void {
+		ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		$attempts                        = 0;
+		ChangeJournalFile::$replace_hook = static function () use ( &$attempts ): bool {
+			++$attempts;
+			return false;
+		};
+
+		try {
+			self::assertSame( 0, ChangeJournal::sync_from_file() );
+			self::assertSame( 1, $attempts, 'The first request tried to replace the file.' );
+			clearstatcache();
+			self::assertGreaterThan( ChangeJournalFile::MAX_BYTES, filesize( $this->journal_path() ), 'The replacement failed, so the file is still oversize.' );
+			self::assertEquals( $this->oversize_signature(), get_option( ChangeJournal::SEEN_OPTION ) );
+
+			self::assertSame( 0, ChangeJournal::sync_from_file() );
+			self::assertSame( 1, $attempts, 'The second request did not try again.' );
+
+			file_put_contents( $this->journal_path(), ' ', FILE_APPEND );
+			clearstatcache();
+			ChangeJournal::sync_from_file();
+			self::assertSame( 2, $attempts, 'A file that changed is handled again.' );
+			self::assertEquals( $this->oversize_signature(), get_option( ChangeJournal::SEEN_OPTION ), 'And the new size is the one remembered.' );
+		} finally {
+			ChangeJournalFile::$replace_hook = null;
+		}
 	}
 
 	public function test_an_oversize_file_that_cannot_be_replaced_is_remembered_by_size_and_mtime(): void {

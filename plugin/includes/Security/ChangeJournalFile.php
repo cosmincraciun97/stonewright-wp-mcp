@@ -49,6 +49,14 @@ final class ChangeJournalFile {
 	private const MAX_PATHS = 20;
 	private const MAX_PATH  = 255;
 
+	/**
+	 * Tests only: called with the journal path before each replace of the file; returning false makes
+	 * that replace fail. Null in production.
+	 *
+	 * @var \Closure(string):bool|null
+	 */
+	public static ?\Closure $replace_hook = null;
+
 	public function __construct( private string $path ) {}
 
 	public function path(): string {
@@ -295,6 +303,9 @@ final class ChangeJournalFile {
 	private function write_atomically( array $document ): bool {
 		$json = json_encode( $document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		if ( ! is_string( $json ) ) {
+			return false;
+		}
+		if ( null !== self::$replace_hook && false === ( self::$replace_hook )( $this->path ) ) {
 			return false;
 		}
 		$temp = $this->path . '.tmp-' . bin2hex( random_bytes( 4 ) );
