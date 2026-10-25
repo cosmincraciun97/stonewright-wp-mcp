@@ -763,7 +763,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
-			meta: z.record(z.unknown()).optional(),
+			meta: z.record(z.string(), z.unknown()).optional(),
 			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
@@ -791,7 +791,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
-			meta: z.record(z.unknown()).optional(),
+			meta: z.record(z.string(), z.unknown()).optional(),
 			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
@@ -816,7 +816,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
-			meta: z.record(z.unknown()).optional(),
+			meta: z.record(z.string(), z.unknown()).optional(),
 			confirm: recoveryConfirmArg,
 		},
 		async (input) => {
@@ -840,7 +840,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			status: z.string().optional(),
 			parent: z.number().int().optional(),
 			template: z.string().optional(),
-			meta: z.record(z.unknown()).optional(),
+			meta: z.record(z.string(), z.unknown()).optional(),
 			probe: probeArg,
 			rollback_on_probe_failure: rollbackArg,
 			confirm: recoveryConfirmArg,
@@ -1325,8 +1325,8 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		{
 			site: siteArg,
 			id: z.string().optional(),
-			settings: z.record(z.unknown()).optional(),
-			styles: z.record(z.unknown()).optional(),
+			settings: z.record(z.string(), z.unknown()).optional(),
+			styles: z.record(z.string(), z.unknown()).optional(),
 			confirm: confirmArg,
 		},
 		async (input) => {
@@ -1356,7 +1356,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		'Update site settings via core REST (Direct mode). Needs a confirmation on remote/confirm mode (confirmation_id from a first call, or confirm:true on local sites).',
 		{
 			site: siteArg,
-			settings: z.record(z.unknown()),
+			settings: z.record(z.string(), z.unknown()),
 			confirm: confirmArg,
 		},
 		async (input) => {
@@ -1556,7 +1556,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		'Compose Gutenberg block markup from a simple JSON block spec (local, no network). Pass result.markup to content-create/update. The result is read back as blocks first: block comments must balance and carry valid JSON, an html block cannot contain block comments, and custom code in html or raw markup (script, style, iframe, event handlers, javascript: URLs) is refused with an approval_required envelope and no markup.',
 		{
 			site: siteArg,
-			blocks: z.array(z.record(z.unknown())).min(1),
+			blocks: z.array(z.record(z.string(), z.unknown())).min(1),
 		},
 		(input) => {
 			try {
