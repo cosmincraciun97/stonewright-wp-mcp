@@ -275,6 +275,8 @@ final class PluginRegistration {
 		LegacyMirrorCleanup::run();
 		// A schema captured by an earlier version may lack controls the new one reads.
 		WidgetSchemaRepository::invalidate();
+		// Options an earlier version stored without autoload cost a query each per request; move them into the autoloaded set.
+		BootOptions::autoload_all();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 	}
 

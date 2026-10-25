@@ -53,8 +53,8 @@ final class SkillTables {
 		if ( is_string( $recorded ) && '' !== $recorded && version_compare( $recorded, self::SKILLS_SCHEMA, '<' ) ) {
 			self::upgrade_rows();
 		}
-		update_option( self::SKILLS_OPTION, self::SKILLS_SCHEMA, false );
-		update_option( self::VERSIONS_OPTION, self::VERSIONS_SCHEMA, false );
+		update_option( self::SKILLS_OPTION, self::SKILLS_SCHEMA, true );
+		update_option( self::VERSIONS_OPTION, self::VERSIONS_SCHEMA, true );
 	}
 
 	public static function skills_definition(): string {

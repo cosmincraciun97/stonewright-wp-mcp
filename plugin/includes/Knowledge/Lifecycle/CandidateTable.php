@@ -67,6 +67,6 @@ final class CandidateTable {
 	private static function run_delta(): void {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( self::schema_sql() );
-		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, false );
+		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, true );
 	}
 }

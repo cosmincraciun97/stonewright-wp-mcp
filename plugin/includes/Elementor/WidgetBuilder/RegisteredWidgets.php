@@ -7,8 +7,8 @@ namespace Stonewright\WpMcp\Elementor\WidgetBuilder;
  * The list of widget slugs the widget builder has registered with Elementor.
  *
  * It is the one list the Loader trusts: a widget file in the sandbox draft folder is loaded only
- * when its slug is on it. The option is read on the Elementor widget hook and nowhere else, so it is
- * stored without autoload.
+ * when its slug is on it. The option is read on the Elementor widget hook of a request, so it is
+ * stored autoloaded (a short list of slugs, see BootOptions).
  */
 final class RegisteredWidgets {
 
@@ -34,13 +34,13 @@ final class RegisteredWidgets {
 		return in_array( $slug, self::all(), true );
 	}
 
-	/** Lists a slug once, without autoload. */
+	/** Lists a slug once, autoloaded. */
 	public static function add( string $slug ): void {
 		if ( 1 !== preg_match( self::SLUG_REGEX, $slug ) || self::has( $slug ) ) {
 			return;
 		}
 		$slugs   = self::all();
 		$slugs[] = $slug;
-		update_option( self::OPTION_KEY, $slugs, false );
+		update_option( self::OPTION_KEY, $slugs, true );
 	}
 }

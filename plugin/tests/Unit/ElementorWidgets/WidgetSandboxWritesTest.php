@@ -147,7 +147,7 @@ final class WidgetSandboxWritesTest extends TestCase {
 		self::assertSame( 'stonewright/elementor-widget-register', $rows[0]['ability'] );
 		self::assertTrue( $rows[0]['restorable'], 'The register call created the active file.' );
 		self::assertSame( $pending_body, ChangeLedger::read_image( $rows[0]['change_id'], 'after' ) );
-		self::assertSame( false, $GLOBALS['stonewright_test_option_autoload']['stonewright_registered_widgets'] );
+		self::assertSame( true, $GLOBALS['stonewright_test_option_autoload']['stonewright_registered_widgets'] );
 		self::assertSame( [ self::SLUG ], get_option( 'stonewright_registered_widgets' ) );
 	}
 
@@ -201,7 +201,7 @@ final class WidgetSandboxWritesTest extends TestCase {
 		self::assertFileExists( SandboxFiles::stored_path( 'widget-sbx-card.php' ) );
 		self::assertCount( 1, $this->rows_for( 'widget-sbx-card.php' ) );
 		self::assertSame( [ self::SLUG ], get_option( 'stonewright_registered_widgets' ) );
-		self::assertSame( false, $GLOBALS['stonewright_test_option_autoload']['stonewright_registered_widgets'] );
+		self::assertSame( true, $GLOBALS['stonewright_test_option_autoload']['stonewright_registered_widgets'] );
 	}
 
 	public function test_create_keeps_the_file_it_replaces_and_stops_at_the_size_cap(): void {

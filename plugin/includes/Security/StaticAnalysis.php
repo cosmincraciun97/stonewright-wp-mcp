@@ -78,7 +78,7 @@ final class StaticAnalysis {
 			return false;
 		}
 
-		update_option( self::NOTICE_OPTION, [ 'signature' => $signature, 'at' => $now ], false );
+		update_option( self::NOTICE_OPTION, [ 'signature' => $signature, 'at' => $now ], true );
 		Logger::warning( 'dangerous_php_functions_enabled', [ 'functions' => $flagged ] );
 
 		return true;

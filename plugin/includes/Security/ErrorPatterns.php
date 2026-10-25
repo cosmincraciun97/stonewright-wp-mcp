@@ -701,7 +701,7 @@ final class ErrorPatterns {
 			}
 		}
 		if ( 0 === $failed ) {
-			update_option( self::DRAFT_LESSON_RETURN_OPTION, '1', false );
+			update_option( self::DRAFT_LESSON_RETURN_OPTION, '1', true );
 		}
 		return [ 'returned' => $returned, 'failed' => $failed, 'already_done' => false ];
 	}
@@ -816,7 +816,7 @@ final class ErrorPatterns {
 		}
 
 		if ( 0 === $write_failed ) {
-			update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', false );
+			update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', true );
 		}
 
 		return [
