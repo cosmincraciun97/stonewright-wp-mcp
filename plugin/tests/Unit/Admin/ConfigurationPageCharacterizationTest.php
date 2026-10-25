@@ -206,6 +206,8 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 				'stonewright_settings stonewright_change_ledger_days integer default=NULL',
 				'stonewright_settings stonewright_change_ledger_max_changes integer default=NULL',
 				'stonewright_settings stonewright_change_ledger_max_bytes integer default=NULL',
+				'stonewright_settings stonewright_write_freeze array default=array (
+)',
 			],
 			$saved
 		);

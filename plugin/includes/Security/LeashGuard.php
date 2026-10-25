@@ -192,6 +192,23 @@ final class LeashGuard {
 		return $old_value;
 	}
 
+	/**
+	 * The pre_update_option_stonewright_write_freeze filter: during a REST request that is not a person in wp-admin,
+	 * a freeze that is lifted or ends sooner is not stored; the old one stays. A freeze that is started or made longer
+	 * passes: tightening a limit stays open to anyone who can change settings.
+	 *
+	 * @param mixed $value     The freeze about to be stored.
+	 * @param mixed $old_value The stored freeze.
+	 * @return mixed
+	 */
+	public static function guard_write_freeze_write( mixed $value, mixed $old_value ) {
+		if ( ! self::serving_rest_request() || ! WriteFreeze::loosens( $old_value, $value ) || self::rest_request_is_person() ) {
+			return $value;
+		}
+		SiteAdapter::note_admin_write( 'rest', WriteFreeze::OPTION, 'Refused: a request that is not a person in wp-admin tried to lift or shorten the write freeze' );
+		return $old_value;
+	}
+
 	private static function serving_rest_request(): bool {
 		if ( function_exists( 'wp_is_serving_rest_request' ) ) {
 			return wp_is_serving_rest_request();

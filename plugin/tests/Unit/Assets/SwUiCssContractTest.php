@@ -123,6 +123,7 @@ final class SwUiCssContractTest extends TestCase {
 		'includes/Admin/ChangeUndo.php',
 		'includes/Admin/ChangeLabels.php',
 		'includes/Admin/ChangeHistoryRetention.php',
+		'includes/Admin/WriteFreezeSettings.php',
 		'assets/admin/pages/changes.css',
 		'assets/admin/pages/changes.js',
 	];

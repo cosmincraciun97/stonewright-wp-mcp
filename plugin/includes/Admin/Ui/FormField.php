@@ -48,7 +48,7 @@ final class FormField {
 	 */
 	public static function input( string $label, string $name, array $args = [] ): string {
 		$id   = self::id( $name, $args );
-		$type = in_array( $args['type'] ?? 'text', [ 'text', 'search', 'number', 'password', 'email', 'url' ], true ) ? (string) ( $args['type'] ?? 'text' ) : 'text';
+		$type = in_array( $args['type'] ?? 'text', [ 'text', 'search', 'number', 'password', 'email', 'url', 'datetime-local' ], true ) ? (string) ( $args['type'] ?? 'text' ) : 'text';
 		$attr = [
 			'class' => Html::classes( 'sw-ui-input', $args['class'] ?? '' ),
 			'type'  => $type,

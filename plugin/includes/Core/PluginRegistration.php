@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Admin\WriteFreezeSettings;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
@@ -157,6 +158,8 @@ final class PluginRegistration {
 		// A REST request that is not a person in wp-admin cannot loosen the mode or switch an ability back on.
 		add_filter( 'pre_update_option_stonewright_mode', [ LeashGuard::class, 'guard_mode_write' ], 10, 2 );
 		add_filter( 'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_write_freeze', [ LeashGuard::class, 'guard_write_freeze_write' ], 10, 2 );
+		WriteFreezeSettings::register();
 
 		CrashRecovery::register();
 		WidgetLoader::register();
