@@ -184,7 +184,11 @@ alongside the same plugin mount.
 
 ## Notes
 
-- Screenshots under `e2e/artifacts/` are not committed. Baseline reference path:
-  `docs/plans/evidence/phase-0/` (see that README for viewport matrix + invariants).
+- Screenshots under `e2e/artifacts/` are not committed. The admin UI gate
+  (`e2e/tests/admin-ui.spec.ts`) renders each admin page at 1440x900, 1024x768,
+  782x1024, 390x844 and 320x568 in light and dark mode and checks four invariants:
+  HTTP status below 400, no horizontal overflow
+  (`documentElement.scrollWidth - clientWidth <= 0`), no product console errors,
+  and a screenshot captured under `e2e/artifacts/`.
 - Packaging smoke (plugin ZIP layout, vendor include / tests exclude):
   `node scripts/package-verify.mjs`

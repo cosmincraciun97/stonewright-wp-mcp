@@ -48,18 +48,17 @@
       "public_hygiene_rules": ["no-private-terms", "no-secrets", "preserve-provenance"]
     },
     {
-      "id": "historical-release-plan-docs",
+      "id": "historical-release-docs",
       "class": "historical/versioned",
       "paths": [
         "CHANGELOG.md",
         "plugin/CHANGELOG.md",
         "companion/CHANGELOG.md",
-        "docs/releases/**/*.md",
-        "docs/plans/**/*.md"
+        "docs/releases/**/*.md"
       ],
       "owner": "release-maintainers",
-      "source": "release-or-plan-record",
-      "expected_heading": "version-or-plan-heading",
+      "source": "release-record",
+      "expected_heading": "version-heading",
       "version_policy": "preserve-historical-claims",
       "freshness_checks": ["links", "public-hygiene"],
       "public_hygiene_rules": ["no-private-terms", "no-secrets", "versioned-claims-allowed"]
@@ -92,8 +91,7 @@
       "exclude": [
         "docs/ability-truth-matrix.md",
         "docs/knowledge/**/*.md",
-        "docs/releases/**/*.md",
-        "docs/plans/**/*.md"
+        "docs/releases/**/*.md"
       ],
       "owner": "project-maintainers",
       "source": "human-maintained",
