@@ -35,7 +35,7 @@ final class CleanupCommandTest extends TestCase {
 	}
 
 	/** @param array<string, mixed> $assoc */
-	private function run_command( array $assoc ): object {
+	private function run_command( array $assoc, bool $network_active = false ): object {
 		$command = new class() extends CleanupCommand {
 
 			/** @var list<string> */
@@ -44,12 +44,18 @@ final class CleanupCommandTest extends TestCase {
 			/** @var list<bool> One entry per deactivation, holding whether it was for the network. */
 			public array $deactivations = [];
 
+			public bool $network_active = false;
+
 			protected function line( string $text ): void {
 				$this->printed[] = $text;
 			}
 
 			protected function success( string $text ): void {
 				$this->printed[] = $text;
+			}
+
+			protected function network_active(): bool {
+				return $this->network_active;
 			}
 
 			protected function deactivate( bool $network ): void {
@@ -60,6 +66,7 @@ final class CleanupCommandTest extends TestCase {
 				throw new \RuntimeException( $text, $code );
 			}
 		};
+		$command->network_active = $network_active;
 		$command( [], $assoc );
 		return $command;
 	}
@@ -134,6 +141,32 @@ final class CleanupCommandTest extends TestCase {
 			self::assertContains( 'stonewright_oauth_private_key', array_keys( UninstallSite::options( $site ) ), 'the keys of site ' . $site . ' stay' );
 		}
 		self::assertSame( [], array_filter( UninstallSite::$log, static fn ( string $entry ): bool => str_starts_with( $entry, 'switch:' ) ), 'no site was switched to' );
+	}
+
+	public function test_all_data_on_one_site_is_refused_when_the_plugin_is_network_active(): void {
+		$GLOBALS['wpdb']                          = UninstallSite::reset( 1, 2 );
+		$GLOBALS['stonewright_test_is_multisite'] = true;
+		$options                                  = $GLOBALS['stonewright_test_options'];
+
+		try {
+			$this->run_command( [ 'all-data' => true, 'yes' => true ], true );
+			self::fail( 'A site-only removal must be refused while the network activation stays.' );
+		} catch ( \RuntimeException $refusal ) {
+			self::assertStringContainsString( '--network', $refusal->getMessage() );
+		}
+
+		self::assertSame( $options, $GLOBALS['stonewright_test_options'], 'nothing was removed' );
+		self::assertSame( [ 'options', 'postmeta', 'posts', 'stonewright_not_in_the_list', 'users' ], array_values( array_diff( UninstallSite::remaining_tables( 1 ), UninstallSite::PLUGIN_TABLES ) ) );
+		self::assertSame( [], array_diff( UninstallSite::PLUGIN_TABLES, UninstallSite::remaining_tables( 1 ) ), 'no table was dropped' );
+	}
+
+	public function test_all_data_with_network_is_allowed_when_the_plugin_is_network_active(): void {
+		$GLOBALS['wpdb']                          = UninstallSite::reset( 1, 2 );
+		$GLOBALS['stonewright_test_is_multisite'] = true;
+
+		$command = $this->run_command( [ 'all-data' => true, 'yes' => true, 'network' => true ], true );
+
+		self::assertSame( [ true ], $command->deactivations );
 	}
 
 	public function test_network_makes_all_data_act_on_every_site(): void {

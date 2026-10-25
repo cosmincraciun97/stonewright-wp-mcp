@@ -69,6 +69,11 @@ class CleanupCommand {
 			$this->fail( 'Removing all Stonewright data cannot be undone. Run it again with --all-data --yes to confirm, or without --all-data to remove the runtime state only.' );
 		}
 		$network = is_multisite() && ! empty( $assoc_args['network'] );
+		if ( $all_data && ! $network && is_multisite() && $this->network_active() ) {
+			// A site-only deactivation leaves the network activation in place, so the plugin would load on the next
+			// request and create the tables and keys of this site again.
+			$this->fail( 'Stonewright is active for the whole network, so removing the data of one site would only bring it back on the next request. Run the command again with --network, or deactivate the plugin for the network first.' );
+		}
 		$removed = RuntimeState::clear_everywhere( $wpdb, $network );
 		$this->line( sprintf( 'Removed %d runtime rows (locks, back-offs, cached verdicts, helper state, editor baselines).', $removed ) );
 		if ( ! $all_data ) {
@@ -94,6 +99,17 @@ class CleanupCommand {
 
 	protected function success( string $text ): void {
 		self::cli( 'success', $text );
+	}
+
+	/** Whether the plugin is activated for the whole network. Replaced in tests. */
+	protected function network_active(): bool {
+		if ( ! defined( 'STONEWRIGHT_FILE' ) ) {
+			return false;
+		}
+		if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		return is_plugin_active_for_network( plugin_basename( (string) constant( 'STONEWRIGHT_FILE' ) ) );
 	}
 
 	/** Deactivate the plugin, for the network when --network was given. Replaced in tests. */

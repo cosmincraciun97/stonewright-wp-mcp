@@ -282,6 +282,18 @@ final class EditorSaveGuardTest extends TestCase {
 		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_501_1'] ?? null );
 	}
 
+	public function test_capturing_over_a_legacy_baseline_removes_the_option_so_an_expired_transient_is_not_followed_by_a_stale_one(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1']     = [ 'hash' => str_repeat( 'a', 64 ), 'post_status' => 'draft', 'user_id' => 1, 'captured_at' => 1 ];
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_users_501'] = [ 1 ];
+
+		EditorSaveGuard::capture( 501 );
+
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'] );
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_users_501', $GLOBALS['stonewright_test_options'] );
+		delete_transient( 'stonewright_elementor_editor_baseline_501_1' );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'an expired baseline counts as missing, not as the old option' );
+	}
+
 	public function test_baseline_is_a_transient_with_a_seven_day_ttl(): void {
 		EditorSaveGuard::capture( 501 );
 

@@ -54,7 +54,7 @@ final class EditorSaveGuard {
 			'user_id'     => get_current_user_id(),
 			'captured_at' => time(),
 		];
-		set_transient( self::option_key( $post_id ), $baseline, self::BASELINE_TTL );
+		self::store( self::option_key( $post_id ), $baseline );
 		self::remember_user( $post_id, (int) $baseline['user_id'] );
 		return $baseline;
 	}
@@ -90,20 +90,19 @@ final class EditorSaveGuard {
 			if ( null === self::read_baseline( $post_id, $user_id ) ) {
 				continue;
 			}
-			set_transient(
+			self::store(
 				self::option_key( $post_id, $user_id ),
 				[
 					'hash'        => $hash,
 					'post_status' => $status,
 					'user_id'     => $user_id,
 					'captured_at' => time(),
-				],
-				self::BASELINE_TTL
+				]
 			);
 		}
 		if ( [] !== $remembered ) {
 			// The list lives as long as the newest baseline it names: a later restore must still find every user.
-			set_transient( self::users_key( $post_id ), $remembered, self::BASELINE_TTL );
+			self::store( self::users_key( $post_id ), $remembered );
 		}
 	}
 
@@ -211,6 +210,17 @@ final class EditorSaveGuard {
 	}
 
 	/**
+	 * Keep a value for BASELINE_TTL seconds, and drop the option an earlier version kept it in, so that an expired
+	 * transient is not followed by an obsolete option that would be read as if it were current.
+	 */
+	private static function store( string $key, mixed $value ): void {
+		set_transient( $key, $value, self::BASELINE_TTL );
+		if ( null !== get_option( $key, null ) ) {
+			delete_option( $key );
+		}
+	}
+
+	/**
 	 * The baseline this user holds for the post, from the transient or, for one an earlier version stored as an option,
 	 * from the option: that one moves to a transient now, so the row can expire.
 	 *
@@ -226,8 +236,7 @@ final class EditorSaveGuard {
 		if ( ! is_array( $legacy ) ) {
 			return null;
 		}
-		set_transient( $key, $legacy, self::BASELINE_TTL );
-		delete_option( $key );
+		self::store( $key, $legacy );
 		return $legacy;
 	}
 
@@ -238,8 +247,7 @@ final class EditorSaveGuard {
 		if ( ! is_array( $stored ) ) {
 			$stored = get_option( $key, [] );
 			if ( is_array( $stored ) && [] !== $stored ) {
-				set_transient( $key, $stored, self::BASELINE_TTL );
-				delete_option( $key );
+				self::store( $key, $stored );
 			}
 		}
 		return is_array( $stored ) ? array_values( array_map( 'intval', $stored ) ) : [];
@@ -251,7 +259,7 @@ final class EditorSaveGuard {
 		if ( ! in_array( $user_id, $known, true ) ) {
 			$known[] = $user_id;
 		}
-		set_transient( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ), self::BASELINE_TTL );
+		self::store( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ) );
 	}
 
 	private static function document_post_id( object $document ): int {

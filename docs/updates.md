@@ -307,7 +307,8 @@ asks a question and refuses to run without `--yes`. It deactivates the plugin fi
 because an active plugin creates its tables and OAuth keys again on the next request,
 and it does not delete the plugin's files or the rescue helper: uninstall the plugin
 afterwards with `wp plugin uninstall stonewright`. On a network the command acts on the
-site selected with `--url`; `--network` makes it act on every site. The OAuth signing and
+site selected with `--url`; `--network` makes it act on every site, and a plugin that is
+active for the whole network is refused without it. The OAuth signing and
 encryption keys go with the data, so every connected client has to sign in again after a
 reinstall.
 
