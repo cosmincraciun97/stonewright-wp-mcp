@@ -5,6 +5,7 @@
  */
 
 import type { PluginRouteState } from './connection/status-contract.js';
+import type { TransportDiagnostic } from './connection/transport-diagnostic.js';
 
 export type WordPressMcpBodyKind = 'wp_rest_error' | 'json_rpc' | 'html' | 'empty' | 'unknown';
 
@@ -16,6 +17,8 @@ export class WordPressMcpHttpError extends Error {
 		readonly bodyKind: WordPressMcpBodyKind,
 		readonly checkedAt: string,
 		readonly truncated = false,
+		/** Set when the failure is a body over the read cap: the safe, phase-aware diagnostic for it. */
+		readonly diagnostic: TransportDiagnostic | null = null,
 	) {
 		super(message);
 		this.name = 'WordPressMcpHttpError';

@@ -169,6 +169,33 @@ export function classifyTransportFailure(
 	};
 }
 
+/** The fix an operator needs when a tools/list answer passed the read cap. */
+export const TOOLS_LIST_TRUNCATED_FIX = 'the plugin answered tools/list in one page over 1 MiB; update the plugin to a release that paginates tools/list';
+
+/** Cause code of a response body that was longer than the companion's read cap. */
+export const RESPONSE_TRUNCATED_CAUSE_CODE = 'response_truncated';
+
+/**
+ * A response whose body passed the read cap. The server answered, so the request reached it;
+ * repeating the same request returns the same oversized body, so it is not retryable.
+ */
+export function classifyResponseTruncated(
+	httpStatus: number,
+	context: Omit<TransportFailureContext, 'httpStatus'>,
+): TransportDiagnostic {
+	const now = context.now ?? Date.now;
+	return {
+		kind: 'http_error',
+		phase: context.phase,
+		safe_cause_code: RESPONSE_TRUNCATED_CAUSE_CODE,
+		http_status: httpStatus,
+		attempt: context.attempt,
+		duration_ms: Math.max(0, now() - context.startedAt),
+		retryable: false,
+		request_may_have_reached_server: true,
+	};
+}
+
 export function classifyHttpStatus(
 	status: number,
 	context: Omit<TransportFailureContext, 'httpStatus'>,

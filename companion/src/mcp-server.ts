@@ -312,6 +312,7 @@ async function bootstrapConnection(
 		wpMcpStatus.tool_profile = registration.profile;
 		wpMcpStatus.live = registration.liveState;
 		wpMcpStatus.remote_tool_count = registration.remoteTools.length;
+		runtime.toolsListStats = { pages: registration.toolsListPages, bytes: registration.toolsListBytes };
 		wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
 		wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
 		wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
@@ -1299,6 +1300,9 @@ function applyHttpErrorEvidence(
 		last_checked_at: error.checkedAt,
 	};
 	runtime.wpReachable = routeState === 'present' ? true : routeState === 'missing' ? false : null;
+	if (error.diagnostic) {
+		runtime.lastTransportDiagnostic = error.diagnostic;
+	}
 }
 
 function applyTransportFailureEvidence(runtime: ConnectionRuntime, error: PluginTransportError): void {
