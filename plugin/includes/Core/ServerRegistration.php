@@ -25,7 +25,11 @@ final class ServerRegistration {
 
 	public static function register_server( object $adapter ): void {
 		$adapter_class = get_class( $adapter );
-		$compatibility = McpAbilitiesCompatibilityPreflight::inspect( null, $adapter_class );
+		// The canonical adapter is the class the boot path already judged for this plugin set; any other class is inspected.
+		$compatibility = 'WP\\MCP\\Core\\McpAdapter' === $adapter_class ? McpAbilitiesCompatibilityPreflight::cached() : [];
+		if ( $adapter_class !== ( $compatibility['adapter']['class'] ?? null ) ) {
+			$compatibility = McpAbilitiesCompatibilityPreflight::inspect( null, $adapter_class );
+		}
 		$meta = self::runtime_meta( $compatibility );
 		if ( ! $compatibility['compatible'] || $adapter_class !== ( $compatibility['adapter']['class'] ?? null ) ) {
 			self::record_pair(

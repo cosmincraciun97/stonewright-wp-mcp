@@ -161,6 +161,8 @@ final class PluginRegistration {
 		VendorGuard::register();
 		// No usable MCP adapter loaded: the owner and version in an admin notice, and an explicit answer on the MCP routes.
 		McpRuntimeNotice::register();
+		// The stored compatibility report belongs to one plugin set: a plugin or theme change discards it.
+		McpAbilitiesCompatibilityPreflight::register();
 		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
 		McpOriginGuard::register();
 		EditorSaveGuard::register();
@@ -196,7 +198,8 @@ final class PluginRegistration {
 	 * Instantiate the shared MCP adapter after other plugins have registered autoloaders.
 	 */
 	public static function maybe_boot_mcp_adapter(): void {
-		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
+		// A compatible report is kept for the plugin set, so a request does not inspect the runtime again.
+		$compatibility = McpAbilitiesCompatibilityPreflight::cached();
 		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
 			McpDefaultServerGuard::register();
 			\WP\MCP\Core\McpAdapter::instance();
