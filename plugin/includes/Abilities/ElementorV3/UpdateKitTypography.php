@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Elementor\KitRows;
 use Stonewright\WpMcp\Elementor\PageCachePurger;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
@@ -174,6 +175,7 @@ final class UpdateKitTypography extends AbilityKernel {
 						if ( get_post_meta( $kit_id, '_elementor_page_settings', true ) !== $next ) {
 							return $this->error( 'write_failed', __( 'Could not save Elementor kit typography.', 'stonewright' ) );
 						}
+						CachePurgeAdvisor::note_write();
 
 						return $content_filtered + [
 							'kit_id'      => $kit_id,

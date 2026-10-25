@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
@@ -268,6 +269,7 @@ final class ElementorData {
 			// The writer's own editor baseline now matches the document it just wrote.
 			EditorSaveGuard::refresh_current_user( $post_id );
 			WritePacing::note_save( $post_id );
+			CachePurgeAdvisor::note_write();
 			$after_hash = TreeHasher::hash( self::read( $post_id ) );
 			$receipt->set_hashes( $before_hash, $planned_hash, $after_hash, $after_hash )->verified();
 			self::$last_elementor_write_receipt = $receipt->to_array();

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Site;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -87,6 +88,18 @@ final class SitePulse extends AbilityKernel {
 						],
 					],
 				],
+				'cache_purge' => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'plugin'  => [ 'type' => 'string' ],
+							'setting' => [ 'type' => 'string' ],
+							'effect'  => [ 'type' => 'string' ],
+							'hint'    => [ 'type' => 'string' ],
+						],
+					],
+				],
 			],
 			'required'   => [ 'score', 'grade', 'summary', 'checks', 'fixes' ],
 		];
@@ -130,7 +143,7 @@ final class SitePulse extends AbilityKernel {
 		);
 		$fixes = array_slice( $fixes, 0, 5 );
 
-		return [
+		$report = [
 			'score'   => $score,
 			'grade'   => $this->grade( $score ),
 			'summary' => $this->summary_from_checks( $checks ),
@@ -147,6 +160,14 @@ final class SitePulse extends AbilityKernel {
 			),
 			'fixes'   => $fixes,
 		];
+
+		// Present only while the page cache of the site purges on its own: what it purges and how to write around it.
+		$cache_purge = CachePurgeAdvisor::advisories();
+		if ( [] !== $cache_purge ) {
+			$report['cache_purge'] = $cache_purge;
+		}
+
+		return $report;
 	}
 
 	/**
