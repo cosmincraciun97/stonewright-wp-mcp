@@ -40,6 +40,48 @@ final class OpenBasedirTest extends TestCase {
 		self::assertFalse( OpenBasedir::allows( '/etc/ssl/openssl.cnf', $setting ) );
 	}
 
+	public function test_dot_dot_segments_cannot_escape_an_allowed_root(): void {
+		self::assertFalse( OpenBasedir::allows( '/allowed/../etc/openssl.cnf', '/allowed' ) );
+		self::assertFalse( OpenBasedir::allows( '/allowed/sub/../../etc/openssl.cnf', '/allowed' ) );
+		self::assertFalse( OpenBasedir::allows( 'C:\\site\\..\\php\\extras\\openssl.cnf', 'C:\\site' ) );
+		self::assertFalse( OpenBasedir::allows( '/allowed/../../etc/openssl.cnf', '/allowed' ), 'a climb past the root stays at the root' );
+		self::assertTrue( OpenBasedir::allows( '/allowed/sub/../openssl.cnf', '/allowed' ) );
+		self::assertTrue( OpenBasedir::allows( '/allowed/./sub//openssl.cnf', '/allowed' ) );
+	}
+
+	public function test_a_prefix_collision_is_still_refused(): void {
+		self::assertFalse( OpenBasedir::allows( '/allowed-not/openssl.cnf', '/allowed' ) );
+		self::assertFalse( OpenBasedir::allows( '/allowedx', '/allowed' . PATH_SEPARATOR . '/other' ) );
+		self::assertFalse( OpenBasedir::allows( '/allowed/../allowed2/openssl.cnf', '/allowed' ) );
+	}
+
+	public function test_an_entry_is_also_allowed_under_its_real_location(): void {
+		$base = sys_get_temp_dir() . '/sw-open-basedir-' . bin2hex( random_bytes( 4 ) );
+		$real = $base . '/real';
+		$link = $base . '/link';
+		mkdir( $real, 0777, true );
+		try {
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( ! @symlink( $real, $link ) ) {
+				self::markTestSkipped( 'This platform does not allow creating symlinks.' );
+			}
+			$resolved = str_replace( '\\', '/', (string) realpath( $link ) );
+
+			self::assertTrue( OpenBasedir::allows( $resolved . '/data/openssl.cnf', $link ), 'a path under the real location of a symlinked entry' );
+			self::assertFalse( OpenBasedir::allows( $resolved . '-other/openssl.cnf', $link ) );
+			self::assertFalse( OpenBasedir::allows( $resolved . '/../elsewhere/openssl.cnf', $link ) );
+		} finally {
+			// phpcs:disable WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+			if ( is_link( $link ) ) {
+				@unlink( $link );
+				@rmdir( $link );
+			}
+			@rmdir( $real );
+			@rmdir( $base );
+			// phpcs:enable
+		}
+	}
+
 	public function test_the_setting_defaults_to_the_running_value(): void {
 		self::assertSame( '' === (string) ini_get( 'open_basedir' ), OpenBasedir::allows( '/definitely/not/a/real/root/file' ) );
 	}

@@ -211,7 +211,9 @@ final class CredentialKeys {
 	}
 
 	/**
-	 * Replace how default_configurations() finds its candidates; tests only, null restores the real lookup.
+	 * Replace how default_configurations() finds its candidates; null restores the real lookup.
+	 *
+	 * @internal Tests only.
 	 *
 	 * @param (\Closure(): list<?string>)|null $resolver
 	 */
