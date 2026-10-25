@@ -41,6 +41,10 @@ on a plain front-end request, and the measurement is reused for 30 seconds. A
 measurement that fails counts as `normal`. The database time and the load describe the
 site and are shared through the stored measurement; the memory describes one request,
 so each request reads its own and one heavy request never holds work back from the others.
+The memory of a request is a gate for that request's own optional work only: the
+`site_pressure` an agent is told comes from the database time and the load alone, so a
+request that just did a heavy write and is close to its own memory limit never makes
+the agent think the site is under load.
 
 | Reading | Threshold |
 |---|---|

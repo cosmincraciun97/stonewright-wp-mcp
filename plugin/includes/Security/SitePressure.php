@@ -19,7 +19,8 @@ namespace Stonewright\WpMcp\Security;
  *
  * The database time and the load describe the site and are shared through the stored measurement. The memory
  * describes the process that reads it, so it is read again by each request and never taken from the stored sample:
- * one request that used its whole memory limit must not hold optional work back from every other request.
+ * one request that used its whole memory limit must not hold optional work back from every other request. Memory
+ * is a gate for that request's own optional work (level()) and never part of what an agent is told (site_level()).
  */
 final class SitePressure {
 
@@ -46,6 +47,8 @@ final class SitePressure {
 	private const LOAD_NEEDS_DB_MS = 100;
 
 	private static ?string $memo = null;
+
+	private static ?string $site_memo = null;
 
 	/** @var (callable(): float)|null */
 	private static $probe_override = null;
@@ -101,37 +104,44 @@ final class SitePressure {
 	}
 
 	/**
-	 * The level now. Memoised for the request; across requests the stored measurement is reused while it is younger
-	 * than REUSE_SECONDS. Call it only on a path that already does work.
+	 * The level for optional work now. Memoised for the request; across requests the stored measurement is reused
+	 * while it is younger than REUSE_SECONDS. The memory this request uses counts here, because a request that is
+	 * close to its own limit should not start optional work. Call it only on a path that already does work.
 	 */
 	public static function level( ?int $now = null ): string {
 		if ( null !== self::$memo ) {
 			return self::$memo;
 		}
-		$now    = $now ?? time();
-		$stored = get_option( self::OPTION, [] );
-		if ( is_array( $stored ) && isset( $stored['at'], $stored['db_ms'] ) && $now - (int) $stored['at'] >= 0 && $now - (int) $stored['at'] < self::REUSE_SECONDS ) {
-			$stored['memory_pct'] = self::current_memory_pct();
-			self::$memo           = self::classify( $stored );
-			return self::$memo;
-		}
-
-		$sample       = self::sample();
-		$sample['at'] = $now;
-		update_option( self::OPTION, $sample, true );
-
-		self::$memo = self::classify( $sample );
+		$sample                = self::measurement( $now ?? time() );
+		$sample['memory_pct'] = self::current_memory_pct();
+		self::$memo            = self::classify( $sample );
 
 		return self::$memo;
 	}
 
 	/**
-	 * What an agent is told while the site is under load, or null when it is not.
+	 * The level of the site, from the shared measurement alone (database time and load), without the memory of this
+	 * request. This is what an agent is told: one request that just did heavy work can use most of its own memory
+	 * while the site is fine, and the agent must not stop work for that.
+	 */
+	public static function site_level( ?int $now = null ): string {
+		if ( null !== self::$site_memo ) {
+			return self::$site_memo;
+		}
+		$sample                = self::measurement( $now ?? time() );
+		$sample['memory_pct'] = 0.0;
+		self::$site_memo       = self::classify( $sample );
+
+		return self::$site_memo;
+	}
+
+	/**
+	 * What an agent is told while the site is under load, or null when it is not. It follows site_level().
 	 *
 	 * @return array{level: string, db_ms: float, hint: string}|null
 	 */
 	public static function notice(): ?array {
-		$level = self::level();
+		$level = self::site_level();
 		if ( self::NORMAL === $level ) {
 			return null;
 		}
@@ -172,6 +182,7 @@ final class SitePressure {
 	public static function set_probe( ?callable $probe ): void {
 		self::$probe_override = $probe;
 		self::$memo           = null;
+		self::$site_memo      = null;
 	}
 
 	/**
@@ -182,16 +193,19 @@ final class SitePressure {
 	public static function set_environment( ?array $environment ): void {
 		self::$environment_override = $environment;
 		self::$memo                 = null;
+		self::$site_memo            = null;
 	}
 
 	/** Forgets the level this request already decided, so the next call reads the stored measurement again. */
 	public static function forget_request(): void {
-		self::$memo = null;
+		self::$memo      = null;
+		self::$site_memo = null;
 	}
 
 	/** Back to a quick database and a calm machine, for unit tests. */
 	public static function reset_for_tests(): void {
 		self::$memo                 = null;
+		self::$site_memo            = null;
 		self::$probe_override       = static fn (): float => 1.0;
 		self::$environment_override = [ 'memory_pct' => 20.0, 'load_per_core' => null ];
 	}
@@ -232,6 +246,29 @@ final class SitePressure {
 		$count = preg_match_all( '/^processor\s*:/m', $info );
 
 		return $count > 0 ? $count : null;
+	}
+
+	/**
+	 * The shared measurement: the stored one while it is younger than REUSE_SECONDS, else a new one, which is stored.
+	 *
+	 * @return array{db_ms: float, load_per_core: ?float, memory_pct: float, at: int}
+	 */
+	private static function measurement( int $now ): array {
+		$stored = get_option( self::OPTION, [] );
+		if ( is_array( $stored ) && isset( $stored['at'], $stored['db_ms'] ) && $now - (int) $stored['at'] >= 0 && $now - (int) $stored['at'] < self::REUSE_SECONDS ) {
+			return [
+				'db_ms'         => (float) $stored['db_ms'],
+				'load_per_core' => isset( $stored['load_per_core'] ) ? (float) $stored['load_per_core'] : null,
+				'memory_pct'    => (float) ( $stored['memory_pct'] ?? 0 ),
+				'at'            => (int) $stored['at'],
+			];
+		}
+
+		$sample       = self::sample();
+		$sample['at'] = $now;
+		update_option( self::OPTION, $sample, true );
+
+		return $sample;
 	}
 
 	private static function current_memory_pct(): float {

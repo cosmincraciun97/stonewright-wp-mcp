@@ -227,4 +227,25 @@ final class SitePressureTest extends TestCase {
 		update_option( SitePressure::OPTION, self::sample( [ 'db_ms' => 1500.0, 'memory_pct' => 10.0, 'at' => 2000 ] ), true );
 		$this->assertSame( 'critical', SitePressure::level( 2012 ) );
 	}
+
+	public function test_the_memory_of_this_request_never_reaches_the_agent_notice(): void {
+		// An MCP request that just did a heavy write can sit at 90% of its own limit while the site is fine.
+		SitePressure::set_environment( [ 'memory_pct' => 90.0, 'load_per_core' => null ] );
+		SitePressure::set_probe( static fn (): float => 4.0 );
+
+		$this->assertSame( 'critical', SitePressure::level(), 'The request holds optional work back for itself.' );
+		$this->assertNull( SitePressure::notice(), 'The agent is not told the site is under load.' );
+		$this->assertSame( 'normal', SitePressure::site_level() );
+	}
+
+	public function test_the_agent_notice_follows_the_shared_measurement(): void {
+		SitePressure::set_environment( [ 'memory_pct' => 5.0, 'load_per_core' => null ] );
+		SitePressure::set_probe( static fn (): float => 1500.0 );
+
+		$notice = SitePressure::notice();
+
+		$this->assertIsArray( $notice );
+		$this->assertSame( 'critical', $notice['level'] );
+		$this->assertSame( 1500.0, $notice['db_ms'] );
+	}
 }
