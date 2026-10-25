@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\WidgetBuilder;
 
+use Stonewright\WpMcp\Sandbox\StaticGuard;
+
 /**
  * The static-guard verdicts of the generated widget files, so the Loader scans a file once per version.
  *
@@ -11,6 +13,12 @@ namespace Stonewright\WpMcp\Elementor\WidgetBuilder;
  * turns a failing scan into a pass for other content. An entry with findings is a rejection and the
  * Loader keeps skipping the file on every request. The raw code is never stored, only the digest and
  * up to MAX_FINDINGS short finding lines.
+ *
+ * An entry also carries the id of the guard that produced it (plugin version and StaticGuard rules
+ * version), and an entry of another id is a miss, pass or rejection alike: a verdict never outlives the
+ * rules that made it, and an entry written without an id is scanned again. A clean verdict is a stored
+ * fact that someone who can write options could pre-seed; that is accepted, because they already
+ * control the site.
  *
  * The option is read on the Elementor widget hook of a request, so it is autoloaded (see BootOptions)
  * and bounded: at most MAX_ENTRIES slugs, the oldest written entry goes first. A write happens only
@@ -24,19 +32,33 @@ final class ScanCache {
 	public const MAX_FINDINGS       = 3;
 	public const MAX_FINDING_LENGTH = 100;
 
+	private static ?string $guard_id = null;
+
+	/** The guard the verdicts are bound to: the plugin version and the StaticGuard rules version. */
+	public static function guard_id(): string {
+		return self::$guard_id ?? STONEWRIGHT_VERSION . ':' . StaticGuard::RULES_VERSION;
+	}
+
+	/**
+	 * Replaces the guard id, for tests, which cannot vary STONEWRIGHT_VERSION. Null restores it.
+	 */
+	public static function set_guard_id( ?string $guard_id ): void {
+		self::$guard_id = $guard_id;
+	}
+
 	/**
 	 * The verdict stored for this slug and these exact bytes.
 	 *
 	 * @param string $slug   Widget slug.
 	 * @param string $sha256 Lower-case hex sha256 of the file content that is about to be loaded.
-	 * @return array{findings:list<string>,logged:bool}|null Null when there is no verdict for that slug and hash.
+	 * @return array{findings:list<string>,logged:bool}|null Null when there is no verdict for that slug, hash and guard.
 	 */
 	public static function verdict( string $slug, string $sha256 ): ?array {
 		if ( ! self::is_sha256( $sha256 ) ) {
 			return null;
 		}
 		$entry = self::read()[ $slug ] ?? null;
-		if ( null === $entry || $entry['sha256'] !== $sha256 ) {
+		if ( null === $entry || $entry['sha256'] !== $sha256 || $entry['guard'] !== self::guard_id() ) {
 			return null;
 		}
 		return [
@@ -61,6 +83,7 @@ final class ScanCache {
 			'sha256'   => $sha256,
 			'findings' => self::shorten( $findings ),
 			'logged'   => $logged,
+			'guard'    => self::guard_id(),
 		];
 		$map   = self::read();
 		if ( ( $map[ $slug ] ?? null ) === $entry ) {
@@ -119,13 +142,13 @@ final class ScanCache {
 	/**
 	 * The stored entries that are well formed, in the order they were written.
 	 *
-	 * @return array<string, array{sha256:string,findings:list<string>,logged:bool}>
+	 * @return array<string, array{sha256:string,findings:list<string>,logged:bool,guard:string}>
 	 */
 	private static function read(): array {
 		$raw = get_option( self::OPTION, [] );
 		$map = [];
 		foreach ( is_array( $raw ) ? $raw : [] as $slug => $entry ) {
-			if ( ! is_string( $slug ) || ! is_array( $entry ) || ! isset( $entry['sha256'], $entry['findings'] ) || ! is_string( $entry['sha256'] ) || ! self::is_sha256( $entry['sha256'] ) || ! is_array( $entry['findings'] ) ) {
+			if ( ! is_string( $slug ) || ! is_array( $entry ) || ! isset( $entry['sha256'], $entry['findings'], $entry['guard'] ) || ! is_string( $entry['guard'] ) || ! is_string( $entry['sha256'] ) || ! self::is_sha256( $entry['sha256'] ) || ! is_array( $entry['findings'] ) ) {
 				continue;
 			}
 			$findings = [];
@@ -139,6 +162,7 @@ final class ScanCache {
 				'sha256'   => $entry['sha256'],
 				'findings' => $findings,
 				'logged'   => true === ( $entry['logged'] ?? false ),
+				'guard'    => $entry['guard'],
 			];
 		}
 		return $map;

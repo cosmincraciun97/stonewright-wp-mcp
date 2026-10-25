@@ -50,6 +50,7 @@ final class WidgetLoaderScanCacheTest extends TestCase {
 
 	protected function tearDown(): void {
 		Loader::set_scanner( null );
+		ScanCache::set_guard_id( null );
 		ini_set( 'error_log', $this->previous_error_log ); // phpcs:ignore WordPress.PHP.IniSet.Risky
 		@unlink( $this->log_file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		foreach ( glob( WP_CONTENT_DIR . '/stonewright-sandbox/widget-scn-*.draft' ) ?: [] as $file ) {
@@ -220,7 +221,8 @@ final class WidgetLoaderScanCacheTest extends TestCase {
 		self::assertArrayHasKey( 'notices', $notices );
 		self::assertCount( 1, $notices['notices'] );
 		self::assertStringContainsString( $slug, $notices['notices'][0] );
-		$stored = $GLOBALS['stonewright_test_options'][ AgentNotices::OPTION ]['widget_rejected'] ?? null;
+		$key    = 'widget_rejected_' . substr( md5( $slug ), 0, 8 );
+		$stored = $GLOBALS['stonewright_test_options'][ AgentNotices::OPTION ][ $key ] ?? null;
 		self::assertIsArray( $stored );
 		self::assertSame( DAY_IN_SECONDS, $stored['expires'] - $stored['at'] );
 	}
@@ -251,6 +253,73 @@ final class WidgetLoaderScanCacheTest extends TestCase {
 
 		self::assertSame( 1, $after_first, 'a rejected miss is stored once, already marked as logged' );
 		self::assertSame( $after_first, $writes['n'], 'a hit writes nothing' );
+	}
+
+	public function test_two_rejected_widgets_each_keep_their_own_notice(): void {
+		$first  = $this->slug( 'nta' );
+		$second = $this->slug( 'ntb' );
+		$this->write_rejected_widget( $first, 'evil-a' );
+		$this->write_rejected_widget( $second, 'evil-b' );
+		$this->register( $first );
+		$this->register( $second );
+
+		Loader::load_widgets( $this->manager_spy );
+
+		$notices = AgentNotices::fields()['notices'] ?? [];
+		self::assertCount( 2, $notices );
+		self::assertStringContainsString( $first, implode( ' ', $notices ) );
+		self::assertStringContainsString( $second, implode( ' ', $notices ) );
+	}
+
+	public function test_a_pass_cached_under_another_guard_id_is_rescanned_and_rejected(): void {
+		$slug = $this->slug( 'gpass' );
+		$path = $this->write_rejected_widget( $slug, 'evil' );
+		$this->register( $slug );
+		$hash = hash( 'sha256', (string) file_get_contents( $path ) );
+
+		// An older guard let these exact bytes through.
+		ScanCache::set_guard_id( 'older-guard:0' );
+		ScanCache::remember( $slug, $hash, [] );
+		ScanCache::set_guard_id( null );
+		$scans = $this->counting_scanner();
+
+		Loader::load_widgets( $this->manager_spy );
+
+		self::assertSame( 1, $scans['n'], 'the stale pass is a miss, so the current guard scans' );
+		self::assertSame( [], $GLOBALS['loader_loaded'], 'the file the current guard rejects does not load' );
+	}
+
+	public function test_a_rejection_cached_under_another_guard_id_is_rescanned(): void {
+		$slug = $this->slug( 'grej' );
+		$path = $this->write_widget( $slug, 'clean-now' );
+		$this->register( $slug );
+		$hash = hash( 'sha256', (string) file_get_contents( $path ) );
+
+		// A stricter guard rejected these bytes; the current one passes them.
+		ScanCache::set_guard_id( 'older-guard:0' );
+		ScanCache::remember( $slug, $hash, [ 'Disallowed token: old rule (line 1)' ], true );
+		ScanCache::set_guard_id( null );
+		$scans = $this->counting_scanner();
+
+		Loader::load_widgets( $this->manager_spy );
+
+		self::assertSame( 1, $scans['n'] );
+		self::assertSame( [ 'clean-now' ], $GLOBALS['loader_loaded'] );
+	}
+
+	public function test_an_entry_without_a_guard_id_is_a_miss(): void {
+		$hash                                                    = hash( 'sha256', 'a' );
+		$GLOBALS['stonewright_test_options'][ ScanCache::OPTION ] = [
+			'scn-a' => [ 'sha256' => $hash, 'findings' => [], 'logged' => false ],
+			'scn-b' => [ 'sha256' => $hash, 'findings' => [], 'logged' => false, 'guard' => 7 ],
+		];
+
+		self::assertNull( ScanCache::verdict( 'scn-a', $hash ) );
+		self::assertNull( ScanCache::verdict( 'scn-b', $hash ) );
+	}
+
+	public function test_the_guard_id_names_the_plugin_version_and_the_rules_version(): void {
+		self::assertSame( STONEWRIGHT_VERSION . ':' . \Stonewright\WpMcp\Sandbox\StaticGuard::RULES_VERSION, ScanCache::guard_id() );
 	}
 
 	public function test_forgetting_a_widget_drops_its_verdict(): void {

@@ -128,7 +128,7 @@ final class Loader {
 	}
 
 	/**
-	 * One log line and one agent notice for a rejected file version. The caller marks the verdict as
+	 * One log line and one agent notice (a key of its own per slug) for a rejected file version. The caller marks the verdict as
 	 * logged, so a repeat request stays quiet.
 	 *
 	 * @param array<mixed> $findings
@@ -143,7 +143,7 @@ final class Loader {
 			]
 		);
 		AgentNotices::push(
-			'widget_rejected',
+			'widget_rejected_' . substr( md5( $slug ), 0, 8 ),
 			sprintf( 'Generated widget %s was not loaded: it failed the static code check. Rewrite or delete it.', $slug ),
 			DAY_IN_SECONDS
 		);
