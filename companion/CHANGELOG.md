@@ -14,6 +14,16 @@
   `stonewright-connect-doctor` reports the same fix and carries both fields in
   its `diagnosis`.
 
+### Security
+
+- Update the shipped dependencies that `npm audit` flagged: body-parser 2.4.0
+  (GHSA-27r3-jxmh-p828), fast-uri 3.1.9 (GHSA-w74x-v6f9-j3xg,
+  GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr, GHSA-333x-w4r6-6crp), ip-address
+  10.7.5 (GHSA-rxp7-6hxx-x8q5) and zod 4.6.7 (GHSA-mrhx-c7xc-m3w5). zod moves
+  from 3.25 to 4.6: the MCP SDK already accepts it, the companion's schemas
+  use the two-argument `z.record()` form, and the tool contracts, token
+  budgets, tests and build are unchanged.
+
 ## [1.0.0-beta.17.2] - 2026-10-22
 
 ### Changed
