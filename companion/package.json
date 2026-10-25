@@ -33,9 +33,9 @@
 		"@hono/node-server": "^2.0.5",
 		"brace-expansion": "5.0.12",
 		"esbuild": "^0.28.1",
-		"fast-uri": "3.1.8",
+		"fast-uri": "3.1.9",
 		"hono": "4.13.13",
-		"ip-address": "10.7.3",
+		"ip-address": "10.7.5",
 		"js-yaml": "4.3.2",
 		"nanoid": "3.3.18",
 		"postcss": "8.5.25"
@@ -66,7 +66,7 @@
 		"@modelcontextprotocol/sdk": "^1.32.1",
 		"dotenv": "^16.4.5",
 		"smol-toml": "1.9.1",
-		"zod": "^3.23.8"
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@emnapi/core": "^1.11.3",

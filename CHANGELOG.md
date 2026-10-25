@@ -11,6 +11,13 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Security
+
+- Companion: update the shipped dependencies that `npm audit` flagged
+  (body-parser 2.4.0, fast-uri 3.1.9, ip-address 10.7.5, zod 4.6.7; the
+  advisory ids are in the companion changelog). The tool contracts and token
+  budgets are unchanged.
+
 ## [1.0.0-beta.17.2] - 2026-10-22
 
 ### Fixed
