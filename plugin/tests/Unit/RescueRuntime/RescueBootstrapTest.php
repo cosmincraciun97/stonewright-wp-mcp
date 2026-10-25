@@ -54,6 +54,12 @@ final class RescueBootstrapTest extends TestCase {
 		self::assertContains( [ RescueInstaller::class, 'admin_notice' ], self::callbacks( 'network_admin_notices' ) );
 	}
 
+	public function test_an_update_asks_for_a_check_of_the_helper(): void {
+		RescueBootstrap::register();
+
+		self::assertContains( [ RescueInstaller::class, 'force_next_check' ], self::callbacks( 'upgrader_process_complete' ) );
+	}
+
 	public function test_the_safe_boot_audit_the_email_filter_and_the_setting_are_registered(): void {
 		RescueBootstrap::register();
 

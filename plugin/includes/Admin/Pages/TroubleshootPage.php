@@ -125,7 +125,7 @@ final class TroubleshootPage {
 	}
 
 	private static function compatibility_html(): string {
-		$report     = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
+		$report     = McpAbilitiesCompatibilityPreflight::fresh();
 		$compatible = true === ( $report['compatible'] ?? false );
 		$status     = McpRuntimeStatus::from_report( $report );
 		$symbols    = [

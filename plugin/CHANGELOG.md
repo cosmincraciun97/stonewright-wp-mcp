@@ -4,6 +4,49 @@
 
 ### Fixed
 
+- Stop checking Stonewright's database tables on every request. Each store
+  looked at its table on each page load, which cost queries on every front-end,
+  wp-admin, and REST request, and many requests at once could try to repair the
+  same table together. The stored schema version is now trusted. A table is
+  repaired under a lock, and a failed install is not tried again for ten
+  minutes. A table that lost a column is still repaired on activation, on a
+  version change, once a day, and on the first write that fails with a schema
+  error.
+- Keep the options Stonewright reads while it starts in WordPress's autoloaded
+  set, so they arrive with the other autoloaded options in one query instead of
+  one query each on a site without a persistent object cache. This covers the
+  table schema versions, the dangerous-function notice, the registered widget
+  slugs, the widget scan verdicts, the locked domain with its mismatch record,
+  and the name of the change journal file. The mismatch record and the journal
+  file name do not exist on a healthy site, and a missing option costs a query
+  too, so both are now stored empty and clearing the mismatch record empties it
+  instead of deleting it. An existing site is switched on its next version
+  change or when the plugin is activated again.
+- Run the upgrade steps that follow a plugin update in one request at a time,
+  so concurrent requests on a busy site do not each repeat them, and keep a
+  table repair that fails from stopping the update or an activation.
+- Run the two lesson migrations once on upgrade and then once a day, with at
+  most five attempts, instead of scanning the memory table on every request. An
+  attempt that a resource limit killed counts as an attempt.
+- Cache the MCP compatibility check for an hour per set of active plugins
+  instead of repeating it on every request.
+- Resolve the OpenSSL configuration for OAuth key generation only when a key is
+  generated, and skip paths outside `open_basedir`. Before, every request
+  probed those paths, and on a server with an `open_basedir` limit that logged
+  the same warnings again each time.
+- Scan a generated Elementor widget once per version of its file instead of on
+  every request. A rejected widget is reported once, as one agent notice and
+  one log line, not on each request, and a cached verdict is dropped when the
+  plugin or its widget rules change.
+- Import the change journal file once per change, under a short claim, so
+  concurrent requests do not import it together. A request waits at most a
+  quarter of a second for the file lock, and a file that stays over 1 MB is
+  remembered by its size and modification time instead of being rewritten on
+  every admin and REST request.
+- Check the rescue helper's integrity every twelve hours, at once when its size
+  or modification time changes, and when the plugin version changes or after an
+  update, instead of reading and hashing it on every wp-admin request. A repair
+  that failed is tried again after five minutes.
 - Page `tools/list` by byte budget with MCP cursors, so a site whose tool surface
   passes 1 MiB (for example the `full` profile with Elementor Pro and WooCommerce)
   still connects. The companion read at most 1 MiB of a response and reported a

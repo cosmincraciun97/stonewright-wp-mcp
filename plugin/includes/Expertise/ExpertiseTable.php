@@ -74,6 +74,6 @@ final class ExpertiseTable {
 		foreach ( self::schema_sql() as $sql ) {
 			dbDelta( $sql );
 		}
-		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, false );
+		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, true );
 	}
 }

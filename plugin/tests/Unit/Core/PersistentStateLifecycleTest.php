@@ -22,8 +22,8 @@ final class PersistentStateLifecycleTest extends TestCase {
 	public function test_activation_creates_schema_and_builtins_without_user_state_rows(): void {
 		$source = self::method_source( PluginRegistration::class, 'on_activate' );
 
-		self::assertStringContainsString( 'Memory::maybe_install_table()', $source );
-		self::assertStringContainsString( 'AuditLog::maybe_install_table()', $source );
+		self::assertStringContainsString( 'Memory::repair_table()', $source );
+		self::assertStringContainsString( 'AuditLog::repair_table()', $source );
 		self::assertStringContainsString( '->refresh_bundled_pack()', $source );
 		self::assertStringNotContainsString( 'Memory::put', $source );
 		self::assertStringNotContainsString( 'AuditLog::record', $source );
@@ -35,7 +35,9 @@ final class PersistentStateLifecycleTest extends TestCase {
 		$hooks   = self::method_source( PluginRegistration::class, 'register_hooks' );
 
 		self::assertStringContainsString( '->refresh_bundled_pack()', $upgrade );
-		self::assertStringContainsString( 'IncidentStore::maybe_install_table()', $upgrade );
+		foreach ( [ 'Memory', 'AuditLog', 'ChangeLedger', 'IncidentStore' ] as $store ) {
+			self::assertStringContainsString( $store . '::repair_table()', $upgrade );
+		}
 		self::assertStringContainsString( "get_option( 'stonewright_version'", $upgrade );
 		self::assertStringContainsString( 'STONEWRIGHT_VERSION', $upgrade );
 		self::assertStringContainsString( 'maybe_upgrade', $hooks );
@@ -54,7 +56,7 @@ final class PersistentStateLifecycleTest extends TestCase {
 		$hooks      = self::method_source( PluginRegistration::class, 'register_hooks' );
 		$deactivate = self::method_source( PluginRegistration::class, 'on_deactivate' );
 
-		self::assertStringContainsString( 'ChangeLedger::maybe_install_table()', $activate );
+		self::assertStringContainsString( 'ChangeLedger::repair_table()', $activate );
 		self::assertStringContainsString( "add_action( 'init', [ ChangeLedger::class, 'maybe_install_table' ] )", $hooks );
 		self::assertStringContainsString( "add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ]", $hooks );
 		self::assertStringContainsString( "add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] )", $hooks );
@@ -67,6 +69,14 @@ final class PersistentStateLifecycleTest extends TestCase {
 				self::method_source( AuditLog::class, 'maybe_install_table' ),
 				self::method_source( IncidentStore::class, 'maybe_install_table' ),
 			self::method_source( ChangeLedger::class, 'maybe_install_table' ),
+			self::method_source( Memory::class, 'repair_table' ),
+			self::method_source( Memory::class, 'install_table' ),
+			self::method_source( AuditLog::class, 'repair_table' ),
+			self::method_source( AuditLog::class, 'install_table' ),
+			self::method_source( IncidentStore::class, 'repair_table' ),
+			self::method_source( IncidentStore::class, 'install_table' ),
+			self::method_source( ChangeLedger::class, 'repair_table' ),
+			self::method_source( ChangeLedger::class, 'install_table' ),
 			self::method_source( SkillTables::class, 'install' ),
 			self::method_source( BundledPack::class, 'refresh' ),
 		];

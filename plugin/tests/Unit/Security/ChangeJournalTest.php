@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Security;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeJournalFile;
+use Stonewright\WpMcp\Support\OptionLock;
 
 /**
  * @covers \Stonewright\WpMcp\Security\ChangeJournal
@@ -34,6 +35,7 @@ final class ChangeJournalTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		ChangeJournalFile::$replace_hook = null;
 		if ( null === $this->original_upload_dir ) {
 			unset( $GLOBALS['stonewright_test_upload_dir'] );
 		} else {
@@ -437,6 +439,168 @@ final class ChangeJournalTest extends TestCase {
 		self::assertSame( [], $this->file_document()['entries'] );
 		self::assertSame( 0, ChangeJournal::sync_from_file(), 'And the next load has nothing left to do.' );
 	}
+	// -- The import is cheap and bounded -----------------------------------------------------
+
+	/** @return array{oversize:bool,size:int,mtime:int} The stat signature the journal remembers for an oversize file. */
+	private function oversize_signature(): array {
+		clearstatcache( true, $this->journal_path() );
+		return [
+			'oversize' => true,
+			'size'     => (int) filesize( $this->journal_path() ),
+			'mtime'    => (int) filemtime( $this->journal_path() ),
+		];
+	}
+
+	private function make_oversize_journal_file(): void {
+		file_put_contents( $this->journal_path(), str_repeat( ' ', ChangeJournalFile::MAX_BYTES + 10 ) . '{"version":1,"entries":[]}' );
+		touch( $this->journal_path(), time() - 3600 );
+		clearstatcache();
+	}
+
+	public function test_unchanged_oversize_file_is_not_rewritten_twice(): void {
+		ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		update_option( ChangeJournal::SEEN_OPTION, $this->oversize_signature(), true );
+		$before = md5_file( $this->journal_path() );
+		$mtime  = filemtime( $this->journal_path() );
+
+		self::assertSame( 0, ChangeJournal::sync_from_file() );
+		self::assertSame( 0, ChangeJournal::sync_from_file() );
+
+		clearstatcache();
+		self::assertGreaterThan( ChangeJournalFile::MAX_BYTES, filesize( $this->journal_path() ), 'The remembered file was not touched.' );
+		self::assertSame( $before, md5_file( $this->journal_path() ) );
+		self::assertSame( $mtime, filemtime( $this->journal_path() ) );
+	}
+
+	public function test_an_oversize_file_whose_replacement_fails_is_remembered_and_not_retried(): void {
+		ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		$attempts                        = 0;
+		ChangeJournalFile::$replace_hook = static function () use ( &$attempts ): bool {
+			++$attempts;
+			return false;
+		};
+
+		try {
+			self::assertSame( 0, ChangeJournal::sync_from_file() );
+			self::assertSame( 1, $attempts, 'The first request tried to replace the file.' );
+			clearstatcache();
+			self::assertGreaterThan( ChangeJournalFile::MAX_BYTES, filesize( $this->journal_path() ), 'The replacement failed, so the file is still oversize.' );
+			self::assertEquals( $this->oversize_signature(), get_option( ChangeJournal::SEEN_OPTION ) );
+
+			self::assertSame( 0, ChangeJournal::sync_from_file() );
+			self::assertSame( 1, $attempts, 'The second request did not try again.' );
+
+			file_put_contents( $this->journal_path(), ' ', FILE_APPEND );
+			clearstatcache();
+			ChangeJournal::sync_from_file();
+			self::assertSame( 2, $attempts, 'A file that changed is handled again.' );
+			self::assertEquals( $this->oversize_signature(), get_option( ChangeJournal::SEEN_OPTION ), 'And the new size is the one remembered.' );
+		} finally {
+			ChangeJournalFile::$replace_hook = null;
+		}
+	}
+
+	public function test_an_oversize_file_that_cannot_be_replaced_is_remembered_by_size_and_mtime(): void {
+		ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		// A reader that keeps the target open makes the rename fail on Windows; elsewhere the rename succeeds.
+		$reader = fopen( $this->journal_path(), 'rb' );
+		self::assertNotFalse( $reader );
+
+		try {
+			ChangeJournal::sync_from_file();
+			clearstatcache();
+			if ( filesize( $this->journal_path() ) <= ChangeJournalFile::MAX_BYTES ) {
+				self::markTestSkipped( 'This platform replaces a file that another handle holds open, so the rewrite cannot be made to fail here.' );
+			}
+			self::assertEquals( $this->oversize_signature(), get_option( ChangeJournal::SEEN_OPTION ) );
+			$mtime = filemtime( $this->journal_path() );
+
+			self::assertSame( 0, ChangeJournal::sync_from_file() );
+			clearstatcache();
+			self::assertSame( $mtime, filemtime( $this->journal_path() ), 'The second request does not try again.' );
+		} finally {
+			fclose( $reader );
+		}
+	}
+
+	public function test_an_oversize_file_that_changed_since_it_was_remembered_is_handled_again(): void {
+		ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		update_option( ChangeJournal::SEEN_OPTION, $this->oversize_signature(), true );
+		file_put_contents( $this->journal_path(), ' ', FILE_APPEND );
+		clearstatcache();
+
+		ChangeJournal::sync_from_file();
+
+		clearstatcache();
+		self::assertLessThan( ChangeJournalFile::MAX_BYTES, filesize( $this->journal_path() ) );
+	}
+
+	public function test_a_file_that_was_oversize_and_shrank_is_read_normally(): void {
+		$entry = ChangeJournal::arm( self::spec() );
+		$this->make_oversize_journal_file();
+		update_option( ChangeJournal::SEEN_OPTION, $this->oversize_signature(), true );
+		unlink( $this->journal_path() );
+		$this->plant( [ 'id' => $entry['id'], 'state' => 'incident', 'incident' => self::fatal( 4242 ) ] );
+
+		self::assertSame( 1, ChangeJournal::sync_from_file() );
+		self::assertSame( 'incident', ChangeJournal::get( $entry['id'] )['state'] );
+	}
+
+	public function test_sync_waits_at_most_250ms_for_the_file_lock(): void {
+		$entry = ChangeJournal::arm( self::spec() );
+		$this->external_incident( $entry['id'], 4242 );
+		$lock = fopen( $this->journal_path() . '.lock', 'c' );
+		self::assertNotFalse( $lock );
+		self::assertTrue( flock( $lock, LOCK_EX | LOCK_NB ), 'The test holds the file lock the way a writer would.' );
+
+		try {
+			$start   = microtime( true );
+			$synced  = ChangeJournal::sync_from_file();
+			$elapsed = microtime( true ) - $start;
+		} finally {
+			flock( $lock, LOCK_UN );
+			fclose( $lock );
+		}
+
+		self::assertSame( 250, ChangeJournalFile::SYNC_LOCK_TIMEOUT_MS );
+		self::assertSame( 0, $synced, 'A request that cannot get the file lock skips the import.' );
+		self::assertLessThan( 1.0, $elapsed, 'It did not wait the 3 s a writer waits.' );
+		self::assertSame( 'armed', ChangeJournal::get( $entry['id'] )['state'] );
+		self::assertFalse( get_option( 'stonewright_lock_journal_sync', false ), 'The claim is released even though the file lock was not taken.' );
+
+		self::assertSame( 1, ChangeJournal::sync_from_file(), 'A later request imports it: the skipped file was not marked as seen.' );
+	}
+
+	public function test_second_request_skips_sync_while_the_claim_is_held(): void {
+		$entry = ChangeJournal::arm( self::spec() );
+		$this->external_incident( $entry['id'], 4242 );
+		self::assertTrue( OptionLock::acquire( 'journal_sync', 60 ), 'Another request holds the claim.' );
+
+		self::assertSame( 0, ChangeJournal::sync_from_file() );
+
+		self::assertSame( 'armed', ChangeJournal::get( $entry['id'] )['state'] );
+		self::assertSame( 'incident', $this->file_document()['entries'][0]['state'], 'The file was not rewritten.' );
+		self::assertNotFalse( get_option( 'stonewright_lock_journal_sync', false ), 'The skipping request left the other request\'s claim alone.' );
+		OptionLock::release( 'journal_sync' );
+	}
+
+	public function test_a_changed_file_is_imported_after_the_claim_is_released(): void {
+		$entry = ChangeJournal::arm( self::spec() );
+		$this->external_incident( $entry['id'], 4242 );
+		self::assertTrue( OptionLock::acquire( 'journal_sync', 60 ) );
+		self::assertSame( 0, ChangeJournal::sync_from_file() );
+
+		OptionLock::release( 'journal_sync' );
+
+		self::assertSame( 1, ChangeJournal::sync_from_file() );
+		self::assertSame( 'incident', ChangeJournal::get( $entry['id'] )['state'] );
+		self::assertFalse( get_option( 'stonewright_lock_journal_sync', false ), 'The import released its own claim.' );
+	}
+
 	public function test_a_journal_file_over_the_helpers_limit_is_replaced_by_a_clean_one(): void {
 		$entry = ChangeJournal::arm( self::spec() );
 		file_put_contents( $this->journal_path(), str_repeat( ' ', ChangeJournalFile::MAX_BYTES + 10 ) . '{"version":1,"entries":[]}' );
@@ -658,6 +822,18 @@ final class ChangeJournalTest extends TestCase {
 		self::assertNotNull( $second );
 		self::assertFileExists( $this->journal_path() );
 		self::assertNotSame( $first['id'], $second['id'] );
+	}
+
+	public function test_a_seeded_empty_file_option_means_no_file_and_arming_replaces_it_with_an_autoloaded_name(): void {
+		update_option( ChangeJournal::FILE_OPTION, '', true );
+
+		self::assertSame( 0, ChangeJournal::sync_from_file(), 'an empty name is no file: reading imports nothing' );
+		self::assertSame( '', get_option( ChangeJournal::FILE_OPTION ), 'and reading creates nothing' );
+
+		self::assertNotNull( ChangeJournal::arm( self::spec() ) );
+
+		self::assertTrue( ChangeJournalFile::is_valid_file_name( (string) get_option( ChangeJournal::FILE_OPTION, '' ) ) );
+		self::assertTrue( $GLOBALS['stonewright_test_option_autoload'][ ChangeJournal::FILE_OPTION ] );
 	}
 
 	public function test_an_invalid_spec_is_refused_without_writing_anything(): void {

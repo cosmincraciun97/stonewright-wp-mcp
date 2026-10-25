@@ -11,6 +11,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Sandbox;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\RegisteredWidgets;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\ScanCache;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
 use Stonewright\WpMcp\Security\ChangeJournal;
@@ -191,6 +193,31 @@ final class SandboxLedgerTest extends TestCase {
 		}
 
 		self::assertCount( 10, $this->active_backups() );
+	}
+
+	public function test_deleting_a_widget_file_takes_its_slug_off_the_registered_list_and_drops_its_scan_verdict(): void {
+		$widget_name = 'widget-ledger-test-demo.php';
+		$slug        = 'ledger-test-demo';
+		$this->clean_widget_files( $widget_name );
+		RegisteredWidgets::add( $slug );
+		RegisteredWidgets::add( 'ledger-test-other' );
+		ScanCache::remember( $slug, hash( 'sha256', self::V1 ), [] );
+		self::assertNotNull( ScanCache::verdict( $slug, hash( 'sha256', self::V1 ) ) );
+		SandboxFiles::write( $widget_name, self::V1 );
+
+		SandboxFiles::delete( $widget_name );
+
+		self::assertSame( [ 'ledger-test-other' ], RegisteredWidgets::all() );
+		self::assertNull( ScanCache::verdict( $slug, hash( 'sha256', self::V1 ) ) );
+		$this->clean_widget_files( $widget_name );
+	}
+
+	private function clean_widget_files( string $widget_name ): void {
+		foreach ( [ SandboxFiles::draft_dir() . '/' . substr( $widget_name, 0, -4 ) . '*', SandboxFiles::mu_dir() . '/' . SandboxFiles::active_prefix() . $widget_name ] as $pattern ) {
+			foreach ( glob( $pattern ) ?: [] as $file ) {
+				@unlink( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			}
+		}
 	}
 
 	public function test_deleting_a_draft_removes_its_active_backups_too(): void {

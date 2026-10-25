@@ -587,7 +587,7 @@ final class McpAbilitiesCompatibilityPreflightTest extends TestCase {
 		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
 		$listener = strpos( $source, "add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 )" );
 		$boot = strpos( $source, "add_action( 'plugins_loaded', [ self::class, 'maybe_boot_mcp_adapter' ], 99 )" );
-		$preflight = strpos( $source, 'McpAbilitiesCompatibilityPreflight::inspect()' );
+		$preflight = strpos( $source, 'McpAbilitiesCompatibilityPreflight::cached()' );
 		$adapter = strpos( $source, '\\WP\\MCP\\Core\\McpAdapter::instance()' );
 
 		self::assertNotFalse( $listener );

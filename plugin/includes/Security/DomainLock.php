@@ -33,7 +33,7 @@ final class DomainLock {
 		if ( '' !== self::locked_domain() ) {
 			return;
 		}
-		update_option( self::OPTION_LOCKED, self::current_origin(), false );
+		update_option( self::OPTION_LOCKED, self::current_origin(), true );
 	}
 
 	/**
@@ -77,7 +77,7 @@ final class DomainLock {
 		}
 
 		delete_option( self::OPTION_LOCKED );
-		delete_option( self::OPTION_MISMATCH );
+		self::clear_mismatch();
 		delete_option( self::OPTION_PRIOR );
 
 		return true;
@@ -208,7 +208,7 @@ final class DomainLock {
 			'recorded_at'      => time(),
 			'reason'           => 'domain_mismatch',
 		];
-		update_option( self::OPTION_MISMATCH, $payload, false );
+		update_option( self::OPTION_MISMATCH, $payload, true );
 		return $payload;
 	}
 
@@ -220,8 +220,12 @@ final class DomainLock {
 		return is_array( $raw ) ? $raw : null;
 	}
 
+	/**
+	 * Forgets the mismatch record. The row stays, empty and autoloaded: it is read on every boot, and
+	 * an option that does not exist costs a query each time.
+	 */
 	public static function clear_mismatch(): void {
-		delete_option( self::OPTION_MISMATCH );
+		update_option( self::OPTION_MISMATCH, '', true );
 	}
 
 	/**
@@ -253,7 +257,7 @@ final class DomainLock {
 			);
 		}
 
-		update_option( self::OPTION_LOCKED, $current, false );
+		update_option( self::OPTION_LOCKED, $current, true );
 		self::clear_mismatch();
 
 		AuditLog::record(
@@ -306,7 +310,7 @@ final class DomainLock {
 		}
 
 		$current = self::locked_domain();
-		update_option( self::OPTION_LOCKED, self::normalize_origin( $origin ), false );
+		update_option( self::OPTION_LOCKED, self::normalize_origin( $origin ), true );
 		delete_option( self::OPTION_PRIOR );
 
 		// If live origin no longer matches restored lock, record mismatch again.

@@ -37,7 +37,7 @@ final class DesignDirectionVersionsTable {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( self::schema_sql() );
 
-		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, false );
+		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, true );
 	}
 
 	private static function schema_sql(): string {

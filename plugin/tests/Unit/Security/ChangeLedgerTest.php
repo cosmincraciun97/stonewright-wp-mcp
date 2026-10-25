@@ -60,6 +60,7 @@ final class ChangeLedgerTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
 		$GLOBALS['stonewright_test_options']         = [];
 		ChangeLedger::use_blob_store_for_tests( null );
+		ChangeLedger::reset_schema_health_cache_for_tests();
 		self::remove_tree( $this->uploads );
 	}
 
@@ -99,6 +100,38 @@ final class ChangeLedgerTest extends TestCase {
 		);
 		self::assertIsArray( $row, is_wp_error( $row ) ? $row->get_error_message() : '' );
 		return $row;
+	}
+
+	public function test_a_schema_error_on_insert_triggers_one_repair_and_one_retry(): void {
+		$db = new class() extends LedgerWpdb {
+			public int $installs = 0;
+			public int $failures = 1;
+
+			public function get_charset_collate(): string {
+				++$this->installs;
+				return parent::get_charset_collate();
+			}
+
+			public function get_col( $query = null, $x = 0 ) {
+				return ChangeLedger::COLUMNS;
+			}
+
+			public function insert( $table, $data, $format = null ) {
+				if ( $this->failures > 0 ) {
+					--$this->failures;
+					$this->last_error = "Unknown column 'restorable_reason' in 'field list'";
+					return false;
+				}
+				return parent::insert( $table, $data, $format );
+			}
+		};
+		$GLOBALS['wpdb'] = $db;
+
+		$row = $this->record();
+
+		self::assertSame( 1, $db->installs, 'The table is repaired once.' );
+		self::assertSame( 'armed', $row['status'] );
+		self::assertCount( 1, $db->tables[ $db->prefix . 'stonewright_changes' ] ?? [], 'The insert was retried and landed.' );
 	}
 
 	/** @return list<string> */

@@ -996,7 +996,7 @@ final class SetupDiagnostics {
 	}
 
 	private static function mcp_runtime_check( string $scope ): DiagnosticCheck {
-		$report = McpAbilitiesCompatibilityPreflight::current() ?? McpAbilitiesCompatibilityPreflight::inspect();
+		$report = McpAbilitiesCompatibilityPreflight::fresh();
 		$compatible = true === ( $report['compatible'] ?? false );
 		$adapter = is_array( $report['adapter'] ?? null ) ? $report['adapter'] : [];
 		$owner = sanitize_text_field( is_scalar( $adapter['selected_owner'] ?? null ) ? (string) $adapter['selected_owner'] : '' );
