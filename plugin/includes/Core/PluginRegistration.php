@@ -227,6 +227,8 @@ final class PluginRegistration {
 		if ( PluginEffectiveState::enabled_requested() ) {
 			DomainLock::lock();
 		}
+		// Deactivating and activating again is an update that maybe_upgrade() never sees: the version stored below ends its upgrade run.
+		BootOptions::autoload_all();
 		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		// Mode from the environment type; a first activation also gets the essential surface.

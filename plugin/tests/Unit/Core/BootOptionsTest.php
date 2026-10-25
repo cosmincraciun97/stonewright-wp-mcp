@@ -130,6 +130,25 @@ final class BootOptionsTest extends TestCase {
 		);
 	}
 
+	public function test_maybe_upgrade_converts_the_options_only_after_its_early_return_for_a_current_version(): void {
+		$body = self::method_source( PluginRegistration::class, 'maybe_upgrade' );
+
+		$early_return = strpos( $body, '$stored === STONEWRIGHT_VERSION' );
+		self::assertNotFalse( $early_return, 'maybe_upgrade() returns early when the stored version is current' );
+		self::assertGreaterThan( $early_return, strpos( $body, 'BootOptions::autoload_all()' ), 'a current site pays nothing' );
+	}
+
+	public function test_activation_autoloads_every_boot_option_before_it_stores_the_version(): void {
+		$body = self::method_source( PluginRegistration::class, 'on_activate' );
+
+		self::assertStringContainsString( 'BootOptions::autoload_all()', $body, 'a site updated by deactivating and activating again never reaches maybe_upgrade() with an old version' );
+		self::assertLessThan(
+			strpos( $body, "update_option( 'stonewright_version'" ),
+			strpos( $body, 'BootOptions::autoload_all()' ),
+			'a version that is stored without the conversion would skip it for good'
+		);
+	}
+
 	/**
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled

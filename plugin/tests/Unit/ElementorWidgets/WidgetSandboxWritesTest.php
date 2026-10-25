@@ -193,7 +193,7 @@ final class WidgetSandboxWritesTest extends TestCase {
 		self::assertSame( [], get_option( 'stonewright_registered_widgets', [] ) );
 	}
 
-	public function test_create_with_activate_writes_the_active_file_and_stores_the_option_without_autoload(): void {
+	public function test_create_with_activate_writes_the_active_file_and_stores_the_option_autoloaded(): void {
 		$result = ( new CreateCustomWidget() )->execute( $this->create_args( [ 'activate' => true ] ) );
 
 		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_message() : '' );
