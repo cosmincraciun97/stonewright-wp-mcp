@@ -32,12 +32,14 @@ final class OpenBasedirTest extends TestCase {
 	}
 
 	public function test_windows_drive_paths_are_normalised(): void {
-		if ( ';' !== PATH_SEPARATOR ) {
-			self::markTestSkipped( 'A drive letter cannot appear in an open_basedir list where the separator is a colon.' );
-		}
-		self::assertTrue( OpenBasedir::allows( 'C:\www\site\data\openssl.cnf', 'C:\www\site' ) );
-		self::assertTrue( OpenBasedir::allows( 'C:/www/site/data/openssl.cnf', 'C:\www\site' ) );
-		self::assertFalse( OpenBasedir::allows( 'C:\php\extras\ssl\openssl.cnf', 'C:\www\site' ) );
+		self::assertTrue( OpenBasedir::allows( 'C:\www\site\data\openssl.cnf', 'C:\www\site', ';' ) );
+		self::assertTrue( OpenBasedir::allows( 'C:/www/site/data/openssl.cnf', 'C:\www\site', ';' ) );
+		self::assertFalse( OpenBasedir::allows( 'C:\php\extras\ssl\openssl.cnf', 'C:\www\site', ';' ) );
+	}
+
+	public function test_a_colon_separated_setting_without_drive_letters_works_with_an_explicit_separator(): void {
+		self::assertTrue( OpenBasedir::allows( '/tmp/upload/file', '/var/www/site:/tmp', ':' ) );
+		self::assertFalse( OpenBasedir::allows( '/etc/ssl/openssl.cnf', '/var/www/site:/tmp', ':' ) );
 	}
 
 	public function test_several_entries_allow_a_path_inside_any_of_them(): void {

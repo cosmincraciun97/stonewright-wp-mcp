@@ -19,7 +19,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *  3. Write widget-<slug>.php (stored as .draft) through SandboxFiles::write(), which
  *     keeps a backup of the active file it replaces, records the write in the change
  *     ledger and applies the size cap; then remove the pending file.
- *  4. Append slug to stonewright_registered_widgets option (autoload off).
+ *  4. Append slug to stonewright_registered_widgets option (autoloaded).
  *  5. Return result.
  *
  * FILE STORAGE NOTE:

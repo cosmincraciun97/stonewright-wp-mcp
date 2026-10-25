@@ -18,15 +18,16 @@ final class OpenBasedir {
 	 * Limits: a symlink inside an allowed root that points outside it is not detected; a relative
 	 * entry such as "." is compared as written; the comparison is case-sensitive on Windows too.
 	 *
-	 * @param string|null $setting The open_basedir value; null reads the running one.
+	 * @param string|null $setting   The open_basedir value; null reads the running one.
+	 * @param string|null $separator Between entries of the setting; null is PATH_SEPARATOR (";" on a Windows PHP, ":" elsewhere).
 	 */
-	public static function allows( string $path, ?string $setting = null ): bool {
+	public static function allows( string $path, ?string $setting = null, ?string $separator = null ): bool {
 		$setting ??= (string) ini_get( 'open_basedir' );
 		if ( '' === $setting ) {
 			return true;
 		}
 		$path = self::normalise( $path );
-		foreach ( explode( PATH_SEPARATOR, $setting ) as $entry ) {
+		foreach ( explode( $separator ?? PATH_SEPARATOR, $setting ) as $entry ) {
 			if ( '' === $entry ) {
 				continue;
 			}
