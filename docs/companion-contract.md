@@ -328,8 +328,9 @@ and batch JSON-RPC requests:
   it back as `params.cursor` and repeats until `nextCursor` is absent.
 - A cursor carries an offset and a digest of the tool names. A cursor from another
   surface (the profile changed or a plugin was activated between two pages) is
-  answered with JSON-RPC error `-32602` and the message `Invalid cursor`; the
-  client starts again from the first page.
+  answered with JSON-RPC error `-32602` and the message `Invalid cursor`. The
+  companion does not restart inside the same listing: it fails that listing, and
+  the next reconnect lists again from the first page.
 - A client that sends no cursor gets the first page. The `essential` surface and
   the smaller profiles fit one page, so a client that ignores `nextCursor` still
   sees them whole. Only large `full` surfaces span several pages.
