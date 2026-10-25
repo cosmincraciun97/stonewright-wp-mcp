@@ -216,10 +216,11 @@ final class PluginRegistration {
 	}
 
 	public function on_activate(): void {
-		Memory::maybe_install_table();
-		AuditLog::maybe_install_table();
-		ChangeLedger::maybe_install_table();
-		IncidentStore::maybe_install_table();
+		// Not the version-gated install: activation re-checks every table and adds what is missing.
+		Memory::repair_table();
+		AuditLog::repair_table();
+		ChangeLedger::repair_table();
+		IncidentStore::repair_table();
 		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
 		AuthorizationLifecycle::activate();
 		SkillTables::install();
@@ -263,7 +264,7 @@ final class PluginRegistration {
 		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
 		// on its first request without a mode; an update can find one missing too.
 		SiteDefaults::seed( '' === $stored );
-		IncidentStore::maybe_install_table();
+		IncidentStore::repair_table();
 		SkillTables::ensure();
 		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
 		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.

@@ -86,7 +86,8 @@ final class LiveStyleControlsTest extends TestCase {
 
 		PluginRegistration::maybe_upgrade();
 
-		self::assertSame( [], $GLOBALS['stonewright_test_transients'] );
+		// Without a database the upgrade's table repair fails and records its back-off; that is not a schema.
+		self::assertSame( [], array_diff_key( $GLOBALS['stonewright_test_transients'], [ 'stonewright_schema_backoff_incident' => true ] ) );
 	}
 	public function test_a_key_neither_list_defines_is_still_unknown(): void {
 		$result = PatchValidator::widget( 'title-card', [], [ 'title_colour' => '#112233' ], 'merge' );

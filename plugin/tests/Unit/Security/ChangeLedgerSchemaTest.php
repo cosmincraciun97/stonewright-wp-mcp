@@ -51,6 +51,7 @@ final class ChangeLedgerSchemaTest extends TestCase {
 		$this->original_wpdb                         = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_dbdelta_queries'] = [];
+		$GLOBALS['stonewright_test_transients']      = [];
 		ChangeLedger::reset_schema_health_cache_for_tests();
 	}
 
@@ -58,6 +59,7 @@ final class ChangeLedgerSchemaTest extends TestCase {
 		$GLOBALS['wpdb']                             = $this->original_wpdb;
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_dbdelta_queries'] = [];
+		$GLOBALS['stonewright_test_transients']      = [];
 		ChangeLedger::reset_schema_health_cache_for_tests();
 	}
 
@@ -71,6 +73,7 @@ final class ChangeLedgerSchemaTest extends TestCase {
 		return new class( $before, $after ) {
 			public $prefix = 'wp_';
 			public int $charset_calls = 0;
+			public int $col_calls     = 0;
 
 			/** @param list<string> $before @param list<string> $after */
 			public function __construct( private array $before, private array $after ) {}
@@ -82,6 +85,7 @@ final class ChangeLedgerSchemaTest extends TestCase {
 
 			/** @return list<string> */
 			public function get_col( string $query, int $x = 0 ): array {
+				++$this->col_calls;
 				return $this->charset_calls > 0 ? $this->after : $this->before;
 			}
 		};
@@ -153,8 +157,22 @@ final class ChangeLedgerSchemaTest extends TestCase {
 		self::assertFalse( ChangeLedger::table_schema_ok() );
 		ChangeLedger::maybe_install_table();
 
+		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls, 'init trusts the version option and leaves the columns alone' );
+
+		self::assertTrue( ChangeLedger::repair_table() );
+
 		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls );
 		self::assertTrue( ChangeLedger::table_schema_ok() );
+	}
+
+	public function test_init_with_current_version_issues_no_show_columns(): void {
+		update_option( ChangeLedger::SCHEMA_OPTION, ChangeLedger::SCHEMA_VERSION );
+		$GLOBALS['wpdb'] = $this->wpdb( self::COLUMNS, self::COLUMNS );
+
+		ChangeLedger::maybe_install_table();
+		ChangeLedger::maybe_install_table();
+
+		self::assertSame( 0, $GLOBALS['wpdb']->col_calls );
 	}
 
 	public function test_the_version_is_not_recorded_while_the_table_is_still_incomplete(): void {
@@ -163,11 +181,16 @@ final class ChangeLedgerSchemaTest extends TestCase {
 
 		ChangeLedger::maybe_install_table();
 
-		self::assertSame( 0, (int) get_option( ChangeLedger::SCHEMA_OPTION, 0 ), 'the next request tries again' );
+		self::assertSame( 0, (int) get_option( ChangeLedger::SCHEMA_OPTION, 0 ), 'the version stays unrecorded so a later attempt installs again' );
 		self::assertFalse( ChangeLedger::table_schema_ok() );
+
+		$charset_calls = $GLOBALS['wpdb']->charset_calls;
+		ChangeLedger::maybe_install_table();
+
+		self::assertSame( $charset_calls, $GLOBALS['wpdb']->charset_calls, 'the back-off keeps the next requests off the install' );
 	}
 
-	public function test_a_healthy_check_is_remembered_for_the_rest_of_the_request(): void {
+	public function test_a_current_version_is_not_looked_at_again_in_the_same_request(): void {
 		update_option( ChangeLedger::SCHEMA_OPTION, ChangeLedger::SCHEMA_VERSION );
 		$GLOBALS['wpdb'] = $this->wpdb( self::COLUMNS, self::COLUMNS );
 		ChangeLedger::maybe_install_table();

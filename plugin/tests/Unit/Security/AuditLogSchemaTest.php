@@ -164,7 +164,39 @@ final class AuditLogSchemaTest extends TestCase {
 		self::assertFalse( AuditLog::table_schema_ok() );
 		AuditLog::maybe_install_table();
 
-		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls, 'A missing repair_of column must trigger the install step.' );
+		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls, 'Init trusts a current version; it does not look at the columns.' );
+
+		AuditLog::repair_table();
+
+		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls, 'A missing repair_of column must trigger the install step on a repair.' );
+	}
+
+	public function test_init_with_current_version_issues_no_show_columns(): void {
+		update_option( 'stonewright_audit_schema_version', 3 );
+		update_option( 'stonewright_incident_schema_version', 2 );
+		$GLOBALS['wpdb'] = $this->make_skip_wpdb( self::AUDIT_COLUMNS );
+
+		AuditLog::maybe_install_table();
+		IncidentStore::maybe_install_table();
+
+		self::assertSame( [], $GLOBALS['wpdb']->queries );
+	}
+
+	public function test_a_schema_error_on_insert_triggers_one_repair_and_one_retry(): void {
+		$wpdb                = $this->make_skip_wpdb( self::AUDIT_COLUMNS );
+		$wpdb->insert_errors = [ "Unknown column 'event_type' in 'field list'" ];
+		$GLOBALS['wpdb']     = $wpdb;
+
+		self::assertTrue( AuditLog::record( 'stonewright/schema-retry', [ 'note' => 'first' ] ) );
+
+		self::assertSame( 2, $wpdb->inserts, 'The failed insert is retried once.' );
+		self::assertSame( 1, $wpdb->charset_calls, 'The table is repaired once.' );
+
+		// A later failure in the same request does not repair again.
+		$wpdb->insert_errors = [ "Unknown column 'event_type' in 'field list'", "Unknown column 'event_type' in 'field list'" ];
+		AuditLog::record( 'stonewright/schema-retry', [ 'note' => 'second' ] );
+
+		self::assertSame( 1, $wpdb->charset_calls, 'One repair per request.' );
 	}
 
 	public function test_incident_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
@@ -193,7 +225,14 @@ final class AuditLogSchemaTest extends TestCase {
 	private function make_skip_wpdb( array $columns ): object {
 		return new class( $columns ) {
 			public $prefix = 'wp_';
+			public $last_error = '';
+			public $insert_id = 0;
 			public int $charset_calls = 0;
+			public int $inserts = 0;
+			/** @var list<string> Schema errors the next inserts fail with, one each. */
+			public array $insert_errors = [];
+			/** @var list<string> */
+			public array $queries = [];
 			/** @var list<string> */
 			private array $columns;
 
@@ -209,7 +248,24 @@ final class AuditLogSchemaTest extends TestCase {
 
 			/** @return list<string> */
 			public function get_col( string $query, int $x = 0 ): array {
+				$this->queries[] = $query;
 				return $this->columns;
+			}
+
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<int, string>   $format
+			 */
+			public function insert( string $table, array $data, array $format = [] ): int|false {
+				++$this->inserts;
+				$error = array_shift( $this->insert_errors );
+				if ( null !== $error ) {
+					$this->last_error = $error;
+					return false;
+				}
+				$this->last_error = '';
+				$this->insert_id  = $this->inserts;
+				return 1;
 			}
 		};
 	}

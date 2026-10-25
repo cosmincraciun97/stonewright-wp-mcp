@@ -10,7 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
-use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\SchemaGate;
 
 /**
  * One row per change in {prefix}stonewright_changes, and the before and after images of the change in
@@ -110,9 +110,6 @@ final class ChangeLedger {
 	private const MAX_SUMMARY = 191;
 	private const MAX_CLIENT  = 96;
 
-	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
-	private static ?bool $schema_healthy = null;
-
 	private static ?BlobStore $store_override = null;
 
 	public static function table_name(): string {
@@ -120,8 +117,11 @@ final class ChangeLedger {
 		return $wpdb->prefix . self::TABLE;
 	}
 
+	/**
+	 * Reset the install gate: lock, back-off and the once-per-request repair (unit tests only).
+	 */
 	public static function reset_schema_health_cache_for_tests(): void {
-		self::$schema_healthy = null;
+		SchemaGate::reset_for_tests( 'changes' );
 	}
 
 	/** Use this store instead of the default folder, or the default again with null. For tests. */
@@ -153,19 +153,26 @@ final class ChangeLedger {
 	}
 
 	/**
-	 * Create the table, or bring an older one up to date. Cheap when the version is current and the
-	 * columns are all there.
+	 * Installs the table when the stored schema version is older than this build's. A current version runs nothing.
 	 */
 	public static function maybe_install_table(): void {
-		global $wpdb;
+		SchemaGate::maybe_install( 'changes', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
 
-		if ( true === self::$schema_healthy ) {
-			return;
-		}
-		if ( (int) get_option( self::SCHEMA_OPTION, 0 ) >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			return;
-		}
+	/**
+	 * Installs the table whatever the stored version says: activation, upgrade, a write that found a column missing.
+	 *
+	 * @return bool True when the table is healthy afterwards.
+	 */
+	public static function repair_table(): bool {
+		return SchemaGate::repair( 'changes', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
+
+	/**
+	 * Creates the table or adds what it lacks (dbDelta). Callers go through maybe_install_table() or repair_table().
+	 */
+	public static function install_table(): void {
+		global $wpdb;
 
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
@@ -207,20 +214,21 @@ final class ChangeLedger {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+	}
 
-		if ( self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
-		} else {
-			self::$schema_healthy = false;
-			Logger::error(
-				'change_ledger_schema_install_failed',
-				[
-					'table'          => $table,
-					'target_version' => self::SCHEMA_VERSION,
-				]
-			);
-		}
+	/**
+	 * Inserts a row; a table or column the database reports missing is repaired once per request and the insert retried.
+	 *
+	 * @param array<string, mixed> $data Column => value.
+	 * @return int|false Rows inserted, false on failure.
+	 */
+	private static function insert_row( array $data ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'changes',
+			static fn(): int|false => $wpdb->insert( self::table_name(), $data ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Plugin-owned table.
+			[ self::class, 'repair_table' ]
+		);
 	}
 
 	// -----------------------------------------------------------------------
@@ -319,8 +327,7 @@ final class ChangeLedger {
 		];
 
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Plugin-owned table.
-		$inserted = $wpdb->insert( self::table_name(), $data );
+		$inserted = self::insert_row( $data );
 		if ( false === $inserted ) {
 			$duplicate = str_contains( strtolower( (string) ( $wpdb->last_error ?? '' ) ), 'duplicate' );
 			return self::invalid(

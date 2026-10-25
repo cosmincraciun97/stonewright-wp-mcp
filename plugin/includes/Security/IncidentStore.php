@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Security;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\SchemaGate;
 
 /**
  * First-class lifecycle store for recurring operational incidents.
@@ -41,9 +42,6 @@ final class IncidentStore {
 	private const SCHEMA_VERSION = 2;
 	private const SCHEMA_OPTION = 'stonewright_incident_schema_version';
 
-	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
-	private static ?bool $schema_healthy = null;
-
 	/** @var array<string, array<string, mixed>> */
 	private static array $fallback = [];
 
@@ -52,8 +50,11 @@ final class IncidentStore {
 		return $wpdb->prefix . self::TABLE;
 	}
 
+	/**
+	 * Reset the install gate: lock, back-off and the once-per-request repair (unit tests only).
+	 */
 	public static function reset_schema_health_cache_for_tests(): void {
-		self::$schema_healthy = null;
+		SchemaGate::reset_for_tests( 'incident' );
 	}
 
 	/**
@@ -115,18 +116,27 @@ final class IncidentStore {
 		return [] === array_diff( self::required_columns(), $columns );
 	}
 
+	/**
+	 * Installs the table when the stored schema version is older than this build's. A current version runs nothing.
+	 */
 	public static function maybe_install_table(): void {
+		SchemaGate::maybe_install( 'incident', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
+
+	/**
+	 * Installs the table whatever the stored version says: activation, upgrade, a write that found a column missing.
+	 *
+	 * @return bool True when the table is healthy afterwards.
+	 */
+	public static function repair_table(): bool {
+		return SchemaGate::repair( 'incident', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
+
+	/**
+	 * Creates the table or adds what it lacks (dbDelta). Callers go through maybe_install_table() or repair_table().
+	 */
+	public static function install_table(): void {
 		global $wpdb;
-
-		if ( true === self::$schema_healthy ) {
-			return;
-		}
-
-		$current_version = (int) get_option( self::SCHEMA_OPTION, 0 );
-		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			return;
-		}
 
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
@@ -178,20 +188,21 @@ final class IncidentStore {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+	}
 
-		if ( self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
-		} else {
-			self::$schema_healthy = false;
-			Logger::error(
-				'incident_schema_install_failed',
-				[
-					'table'          => self::table_name(),
-					'target_version' => self::SCHEMA_VERSION,
-				]
-			);
-		}
+	/**
+	 * Inserts a row; a table or column the database reports missing is repaired once per request and the insert retried.
+	 *
+	 * @param array<string, mixed> $data Column => value.
+	 * @return int|false Rows inserted, false on failure.
+	 */
+	private static function insert_row( array $data ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'incident',
+			static fn(): int|false => $wpdb->insert( self::table_name(), $data ), // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Plugin-owned table.
+			[ self::class, 'repair_table' ]
+		);
 	}
 
 	/**
@@ -837,7 +848,7 @@ final class IncidentStore {
 			unset( $data['id'] );
 			$result = $update
 				? $wpdb->update( $table, $data, [ 'incident_id' => $row['incident_id'] ] ) // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
-				: $wpdb->insert( $table, $data ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- owned lifecycle table.
+				: self::insert_row( $data );
 			if ( false === $result ) {
 				throw new \RuntimeException( 'Incident persistence failed.' );
 			}
