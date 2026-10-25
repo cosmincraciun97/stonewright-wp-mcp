@@ -43,4 +43,14 @@ final class RegisteredWidgets {
 		$slugs[] = $slug;
 		update_option( self::OPTION_KEY, $slugs, true );
 	}
+
+	/** Takes a slug off the list and drops its cached scan verdict. */
+	public static function forget( string $slug ): void {
+		$listed = self::all();
+		$kept   = array_values( array_filter( $listed, static fn ( string $item ): bool => $item !== $slug ) );
+		if ( count( $kept ) !== count( $listed ) ) {
+			update_option( self::OPTION_KEY, $kept, true );
+		}
+		ScanCache::forget( $slug );
+	}
 }

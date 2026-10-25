@@ -41,6 +41,7 @@ final class BootOptions {
 		// Small state read when the code is loaded.
 		'stonewright_dangerous_functions_notice',
 		'stonewright_registered_widgets',
+		'stonewright_widget_scan_cache',
 	];
 
 	/**

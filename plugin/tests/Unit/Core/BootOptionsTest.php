@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Core\PluginRegistration;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\RegisteredWidgets;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\ScanCache;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Memory\Memory;
@@ -47,6 +48,7 @@ final class BootOptionsTest extends TestCase {
 			'legacy lessons migrated flag'    => [ ErrorPatterns::class, 'LEGACY_LESSON_MIGRATION_OPTION' ],
 			'dangerous functions notice'      => [ StaticAnalysis::class, 'NOTICE_OPTION' ],
 			'registered widget slugs'         => [ RegisteredWidgets::class, 'OPTION_KEY' ],
+			'generated widget scan verdicts'  => [ ScanCache::class, 'OPTION' ],
 		];
 	}
 
@@ -93,7 +95,7 @@ final class BootOptionsTest extends TestCase {
 			$expected[] = self::option_name( $class, $constant );
 		}
 
-		self::assertCount( 14, BootOptions::NAMES );
+		self::assertCount( 15, BootOptions::NAMES );
 		self::assertSame( BootOptions::NAMES, array_values( array_unique( BootOptions::NAMES ) ), 'no name twice' );
 		self::assertEqualsCanonicalizing( $expected, BootOptions::NAMES );
 	}
