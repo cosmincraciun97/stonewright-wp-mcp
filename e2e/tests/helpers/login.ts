@@ -23,20 +23,32 @@ export async function assertNoWordpressFatal(page: Page): Promise<void> {
 	);
 }
 
+/** How long a sign-in may take on a slow runner. It stays under the 60s test timeout so the failure names the login. */
+const SIGN_IN_TIMEOUT = 45_000;
+
 /** Shared wp-admin login for active product-surface suites. */
 export async function login(page: Page): Promise<void> {
 	await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded' });
 	await assertNoWordpressFatal(page);
 	if (!page.url().includes('wp-login.php')) return;
-	await page.locator('#user_login').waitFor({ state: 'visible', timeout: 15_000 });
-	await page.locator('#user_login').fill(WP_USER);
-	await page.locator('#user_pass').fill(WP_PASS);
+	// The login form is ready when its fields and button are on the page and the page has finished loading: a first
+	// load on a cold runner can still be running scripts and setting the cookie WordPress checks when the form is sent.
+	await page.waitForLoadState('load', { timeout: 30_000 }).catch(() => undefined);
+	const user = page.locator('#user_login');
+	const password = page.locator('#user_pass');
+	const submit = page.locator('#wp-submit');
+	await user.waitFor({ state: 'visible', timeout: 30_000 });
+	await password.waitFor({ state: 'visible', timeout: 30_000 });
+	await submit.waitFor({ state: 'visible', timeout: 30_000 });
+	await user.fill(WP_USER);
+	await password.fill(WP_PASS);
 	// Wait for the condition that matters, not for one navigation: the page has left the login form (the click and
 	// the wait are armed together, so a redirect that finishes first is not missed), or WordPress says why it did not.
+	// A redirect that is slow but arrives inside the timeout is a sign-in, not a failure.
 	const signedIn = page
-		.waitForURL((url) => !url.pathname.endsWith('/wp-login.php'), { timeout: 45_000, waitUntil: 'domcontentloaded' })
+		.waitForURL((url) => !url.pathname.endsWith('/wp-login.php'), { timeout: SIGN_IN_TIMEOUT, waitUntil: 'domcontentloaded' })
 		.then(() => undefined);
-	await Promise.all([signedIn, page.locator('#wp-submit').click()]).catch(async (error: unknown) => {
+	await Promise.all([signedIn, submit.click()]).catch(async (error: unknown) => {
 		const reason = (await page.locator('#login_error').innerText({ timeout: 1_000 }).catch(() => '')).trim();
 		const cause = error instanceof Error ? error.message.slice(0, 200) : String(error);
 		throw new Error(`Login did not leave wp-login.php${reason ? `: ${reason}` : ''} (${cause})`);
