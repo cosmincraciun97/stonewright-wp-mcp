@@ -197,11 +197,12 @@ final class RescueInstaller {
 	 * Installs the helper again when the plugin version or the plugin file name changed. Runs on init.
 	 */
 	public static function maybe_upgrade(): void {
-		if ( ! self::late_load_ready() ) {
-			return;
-		}
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
 		if ( (string) get_option( self::OPTION_VERSION, '' ) === $version && (string) get_option( self::OPTION_PLUGIN, '' ) === self::plugin_basename() ) {
+			return;
+		}
+		// Only now: a request with nothing to do (nearly every request) must not pay for the file checks.
+		if ( ! self::late_load_ready() ) {
 			return;
 		}
 		if ( self::recently_failed() ) {
