@@ -15,6 +15,16 @@
   **Keep the code php-execute runs** (on by default) or the constant
   `STONEWRIGHT_PHP_EXECUTE_KEEP_CODE` set to `false` keeps only the hash, and
   only a person in wp-admin can turn the setting off.
+- `wp stonewright cleanup` removes the runtime state Stonewright rebuilds on its
+  own (locks, back-offs, cached verdicts, the rescue helper's remembered state
+  and Elementor editor baselines) from the command line, and is safe on a live
+  site. With `--all-data --yes` it also removes every Stonewright table, option,
+  transient, scheduled event and state file, as `STONEWRIGHT_REMOVE_ALL_DATA`
+  does at uninstall. It deactivates the plugin first, so the plugin does not
+  create its tables and keys again, and it does not delete the plugin files or
+  the rescue helper. On a multisite network it acts on the selected site, or on
+  every site with `--network`. It is for a host where deleting the plugin from
+  wp-admin runs into a resource limit and `wp-config.php` cannot be edited.
 
 ### Fixed
 
@@ -72,6 +82,27 @@
   `stonewright_mcp_tools_list_page_bytes` filter sets the budget, and `0` turns
   paging off. `composer tokens:measure` also reports each surface's
   `tools_list_bytes`, `largest_tool` and `pages_at_default_budget`.
+- Stop the change journal import, the rescue helper check and the audit, change
+  history and OAuth clean-up events from failing on a file that disappears while
+  their request runs, as when the plugin folder is deleted, updated or renamed.
+  These hooks now check that the classes they need are still on disk and return
+  when they are not. Before, the autoloader failed on the missing file and
+  WordPress mailed a fatal error for each request that had started before the
+  deletion finished. Other late hooks of the plugin still load their classes
+  when they run, so deactivate the plugin before deleting it.
+- Remove the plugin's runtime state on deactivation and on every uninstall, with
+  or without `STONEWRIGHT_REMOVE_ALL_DATA`: lock rows, schema back-offs, the
+  cached compatibility and widget verdicts, the rescue helper's remembered
+  state, the loopback probe cool-down and Elementor editor baselines. The
+  scheduled events are unscheduled on every uninstall too, on every site of a
+  network. Settings, tables, OAuth clients and keys, memory, skills and the
+  audit history stay unless the constant asks for their removal.
+- Keep Elementor editor baselines as transients that expire seven days after
+  they were last written, instead of options that stayed in `wp_options` for
+  every post and user who ever opened the editor. A baseline that expired counts
+  as missing, so an editor tab left open for more than a week is no longer
+  refused as stale. Baselines stored by an earlier version are read once and
+  moved.
 
 ## [1.0.0-beta.17.2] - 2026-10-22
 

@@ -10,6 +10,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Authorization\WordPress;
 
+use Stonewright\WpMcp\Authorization\Model\CodeGrantState;
+use Stonewright\WpMcp\Authorization\Model\OAuthFault;
+use Stonewright\WpMcp\Support\LateLoad;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
@@ -89,6 +92,10 @@ final class AuthorizationLifecycle {
 	}
 
 	public static function collect_garbage(): void {
+		// A scheduled event can fire in a request that outlives the deletion of the plugin folder.
+		if ( ! LateLoad::ready( AuthorizationStorage::class, Housekeeping::class, CodeGrantState::class, OAuthFault::class ) ) {
+			return;
+		}
 		self::storage()->housekeeping()->run();
 	}
 

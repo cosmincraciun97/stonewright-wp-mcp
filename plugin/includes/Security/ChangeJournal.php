@@ -13,6 +13,12 @@ namespace Stonewright\WpMcp\Security;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Support\OptionLock;
 
+// The journal cannot work without its file class. Loading both together means a request that has the journal
+// loaded never reaches for the other file later, when the plugin folder may be gone.
+if ( ! class_exists( ChangeJournalFile::class, false ) ) {
+	require_once __DIR__ . '/ChangeJournalFile.php';
+}
+
 /**
  * Records every risky write before it happens and follows it until the site is known to be healthy.
  *

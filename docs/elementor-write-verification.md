@@ -228,7 +228,12 @@ An Elementor editor session captures the server `_elementor_data` hash and
 writer changed the document after the editor loaded, save is blocked with
 `stonewright_elementor_stale_editor`, the local editor draft is not discarded,
 and `post_status` stays unchanged. Visual `save` and the native editor button
-share that PHP gate. `expected_tree_hash` on
+share that PHP gate. The captured baseline is kept as a transient for seven
+days after the last editor load, save or restore, so an editor nobody opens
+again leaves no row in `wp_options`. A baseline that expired (or that an object
+cache evicted) counts as missing: the save goes through, as it does for an
+editor that never captured one, so a tab left open for more than a week is no
+longer protected by this check. `expected_tree_hash` on
 `stonewright-elementor-v3-batch-mutate` is a different path: it protects a stale
 MCP plan, not an open editor.
 

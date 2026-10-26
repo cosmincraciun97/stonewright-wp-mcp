@@ -11,6 +11,9 @@
  * The same goes for the list of custom widgets the widget builder registered with Elementor
  * (the stonewright_registered_widgets option): it says which generated widget files get loaded,
  * so it is dropped on every uninstall, and a reinstall registers a widget again before it loads.
+ * The scheduled events and the runtime state (locks, back-offs, cached verdicts, the remembered
+ * state of the rescue helper, Elementor editor baselines) go on every uninstall too: nothing
+ * reads them once the plugin is gone, and the plugin rebuilds them when it is installed again.
  *
  * To remove everything the plugin owns, define STONEWRIGHT_REMOVE_ALL_DATA as true (for
  * example in wp-config.php) before deleting the plugin. Stonewright\WpMcp\Core\Uninstaller
@@ -31,6 +34,7 @@ if ( defined( 'STONEWRIGHT_FILE' ) ) {
 }
 
 require_once __DIR__ . '/includes/Core/RescueInstaller.php';
+require_once __DIR__ . '/includes/Core/RuntimeState.php';
 require_once __DIR__ . '/includes/Core/Uninstaller.php';
 
 // Another, inactive copy of Stonewright stays installed: it uses the same rescue helper, widget list and data.
@@ -38,9 +42,12 @@ if ( \Stonewright\WpMcp\Core\Uninstaller::other_copy_remains( (string) WP_UNINST
 	return;
 }
 
-// Code, not data: the rescue helper and the list of registered custom widgets go before the data setting is looked at.
+// Code and rebuildable state, not data: the rescue helper, the list of registered custom widgets, the scheduled events and
+// the runtime state go before the data setting is looked at.
 \Stonewright\WpMcp\Core\Uninstaller::remove_code();
 \Stonewright\WpMcp\Core\Uninstaller::forget_registered_widgets();
+\Stonewright\WpMcp\Core\Uninstaller::unschedule_events();
+\Stonewright\WpMcp\Core\Uninstaller::remove_runtime_state();
 
 // Checked here as well, so the default path runs no data removal code.
 if ( ! defined( 'STONEWRIGHT_REMOVE_ALL_DATA' ) || true !== STONEWRIGHT_REMOVE_ALL_DATA ) {

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\RescueRuntime;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Cli\ChangesCommand;
+use Stonewright\WpMcp\Cli\CleanupCommand;
 use Stonewright\WpMcp\Cli\RescueCommand;
 use Stonewright\WpMcp\Cli\StonewrightCommand;
 use Stonewright\WpMcp\Core\RescueBootstrap;
@@ -94,10 +95,11 @@ final class RescueBootstrapTest extends TestCase {
 
 		RescueBootstrap::register();
 
-		self::assertSame( [ 'stonewright', 'stonewright rescue', 'stonewright changes' ], array_keys( \WP_CLI::$commands ) );
+		self::assertSame( [ 'stonewright', 'stonewright rescue', 'stonewright changes', 'stonewright cleanup' ], array_keys( \WP_CLI::$commands ) );
 		self::assertSame( StonewrightCommand::class, \WP_CLI::$commands['stonewright'] );
 		self::assertInstanceOf( RescueCommand::class, \WP_CLI::$commands['stonewright rescue'] );
 		self::assertInstanceOf( ChangesCommand::class, \WP_CLI::$commands['stonewright changes'] );
+		self::assertInstanceOf( CleanupCommand::class, \WP_CLI::$commands['stonewright cleanup'] );
 	}
 
 	/**
@@ -114,5 +116,6 @@ final class RescueBootstrapTest extends TestCase {
 		self::assertSame( 'SomeOtherStonewrightCommand', \WP_CLI::$commands['stonewright'] );
 		self::assertInstanceOf( RescueCommand::class, \WP_CLI::$commands['stonewright rescue'] );
 		self::assertInstanceOf( ChangesCommand::class, \WP_CLI::$commands['stonewright changes'] );
+		self::assertInstanceOf( CleanupCommand::class, \WP_CLI::$commands['stonewright cleanup'] );
 	}
 }

@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor;
 
+use Stonewright\WpMcp\Core\RuntimeState;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -16,9 +17,18 @@ use Stonewright\WpMcp\Support\ElementorData;
  * A Stonewright restore or undo of a post puts the document back on purpose, so it refreshes the baseline of
  * every user who has one ({@see self::refresh_all_users()}); otherwise the next Elementor save of that post
  * would be refused as a stale editor although nothing is open.
+ *
+ * A baseline is a transient that lasts seven days from the last time it was written, so an editor that nobody opens
+ * again leaves no row behind. A baseline that expired or was evicted counts as missing: assert_persist() lets the
+ * save through, as it does for an editor that never captured one. Baselines an earlier version stored as options are
+ * still read, and move to a transient the first time they are.
  */
 final class EditorSaveGuard {
 
+	/** Seconds a baseline, and the list of users who have one, is kept after the last editor load, save or restore. */
+	public const BASELINE_TTL = 7 * DAY_IN_SECONDS;
+
+	/** Name prefix of the baselines. They were options before they expired, so the same names are read as a fallback. */
 	private const OPTION_PREFIX = 'stonewright_elementor_editor_baseline_';
 
 	/** Most users whose baseline of one post is remembered, so a restore can refresh them all. */
@@ -44,7 +54,7 @@ final class EditorSaveGuard {
 			'user_id'     => get_current_user_id(),
 			'captured_at' => time(),
 		];
-		update_option( self::option_key( $post_id ), $baseline, false );
+		self::store( self::option_key( $post_id ), $baseline );
 		self::remember_user( $post_id, (int) $baseline['user_id'] );
 		return $baseline;
 	}
@@ -59,8 +69,7 @@ final class EditorSaveGuard {
 		if ( $post_id < 1 ) {
 			return;
 		}
-		$key = self::option_key( $post_id );
-		if ( ! is_array( get_option( $key, null ) ) ) {
+		if ( null === self::read_baseline( $post_id, get_current_user_id() ) ) {
 			return;
 		}
 		self::capture( $post_id );
@@ -74,24 +83,26 @@ final class EditorSaveGuard {
 		if ( $post_id < 1 ) {
 			return;
 		}
-		$hash   = TreeHasher::hash( ElementorData::read( $post_id ) );
-		$status = (string) get_post_status( $post_id );
-		foreach ( array_unique( array_merge( [ get_current_user_id() ], self::remembered_users( $post_id ) ) ) as $user_id ) {
-			$key      = self::option_key( $post_id, $user_id );
-			$baseline = get_option( $key, null );
-			if ( ! is_array( $baseline ) ) {
+		$hash       = TreeHasher::hash( ElementorData::read( $post_id ) );
+		$status     = (string) get_post_status( $post_id );
+		$remembered = self::remembered_users( $post_id );
+		foreach ( array_unique( array_merge( [ get_current_user_id() ], $remembered ) ) as $user_id ) {
+			if ( null === self::read_baseline( $post_id, $user_id ) ) {
 				continue;
 			}
-			update_option(
-				$key,
+			self::store(
+				self::option_key( $post_id, $user_id ),
 				[
 					'hash'        => $hash,
 					'post_status' => $status,
 					'user_id'     => $user_id,
 					'captured_at' => time(),
-				],
-				false
+				]
 			);
+		}
+		if ( [] !== $remembered ) {
+			// The list lives as long as the newest baseline it names: a later restore must still find every user.
+			self::store( self::users_key( $post_id ), $remembered );
 		}
 	}
 
@@ -135,8 +146,8 @@ final class EditorSaveGuard {
 				[ 'status' => 400 ]
 			);
 		}
-		$baseline = get_option( self::option_key( $post_id ), null );
-		if ( ! is_array( $baseline ) || ! isset( $baseline['hash'] ) ) {
+		$baseline = self::read_baseline( $post_id, get_current_user_id() );
+		if ( null === $baseline || ! isset( $baseline['hash'] ) ) {
 			return null;
 		}
 		$current_hash   = TreeHasher::hash( ElementorData::read( $post_id ) );
@@ -164,12 +175,28 @@ final class EditorSaveGuard {
 		self::capture( $post_id );
 	}
 
+	/**
+	 * Delete every baseline and user list of the current site: the transients and their expiry rows, and the options
+	 * an earlier version stored. Deactivation and uninstall do the same through RuntimeState.
+	 *
+	 * @return int Number of rows deleted.
+	 */
+	public static function forget_all(): int {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) ) {
+			return 0;
+		}
+		return RuntimeState::delete_rows( $wpdb, [ '_transient_' . self::OPTION_PREFIX, '_transient_timeout_' . self::OPTION_PREFIX, self::OPTION_PREFIX ] );
+	}
+
 	/** @internal */
 	public static function reset_for_tests(): void {
 		$prefix = self::OPTION_PREFIX;
-		foreach ( array_keys( $GLOBALS['stonewright_test_options'] ?? [] ) as $key ) {
-			if ( is_string( $key ) && str_starts_with( $key, $prefix ) ) {
-				unset( $GLOBALS['stonewright_test_options'][ $key ] );
+		foreach ( [ 'stonewright_test_options', 'stonewright_test_transients', 'stonewright_test_transient_ttls' ] as $store ) {
+			foreach ( array_keys( $GLOBALS[ $store ] ?? [] ) as $key ) {
+				if ( is_string( $key ) && str_starts_with( $key, $prefix ) ) {
+					unset( $GLOBALS[ $store ][ $key ] );
+				}
 			}
 		}
 	}
@@ -182,19 +209,57 @@ final class EditorSaveGuard {
 		return self::OPTION_PREFIX . 'users_' . $post_id;
 	}
 
+	/**
+	 * Keep a value for BASELINE_TTL seconds, and drop the option an earlier version kept it in, so that an expired
+	 * transient is not followed by an obsolete option that would be read as if it were current.
+	 */
+	private static function store( string $key, mixed $value ): void {
+		set_transient( $key, $value, self::BASELINE_TTL );
+		if ( null !== get_option( $key, null ) ) {
+			delete_option( $key );
+		}
+	}
+
+	/**
+	 * The baseline this user holds for the post, from the transient or, for one an earlier version stored as an option,
+	 * from the option: that one moves to a transient now, so the row can expire.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function read_baseline( int $post_id, int $user_id ): ?array {
+		$key    = self::option_key( $post_id, $user_id );
+		$stored = get_transient( $key );
+		if ( is_array( $stored ) ) {
+			return $stored;
+		}
+		$legacy = get_option( $key, null );
+		if ( ! is_array( $legacy ) ) {
+			return null;
+		}
+		self::store( $key, $legacy );
+		return $legacy;
+	}
+
 	/** @return list<int> */
 	private static function remembered_users( int $post_id ): array {
-		$stored = get_option( self::users_key( $post_id ), [] );
+		$key    = self::users_key( $post_id );
+		$stored = get_transient( $key );
+		if ( ! is_array( $stored ) ) {
+			$stored = get_option( $key, [] );
+			if ( is_array( $stored ) && [] !== $stored ) {
+				self::store( $key, $stored );
+			}
+		}
 		return is_array( $stored ) ? array_values( array_map( 'intval', $stored ) ) : [];
 	}
 
+	/** Lists the user, and keeps the list as long as the newest baseline it names. */
 	private static function remember_user( int $post_id, int $user_id ): void {
 		$known = self::remembered_users( $post_id );
-		if ( in_array( $user_id, $known, true ) ) {
-			return;
+		if ( ! in_array( $user_id, $known, true ) ) {
+			$known[] = $user_id;
 		}
-		$known[] = $user_id;
-		update_option( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ), false );
+		self::store( self::users_key( $post_id ), array_slice( $known, -self::MAX_USERS ) );
 	}
 
 	private static function document_post_id( object $document ): int {

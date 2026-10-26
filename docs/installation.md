@@ -88,9 +88,14 @@ reinstall or a rollback. Deleting the plugin from **Plugins**, or with
 `wp plugin uninstall`, also removes the rescue helper it installed in
 `wp-content/mu-plugins/`. `wp plugin delete` skips the uninstall step and leaves
 the helper. Deactivating the plugin leaves the helper in place, where it does
-nothing. To remove all of it, define
-`STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin. What that
-removes, and how to roll back, is in
+nothing. Deactivating and deleting the plugin also remove what Stonewright
+rebuilds on its own (locks, back-offs, cached verdicts, the helper's remembered
+state, Elementor editor baselines) and its scheduled events. To remove all of
+it, define `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting the plugin,
+or run `wp stonewright cleanup --all-data --yes` while it is active (it deactivates the plugin). On a host
+with per-account resource limits, deactivate the plugin first and uninstall it
+with `wp plugin uninstall stonewright`. What each path removes, and how to roll
+back, is in
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 
 ## Companion

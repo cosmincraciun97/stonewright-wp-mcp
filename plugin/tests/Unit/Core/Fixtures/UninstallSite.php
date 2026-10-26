@@ -56,6 +56,11 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 			'stonewright_changes_schema_version',
 			'stonewright_skills_db_version',
 			'stonewright_otl_rate_7',
+			'stonewright_rescue_plugin',
+			'stonewright_rescue_state_dir',
+			'stonewright_rescue_mcp_safe_boot',
+			'stonewright_rescue_journal_file',
+			'stonewright_lockdown_note',
 			'stonewright_elementor_editor_baseline_42',
 			'_transient_stonewright_github_release_stable',
 			'_transient_timeout_stonewright_github_release_stable',
@@ -69,6 +74,33 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 			'_site_transient_timeout_stonewright_example',
 			'_site_transient_sw_cc_example',
 			'_site_transient_timeout_sw_cc_example',
+		];
+
+		/**
+		 * What the plugin rebuilds on its own: locks, back-offs, cached verdicts, the remembered state of the rescue helper
+		 * and editor baselines. Deactivation and every uninstall remove these rows, whatever the data setting says.
+		 */
+		public const RUNTIME_OPTIONS = [
+			'stonewright_lock_journal_sync',
+			'stonewright_lock_schema_audit',
+			'_transient_stonewright_schema_backoff_audit',
+			'_transient_timeout_stonewright_schema_backoff_audit',
+			'stonewright_mcp_preflight',
+			'stonewright_widget_scan_cache',
+			'stonewright_rescue_mu_state',
+			'stonewright_rescue_journal_seen',
+			'stonewright_rescue_key_0123456789abcdef',
+			'stonewright_rescue_sess_0123456789abcdef',
+			'stonewright_elementor_editor_baseline_42',
+			'stonewright_elementor_editor_baseline_users_42',
+			'_transient_stonewright_elementor_editor_baseline_42_1',
+			'_transient_timeout_stonewright_elementor_editor_baseline_42_1',
+			'_transient_stonewright_elementor_editor_baseline_users_42',
+			'_transient_timeout_stonewright_elementor_editor_baseline_users_42',
+			'_transient_stonewright_probe_loopback_failing',
+			'_transient_timeout_stonewright_probe_loopback_failing',
+			'_transient_stonewright_oauth_schema_backoff',
+			'_transient_timeout_stonewright_oauth_schema_backoff',
 		];
 
 		/** Options that must survive: WordPress, other plugins, and names that only look like ours. */
@@ -91,6 +123,9 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 			'Xtransient_stonewright_look_alike',
 			'_transient_swXcc_look_alike',
 			'sw_cc_not_a_transient',
+			'other_plugin_lock_x',
+			'my_stonewright_lock_x',
+			'stonewrightXlock_x',
 		];
 
 		/** Events the plugin schedules. */
@@ -132,7 +167,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Core\Fixtures {
 					self::$wpdb->tables[ self::prefix( $id ) . $table ] = true;
 				}
 				$store = [
-					'options' => array_fill_keys( array_merge( self::PLUGIN_OPTIONS, self::FOREIGN_OPTIONS ), 'stored' ),
+					'options' => array_fill_keys( array_merge( self::PLUGIN_OPTIONS, self::RUNTIME_OPTIONS, self::FOREIGN_OPTIONS ), 'stored' ),
 					'hooks'   => array_fill_keys( array_merge( self::PLUGIN_HOOKS, self::FOREIGN_HOOKS ), 1900000000 ),
 				];
 				if ( $id === self::$current ) {

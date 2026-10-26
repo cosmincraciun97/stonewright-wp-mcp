@@ -10,6 +10,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Support\LateLoad;
+
 /**
  * A daily event deletes the oldest changes by three limits, and the first one reached decides:
  * 90 days, 500 changes and 100 MB of blobs by default. A site changes them with the options
@@ -273,6 +275,10 @@ final class ChangeLedgerRetention {
 	}
 
 	public static function run_scheduled(): void {
+		// A scheduled event can fire in a request that outlives the deletion of the plugin folder.
+		if ( ! LateLoad::ready( ChangeJournal::class, ChangeJournalFile::class, ChangeLedger::class, BlobStore::class, AuditLog::class ) ) {
+			return;
+		}
 		self::prune();
 	}
 
