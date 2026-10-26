@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-10-26
+
 ### Fixed
 
 - Follow `nextCursor` when listing the plugin's tools (up to 64 pages, with a guard

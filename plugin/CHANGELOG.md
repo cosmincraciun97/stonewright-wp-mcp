@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-10-26
+
 ### Added
 
 - Keep a masked, size-capped copy of the code `stonewright/php-execute` ran, so
@@ -277,17 +279,9 @@
   rescue helper and the data stay, also when the deleted copy is an older
   version.
 
-## [1.0.0-beta.16.1] - 2026-10-13
-
-### Added
-
-- Add a **Show in admin bar** switch to **Stonewright → Setup → Settings**. It is
-  on by default. Turned off, the Stonewright status badge and its menu are removed
-  from the toolbar at the top of the dashboard and the site; the AI abilities keep
-  their state and the **AI abilities** switch still turns them on and off.
-
 ## Older releases
 
+- [1.0.0-beta.16.1](../docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](../docs/releases/1.0.0-beta.16.md)
 - [1.0.0-beta.15](../docs/releases/1.0.0-beta.15.md)
 - [1.0.0-beta.14](../docs/releases/1.0.0-beta.14.md)
