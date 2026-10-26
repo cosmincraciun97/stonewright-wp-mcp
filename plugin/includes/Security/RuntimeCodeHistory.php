@@ -94,7 +94,10 @@ final class RuntimeCodeHistory {
 			$stored   = $store->put( $copy );
 			if ( $stored instanceof \WP_Error && 'stonewright_blob_store_full' === $stored->get_error_code() ) {
 				// The newest code is the most useful, so the oldest copies make room, not the other way round.
-				$store->make_room( strlen( $copy ) );
+				$evicted = $store->make_room( strlen( $copy ) );
+				if ( $evicted > 0 ) {
+					Logger::warning( 'runtime_code_evicted', [ 'copies' => $evicted ] );
+				}
 				$stored = $store->put( $copy );
 			}
 			if ( $stored instanceof \WP_Error ) {
