@@ -35,7 +35,7 @@ class CleanupCommand {
 	 *
 	 * With --all-data the data goes too: every Stonewright table, every option and transient whose name starts with
 	 * `stonewright_` (the OAuth signing and encryption keys included, so every connected client has to sign in again),
-	 * the scheduled events, and the change journal files and change history blobs in uploads/stonewright-state/. The
+	 * the scheduled events, and the change journal files, change history blobs and kept copies of php-execute code in uploads/stonewright-state/. The
 	 * plugin is deactivated first, so it does not create its tables and keys again on the next request. Pages, posts,
 	 * media and the plugin's files are not touched.
 	 *

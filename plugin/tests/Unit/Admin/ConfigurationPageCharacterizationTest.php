@@ -194,6 +194,7 @@ final class ConfigurationPageCharacterizationTest extends TestCase {
 				'stonewright_settings stonewright_site_environment string default=\'\'',
 				'stonewright_settings stonewright_custom_instructions_enabled boolean default=true',
 				'stonewright_settings stonewright_essential_tools_mode boolean default=true',
+				'stonewright_settings stonewright_php_execute_keep_code boolean default=true',
 				'stonewright_settings stonewright_mcp_surface string default=\'essential\'',
 				'stonewright_settings stonewright_mode string default=' . var_export( SiteDefaults::mode_for_environment(), true ),
 				'stonewright_settings stonewright_companion_url string default=\'http://127.0.0.1:8765\'',

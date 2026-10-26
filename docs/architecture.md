@@ -265,8 +265,8 @@ defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
 every plugin table, every `stonewright_` option (the OAuth keys included),
 every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up,
 audit retention and change history retention events, on every site of a network,
-and the change journal files and change history blobs in
-`uploads/stonewright-state/`. See
+and the change journal files, change history blobs and kept copies of
+`php-execute` code in `uploads/stonewright-state/`. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 The rescue helper in `wp-content/mu-plugins/` is code, not data, and deleting the
 plugin always removes it.

@@ -173,6 +173,9 @@ final class UninstallFileTest extends TestCase {
 		mkdir( $uploads . '/stonewright-state/blobs', 0777, true );
 		file_put_contents( $uploads . '/stonewright-state/blobs/' . hash( 'sha256', 'synthetic image' ) . '.gz', (string) gzencode( 'synthetic image' ) );
 		file_put_contents( $uploads . '/stonewright-state/blobs/index.php', "<?php\n// Silence is golden.\n" );
+		mkdir( $uploads . '/stonewright-state/runtime', 0777, true );
+		file_put_contents( $uploads . '/stonewright-state/runtime/' . hash( 'sha256', 'return 1;' ) . '.gz', (string) gzencode( 'return 1;' ) );
+		file_put_contents( $uploads . '/stonewright-state/runtime/index.php', "<?php\n// Silence is golden.\n" );
 		return [ $site, $content, $uploads ];
 	}
 
@@ -289,6 +292,7 @@ final class UninstallFileTest extends TestCase {
 			self::assertFalse( $run['loaded']['journal'] ?? true, 'the default path loads no data removal code' );
 			self::assertFalse( $run['loaded']['blob_store'] ?? true, 'nor the blob store' );
 			self::assertCount( 1, glob( $uploads . '/stonewright-state/blobs/*.gz' ) ?: [], 'the change history blobs are data and stay' );
+			self::assertCount( 1, glob( $uploads . '/stonewright-state/runtime/*.gz' ) ?: [], 'the kept copies of executed code are data and stay' );
 		} finally {
 			self::remove_folder( $site );
 		}

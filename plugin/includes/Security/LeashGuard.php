@@ -194,6 +194,43 @@ final class LeashGuard {
 	}
 
 	/**
+	 * The pre_update_option_stonewright_php_execute_keep_code filter: during a REST request that is not a person in
+	 * wp-admin, turning the copy of executed code off is not stored; the old value stays. The copy is on while the
+	 * option is missing, so a stored false is the only way it is off.
+	 *
+	 * @param mixed $value     The value about to be stored.
+	 * @param mixed $old_value The stored value (false when there is none).
+	 * @return mixed
+	 */
+	public static function guard_keep_code_write( mixed $value, mixed $old_value ) {
+		if ( ! self::serving_rest_request() ) {
+			return $value;
+		}
+		$was_on = false === $old_value || (bool) $old_value;
+		if ( ! $was_on || (bool) $value || self::rest_request_is_person() ) {
+			return $value;
+		}
+		SiteAdapter::note_admin_write( 'rest', RuntimeCodeHistory::OPTION, 'Refused: a request that is not a person in wp-admin tried to stop keeping the code php-execute runs' );
+		return $old_value;
+	}
+
+	/**
+	 * The add_option_stonewright_php_execute_keep_code action: the filter above does not run when the option is
+	 * created, so a request that is not a person in wp-admin that creates it as off (it is not stored until a person
+	 * saves the settings) has it deleted again, which leaves the copy on.
+	 *
+	 * @param string $option The option name.
+	 * @param mixed  $value  The value that was stored.
+	 */
+	public static function guard_keep_code_added( string $option, mixed $value ): void {
+		if ( ! self::serving_rest_request() || (bool) $value || self::rest_request_is_person() ) {
+			return;
+		}
+		delete_option( $option );
+		SiteAdapter::note_admin_write( 'rest', RuntimeCodeHistory::OPTION, 'Refused: a request that is not a person in wp-admin tried to stop keeping the code php-execute runs' );
+	}
+
+	/**
 	 * The pre_update_option_stonewright_write_freeze filter: during a REST request that is not a person in wp-admin,
 	 * a freeze that is lifted or ends sooner is not stored; the old one stays. A freeze that is started or made longer
 	 * passes: tightening a limit stays open to anyone who can change settings.

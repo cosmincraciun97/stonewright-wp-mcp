@@ -250,9 +250,9 @@ Deleting the plugin then removes:
 - every transient whose name starts with `stonewright_` or `sw_cc_`;
 - the scheduled events `stonewright_oauth_gc`, `stonewright_audit_retention`
   and `stonewright_change_ledger_prune`;
-- the change journal files and the change history blobs in
-  `uploads/stonewright-state/` (a file in those folders that Stonewright did
-  not write stays);
+- the change journal files, the change history blobs and the kept copies of
+  `php-execute` code in `uploads/stonewright-state/` (a file in those folders
+  that Stonewright did not write stays);
 - all of the above on every site of a multisite network, because deleting the
   plugin removes it for all of them.
 
@@ -284,7 +284,7 @@ There are three ways to remove the plugin, and they leave different things behin
 | Runtime state: lock rows, schema back-offs, cached compatibility and widget verdicts, the rescue helper's remembered state, the loopback probe cool-down, the site pressure measurement, Elementor editor baselines and save counts | Removed on deactivation and again at uninstall | Removed on deactivation; stays if the plugin was never deactivated | Removed |
 | Scheduled events (`stonewright_oauth_gc`, `stonewright_audit_retention`, `stonewright_change_ledger_prune`) | Unscheduled on deactivation and again at uninstall, on every site of a network | Unscheduled on deactivation | Unscheduled |
 | `wp-content/mu-plugins/stonewright-rescue.php` | Removed | Stays: delete it by hand | Removed |
-| Change journal files and change history blobs in `uploads/stonewright-state/` | Stay | Stay | Removed |
+| Change journal files, change history blobs and kept copies of `php-execute` code in `uploads/stonewright-state/` | Stay | Stay | Removed |
 
 Runtime state is what Stonewright rebuilds on its own, so it goes with deactivation and
 with every uninstall. Everything else stays unless the constant, or the command below,

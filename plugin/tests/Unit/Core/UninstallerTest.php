@@ -175,6 +175,69 @@ final class UninstallerTest extends TestCase {
 		}
 	}
 
+	/**
+	 * Adds the copies of executed code, two compressed blobs and the files that close their folder, to a state folder.
+	 *
+	 * @return string The runtime folder.
+	 */
+	private static function add_runtime_code( string $state ): string {
+		$runtime = $state . '/runtime';
+		mkdir( $runtime, 0777, true );
+		foreach ( [ 'return 1;', 'return 2;' ] as $code ) {
+			file_put_contents( $runtime . '/' . hash( 'sha256', $code ) . '.gz', (string) gzencode( $code ) );
+		}
+		file_put_contents( $runtime . '/.htaccess', 'Require all denied' );
+		file_put_contents( $runtime . '/index.php', "<?php\n// Silence is golden.\n" );
+		file_put_contents( $runtime . '/web.config', '<configuration />' );
+		return $runtime;
+	}
+
+	public function test_a_full_removal_erases_the_kept_copies_of_executed_code_with_their_folder(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		self::add_blobs( $state );
+		self::add_runtime_code( $state );
+		$wpdb = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertDirectoryDoesNotExist( $state . '/runtime', 'the copies and their deny files are gone' );
+			self::assertDirectoryDoesNotExist( $state, 'and the state folder with them, as nothing else is in it' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_a_full_removal_leaves_a_file_in_the_runtime_folder_that_is_not_a_kept_copy(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		$runtime = self::add_runtime_code( $state );
+		file_put_contents( $runtime . '/notes.txt', 'put here by someone else' );
+		$wpdb = UninstallSite::reset();
+
+		try {
+			( new Uninstaller( $wpdb ) )->remove_everything();
+
+			self::assertFileExists( $runtime . '/notes.txt' );
+			self::assertSame( [], glob( $runtime . '/*.gz*' ) ?: [], 'every kept copy is gone' );
+			self::assertDirectoryExists( $state, 'a folder that still holds a foreign file stays' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
+	public function test_removing_only_the_code_keeps_the_kept_copies_of_executed_code(): void {
+		[ $uploads, $state ] = self::site_with_state_files();
+		$runtime = self::add_runtime_code( $state );
+
+		try {
+			Uninstaller::remove_code();
+
+			self::assertCount( 2, glob( $runtime . '/*.gz' ) ?: [], 'the copies are data and stay' );
+		} finally {
+			self::remove_tree( $uploads );
+		}
+	}
+
 	public function test_removing_only_the_code_keeps_the_change_history_blobs(): void {
 		[ $uploads, $state ] = self::site_with_state_files();
 		$blobs = self::add_blobs( $state );

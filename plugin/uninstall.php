@@ -19,7 +19,7 @@
  * example in wp-config.php) before deleting the plugin. Stonewright\WpMcp\Core\Uninstaller
  * then drops every plugin table and deletes every plugin option (the OAuth signing and
  * encryption keys included), plugin transient and scheduled event, and the change journal
- * files and change history blobs in uploads/stonewright-state/, on every site of a multisite network. The list of what
+ * files, change history blobs and copies of executed code in uploads/stonewright-state/, on every site of a multisite network. The list of what
  * goes is kept in that class.
  *
  * @package Stonewright\WpMcp
