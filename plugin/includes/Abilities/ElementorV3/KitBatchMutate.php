@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\KitLiveSettings;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
@@ -264,6 +265,7 @@ final class KitBatchMutate extends AbilityKernel {
 				}
 
 				$cache_invalidation = PostCacheInvalidator::invalidate( $kit_id );
+				CachePurgeAdvisor::note_write();
 
 				return $content_filtered + [
 					'ok'            => true,

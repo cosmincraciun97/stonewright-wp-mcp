@@ -10,6 +10,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Security\SitePressure;
 use Stonewright\WpMcp\Support\LateLoad;
 
 /**
@@ -221,7 +222,8 @@ final class RescueInstaller {
 		if ( ! self::late_load_ready() ) {
 			return;
 		}
-		if ( self::check_due() ) {
+		// The check reads and hashes two files and may write one: it waits while the site is under any pressure.
+		if ( self::check_due() && SitePressure::NORMAL === SitePressure::level() ) {
 			self::verify_and_repair();
 			return;
 		}

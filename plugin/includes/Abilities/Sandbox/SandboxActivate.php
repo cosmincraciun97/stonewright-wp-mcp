@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Sandbox;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
@@ -56,6 +57,7 @@ final class SandboxActivate extends AbilityKernel {
 			'properties' => [
 				'ok'   => [ 'type' => 'boolean' ],
 				'name' => [ 'type' => 'string' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'ok', 'name' ],
 		];
@@ -84,7 +86,7 @@ final class SandboxActivate extends AbilityKernel {
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}
-				return $this->ok( [ 'name' => $a['name'] ] );
+				return $this->ok( CachePurgeAdvisor::attach_to_plugin_change( [ 'name' => $a['name'] ] ) );
 			}
 		);
 	}

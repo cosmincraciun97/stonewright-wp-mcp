@@ -999,6 +999,9 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 // Tests swap $GLOBALS['wpdb'] for table doubles that know nothing of the options table: the lock rows stay on this one.
 \Stonewright\WpMcp\Support\OptionLock::use_database( $GLOBALS['wpdb'] );
 
+// The site pressure signal reads a quick database and a calm machine; a test that needs pressure sets it.
+\Stonewright\WpMcp\Security\SitePressure::reset_for_tests();
+
 if ( ! function_exists( 'rest_url' ) ) {
 	function rest_url( string $path = '' ): string {
 		return 'https://example.test/wp-json/' . ltrim( $path, '/' );

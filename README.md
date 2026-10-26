@@ -613,6 +613,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Rescue](docs/rescue.md)
+- [Busy and constrained sites](docs/busy-sites.md): site pressure, write freeze, write pacing, cache-purge advisories
 - [Elementor MCP with Stonewright](docs/elementor-mcp.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)
 - [Beta.13 runtime evidence template](docs/testing/beta13-runtime-evidence-template.md)

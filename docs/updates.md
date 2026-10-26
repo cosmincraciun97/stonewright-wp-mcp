@@ -281,7 +281,7 @@ There are three ways to remove the plugin, and they leave different things behin
 | What | **Plugins** screen, or `wp plugin uninstall` | Folder deleted over SFTP, or `wp plugin delete` | The same as the first, with `STONEWRIGHT_REMOVE_ALL_DATA` set to `true` |
 | --- | --- | --- | --- |
 | Database tables, settings, OAuth clients and keys, memory, skills, audit history | Stay | Stay | Removed |
-| Runtime state: lock rows, schema back-offs, cached compatibility and widget verdicts, the rescue helper's remembered state, the loopback probe cool-down, Elementor editor baselines | Removed on deactivation and again at uninstall | Removed on deactivation; stays if the plugin was never deactivated | Removed |
+| Runtime state: lock rows, schema back-offs, cached compatibility and widget verdicts, the rescue helper's remembered state, the loopback probe cool-down, the site pressure measurement, Elementor editor baselines and save counts | Removed on deactivation and again at uninstall | Removed on deactivation; stays if the plugin was never deactivated | Removed |
 | Scheduled events (`stonewright_oauth_gc`, `stonewright_audit_retention`, `stonewright_change_ledger_prune`) | Unscheduled on deactivation and again at uninstall, on every site of a network | Unscheduled on deactivation | Unscheduled |
 | `wp-content/mu-plugins/stonewright-rescue.php` | Removed | Stays: delete it by hand | Removed |
 | Change journal files and change history blobs in `uploads/stonewright-state/` | Stay | Stay | Removed |
@@ -289,7 +289,7 @@ There are three ways to remove the plugin, and they leave different things behin
 Runtime state is what Stonewright rebuilds on its own, so it goes with deactivation and
 with every uninstall. Everything else stays unless the constant, or the command below,
 asks for its removal. A site with a persistent object cache (Redis, Memcached) keeps its
-transients (editor baselines, back-offs, the loopback cool-down) in that cache and not in
+transients (editor baselines, save counts, back-offs, the loopback cool-down) in that cache and not in
 `wp_options`: Stonewright cannot list them, and they expire on their own, the baselines
 within seven days.
 

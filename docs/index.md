@@ -32,6 +32,7 @@ an administrator chooses), and WP-CLI-assisted workflows with operator controls.
 - [Native planner evidence policy](design-evidence-native-planner.md)
 - [Security model](security.md)
 - [Rescue: recover from a change that breaks the site](rescue.md)
+- [Stonewright on busy or constrained sites](busy-sites.md)
 - [Companion](companion.md)
 - [Skill packs](skills.md)
 - [Plugin specializations](specializations.md)
@@ -60,6 +61,7 @@ an administrator chooses), and WP-CLI-assisted workflows with operator controls.
 | `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `rescue.md` | Change journal, health probe, rollback recipes, the Rescue page, the change history with undo and redo, and its limits |
+| `busy-sites.md` | What the plugin costs per request, the site pressure signal, the write freeze, Elementor write pacing and cache-purge advisories |
 
 - OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
   mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery

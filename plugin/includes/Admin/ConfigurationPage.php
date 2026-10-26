@@ -436,6 +436,7 @@ final class ConfigurationPage {
 		] );
 
 		ChangeHistoryRetention::register_settings();
+		WriteFreezeSettings::register_settings();
 	}
 
 	/**

@@ -669,6 +669,16 @@ final class ErrorPatterns {
 	 * @return array{legacy:array<string, mixed>,draft:array<string, mixed>}
 	 */
 	public static function run_pending_migrations(): array {
+		// A migration scans the memory table: while one is pending it waits for a quiet moment, and the daily job
+		// asks again. Finished migrations cost one option read, and the pressure is not measured for them.
+		if ( ( self::migration_pending( self::LEGACY_LESSON_MIGRATION_OPTION ) || self::migration_pending( self::DRAFT_LESSON_RETURN_OPTION ) )
+			&& SitePressure::NORMAL !== SitePressure::level() ) {
+			return [
+				'legacy' => [ 'deferred' => true, 'already_done' => false ],
+				'draft'  => [ 'deferred' => true, 'already_done' => false ],
+			];
+		}
+
 		return [
 			'legacy' => self::run_guarded(
 				self::LEGACY_LESSON_MIGRATION_OPTION,
@@ -700,6 +710,12 @@ final class ErrorPatterns {
 			self::settle_failed_run( $option, $name, null );
 			return $failed_result;
 		}
+	}
+
+	/** True while a migration has neither finished nor given up. */
+	private static function migration_pending( string $option ): bool {
+		$state = get_option( $option, '' );
+		return ! ( is_scalar( $state ) && in_array( (string) $state, [ '1', 'abandoned' ], true ) );
 	}
 
 	/**

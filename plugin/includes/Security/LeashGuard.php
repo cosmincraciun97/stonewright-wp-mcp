@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\SiteMode;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Security\Adapters\SiteAdapter;
 
 /**
@@ -189,6 +190,45 @@ final class LeashGuard {
 			return $value;
 		}
 		SiteAdapter::note_admin_write( 'rest', 'stonewright_disabled_abilities', 'Refused: a request that is not a person in wp-admin tried to switch on ' . count( $removed ) . ' ability(ies): ' . implode( ', ', array_slice( array_values( $removed ), 0, 5 ) ) );
+		return $old_value;
+	}
+
+	/**
+	 * The pre_update_option_stonewright_write_freeze filter: during a REST request that is not a person in wp-admin,
+	 * a freeze that is lifted or ends sooner is not stored; the old one stays. A freeze that is started or made longer
+	 * passes: tightening a limit stays open to anyone who can change settings.
+	 *
+	 * @param mixed $value     The freeze about to be stored.
+	 * @param mixed $old_value The stored freeze.
+	 * @return mixed
+	 */
+	public static function guard_write_freeze_write( mixed $value, mixed $old_value ) {
+		if ( ! self::serving_rest_request() || ! WriteFreeze::loosens( $old_value, $value ) || self::rest_request_is_person() ) {
+			return $value;
+		}
+		SiteAdapter::note_admin_write( 'rest', WriteFreeze::OPTION, 'Refused: a request that is not a person in wp-admin tried to lift or shorten the write freeze' );
+		return $old_value;
+	}
+
+	/**
+	 * The pre_update_option_stonewright_elementor_write_pacing filter: during a REST request that is not a person in
+	 * wp-admin, a mode that is less strict than the stored one (strict to warn or off, warn to off) is not stored;
+	 * the old value stays. A missing or invalid value counts as the default, warn.
+	 *
+	 * @param mixed $value     The mode about to be stored.
+	 * @param mixed $old_value The stored mode (false when there is none).
+	 * @return mixed
+	 */
+	public static function guard_write_pacing_write( mixed $value, mixed $old_value ) {
+		if ( ! self::serving_rest_request() ) {
+			return $value;
+		}
+		$from = is_string( $old_value ) && isset( WritePacing::MODES[ $old_value ] ) ? $old_value : WritePacing::MODE_WARN;
+		$to   = is_string( $value ) && isset( WritePacing::MODES[ $value ] ) ? $value : WritePacing::MODE_WARN;
+		if ( WritePacing::MODES[ $to ] >= WritePacing::MODES[ $from ] || self::rest_request_is_person() ) {
+			return $value;
+		}
+		SiteAdapter::note_admin_write( 'rest', WritePacing::OPTION, 'Refused: a request that is not a person in wp-admin tried to change Elementor write pacing from ' . $from . ' to ' . $to );
 		return $old_value;
 	}
 
