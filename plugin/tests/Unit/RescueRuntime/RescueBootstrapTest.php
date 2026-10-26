@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\RescueRuntime;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Cli\ChangesCommand;
+use Stonewright\WpMcp\Cli\CleanupCommand;
 use Stonewright\WpMcp\Cli\RescueCommand;
 use Stonewright\WpMcp\Cli\StonewrightCommand;
 use Stonewright\WpMcp\Core\RescueBootstrap;
@@ -54,6 +55,12 @@ final class RescueBootstrapTest extends TestCase {
 		self::assertContains( [ RescueInstaller::class, 'admin_notice' ], self::callbacks( 'network_admin_notices' ) );
 	}
 
+	public function test_an_update_asks_for_a_check_of_the_helper(): void {
+		RescueBootstrap::register();
+
+		self::assertContains( [ RescueInstaller::class, 'force_next_check' ], self::callbacks( 'upgrader_process_complete' ) );
+	}
+
 	public function test_the_safe_boot_audit_the_email_filter_and_the_setting_are_registered(): void {
 		RescueBootstrap::register();
 
@@ -88,10 +95,11 @@ final class RescueBootstrapTest extends TestCase {
 
 		RescueBootstrap::register();
 
-		self::assertSame( [ 'stonewright', 'stonewright rescue', 'stonewright changes' ], array_keys( \WP_CLI::$commands ) );
+		self::assertSame( [ 'stonewright', 'stonewright rescue', 'stonewright changes', 'stonewright cleanup' ], array_keys( \WP_CLI::$commands ) );
 		self::assertSame( StonewrightCommand::class, \WP_CLI::$commands['stonewright'] );
 		self::assertInstanceOf( RescueCommand::class, \WP_CLI::$commands['stonewright rescue'] );
 		self::assertInstanceOf( ChangesCommand::class, \WP_CLI::$commands['stonewright changes'] );
+		self::assertInstanceOf( CleanupCommand::class, \WP_CLI::$commands['stonewright cleanup'] );
 	}
 
 	/**
@@ -108,5 +116,6 @@ final class RescueBootstrapTest extends TestCase {
 		self::assertSame( 'SomeOtherStonewrightCommand', \WP_CLI::$commands['stonewright'] );
 		self::assertInstanceOf( RescueCommand::class, \WP_CLI::$commands['stonewright rescue'] );
 		self::assertInstanceOf( ChangesCommand::class, \WP_CLI::$commands['stonewright changes'] );
+		self::assertInstanceOf( CleanupCommand::class, \WP_CLI::$commands['stonewright cleanup'] );
 	}
 }

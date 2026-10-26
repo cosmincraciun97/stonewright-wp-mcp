@@ -20,6 +20,9 @@ namespace Stonewright\WpMcp\Sandbox;
  */
 final class StaticGuard {
 
+	/** Bump when the rule lists change. */
+	public const RULES_VERSION = 1;
+
 	/**
 	 * Function names that are unconditionally blocked when called directly.
 	 *

@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Admin\WriteFreezeSettings;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
@@ -26,6 +27,7 @@ use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
@@ -48,9 +50,12 @@ use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\RescueHooks;
+use Stonewright\WpMcp\Security\SitePressure;
 use Stonewright\WpMcp\Security\StaticAnalysis;
+use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\OptionLock;
 
 /**
  * Boots the Stonewright plugin and wires WordPress hooks.
@@ -129,16 +134,6 @@ final class PluginRegistration {
 		add_action( 'init', [ ChangeLedgerRetention::class, 'sync_schedule' ], 25, 0 );
 		add_action( ChangeLedgerRetention::HOOK, [ ChangeLedgerRetention::class, 'run_scheduled' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
-		// Idempotent: supersede legacy unresolved audit lessons into incident history.
-		// Void wrapper — WP action callbacks must not return values (PHPStan).
-		add_action(
-			'init',
-			static function (): void {
-				ErrorPatterns::migrate_legacy_audit_lessons();
-				ErrorPatterns::return_unapproved_draft_lessons();
-			},
-			20
-		);
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillTables::class, 'ensure' ] );
 		add_action( 'init', [ self::class, 'maybe_upgrade' ], 15 );
@@ -164,6 +159,12 @@ final class PluginRegistration {
 		// A REST request that is not a person in wp-admin cannot loosen the mode or switch an ability back on.
 		add_filter( 'pre_update_option_stonewright_mode', [ LeashGuard::class, 'guard_mode_write' ], 10, 2 );
 		add_filter( 'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ], 10, 2 );
+		// Nor can it stop the audit log from keeping a copy of the code php-execute runs.
+		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		add_action( 'add_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_added' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_write_freeze', [ LeashGuard::class, 'guard_write_freeze_write' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_elementor_write_pacing', [ LeashGuard::class, 'guard_write_pacing_write' ], 10, 2 );
+		WriteFreezeSettings::register();
 
 		CrashRecovery::register();
 		WidgetLoader::register();
@@ -171,9 +172,16 @@ final class PluginRegistration {
 		VendorGuard::register();
 		// No usable MCP adapter loaded: the owner and version in an admin notice, and an explicit answer on the MCP routes.
 		McpRuntimeNotice::register();
+		// The stored compatibility report belongs to one plugin set: a plugin or theme change discards it.
+		McpAbilitiesCompatibilityPreflight::register();
 		// MCP routes: refuse a request whose Origin is present and is neither the site's own nor an allowed one.
 		McpOriginGuard::register();
+		// tools/list answers over a byte budget are paged with MCP cursors, so a large surface stays under the companion's read cap.
+		ToolsListPagination::register();
 		EditorSaveGuard::register();
+		// Agents learn from every ability response when the site is under load.
+		AgentNotices::register_field( 'site_pressure', [ SitePressure::class, 'notice' ] );
+		AgentNotices::register_field( 'write_pacing', [ WritePacing::class, 'notice' ] );
 		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
 		NativeObserver::register();
 		BasicAuthCredentials::register();
@@ -206,7 +214,8 @@ final class PluginRegistration {
 	 * Instantiate the shared MCP adapter after other plugins have registered autoloaders.
 	 */
 	public static function maybe_boot_mcp_adapter(): void {
-		$compatibility = McpAbilitiesCompatibilityPreflight::inspect();
+		// A compatible report is kept for the plugin set, so a request does not inspect the runtime again.
+		$compatibility = McpAbilitiesCompatibilityPreflight::cached();
 		if ( $compatibility['compatible'] && class_exists( \WP\MCP\Core\McpAdapter::class ) ) {
 			McpDefaultServerGuard::register();
 			\WP\MCP\Core\McpAdapter::instance();
@@ -216,10 +225,12 @@ final class PluginRegistration {
 	}
 
 	public function on_activate(): void {
-		Memory::maybe_install_table();
-		AuditLog::maybe_install_table();
-		ChangeLedger::maybe_install_table();
-		IncidentStore::maybe_install_table();
+		// Not the version-gated install: activation re-checks every table and adds what is missing.
+		// A store that fails must not stop the activation: its table is repaired again by the daily job.
+		self::attempt( 'memory_table', static fn () => Memory::repair_table() );
+		self::attempt( 'audit_table', static fn () => AuditLog::repair_table() );
+		self::attempt( 'changes_table', static fn () => ChangeLedger::repair_table() );
+		self::attempt( 'incident_table', static fn () => IncidentStore::repair_table() );
 		// OAuth tables, signing and encryption keys (never throws), daily clean-up schedule.
 		AuthorizationLifecycle::activate();
 		SkillTables::install();
@@ -233,6 +244,8 @@ final class PluginRegistration {
 		if ( PluginEffectiveState::enabled_requested() ) {
 			DomainLock::lock();
 		}
+		// Deactivating and activating again is an update that maybe_upgrade() never sees: the version stored below ends its upgrade run.
+		BootOptions::autoload_all();
 		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		// Mode from the environment type; a first activation also gets the essential surface.
@@ -260,17 +273,59 @@ final class PluginRegistration {
 		if ( $stored === STONEWRIGHT_VERSION ) {
 			return;
 		}
-		// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
-		// on its first request without a mode; an update can find one missing too.
-		SiteDefaults::seed( '' === $stored );
-		IncidentStore::maybe_install_table();
-		SkillTables::ensure();
-		SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
-		// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
-		LegacyMirrorCleanup::run();
-		// A schema captured by an earlier version may lack controls the new one reads.
-		WidgetSchemaRepository::invalidate();
-		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
+		// One request runs the chain: on a busy site every request that boots before the first one stores
+		// the version would otherwise run all of it, and count each run as a migration attempt. A request
+		// that does not get the lock goes on; the version stays unstored and a later request tries again.
+		if ( ! OptionLock::acquire( 'upgrade', 300 ) ) {
+			return;
+		}
+		try {
+			// The holder before us may have finished between our version read and our lock.
+			wp_cache_delete( 'alloptions', 'options' );
+			wp_cache_delete( 'stonewright_version', 'options' );
+			if ( (string) get_option( 'stonewright_version', '' ) === STONEWRIGHT_VERSION ) {
+				return;
+			}
+			// WordPress runs the activation hook once for a network activation, so a sub-site arrives here
+			// on its first request without a mode; an update can find one missing too.
+			SiteDefaults::seed( '' === $stored );
+			// An update can bring a column a table lacks; init no longer looks, so repair all four now.
+			// A store that fails must not keep the version from being stored: the daily job repairs it again.
+			self::attempt( 'memory_table', static fn () => Memory::repair_table() );
+			self::attempt( 'audit_table', static fn () => AuditLog::repair_table() );
+			self::attempt( 'changes_table', static fn () => ChangeLedger::repair_table() );
+			self::attempt( 'incident_table', static fn () => IncidentStore::repair_table() );
+			SkillTables::ensure();
+			SkillLibraryService::open( WordPressBoundary::SYSTEM )->refresh_bundled_pack();
+			// Guards uploads/stonewright-mirror and removes page exports that earlier versions left there.
+			LegacyMirrorCleanup::run();
+			// A schema captured by an earlier version may lack controls the new one reads.
+			WidgetSchemaRepository::invalidate();
+			// Options an earlier version stored without autoload cost a query each per request; move them into the autoloaded set.
+			BootOptions::autoload_all();
+			// Supersede legacy unresolved audit lessons and return unapproved draft lessons; the daily job retries a failed run.
+			ErrorPatterns::run_pending_migrations();
+			update_option( 'stonewright_version', STONEWRIGHT_VERSION );
+		} finally {
+			OptionLock::release( 'upgrade' );
+		}
+	}
+
+	/**
+	 * Runs one step whose failure must not stop the ones after it, and logs the failure.
+	 */
+	private static function attempt( string $step, callable $run ): void {
+		try {
+			$run();
+		} catch ( \Throwable $failure ) {
+			Logger::warning(
+				'upgrade_step_failed',
+				[
+					'step'        => $step,
+					'error_class' => get_class( $failure ),
+				]
+			);
+		}
 	}
 
 	/**
@@ -328,10 +383,24 @@ final class PluginRegistration {
 		echo '</a></p></div>';
 	}
 
-	public function on_deactivate(): void {
+	/**
+	 * Deactivation unschedules the events and clears the runtime state (locks, back-offs, cached verdicts, the
+	 * helper's remembered state, editor baselines). Settings, tables, keys and the rescue helper stay, so a
+	 * reactivation finds the site as it was.
+	 *
+	 * @param bool $network_wide Whether the plugin is deactivated for the whole network: the events and the runtime
+	 *                           state of every site go then, not only those of the current one.
+	 */
+	public function on_deactivate( bool $network_wide = false ): void {
+		global $wpdb;
+		$network = $network_wide && is_multisite();
 		AuthorizationLifecycle::deactivate();
 		AuditLog::unschedule_retention();
 		ChangeLedgerRetention::unschedule();
+		if ( $network ) {
+			Uninstaller::unschedule_events();
+		}
+		RuntimeState::clear_everywhere( $wpdb, $network );
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

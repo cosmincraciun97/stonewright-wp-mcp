@@ -10,6 +10,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Security\SitePressure;
+use Stonewright\WpMcp\Support\LateLoad;
+
 /**
  * Keeps plugin/mu/stonewright-rescue.php installed in the must-use plugins directory.
  *
@@ -19,10 +22,16 @@ namespace Stonewright\WpMcp\Core;
  * installed when it does not parse or is cut short.
  *
  * It is installed when the plugin is activated and again whenever the plugin version or the
- * plugin file name changes. On every admin page load its hash is compared with the bundled
- * file and a missing or modified copy is written again. When the directory cannot be written,
- * or file changes are turned off for the site, Stonewright goes on without the helper and an
- * admin notice says so.
+ * plugin file name changes. On an admin page load its size and modification time are compared with
+ * the ones remembered; the file is read and its hash compared with the bundled file only when they
+ * differ, when it is gone, when the last check is twelve hours old, when no check is remembered, or
+ * after an update, and a missing or modified copy is then written again. When the directory cannot
+ * be written, or file changes are turned off for the site, Stonewright goes on without the helper
+ * and an admin notice says so.
+ *
+ * The option stonewright_rescue_mu_state holds the last check (checked_at, and the size and mtime
+ * of the file as it stood, null when it was not there) and, when the helper could not be installed,
+ * failed_at and the reason. It is small and autoloaded.
  *
  * The helper is code, not data: deleting the plugin always removes it, and it stays on disk but
  * does nothing while the plugin is deactivated.
@@ -49,6 +58,9 @@ final class RescueInstaller {
 
 	/** Seconds after a failed install before another one is tried. */
 	public const RETRY_SECONDS = 300;
+
+	/** Seconds after which the installed file is read and hashed again, whatever its size and time say. */
+	public const CHECK_SECONDS = 12 * HOUR_IN_SECONDS;
 
 	private const MAX_BYTES = 262144;
 
@@ -155,11 +167,13 @@ final class RescueInstaller {
 			}
 		}
 		self::remember();
+		// The stat comes before the hash: a file that changes in between is looked at again next time.
+		$memory = self::file_memory();
 		$status = self::status();
 		if ( 'ok' === $status['state'] ) {
-			self::record_success();
+			self::record_success( $memory );
 		} else {
-			self::record_failure( $status['state'] );
+			self::record_failure( $status['state'], $memory );
 		}
 		return $status;
 	}
@@ -188,6 +202,10 @@ final class RescueInstaller {
 		if ( (string) get_option( self::OPTION_VERSION, '' ) === $version && (string) get_option( self::OPTION_PLUGIN, '' ) === self::plugin_basename() ) {
 			return;
 		}
+		// Only now: a request with nothing to do (nearly every request) must not pay for the file checks.
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
 		if ( self::recently_failed() ) {
 			return;
 		}
@@ -196,23 +214,58 @@ final class RescueInstaller {
 		}
 	}
 
-	/** Action callback for admin_init. */
+	/**
+	 * Action callback for admin_init. The helper is read and hashed only when check_due() says so;
+	 * every other request costs one stat.
+	 */
 	public static function on_admin_init(): void {
-		self::verify_and_repair();
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
+		// The check reads and hashes two files and may write one: it waits while the site is under any pressure.
+		if ( self::check_due() && SitePressure::NORMAL === SitePressure::level() ) {
+			self::verify_and_repair();
+			return;
+		}
+		self::remember_state_dir();
 	}
 
 	/**
-	 * Admin page load: compares the installed file with the bundled one and writes it again when it
-	 * is missing or was changed. Also records where the journal file lives, for the helper.
+	 * The next admin page load reads the helper whatever the last check says. Action callback for
+	 * upgrader_process_complete, which fires at a real update only. A record of a failed install stays, so
+	 * that one is not retried at once.
+	 */
+	public static function force_next_check(): void {
+		$state = get_option( self::OPTION_STATE, [] );
+		if ( ! is_array( $state ) ) {
+			return;
+		}
+		$kept = array_diff_key( $state, array_flip( [ 'checked_at', 'size', 'mtime', 'version' ] ) );
+		if ( $kept !== $state ) {
+			update_option( self::OPTION_STATE, $kept, true );
+		}
+	}
+
+	/**
+	 * Compares the installed file with the bundled one and writes it again when it is missing or was
+	 * changed, and remembers the check. Also records where the journal file lives, for the helper.
+	 * Always reads the file: on_admin_init() decides whether that is needed.
 	 *
 	 * @return array{state:string,target:string,installed_sha256:?string,bundled_sha256:?string,writable:bool}
 	 */
 	public static function verify_and_repair(): array {
 		self::remember_state_dir();
+		$memory = self::file_memory();
 		$status = self::status();
 		if ( ! in_array( $status['state'], [ 'missing', 'modified' ], true ) || self::recently_failed() ) {
 			if ( 'ok' === $status['state'] ) {
-				self::forget_failure();
+				self::record_success( $memory );
+			} elseif ( self::recently_failed() ) {
+				// Not tried again yet: the failure stays as it was and the check is remembered beside it.
+				$failure = (array) get_option( self::OPTION_STATE, [] );
+				update_option( self::OPTION_STATE, [ 'failed_at' => (int) ( $failure['failed_at'] ?? 0 ), 'reason' => (string) ( $failure['reason'] ?? $status['state'] ) ] + $memory, true );
+			} else {
+				self::record_failure( $status['state'], $memory );
 			}
 			return $status;
 		}
@@ -259,10 +312,12 @@ final class RescueInstaller {
 		if ( ! current_user_can( 'manage_options' ) || ! self::on_notice_screen() ) {
 			return;
 		}
-		$status = self::status();
-		$state  = $status['state'];
-		if ( in_array( $state, [ 'missing', 'modified' ], true ) && self::recently_failed() ) {
-			$state = 'unwritable';
+		$state = self::remembered_notice_state();
+		if ( null === $state ) {
+			$state = self::status()['state'];
+			if ( in_array( $state, [ 'missing', 'modified' ], true ) && self::recently_failed() ) {
+				$state = 'unwritable';
+			}
 		}
 		if ( 'unwritable' === $state ) {
 			$text = sprintf(
@@ -406,6 +461,18 @@ final class RescueInstaller {
 		self::remember_state_dir();
 	}
 
+	/**
+	 * False when a class this class loads late is gone from disk, as in a request that outlives the deletion
+	 * of the plugin folder: the hooks that run after plugins_loaded return then instead of reaching the autoloader.
+	 */
+	private static function late_load_ready(): bool {
+		return LateLoad::ready(
+			\Stonewright\WpMcp\Security\ChangeJournal::class,
+			\Stonewright\WpMcp\Security\ChangeJournalFile::class,
+			\Stonewright\WpMcp\Security\AuditLog::class
+		);
+	}
+
 	private static function remember_state_dir(): void {
 		if ( ! class_exists( \Stonewright\WpMcp\Security\ChangeJournal::class ) ) {
 			return;
@@ -425,18 +492,130 @@ final class RescueInstaller {
 		return is_array( $state ) && (int) ( $state['failed_at'] ?? 0 ) > self::now() - self::RETRY_SECONDS;
 	}
 
-	private static function record_failure( string $reason ): void {
-		update_option( self::OPTION_STATE, [ 'failed_at' => self::now(), 'reason' => $reason ], true );
+	/**
+	 * Size and modification time of the installed file, null for both when it is not there. The stat
+	 * cache is cleared first so that a change made earlier in this request is seen.
+	 *
+	 * @return array{size:?int,mtime:?int}
+	 */
+	private static function file_stat(): array {
+		$path = self::target_path();
+		clearstatcache( true, $path );
+		$size  = is_file( $path ) ? @filesize( $path ) : false;
+		$mtime = false === $size ? false : @filemtime( $path );
+		if ( false === $size || false === $mtime ) {
+			return [ 'size' => null, 'mtime' => null ];
+		}
+		return [ 'size' => (int) $size, 'mtime' => (int) $mtime ];
 	}
 
-	private static function record_success(): void {
-		if ( [] !== get_option( self::OPTION_STATE, [] ) ) {
-			update_option( self::OPTION_STATE, [], true );
+	private static function running_version(): string {
+		return defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
+	}
+
+	/**
+	 * What a check remembers: when it ran, how the file looked and which plugin version ran the check.
+	 *
+	 * @return array{checked_at:int,size:?int,mtime:?int,version:string}
+	 */
+	private static function file_memory(): array {
+		return [ 'checked_at' => self::now(), 'version' => self::running_version() ] + self::file_stat();
+	}
+
+	/**
+	 * The remembered state when it carries a complete check, null for no state, an older shape or garbage.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private static function remembered_check(): ?array {
+		$state = get_option( self::OPTION_STATE, [] );
+		if ( ! is_array( $state ) || ! isset( $state['checked_at'] ) || ! is_int( $state['checked_at'] ) || ! array_key_exists( 'size', $state ) || ! array_key_exists( 'mtime', $state ) ) {
+			return null;
 		}
+		return $state;
+	}
+
+	/**
+	 * Whether the installed file still has the size and time of the remembered check (both absent counts).
+	 *
+	 * @param array<string,mixed> $state The remembered check.
+	 */
+	private static function looks_unchanged( array $state ): bool {
+		$now = self::file_stat();
+		return $now['size'] === ( null === $state['size'] ? null : (int) $state['size'] )
+			&& $now['mtime'] === ( null === $state['mtime'] ? null : (int) $state['mtime'] );
+	}
+
+	/**
+	 * Whether this admin request reads and hashes the helper: no check is remembered, the last one is
+	 * twelve hours old, another plugin version made it (an older record without a version counts), or the
+	 * file's size or time are not the remembered ones. A file that is not
+	 * there counts as a change, except when the last check saw it missing too. A remembered failure,
+	 * missing file or a repair that could not be written, is tried again after RETRY_SECONDS, as a
+	 * failed install always was.
+	 */
+	private static function check_due(): bool {
+		$state = self::remembered_check();
+		if ( null === $state ) {
+			return true;
+		}
+		$age = self::now() - $state['checked_at'];
+		if ( (string) ( $state['version'] ?? '' ) !== self::running_version() ) {
+			return true;
+		}
+		if ( $age >= self::CHECK_SECONDS || $age < -self::CHECK_SECONDS || ! self::looks_unchanged( $state ) ) {
+			return true;
+		}
+		if ( isset( $state['failed_at'] ) ) {
+			// The same clock as recently_failed(), so a retry that is due is not held back again.
+			return self::now() - (int) $state['failed_at'] >= self::RETRY_SECONDS;
+		}
+		return null === $state['size'] && $age >= self::RETRY_SECONDS;
+	}
+
+	/**
+	 * What the notice says, from the remembered check and without reading the helper: ok for a clean
+	 * check of a file that still looks the same, the state of a failed install, or null when the
+	 * memory cannot be trusted (none, an older shape, a file that moved) and status() must look.
+	 */
+	private static function remembered_notice_state(): ?string {
+		$state = self::remembered_check();
+		if ( null === $state || ! self::looks_unchanged( $state ) ) {
+			return null;
+		}
+		$reason = (string) ( $state['reason'] ?? '' );
+		if ( '' === $reason ) {
+			return null === $state['size'] ? null : 'ok';
+		}
+		if ( 'write_failed' === $reason ) {
+			return 'unwritable';
+		}
+		return in_array( $reason, [ 'unwritable', 'file_mods_disabled', 'source_invalid' ], true ) ? $reason : null;
+	}
+
+	/**
+	 * A failed install or check. failed_at holds back the next install for RETRY_SECONDS; the memory
+	 * keeps the file from being read again for twelve hours.
+	 *
+	 * @param array{checked_at:int,size:?int,mtime:?int,version:string}|null $memory Taken before the file was read, or now.
+	 */
+	private static function record_failure( string $reason, ?array $memory = null ): void {
+		update_option( self::OPTION_STATE, [ 'failed_at' => self::now(), 'reason' => $reason ] + ( $memory ?? self::file_memory() ), true );
+	}
+
+	/**
+	 * A check that found the helper in place.
+	 *
+	 * @param array{checked_at:int,size:?int,mtime:?int,version:string} $memory Taken before the file was read.
+	 */
+	private static function record_success( array $memory ): void {
+		update_option( self::OPTION_STATE, $memory, true );
 	}
 
 	private static function forget_failure(): void {
-		self::record_success();
+		if ( [] !== get_option( self::OPTION_STATE, [] ) ) {
+			update_option( self::OPTION_STATE, [], true );
+		}
 	}
 
 	private static function on_notice_screen(): bool {

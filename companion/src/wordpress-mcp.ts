@@ -7,7 +7,9 @@ import { z, type ZodTypeAny } from 'zod';
 import { PERMANENT_GATEWAY_TOOL_NAMES, isPermanentGatewayTool } from './connection/permanent-gateways.js';
 import {
 	PluginTransportError,
+	classifyResponseTruncated,
 	classifyTransportFailure,
+	type TransportDiagnostic,
 	type TransportPhase,
 } from './connection/transport-diagnostic.js';
 import {
@@ -66,7 +68,14 @@ interface RemoteTool {
 
 interface ToolListResult {
 	tools?: RemoteTool[];
+	nextCursor?: unknown;
 }
+
+/** Bytes of one response body the client reads; a longer body is reported, never parsed. */
+const RESPONSE_READ_CAP_BYTES = 1_048_576;
+
+/** Most tools/list pages followed in one listing; a server that pages further is treated as looping. */
+const MAX_TOOL_PAGES = 64;
 
 export interface WordPressMcpRegistrationResult {
 	profile: ProxyToolProfile;
@@ -78,6 +87,9 @@ export interface WordPressMcpRegistrationResult {
 	filteredToolCount: number;
 	/** Plugin MCP initialize.instructions captured during proxy handshake. */
 	remoteInstructions: string;
+	/** tools/list pages and response bytes of the latest successful listing (0 when none yet). */
+	toolsListPages: number;
+	toolsListBytes: number;
 	liveState: WordPressProxyLiveState;
 	/** Call a remote plugin tool (for permanent local gateways that proxy when connected). */
 	callRemoteTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
@@ -1053,6 +1065,8 @@ export async function registerWordPressMcpTools(
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
+		toolsListPages: client.lastToolsListPages,
+		toolsListBytes: client.lastToolsListBytes,
 		liveState,
 		// Permanent local gateways (notably task-start) must pass through the same
 		// tools_changed refresh path as ordinary proxied tool calls.
@@ -1549,6 +1563,8 @@ export class WordPressMcpClient {
 	private initialized = false;
 	private remoteInstructionsValue = '';
 	private readonly oauthTokenManager: OAuthTokenManager | null;
+	private toolsListPages = 0;
+	private toolsListBytes = 0;
 
 	public constructor(
 		private readonly config: WordPressMcpConfig,
@@ -1564,10 +1580,69 @@ export class WordPressMcpClient {
 		return this.remoteInstructionsValue;
 	}
 
+	/** Pages the last successful listTools() followed (0 until one succeeds). */
+	public get lastToolsListPages(): number {
+		return this.toolsListPages;
+	}
+
+	/** Response body bytes the last successful listTools() read, over all its pages. */
+	public get lastToolsListBytes(): number {
+		return this.toolsListBytes;
+	}
+
+	/**
+	 * tools/list, following MCP cursors until the server sends no nextCursor. A server without
+	 * pagination answers in one page and is unaffected.
+	 */
 	public async listTools(): Promise<RemoteTool[]> {
 		await this.ensureInitialized();
-		const result = await this.request('tools/list', {}, 'tools_list');
-		return Array.isArray((result as ToolListResult).tools) ? (result as ToolListResult).tools ?? [] : [];
+		const tools: RemoteTool[] = [];
+		const seenCursors = new Set<string>();
+		let bytes = 0;
+		let pages = 0;
+		let cursor: string | null = null;
+		const startedAt = Date.now();
+
+		do {
+			if (pages >= MAX_TOOL_PAGES) {
+				throw this.toolsListCursorLoop(startedAt);
+			}
+			const params: Record<string, unknown> = cursor === null ? {} : { cursor };
+			const received = { bytes: 0 };
+			const result = await this.request('tools/list', params, 'tools_list', received);
+			bytes += received.bytes;
+			pages += 1;
+			const page = result as ToolListResult;
+			if (Array.isArray(page.tools)) {
+				tools.push(...page.tools);
+			}
+			const next: unknown = page.nextCursor;
+			cursor = typeof next === 'string' && next !== '' ? next : null;
+			if (cursor !== null) {
+				if (seenCursors.has(cursor)) {
+					throw this.toolsListCursorLoop(startedAt);
+				}
+				seenCursors.add(cursor);
+			}
+		} while (cursor !== null);
+
+		this.toolsListPages = pages;
+		this.toolsListBytes = bytes;
+		return tools;
+	}
+
+	private toolsListCursorLoop(startedAt: number): PluginTransportError {
+		const diagnostic: TransportDiagnostic = {
+			kind: 'unknown_transport_error',
+			phase: 'tools_list',
+			safe_cause_code: null,
+			http_status: 200,
+			attempt: 1,
+			duration_ms: Math.max(0, Date.now() - startedAt),
+			retryable: false,
+			request_may_have_reached_server: true,
+		};
+		return new PluginTransportError('tools/list cursor loop during tools_list', diagnostic);
 	}
 
 	public async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -1628,13 +1703,14 @@ export class WordPressMcpClient {
 		method: string,
 		params: Record<string, unknown>,
 		phase: TransportPhase = 'tool_call',
+		received?: { bytes: number },
 	): Promise<unknown> {
 		const response = await this.send({
 			jsonrpc: '2.0',
 			id: this.nextId++,
 			method,
 			params,
-		}, phase);
+		}, phase, received);
 
 		if (response.error) {
 			throw new WordPressMcpHttpError(
@@ -1660,7 +1736,11 @@ export class WordPressMcpClient {
 		}, phase);
 	}
 
-	private async send(payload: Record<string, unknown>, phase: TransportPhase = 'tool_call'): Promise<JsonRpcResponse> {
+	private async send(
+		payload: Record<string, unknown>,
+		phase: TransportPhase = 'tool_call',
+		received?: { bytes: number },
+	): Promise<JsonRpcResponse> {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
 		const startedAt = Date.now();
@@ -1704,7 +1784,7 @@ export class WordPressMcpClient {
 
 		let bounded: { text: string; truncated: boolean };
 		try {
-			bounded = await readBoundedBody(response, 1_048_576);
+			bounded = await readBoundedBody(response, RESPONSE_READ_CAP_BYTES);
 		} catch (error) {
 			const diagnostic = classifyTransportFailure(error, {
 				phase,
@@ -1718,6 +1798,9 @@ export class WordPressMcpClient {
 			);
 		}
 
+		if (received) {
+			received.bytes = Buffer.byteLength(bounded.text, 'utf8');
+		}
 		const contentType = response.headers.get('content-type') ?? '';
 		const classified = classifyMcpHttpPayload(
 			response.status,
@@ -1727,9 +1810,20 @@ export class WordPressMcpClient {
 		);
 		const checkedAt = new Date().toISOString();
 
+		if (bounded.truncated) {
+			throw new WordPressMcpHttpError(
+				`WordPress MCP response over the 1 MiB read cap during ${phase}`,
+				response.status,
+				classified.rest_code,
+				classified.body_kind,
+				checkedAt,
+				true,
+				classifyResponseTruncated(response.status, { phase, attempt, startedAt }),
+			);
+		}
+
 		if (
-			bounded.truncated
-			|| classified.rest_code === 'rest_no_route'
+			classified.rest_code === 'rest_no_route'
 			|| !response.ok
 			|| classified.body_kind === 'html'
 		) {
@@ -1739,7 +1833,6 @@ export class WordPressMcpClient {
 				classified.rest_code,
 				classified.body_kind,
 				checkedAt,
-				bounded.truncated,
 			);
 		}
 
@@ -1951,7 +2044,7 @@ function zodFieldFromJsonSchema(schema: Record<string, unknown>): ZodTypeAny {
 		case 'array':
 			return z.array(z.unknown());
 		case 'object':
-			return z.record(z.unknown());
+			return z.record(z.string(), z.unknown());
 		default:
 			return z.unknown();
 	}

@@ -41,9 +41,6 @@ stonewright-credential*.json
 # Research vault must never enter the repo
 research/
 
-# Private planning documents must never enter the repo
-docs/plans/private/
-
 # WordPress
 plugin/wp-content/
 plugin/wordpress/
@@ -55,7 +52,7 @@ plugin/wordpress/
 /*.png
 /.tmp-*
 
-# Playwright e2e local artifacts (baseline evidence lives under docs/plans/evidence/)
+# Playwright e2e local artifacts
 e2e/node_modules/
 e2e/artifacts/
 e2e/test-results/

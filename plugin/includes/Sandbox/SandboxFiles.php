@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Sandbox;
 
 use Stonewright\WpMcp\Security\Adapters\CodeAdapter;
+use Stonewright\WpMcp\Elementor\WidgetBuilder\RegisteredWidgets;
 use Stonewright\WpMcp\Security\AuditLog;
 
 /**
@@ -514,6 +515,11 @@ final class SandboxFiles {
 		self::remove_mu_twins( $name );
 		CodeAdapter::applied( $draft_change );
 		CodeAdapter::applied( $active_change );
+
+		// A deleted widget file leaves the registered list and loses its cached scan verdict.
+		if ( 1 === preg_match( '/^widget-(.+)\.php$/D', $name, $widget ) ) {
+			RegisteredWidgets::forget( $widget[1] );
+		}
 
 		AuditLog::record( 'sandbox.delete', [ 'name' => $name ] );
 		return true;

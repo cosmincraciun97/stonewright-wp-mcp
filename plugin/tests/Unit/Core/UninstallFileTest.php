@@ -18,10 +18,27 @@ final class UninstallFileTest extends TestCase {
 	}
 
 	/**
+	 * What stays when only the code and the runtime state go: every option except the runtime rows.
+	 *
+	 * @param array<string, mixed> $options
+	 * @return array<string, mixed>
+	 */
+	private static function without_runtime_state( array $options ): array {
+		return array_diff_key( $options, array_flip( UninstallSite::RUNTIME_OPTIONS ) );
+	}
+
+	/** Nothing was dropped or written by a statement: the runtime state is found with reads and removed through the options API. */
+	private static function assert_only_reads( \wpdb $wpdb ): void {
+		foreach ( $wpdb->statements as $statement ) {
+			self::assertStringStartsWith( 'SELECT option_name FROM', $statement );
+		}
+	}
+
+	/**
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_deleting_the_plugin_keeps_everything_by_default(): void {
+	public function test_deleting_the_plugin_removes_runtime_state_and_events_but_keeps_data_tables_and_settings(): void {
 		define( 'WP_UNINSTALL_PLUGIN', 'stonewright/stonewright.php' );
 		$wpdb = UninstallSite::reset();
 		$GLOBALS['wpdb'] = $wpdb;
@@ -31,10 +48,10 @@ final class UninstallFileTest extends TestCase {
 
 		include self::file();
 
-		self::assertSame( [], $wpdb->statements, 'no statement was run' );
-		self::assertSame( $tables, $wpdb->tables );
-		self::assertSame( $options, $GLOBALS['stonewright_test_options'] );
-		self::assertSame( $hooks, $GLOBALS['stonewright_test_scheduled_hooks'] );
+		self::assertSame( $tables, $wpdb->tables, 'no table was dropped' );
+		self::assertSame( self::without_runtime_state( $options ), $GLOBALS['stonewright_test_options'], 'settings, keys and data stay; the runtime rows are gone' );
+		self::assertSame( array_diff_key( $hooks, array_flip( UninstallSite::PLUGIN_HOOKS ) ), $GLOBALS['stonewright_test_scheduled_hooks'], 'the plugin events are unscheduled, other events stay' );
+		self::assert_only_reads( $wpdb );
 		self::assertSame( [], UninstallSite::$log, 'the caches were left alone as well' );
 	}
 
@@ -51,14 +68,14 @@ final class UninstallFileTest extends TestCase {
 		$wpdb = UninstallSite::reset();
 		$GLOBALS['wpdb'] = $wpdb;
 		$GLOBALS['stonewright_test_options']['stonewright_registered_widgets'] = [ 'my-card' ];
-		$others = $GLOBALS['stonewright_test_options'];
+		$others = self::without_runtime_state( $GLOBALS['stonewright_test_options'] );
 		unset( $others['stonewright_registered_widgets'] );
 
 		include self::file();
 
 		self::assertArrayNotHasKey( 'stonewright_registered_widgets', $GLOBALS['stonewright_test_options'] );
 		self::assertSame( $others, $GLOBALS['stonewright_test_options'], 'every other option was kept' );
-		self::assertSame( [], $wpdb->statements, 'no table was touched' );
+		self::assert_only_reads( $wpdb );
 	}
 
 	private static function helper_file(): string {
@@ -86,8 +103,8 @@ final class UninstallFileTest extends TestCase {
 		include self::file();
 
 		self::assertFileDoesNotExist( self::helper_file(), 'the helper is code, not data: it always goes' );
-		self::assertSame( [], $wpdb->statements, 'no data was touched' );
-		self::assertSame( $options, $GLOBALS['stonewright_test_options'] );
+		self::assert_only_reads( $wpdb );
+		self::assertSame( self::without_runtime_state( $options ), $GLOBALS['stonewright_test_options'], 'no data was touched' );
 	}
 
 	/**
@@ -133,7 +150,7 @@ final class UninstallFileTest extends TestCase {
 
 		include self::file();
 
-		self::assertSame( [], $wpdb->statements );
+		self::assert_only_reads( $wpdb );
 		self::assertFileDoesNotExist( self::helper_file() );
 	}
 
@@ -156,6 +173,9 @@ final class UninstallFileTest extends TestCase {
 		mkdir( $uploads . '/stonewright-state/blobs', 0777, true );
 		file_put_contents( $uploads . '/stonewright-state/blobs/' . hash( 'sha256', 'synthetic image' ) . '.gz', (string) gzencode( 'synthetic image' ) );
 		file_put_contents( $uploads . '/stonewright-state/blobs/index.php', "<?php\n// Silence is golden.\n" );
+		mkdir( $uploads . '/stonewright-state/runtime', 0777, true );
+		file_put_contents( $uploads . '/stonewright-state/runtime/' . hash( 'sha256', 'return 1;' ) . '.gz', (string) gzencode( 'return 1;' ) );
+		file_put_contents( $uploads . '/stonewright-state/runtime/index.php', "<?php\n// Silence is golden.\n" );
 		return [ $site, $content, $uploads ];
 	}
 
@@ -272,6 +292,7 @@ final class UninstallFileTest extends TestCase {
 			self::assertFalse( $run['loaded']['journal'] ?? true, 'the default path loads no data removal code' );
 			self::assertFalse( $run['loaded']['blob_store'] ?? true, 'nor the blob store' );
 			self::assertCount( 1, glob( $uploads . '/stonewright-state/blobs/*.gz' ) ?: [], 'the change history blobs are data and stay' );
+			self::assertCount( 1, glob( $uploads . '/stonewright-state/runtime/*.gz' ) ?: [], 'the kept copies of executed code are data and stay' );
 		} finally {
 			self::remove_folder( $site );
 		}
@@ -321,9 +342,9 @@ final class UninstallFileTest extends TestCase {
 
 		include self::file();
 
-		self::assertSame( [], $wpdb->statements );
+		self::assert_only_reads( $wpdb );
 		self::assertSame( $tables, $wpdb->tables );
-		self::assertSame( $options, $GLOBALS['stonewright_test_options'] );
+		self::assertSame( self::without_runtime_state( $options ), $GLOBALS['stonewright_test_options'] );
 	}
 
 	/**

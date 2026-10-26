@@ -8,8 +8,136 @@ final class McpAbilitiesCompatibilityPreflight {
 	/** The oldest adapter release Stonewright is run on when another plugin ships it. */
 	private const FOREIGN_ADAPTER_MIN_VERSION = '0.5.0';
 
+	/** The autoloaded option that keeps the last compatible report: `fingerprint`, `report`, `at`. */
+	public const OPTION = 'stonewright_mcp_preflight';
+
+	/** How long a compatible report is trusted when the plugin set has not changed. */
+	public const TTL = HOUR_IN_SECONDS;
+
 	/** @var array<string,mixed>|null */
 	private static ?array $current = null;
+
+	/** @var bool Whether $current was read from the stored report, so this request has not inspected the runtime. */
+	private static bool $from_cache = false;
+
+	private static ?\Closure $inspector = null;
+
+	/**
+	 * The report for this request, inspecting the runtime only when no compatible report is stored for
+	 * this plugin set. A report that says the runtime is incompatible is never stored: a broken site is
+	 * inspected again until it is fixed.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function cached(): array {
+		if ( null !== self::$current ) {
+			return self::$current;
+		}
+		$fingerprint = self::fingerprint();
+		$stored      = get_option( self::OPTION, false );
+		if ( self::reusable( $stored, $fingerprint ) ) {
+			self::$current    = $stored['report'];
+			self::$from_cache = true;
+			return self::$current;
+		}
+
+		return self::remember( self::run_inspection(), $fingerprint );
+	}
+
+	/**
+	 * The report of an inspection made in this request, for a screen that shows the runtime as it is now.
+	 * A report the boot path took from the stored copy is inspected again.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function fresh(): array {
+		if ( null !== self::$current && ! self::$from_cache ) {
+			return self::$current;
+		}
+
+		return self::remember( self::run_inspection(), self::fingerprint() );
+	}
+
+	/** Identifies the plugin set a stored report was made for; any change of it makes the report unusable. */
+	public static function fingerprint(): string {
+		$active   = get_option( 'active_plugins', [] );
+		$network  = get_site_option( 'active_sitewide_plugins', [] );
+		$dir      = defined( 'STONEWRIGHT_DIR' ) ? (string) constant( 'STONEWRIGHT_DIR' ) : dirname( __DIR__, 2 ) . '/';
+		$manifest = $dir . 'vendor/composer/installed.json';
+
+		return sha1(
+			(string) wp_json_encode(
+				[
+					STONEWRIGHT_VERSION,
+					is_array( $active ) ? array_values( $active ) : [],
+					is_array( $network ) ? array_keys( $network ) : [],
+					is_file( $manifest ) ? (int) filemtime( $manifest ) : 0,
+				]
+			)
+		);
+	}
+
+	/** Drops the stored report; the next request inspects the runtime again. */
+	public static function forget(): void {
+		delete_option( self::OPTION );
+	}
+
+	/** A plugin or theme change can change which MCP adapter is loaded. */
+	public static function register(): void {
+		foreach ( [ 'activated_plugin', 'deactivated_plugin', 'upgrader_process_complete', 'switch_theme' ] as $hook ) {
+			add_action( $hook, [ self::class, 'forget' ], 10, 0 );
+		}
+	}
+
+	/** @internal Replaces inspect() in the tests that count inspections. */
+	public static function set_inspector( ?\Closure $inspector ): void {
+		self::$inspector = $inspector;
+	}
+
+	/** @return array<string,mixed> */
+	private static function run_inspection(): array {
+		$report           = null !== self::$inspector ? ( self::$inspector )() : self::inspect();
+		self::$current    = $report;
+		self::$from_cache = false;
+		return $report;
+	}
+
+	/**
+	 * Stores a compatible report; drops the stored one when this inspection finds the runtime incompatible.
+	 *
+	 * @param array<string,mixed> $report
+	 * @return array<string,mixed>
+	 */
+	private static function remember( array $report, string $fingerprint ): array {
+		if ( true === ( $report['compatible'] ?? false ) ) {
+			update_option(
+				self::OPTION,
+				[
+					'fingerprint' => $fingerprint,
+					'report'      => $report,
+					'at'          => time(),
+				],
+				true
+			);
+		} elseif ( false !== get_option( self::OPTION, false ) ) {
+			self::forget();
+		}
+
+		return $report;
+	}
+
+	/** @param mixed $stored */
+	private static function reusable( $stored, string $fingerprint ): bool {
+		if ( ! is_array( $stored ) || ! is_array( $stored['report'] ?? null ) || ! is_int( $stored['at'] ?? null ) ) {
+			return false;
+		}
+		$age = time() - $stored['at'];
+
+		return ( $stored['fingerprint'] ?? null ) === $fingerprint
+			&& $age >= 0
+			&& $age < self::TTL
+			&& true === ( $stored['report']['compatible'] ?? false );
+	}
 
 	/** @param list<mixed>|null $autoloaders @param list<string>|null $package_roots @return array<string,mixed> */
 	public static function inspect( ?array $autoloaders = null, string $adapter_class = 'WP\\MCP\\Core\\McpAdapter', ?array $package_roots = null ): array {
@@ -38,7 +166,8 @@ final class McpAbilitiesCompatibilityPreflight {
 				$blocking[] = $role . '_abi_incompatible';
 			}
 		}
-		self::$current = [
+		self::$from_cache = false;
+		self::$current    = [
 			'compatible'       => [] === $blocking,
 			'adapter'          => $adapter,
 			'abilities'        => [ 'registry' => $registry, 'ability' => $ability ],
@@ -56,7 +185,9 @@ final class McpAbilitiesCompatibilityPreflight {
 
 	/** @internal */
 	public static function reset_for_tests(): void {
-		self::$current = null;
+		self::$current    = null;
+		self::$from_cache = false;
+		self::$inspector  = null;
 	}
 
 	/** @param list<mixed> $autoloaders @param list<string> $package_roots @return array<string,mixed> */

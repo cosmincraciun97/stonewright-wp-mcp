@@ -10,7 +10,9 @@ import { join } from 'node:path';
 import { resolveCredentialSecret } from '../credentials/index.js';
 import { applySiteAliasToEnv } from '../direct/apply-site-env.js';
 import { loadSitesConfig, resolveSite } from '../direct/sites-config.js';
+import { TOOLS_LIST_TRUNCATED_FIX } from '../connection/transport-diagnostic.js';
 import { APP_VERSION } from '../version.js';
+import { WordPressMcpClient, WordPressMcpHttpError } from '../wordpress-mcp.js';
 
 export type DoctorStatus = 'passed' | 'failed' | 'warn' | 'skipped';
 
@@ -20,6 +22,9 @@ export type DoctorCheck = {
 	detail: string;
 	fix?: string;
 	retryable?: boolean;
+	/** mcp_tools_list only: pages the plugin answered tools/list in, and the body bytes read. */
+	tools_list_pages?: number;
+	tools_list_bytes?: number;
 };
 
 export type DoctorReport = {
@@ -399,6 +404,55 @@ export async function checkMcpInitialize(
 	}
 }
 
+/**
+ * Lists the plugin's tools the way the companion does at startup (following nextCursor) and
+ * reports the pages and bytes, so a surface near the read cap shows before it breaks a reconnect.
+ */
+export async function checkMcpToolsList(
+	creds: CredentialSource,
+	password: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<DoctorCheck> {
+	const client = new WordPressMcpClient(
+		{
+			url: `${creds.url}/wp-json/mcp/stonewright`,
+			timeoutMs: 30_000,
+			username: creds.username,
+			password: password.replace(/\s+/g, ''),
+		},
+		fetchImpl,
+	);
+	try {
+		const tools = await client.listTools();
+		const pages = client.lastToolsListPages;
+		const bytes = client.lastToolsListBytes;
+		return {
+			id: 'mcp_tools_list',
+			status: 'passed',
+			detail: `tools/list returned ${tools.length} tools in ${pages} ${pages === 1 ? 'page' : 'pages'} (${bytes} bytes).`,
+			tools_list_pages: pages,
+			tools_list_bytes: bytes,
+		};
+	} catch (err) {
+		if (err instanceof WordPressMcpHttpError && err.truncated) {
+			return {
+				id: 'mcp_tools_list',
+				status: 'failed',
+				detail: 'tools/list answered with a body over the 1 MiB read cap.',
+				fix: TOOLS_LIST_TRUNCATED_FIX,
+				retryable: false,
+			};
+		}
+		return {
+			id: 'mcp_tools_list',
+			status: 'failed',
+			detail: `tools/list failed: ${err instanceof Error ? err.message : String(err)}`,
+			fix: 'Confirm the Stonewright plugin is current and the MCP endpoint answers tools/list, then re-run doctor.',
+			retryable: true,
+		};
+	}
+}
+
 export function checkStaleToolCacheHint(): DoctorCheck {
 	return {
 		id: 'tool_cache',
@@ -469,7 +523,13 @@ export async function runDoctorChecks(options: DoctorEnv = {}): Promise<DoctorRe
 		const password = passwordFromEnvOrFile(env, home);
 		checks.push(await checkRestIndex(creds, fetchImpl));
 		checks.push(await checkRestReachable(creds, password, fetchImpl));
-		checks.push(await checkMcpInitialize(creds, password, fetchImpl));
+		const initialize = await checkMcpInitialize(creds, password, fetchImpl);
+		checks.push(initialize);
+		checks.push(
+			initialize.status === 'passed'
+				? await checkMcpToolsList(creds, password, fetchImpl)
+				: { id: 'mcp_tools_list', status: 'skipped', detail: 'Skipped — MCP initialize did not pass.' },
+		);
 	} else {
 		checks.push({
 			id: 'rest_index',
@@ -483,6 +543,11 @@ export async function runDoctorChecks(options: DoctorEnv = {}): Promise<DoctorRe
 		});
 		checks.push({
 			id: 'mcp_initialize',
+			status: 'skipped',
+			detail: 'Skipped — no credentials.',
+		});
+		checks.push({
+			id: 'mcp_tools_list',
 			status: 'skipped',
 			detail: 'Skipped — no credentials.',
 		});
@@ -510,6 +575,12 @@ export async function runDoctor(argv: string[] = []): Promise<number> {
 		writeOut(`[${mark}] ${check.id}: ${check.detail}`);
 		if (check.fix) {
 			writeOut(`       fix: ${check.fix}`);
+		}
+		if (check.tools_list_pages !== undefined) {
+			writeOut(`       tools_list_pages: ${check.tools_list_pages}`);
+		}
+		if (check.tools_list_bytes !== undefined) {
+			writeOut(`       tools_list_bytes: ${check.tools_list_bytes}`);
 		}
 	}
 

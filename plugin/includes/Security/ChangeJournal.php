@@ -11,6 +11,13 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Support\OptionLock;
+
+// The journal cannot work without its file class. Loading both together means a request that has the journal
+// loaded never reaches for the other file later, when the plugin folder may be gone.
+if ( ! class_exists( ChangeJournalFile::class, false ) ) {
+	require_once __DIR__ . '/ChangeJournalFile.php';
+}
 
 /**
  * Records every risky write before it happens and follows it until the site is known to be healthy.
@@ -37,6 +44,10 @@ final class ChangeJournal {
 	public const OPEN_OPTION = 'stonewright_rescue_open';
 	public const SEEN_OPTION = 'stonewright_rescue_journal_seen';
 	public const STATE_DIR   = 'stonewright-state';
+
+	/** The claim a request takes before it rewrites the journal file, and how long it holds if that request dies. */
+	private const SYNC_CLAIM         = 'journal_sync';
+	private const SYNC_CLAIM_SECONDS = 60;
 
 	/** Seconds from arming until the probe is expected to have finished. */
 	public const WINDOW = 120;
@@ -372,25 +383,69 @@ final class ChangeJournal {
 		if ( null === $file ) {
 			return 0;
 		}
+		$seen     = get_option( self::SEEN_OPTION, [] );
 		$oversize = $file->is_oversize();
-		$raw      = $oversize ? null : $file->read_raw();
-		if ( ! $oversize && null === $raw ) {
+		$hash     = 'oversize';
+		if ( $oversize ) {
+			// A file the helper will not read, remembered by its size and time: one stat tells whether it moved.
+			$signature = self::oversize_signature( $file );
+			if ( is_array( $seen ) && true === ( $seen['oversize'] ?? false ) && $signature['size'] === ( $seen['size'] ?? null ) && $signature['mtime'] === ( $seen['mtime'] ?? null ) ) {
+				return 0;
+			}
+		} else {
+			$raw = $file->read_raw();
+			if ( null === $raw ) {
+				return 0;
+			}
+			$hash = sha1( $raw );
+			if ( ( is_string( $seen ) ? $seen : ( is_array( $seen ) ? (string) ( $seen['hash'] ?? '' ) : '' ) ) === $hash ) {
+				return 0;
+			}
+		}
+		if ( ! $oversize && ! self::file_differs( $file->read(), self::load_store() ) ) {
+			update_option( self::SEEN_OPTION, [ 'hash' => $hash ], true );
 			return 0;
 		}
-		$hash = $oversize ? 'oversize' : sha1( (string) $raw );
-		$seen = get_option( self::SEEN_OPTION, [] );
-		if ( ! $oversize && is_array( $seen ) && ( $seen['hash'] ?? '' ) === $hash ) {
+
+		// A rewrite of the file is optional work: a site under critical pressure leaves it for a later request.
+		if ( SitePressure::CRITICAL === SitePressure::level() ) {
 			return 0;
 		}
-		$imported = 0;
-		if ( $oversize || self::file_differs( $file->read(), self::load_store() ) ) {
-			$result   = self::mutate( static fn ( array &$store ): bool => false );
-			$imported = count( $result['imported'] );
-			$raw      = $file->read_raw();
-			$hash     = null === $raw ? $hash : sha1( $raw );
+
+		// One request rewrites the file at a time; another one that loads meanwhile leaves it to this one.
+		if ( ! OptionLock::acquire( self::SYNC_CLAIM, self::SYNC_CLAIM_SECONDS ) ) {
+			return 0;
 		}
-		update_option( self::SEEN_OPTION, [ 'hash' => $hash ], true );
-		return $imported;
+		try {
+			$result = self::mutate( static fn ( array &$store ): bool => false, ChangeJournalFile::SYNC_LOCK_TIMEOUT_MS );
+			if ( ! $result['file_read'] ) {
+				// The file lock was not free in time, so the file was not read: a later request tries again.
+				return 0;
+			}
+			// A rewrite that could not replace the file leaves it oversize: remember that file, not a hash.
+			$remember = $file->is_oversize() ? self::oversize_signature( $file ) : null;
+			if ( null === $remember ) {
+				$raw      = $file->read_raw();
+				$remember = [ 'hash' => null === $raw ? $hash : sha1( $raw ) ];
+			}
+			update_option( self::SEEN_OPTION, $remember, true );
+			return count( $result['imported'] );
+		} finally {
+			OptionLock::release( self::SYNC_CLAIM );
+		}
+	}
+
+	/**
+	 * What an oversize file is remembered by. Call it right after is_oversize(): the stat is already cached.
+	 *
+	 * @return array{oversize:bool,size:int,mtime:int}
+	 */
+	private static function oversize_signature( ChangeJournalFile $file ): array {
+		return [
+			'oversize' => true,
+			'size'     => (int) @filesize( $file->path() ),
+			'mtime'    => (int) @filemtime( $file->path() ),
+		];
 	}
 
 	/**
@@ -517,9 +572,10 @@ final class ChangeJournal {
 	 * The callback receives the merged store by reference and returns whether it changed it.
 	 *
 	 * @param callable(array{version:int,entries:array<string,array<string,mixed>>}):bool $change
-	 * @return array{persisted:bool,imported:list<array<string,mixed>>}
+	 * @param int $lock_timeout_ms How long to wait for the file lock; writers that record an incident wait the long default.
+	 * @return array{persisted:bool,imported:list<array<string,mixed>>,file_read:bool}
 	 */
-	private static function mutate( callable $change ): array {
+	private static function mutate( callable $change, int $lock_timeout_ms = ChangeJournalFile::LOCK_TIMEOUT_MS ): array {
 		$imported = [];
 		$toggled  = false;
 		$ran      = false;
@@ -550,8 +606,9 @@ final class ChangeJournal {
 		if ( null !== $file ) {
 			// A file larger than the helper reads is replaced whatever it said.
 			$oversize = $file->is_oversize();
-			$file->transaction( static fn ( array $document ): ?array => $run( $document, true, $oversize ) );
+			$file->transaction( static fn ( array $document ): ?array => $run( $document, true, $oversize ), $lock_timeout_ms );
 		}
+		$file_read = $ran;
 		if ( ! $ran ) {
 			// No usable file, or the lock could not be taken: keep the database copy current.
 			$run( ChangeJournalFile::empty_document(), false, false );
@@ -564,8 +621,9 @@ final class ChangeJournal {
 
 		// The database copy is written inside the critical section, so it is current whenever the change ran.
 		return [
-			'persisted' => $ran,
-			'imported'  => $imported,
+			'persisted'   => $ran,
+			'imported'    => $imported,
+			'file_read'   => $file_read,
 		];
 	}
 

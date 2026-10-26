@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Tests\Unit\Core\Fixtures\UninstallWpdb;
 
 require_once dirname( __DIR__, 2 ) . '/Support/post-adapter-wp-stubs.php';
 
@@ -21,6 +22,8 @@ final class EditorSaveGuardTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in']  = true;
 		$GLOBALS['stonewright_test_current_user_id'] = 1;
 		$GLOBALS['stonewright_test_options']         = [];
+		$GLOBALS['stonewright_test_transients']      = [];
+		$GLOBALS['stonewright_test_transient_ttls']  = [];
 		$GLOBALS['stonewright_test_actions']         = [];
 		$GLOBALS['stonewright_test_posts'][ 501 ]    = (object) [
 			'ID'           => 501,
@@ -246,7 +249,7 @@ final class EditorSaveGuardTest extends TestCase {
 
 	public function test_a_refresh_still_catches_a_later_change_and_creates_no_baseline_of_its_own(): void {
 		EditorSaveGuard::refresh_all_users( 501 );
-		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'], 'no baseline existed, so none is made' );
+		self::assertFalse( get_transient( 'stonewright_elementor_editor_baseline_501_1' ), 'no baseline existed, so none is made' );
 
 		EditorSaveGuard::capture( 501 );
 		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'restored' => 'yes' ], 'elements' => [] ] ] );
@@ -262,6 +265,110 @@ final class EditorSaveGuardTest extends TestCase {
 		EditorSaveGuard::refresh_all_users( 501 );
 
 		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'], 'the option row is gone once the baseline is a transient' );
+		self::assertIsArray( get_transient( 'stonewright_elementor_editor_baseline_501_1' ) );
+	}
+
+	public function test_a_legacy_baseline_still_guards_the_save_and_moves_to_a_transient_on_first_read(): void {
+		EditorSaveGuard::capture( 501 );
+		$baseline = get_transient( 'stonewright_elementor_editor_baseline_501_1' );
+		delete_transient( 'stonewright_elementor_editor_baseline_501_1' );
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'] = $baseline;
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'later' => 'change' ], 'elements' => [] ] ] );
+
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ), 'an editor opened before the update is still refused' );
+
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'] );
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_501_1'] ?? null );
+	}
+
+	public function test_capturing_over_a_legacy_baseline_removes_the_option_so_an_expired_transient_is_not_followed_by_a_stale_one(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1']     = [ 'hash' => str_repeat( 'a', 64 ), 'post_status' => 'draft', 'user_id' => 1, 'captured_at' => 1 ];
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_users_501'] = [ 1 ];
+
+		EditorSaveGuard::capture( 501 );
+
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_501_1', $GLOBALS['stonewright_test_options'] );
+		self::assertArrayNotHasKey( 'stonewright_elementor_editor_baseline_users_501', $GLOBALS['stonewright_test_options'] );
+		delete_transient( 'stonewright_elementor_editor_baseline_501_1' );
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ), 'an expired baseline counts as missing, not as the old option' );
+	}
+
+	public function test_baseline_is_a_transient_with_a_seven_day_ttl(): void {
+		EditorSaveGuard::capture( 501 );
+
+		self::assertSame( 7 * DAY_IN_SECONDS, EditorSaveGuard::BASELINE_TTL );
+		self::assertIsArray( get_transient( 'stonewright_elementor_editor_baseline_501_1' ) );
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_501_1'] ?? null );
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_users_501'] ?? null, 'the user list expires with its baselines' );
+		self::assertSame( [ 1 ], get_transient( 'stonewright_elementor_editor_baseline_users_501' ) );
+		self::assertSame( [], array_filter( array_keys( $GLOBALS['stonewright_test_options'] ), static fn ( $key ): bool => str_starts_with( (string) $key, 'stonewright_elementor_editor_baseline_' ) ), 'nothing is written to wp_options any more' );
+	}
+
+	public function test_capture_refreshes_the_ttl(): void {
+		EditorSaveGuard::capture( 501 );
+		$GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_501_1']     = 60;
+		$GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_users_501'] = 60;
+
+		EditorSaveGuard::capture( 501 );
+
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_501_1'] );
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_users_501'], 'a user already listed keeps the list alive too' );
+	}
+
+	public function test_a_restore_refresh_renews_the_ttl_of_every_baseline(): void {
+		foreach ( [ 1, 2 ] as $user ) {
+			$GLOBALS['stonewright_test_current_user_id'] = $user;
+			EditorSaveGuard::capture( 501 );
+			$GLOBALS['stonewright_test_transient_ttls'][ 'stonewright_elementor_editor_baseline_501_' . $user ] = 60;
+		}
+		$GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_users_501'] = 60;
+
+		EditorSaveGuard::refresh_all_users( 501 );
+
+		foreach ( [ 1, 2 ] as $user ) {
+			self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls'][ 'stonewright_elementor_editor_baseline_501_' . $user ] );
+		}
+		self::assertSame( EditorSaveGuard::BASELINE_TTL, $GLOBALS['stonewright_test_transient_ttls']['stonewright_elementor_editor_baseline_users_501'], 'the user list is kept as long as the baselines it names, or a later restore would miss a user' );
+		self::assertSame( [ 1, 2 ], get_transient( 'stonewright_elementor_editor_baseline_users_501' ) );
+	}
+
+	public function test_an_expired_baseline_allows_the_save_like_a_missing_one(): void {
+		EditorSaveGuard::capture( 501 );
+		self::write_tree( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'later' => 'change' ], 'elements' => [] ] ] );
+		self::assertInstanceOf( \WP_Error::class, EditorSaveGuard::assert_persist( 501 ) );
+
+		delete_transient( 'stonewright_elementor_editor_baseline_501_1' );
+
+		self::assertNull( EditorSaveGuard::assert_persist( 501 ) );
+	}
+
+	public function test_forget_all_removes_baselines_users_lists_and_legacy_options(): void {
+		$GLOBALS['stonewright_test_options'] = [
+			'_transient_stonewright_elementor_editor_baseline_501_1'             => [ 'hash' => 'a' ],
+			'_transient_timeout_stonewright_elementor_editor_baseline_501_1'     => 1900000000,
+			'_transient_stonewright_elementor_editor_baseline_users_501'         => [ 1 ],
+			'_transient_timeout_stonewright_elementor_editor_baseline_users_501' => 1900000000,
+			'stonewright_elementor_editor_baseline_502_1'                        => [ 'hash' => 'b' ],
+			'stonewright_elementor_editor_baseline_users_502'                    => [ 1 ],
+			'_transient_stonewright_elementor_other'                             => 'kept',
+			'stonewright_elementor_editor_baselineX'                             => 'kept',
+			'blogname'                                                           => 'kept',
+		];
+		$previous_wpdb   = $GLOBALS['wpdb'] ?? null;
+		$GLOBALS['wpdb'] = new UninstallWpdb();
+
+		try {
+			$removed = EditorSaveGuard::forget_all();
+		} finally {
+			$GLOBALS['wpdb'] = $previous_wpdb;
+		}
+
+		self::assertSame( 6, $removed );
+		self::assertSame(
+			[ '_transient_stonewright_elementor_other', 'stonewright_elementor_editor_baselineX', 'blogname' ],
+			array_keys( $GLOBALS['stonewright_test_options'] )
+		);
 	}
 
 	public function test_a_backup_restore_leaves_the_next_native_write_unrefused(): void {
@@ -317,13 +424,13 @@ final class EditorSaveGuardTest extends TestCase {
 
 	public function test_a_failed_stonewright_write_leaves_the_baseline_alone(): void {
 		EditorSaveGuard::capture( 501 );
-		$before = $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'];
+		$before = get_transient( 'stonewright_elementor_editor_baseline_501_1' );
 		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
 
 		self::assertFalse( ElementorData::write( 501, [ [ 'id' => 'root', 'elType' => 'container', 'settings' => [ 'container_type' => 'grid' ], 'elements' => [] ] ], [ 'skip_integrity' => true ] ) );
 		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
 
-		self::assertSame( $before, $GLOBALS['stonewright_test_options']['stonewright_elementor_editor_baseline_501_1'] );
+		self::assertSame( $before, get_transient( 'stonewright_elementor_editor_baseline_501_1' ) );
 	}
 
 	/** @param array<int, array<string, mixed>> $tree */

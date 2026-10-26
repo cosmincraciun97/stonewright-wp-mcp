@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Security\Adapters\MemoryAdapter;
 use Stonewright\WpMcp\Security\SensitiveContent;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
+use Stonewright\WpMcp\Support\SchemaGate;
 
 /**
  * Stonewright site memory: scoped key/value store backed by a custom table.
@@ -17,14 +18,13 @@ final class Memory {
 
 	private const SCHEMA_VERSION = 4;
 
-	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
-	private static ?bool $schema_healthy = null;
+	private const SCHEMA_OPTION = 'stonewright_memory_schema_version';
 
 	/**
-	 * Reset install-path cache (unit tests only).
+	 * Reset the install gate: lock, back-off and the once-per-request repair (unit tests only).
 	 */
 	public static function reset_schema_health_cache_for_tests(): void {
-		self::$schema_healthy = null;
+		SchemaGate::reset_for_tests( 'memory' );
 	}
 
 	/**
@@ -103,21 +103,27 @@ final class Memory {
 		return mb_substr( $clean, 0, 190 );
 	}
 
+	/**
+	 * Installs the table when the stored schema version is older than this build's. A current version runs nothing.
+	 */
 	public static function maybe_install_table(): void {
+		SchemaGate::maybe_install( 'memory', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
+
+	/**
+	 * Installs the table whatever the stored version says: activation, upgrade, a write that found a column missing.
+	 *
+	 * @return bool True when the table is healthy afterwards.
+	 */
+	public static function repair_table(): bool {
+		return SchemaGate::repair( 'memory', self::SCHEMA_OPTION, self::SCHEMA_VERSION, [ self::class, 'install_table' ], [ self::class, 'table_schema_ok' ] );
+	}
+
+	/**
+	 * Creates the table or adds what it lacks (dbDelta). Callers go through maybe_install_table() or repair_table().
+	 */
+	public static function install_table(): void {
 		global $wpdb;
-
-		// Per-request cache: healthy schema skips further checks/installs.
-		if ( true === self::$schema_healthy ) {
-			return;
-		}
-
-		$current_version = (int) get_option( 'stonewright_memory_schema_version', 0 );
-		// Version current still re-checks once per request so a previously
-		// bumped-but-broken schema (dbDelta failed after option write) self-heals.
-		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			return;
-		}
 
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
@@ -147,20 +153,38 @@ final class Memory {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+	}
 
-		if ( self::table_schema_ok() ) {
-			self::$schema_healthy = true;
-			update_option( 'stonewright_memory_schema_version', self::SCHEMA_VERSION );
-		} else {
-			self::$schema_healthy = false;
-			Logger::error(
-				'memory_schema_install_failed',
-				[
-					'table'          => self::table_name(),
-					'target_version' => self::SCHEMA_VERSION,
-				]
-			);
-		}
+	/**
+	 * Inserts a row; a table or column the database reports missing is repaired once per request and the insert retried.
+	 *
+	 * @param array<string, mixed> $data    Column => value.
+	 * @param array<int, string>   $formats Placeholder per column.
+	 * @return int|false Rows inserted, false on failure.
+	 */
+	private static function insert_row( array $data, array $formats ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'memory',
+			static fn(): int|false => $wpdb->insert( self::table_name(), $data, $formats ),
+			[ self::class, 'repair_table' ]
+		);
+	}
+
+	/**
+	 * Updates one row by id, repairing the table once and retrying when the update fails on a missing column.
+	 *
+	 * @param array<string, mixed> $data    Column => value.
+	 * @param array<int, string>   $formats Placeholder per column.
+	 * @return int|false Rows changed, false on failure.
+	 */
+	private static function update_row( array $data, int $id, array $formats ): int|false {
+		global $wpdb;
+		return SchemaGate::write_or_repair(
+			'memory',
+			static fn(): int|false => $wpdb->update( self::table_name(), $data, [ 'id' => $id ], $formats, [ '%d' ] ),
+			[ self::class, 'repair_table' ]
+		);
 	}
 
 	public static function put( string $scope, string $key, mixed $value, float $confidence = 1.0 ): void {
@@ -187,11 +211,11 @@ final class Memory {
 
 		$held = MemoryAdapter::before_write( (int) $existing );
 		if ( $existing ) {
-			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], [ '%s', '%s', '%s', '%f', '%d', '%s' ], [ '%d' ] );
+			self::update_row( $data, (int) $existing, [ '%s', '%s', '%s', '%f', '%d', '%s' ] );
 			MemoryAdapter::after_write( (int) $existing, $held );
 		} else {
 			$data['created_at'] = $data['updated_at'];
-			$inserted           = $wpdb->insert( $table, $data, [ '%s', '%s', '%s', '%f', '%d', '%s', '%s' ] );
+			$inserted           = self::insert_row( $data, [ '%s', '%s', '%s', '%f', '%d', '%s', '%s' ] );
 			if ( false !== $inserted ) {
 				MemoryAdapter::after_write( (int) $wpdb->insert_id, $held );
 			}
@@ -398,7 +422,7 @@ final class Memory {
 		$held = MemoryAdapter::before_write( $existing_id );
 
 		if ( $existing_id > 0 ) {
-			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
+			$result = self::update_row( $data, $existing_id, $formats );
 			if ( false !== $result ) {
 				MemoryAdapter::after_write( $existing_id, $held );
 				return $existing_id;
@@ -418,7 +442,7 @@ final class Memory {
 
 		$data['created_at'] = $data['updated_at'];
 		$formats[]          = '%s';
-		$result             = $wpdb->insert( $table, $data, $formats );
+		$result             = self::insert_row( $data, $formats );
 		if ( false !== $result ) {
 			$new_id = (int) $wpdb->insert_id;
 			MemoryAdapter::after_write( $new_id, $held );
@@ -680,7 +704,7 @@ final class Memory {
 			'created_at'          => $created,
 			'updated_at'          => isset( $entry['updated_at'] ) && '' !== (string) $entry['updated_at'] ? (string) $entry['updated_at'] : $created,
 		];
-		$inserted = $wpdb->insert( self::table_name(), $data, [ '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s' ] );
+		$inserted = self::insert_row( $data, [ '%d', '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s' ] );
 		return false === $inserted ? 'memory_restore_failed' : '';
 	}
 
@@ -749,7 +773,7 @@ final class Memory {
 		$data['updated_at'] = current_time( 'mysql', true );
 		$formats[]          = '%s';
 
-		$result = $wpdb->update( $table, $data, [ 'id' => $id ], $formats, [ '%d' ] );
+		$result = self::update_row( $data, $id, $formats );
 		return ( false !== $result );
 	}
 

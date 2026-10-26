@@ -391,6 +391,46 @@ final class BlobStoreTest extends TestCase {
 		self::assertSame( [], $this->blob_files() );
 	}
 
+	public function test_make_room_deletes_the_oldest_blobs_until_the_new_one_fits(): void {
+		$probe = $this->store()->put( 'a blob of known size ' . str_repeat( 'x', 64 ) );
+		self::assertIsArray( $probe );
+		$one   = $probe['stored_bytes'];
+		$store = $this->store( ( $one * 3 ) + 40 );
+		foreach ( [ 'second', 'third' ] as $name ) {
+			self::assertIsArray( $store->put( 'a blob of known size ' . str_repeat( 'x', 56 ) . $name ) );
+		}
+		$files = glob( $this->base . '/stonewright-state/blobs/*.gz' ) ?: [];
+		self::assertCount( 3, $files );
+		usort( $files, static fn( string $a, string $b ): int => strcmp( $a, $b ) );
+		foreach ( $files as $index => $file ) {
+			touch( $file, time() - ( 3000 - ( $index * 1000 ) ) );
+		}
+		$oldest = basename( $files[0], '.gz' );
+
+		self::assertSame( 0, $store->make_room( 1 ), 'one more small blob fits without deleting anything' );
+		self::assertCount( 3, $this->blob_files() );
+
+		self::assertGreaterThanOrEqual( 1, $store->make_room( $one * 2 ) );
+		self::assertFalse( $store->has( $oldest ), 'the oldest blob goes first' );
+		self::assertSame( 0, $store->make_room( 1 ), 'nothing more to delete once it fits' );
+	}
+
+	public function test_a_named_folder_has_its_own_default_root_and_erase(): void {
+		$GLOBALS['stonewright_test_upload_dir'] = [
+			'basedir' => $this->base,
+			'baseurl' => 'https://example.test/wp-content/uploads',
+			'error'   => false,
+		];
+
+		self::assertSame( $this->base . '/stonewright-state/runtime', BlobStore::default_root( BlobStore::RUNTIME_DIRECTORY ) );
+		self::assertIsArray( BlobStore::default()?->put( 'ledger image' ) );
+		self::assertIsArray( BlobStore::default( null, BlobStore::RUNTIME_DIRECTORY )?->put( 'kept code' ) );
+
+		self::assertTrue( BlobStore::erase_default( BlobStore::RUNTIME_DIRECTORY ) );
+		self::assertDirectoryDoesNotExist( $this->base . '/stonewright-state/runtime' );
+		self::assertCount( 1, $this->blob_files(), 'the other folder is untouched' );
+	}
+
 	public function test_the_default_store_lives_under_the_state_folder_of_the_uploads_directory(): void {
 		$GLOBALS['stonewright_test_upload_dir'] = [
 			'basedir' => $this->base,

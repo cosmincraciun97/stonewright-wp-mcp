@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\PluginsManage;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
 
@@ -63,6 +64,7 @@ final class PluginActivate extends AbilityKernel {
 			'properties'           => [
 				'plugin' => [ 'type' => 'string' ],
 				'active' => [ 'type' => 'boolean' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'plugin', 'active' ],
 		];
@@ -87,10 +89,12 @@ final class PluginActivate extends AbilityKernel {
 				if ( is_wp_error( $result ) ) {
 					return $result;
 				}
-				return [
-					'plugin' => $plugin,
-					'active' => is_plugin_active( $plugin ),
-				];
+				return CachePurgeAdvisor::attach_to_plugin_change(
+					[
+						'plugin' => $plugin,
+						'active' => is_plugin_active( $plugin ),
+					]
+				);
 			}
 		);
 	}

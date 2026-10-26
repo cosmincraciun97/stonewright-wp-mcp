@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-10-26
+
+### Fixed
+
+- Follow `nextCursor` when listing the plugin's tools (up to 64 pages, with a guard
+  against a repeated cursor), so a tool surface larger than the 1 MiB read cap
+  connects. A response body over the cap is now reported as `WordPress MCP
+  response over the 1 MiB read cap during tools_list`, with the transport
+  diagnostic `safe_cause_code: response_truncated`, not as an HTTP 200 failure.
+- `stonewright doctor` lists the tools and prints `tools_list_pages` and
+  `tools_list_bytes`, and the fix when a body passes the cap.
+  `stonewright-connect-doctor` reports the same fix and carries both fields in
+  its `diagnosis`.
+
+### Security
+
+- Update the shipped dependencies that `npm audit` flagged: body-parser 2.4.0
+  (GHSA-27r3-jxmh-p828), fast-uri 3.1.9 (GHSA-w74x-v6f9-j3xg,
+  GHSA-xhq7-xmqj-769h, GHSA-wjr9-j795-jxcr, GHSA-333x-w4r6-6crp), ip-address
+  10.7.5 (GHSA-rxp7-6hxx-x8q5) and zod 4.6.7 (GHSA-mrhx-c7xc-m3w5). zod moves
+  from 3.25 to 4.6: the MCP SDK already accepts it, the companion's schemas
+  use the two-argument `z.record()` form, and the tool contracts, token
+  budgets, tests and build are unchanged.
+
 ## [1.0.0-beta.17.2] - 2026-10-22
 
 ### Changed

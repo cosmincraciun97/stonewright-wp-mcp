@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
+use Stonewright\WpMcp\Security\RuntimeCodeHistory;
 
 /**
  * Stonewright Configuration admin page.
@@ -352,6 +353,12 @@ final class ConfigurationPage {
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
 
+		register_setting( self::OPTION_GROUP, RuntimeCodeHistory::OPTION, [
+			'type'              => 'boolean',
+			'default'           => true,
+			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_mcp_surface', [
 			'type'              => 'string',
 			'default'           => 'essential',
@@ -436,6 +443,7 @@ final class ConfigurationPage {
 		] );
 
 		ChangeHistoryRetention::register_settings();
+		WriteFreezeSettings::register_settings();
 	}
 
 	/**

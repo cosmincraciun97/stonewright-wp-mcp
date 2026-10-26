@@ -307,11 +307,19 @@ test.describe('Skills import: the file field', () => {
 
 	test('is a layer control inside the drop zone: the secondary button at its size, the file name beside it, still labelled, a keyboard ring and none after a click', async ({ page }) => {
 		await open(page, 'stonewright-skills', '&view=import');
+		// The Skills app draws the import view again when the catalog arrives, which replaces the file field. Measuring
+		// before that reads a field that is about to be detached (a detached element has no computed style, so every
+		// value is an empty string and focus is lost), so wait for the catalog first, then for the final field.
+		await page.locator('[data-sw-skills][aria-busy="false"]').waitFor({ state: 'attached', timeout: 30_000 });
 		const zone = page.locator('.sw-ui-dropzone');
+		await expect(zone).toBeVisible();
+		// The stylesheet has applied once the drop zone has its dashed border; the checks below read styles it sets.
+		await expect(zone).toHaveCSS('border-top-style', 'dashed');
 		const input = zone.getByLabel('Skill file');
 		await expect(input).toBeVisible();
 		await expect(input).toHaveAttribute('type', 'file');
 		await expect(input).toHaveClass(/sw-ui-file/);
+		await expect(input).toHaveCSS('border-top-width', '0px');
 
 		const look = await input.evaluate((element) => {
 			const field = getComputedStyle(element);

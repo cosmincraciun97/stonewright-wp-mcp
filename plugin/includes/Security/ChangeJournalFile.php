@@ -33,6 +33,9 @@ final class ChangeJournalFile {
 	/** How long a writer waits for the lock before it gives up. */
 	public const LOCK_TIMEOUT_MS = 3000;
 
+	/** How long the import that runs on an admin or REST load waits: a request that finds the lock busy skips it. */
+	public const SYNC_LOCK_TIMEOUT_MS = 250;
+
 	public const STATES = [ 'armed', 'verified', 'rolled_back', 'rollback_failed', 'probe_unavailable', 'incident' ];
 
 	public const RESOURCE_TYPES = [ 'theme_file', 'option', 'plugin', 'sandbox', 'post', 'custom_code' ];
@@ -45,6 +48,14 @@ final class ChangeJournalFile {
 	private const MAX_TEXT  = 191;
 	private const MAX_PATHS = 20;
 	private const MAX_PATH  = 255;
+
+	/**
+	 * Tests only: called with the journal path before each replace of the file; returning false makes
+	 * that replace fail. Null in production.
+	 *
+	 * @var \Closure(string):bool|null
+	 */
+	public static ?\Closure $replace_hook = null;
 
 	public function __construct( private string $path ) {}
 
@@ -292,6 +303,9 @@ final class ChangeJournalFile {
 	private function write_atomically( array $document ): bool {
 		$json = json_encode( $document, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		if ( ! is_string( $json ) ) {
+			return false;
+		}
+		if ( null !== self::$replace_hook && false === ( self::$replace_hook )( $this->path ) ) {
 			return false;
 		}
 		$temp = $this->path . '.tmp-' . bin2hex( random_bytes( 4 ) );

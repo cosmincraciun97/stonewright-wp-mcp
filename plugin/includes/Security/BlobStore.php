@@ -37,6 +37,9 @@ class BlobStore {
 	/** Folder name under uploads/stonewright-state/. */
 	public const DIRECTORY = 'blobs';
 
+	/** Folder name under uploads/stonewright-state/ of the copies of executed code, apart from the change ledger's blobs. */
+	public const RUNTIME_DIRECTORY = 'runtime';
+
 	/** The most a blob holds before compression. A larger image is not stored. */
 	public const MAX_RAW_BYTES = 4194304;
 
@@ -67,8 +70,12 @@ class BlobStore {
 		$this->root = rtrim( str_replace( '\\', '/', $root ), '/' );
 	}
 
-	/** Absolute path of the default folder, or null when the uploads folder cannot be used. */
-	public static function default_root(): ?string {
+	/**
+	 * Absolute path of the default folder, or null when the uploads folder cannot be used.
+	 *
+	 * @param string $directory Folder name under uploads/stonewright-state/.
+	 */
+	public static function default_root( string $directory = self::DIRECTORY ): ?string {
 		if ( ! function_exists( 'wp_upload_dir' ) ) {
 			return null;
 		}
@@ -76,12 +83,12 @@ class BlobStore {
 		if ( ! is_array( $uploads ) || ! empty( $uploads['error'] ) || empty( $uploads['basedir'] ) || ! is_string( $uploads['basedir'] ) ) {
 			return null;
 		}
-		return rtrim( str_replace( '\\', '/', $uploads['basedir'] ), '/' ) . '/' . ChangeJournal::STATE_DIR . '/' . self::DIRECTORY;
+		return rtrim( str_replace( '\\', '/', $uploads['basedir'] ), '/' ) . '/' . ChangeJournal::STATE_DIR . '/' . $directory;
 	}
 
 	/** The store in the default folder, or null when the uploads folder cannot be used. */
-	public static function default( ?int $max_total = null ): ?self {
-		$root = self::default_root();
+	public static function default( ?int $max_total = null, string $directory = self::DIRECTORY ): ?self {
+		$root = self::default_root( $directory );
 		if ( null === $root ) {
 			return null;
 		}
@@ -93,8 +100,8 @@ class BlobStore {
 	 *
 	 * @return bool Whether no blob is left.
 	 */
-	public static function erase_default(): bool {
-		$root = self::default_root();
+	public static function erase_default( string $directory = self::DIRECTORY ): bool {
+		$root = self::default_root( $directory );
 		return null === $root || ( new self( $root ) )->erase();
 	}
 
@@ -204,6 +211,36 @@ class BlobStore {
 	/** Bytes of the compressed file, or 0 when there is no such blob. */
 	public function stored_size( string $sha256 ): int {
 		return $this->has( $sha256 ) ? max( 0, (int) @filesize( $this->path( $sha256 ) ) ) : 0;
+	}
+
+	/**
+	 * Delete the oldest blobs until $needed more bytes fit under the folder limit. A blob's age is the modification
+	 * time of its file, which put() renews when the same bytes are stored again.
+	 *
+	 * @return int Blobs deleted.
+	 */
+	public function make_room( int $needed ): int {
+		$excess = $this->total_bytes() + max( 0, $needed ) - $this->max_total;
+		if ( $excess <= 0 ) {
+			return 0;
+		}
+		$aged = [];
+		foreach ( $this->hashes() as $hash ) {
+			$aged[ $hash ] = (int) @filemtime( $this->path( $hash ) );
+		}
+		asort( $aged );
+		$deleted = 0;
+		foreach ( array_keys( $aged ) as $hash ) {
+			if ( $excess <= 0 ) {
+				break;
+			}
+			$size = max( 0, (int) @filesize( $this->path( (string) $hash ) ) );
+			if ( $this->delete( (string) $hash ) ) {
+				$excess -= $size;
+				++$deleted;
+			}
+		}
+		return $deleted;
 	}
 
 	/** Delete one blob. A link, an unknown name and a missing file delete nothing. */

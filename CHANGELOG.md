@@ -11,6 +11,159 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-10-26
+
+### Added
+
+- Keep a masked, size-capped copy of the code `stonewright/php-execute` ran, so
+  an administrator can see what ran after an incident. The audit row still holds
+  `code_sha256`, the hash of the code as it ran, and now also `code_ref`,
+  `code_bytes` and `code_truncated`. Passwords, tokens, API keys, authorization
+  headers and WordPress keys and salts are masked, the copy is cut at 256 KiB, and
+  a call a guard refused is kept too. Administrators read it under Audit log >
+  View code. The daily audit retention job deletes copies older than the
+  retention window, and a full data removal deletes the folder. The setting
+  **Keep the code php-execute runs** (on by default) or the constant
+  `STONEWRIGHT_PHP_EXECUTE_KEEP_CODE` set to `false` keeps only the hash, and
+  only a person in wp-admin can turn the setting off.
+- Add guard rails for busy production sites. They warn by default; a refusal is
+  always a setting an administrator turns on. See `docs/busy-sites.md`.
+  - A site pressure signal: one timed `SELECT 1`, with the machine load and the
+    memory in use, read only when optional work is about to start and reused for
+    30 seconds. While the level is `elevated` or `critical`, the lesson
+    migrations and the rescue helper check wait, and the health probe asks for
+    the front page alone. At `critical` schema repairs and the change journal
+    rewrite wait as well, and any probe is one short request. The memory a
+    request uses counts for that request only. Ability responses carry
+    `site_pressure` with the level and a hint to batch writes. The thresholds
+    are filterable (`stonewright_site_pressure_thresholds`).
+  - A write freeze set in wp-admin under Setup > Settings > Busy sites: a time and a
+    reason. While it is on, abilities that change the site answer
+    `stonewright_write_freeze` (status 423) with the end time and the reason; reads,
+    the task start, and the rollbacks and restores of the change history keep
+    working. Only a person in wp-admin lifts the freeze or ends it sooner.
+  - Elementor write pacing: saves of one document are counted in a ten-minute
+    window, whoever makes them. The response of the third save carries
+    `write_pacing` with a hint to use one `elementor-v3-batch-mutate` apply. The new
+    setting `stonewright_elementor_write_pacing` is `warn` by default; `strict` also
+    refuses the sixth save with `stonewright_write_pacing` (status 429, with
+    `retry_after`), and `off` counts nothing. Editor autosaves are not counted.
+    Only a person in wp-admin makes it looser.
+  - Cache-purge advisories: with LiteSpeed Cache active and its Auto Purge Rules
+    set to purge all pages on a save, or to purge everything on an update,
+    `stonewright-task-start` (`site.cache_purge`), `stonewright-site-pulse`, the
+    plugin and sandbox activate and deactivate abilities (`cache_purge`) and a notice
+    after an Elementor, kit or template write tell the agent to batch its changes.
+    Stonewright does not change the cache rules.
+- Abilities whose output gained fields: every ability response may carry
+  `site_pressure` and `write_pacing`; `stonewright-task-start` and
+  `stonewright-workflow-preflight` carry `site.cache_purge`; `stonewright-site-pulse`,
+  `stonewright-plugin-activate`, `stonewright-plugin-deactivate`,
+  `stonewright-sandbox-activate` and `stonewright-sandbox-deactivate` carry
+  `cache_purge`. The permission gate changed: write abilities are refused during a
+  freeze (rollbacks and restores of the change history are exempt). Backup, token, validation and audit
+  gates are unchanged, and a change of the freeze or the pacing setting is audited.
+- `wp stonewright cleanup` removes the runtime state Stonewright rebuilds on its
+  own (locks, back-offs, cached verdicts, the rescue helper's remembered state,
+  the site pressure measurement, and Elementor editor baselines and save counts) from the command line, and is safe on a live
+  site. With `--all-data --yes` it also removes every Stonewright table, option,
+  transient, scheduled event and state file, as `STONEWRIGHT_REMOVE_ALL_DATA`
+  does at uninstall. It deactivates the plugin first, so the plugin does not
+  create its tables and keys again, and it does not delete the plugin files or
+  the rescue helper. On a multisite network it acts on the selected site, or on
+  every site with `--network`. It is for a host where deleting the plugin from
+  wp-admin runs into a resource limit and `wp-config.php` cannot be edited.
+
+### Fixed
+
+- Stop checking Stonewright's database tables on every request. Each store
+  looked at its table on each page load, which cost queries on every front-end,
+  wp-admin, and REST request, and many requests at once could try to repair the
+  same table together. The stored schema version is now trusted. A table is
+  repaired under a lock, and a failed install is not tried again for ten
+  minutes. A table that lost a column is still repaired on activation, on a
+  version change, once a day, and on the first write that fails with a schema
+  error.
+- Keep the options Stonewright reads while it starts in WordPress's autoloaded
+  set, so they arrive with the other autoloaded options in one query instead of
+  one query each on a site without a persistent object cache. This covers the
+  table schema versions, the dangerous-function notice, the registered widget
+  slugs, the widget scan verdicts, the locked domain with its mismatch record,
+  and the name of the change journal file. The mismatch record and the journal
+  file name do not exist on a healthy site, and a missing option costs a query
+  too, so both are now stored empty and clearing the mismatch record empties it
+  instead of deleting it. An existing site is switched on its next version
+  change or when the plugin is activated again.
+- Run the upgrade steps that follow a plugin update in one request at a time,
+  so concurrent requests on a busy site do not each repeat them, and keep a
+  table repair that fails from stopping the update or an activation.
+- Run the two lesson migrations once on upgrade and then once a day, with at
+  most five attempts, instead of scanning the memory table on every request. An
+  attempt that a resource limit killed counts as an attempt.
+- Cache the MCP compatibility check for an hour per set of active plugins
+  instead of repeating it on every request.
+- Resolve the OpenSSL configuration for OAuth key generation only when a key is
+  generated, and skip paths outside `open_basedir`. Before, every request
+  probed those paths, and on a server with an `open_basedir` limit that logged
+  the same warnings again each time.
+- Scan a generated Elementor widget once per version of its file instead of on
+  every request. A rejected widget is reported once, as one agent notice and
+  one log line, not on each request, and a cached verdict is dropped when the
+  plugin or its widget rules change.
+- Import the change journal file once per change, under a short claim, so
+  concurrent requests do not import it together. A request waits at most a
+  quarter of a second for the file lock, and a file that stays over 1 MB is
+  remembered by its size and modification time instead of being rewritten on
+  every admin and REST request.
+- Check the rescue helper's integrity every twelve hours, at once when its size
+  or modification time changes, and when the plugin version changes or after an
+  update, instead of reading and hashing it on every wp-admin request. A repair
+  that failed is tried again after five minutes.
+- Page `tools/list` by byte budget with MCP cursors, so a site whose tool surface
+  passes 1 MiB (for example the `full` profile with Elementor Pro and WooCommerce)
+  still connects. The companion read at most 1 MiB of a response and reported a
+  longer `tools/list` as an HTTP 200 failure, so `stonewright-reconnect` failed
+  although the credentials worked. A page now holds at most 768 KiB of tools, and
+  a client that does not send a cursor still gets the whole `essential` surface on
+  one page. A stale cursor is answered with `-32602` and the message
+  `Invalid cursor`. `STONEWRIGHT_MCP_TOOLS_LIST_PAGE_BYTES` or the
+  `stonewright_mcp_tools_list_page_bytes` filter sets the budget, and `0` turns
+  paging off. `composer tokens:measure` also reports each surface's
+  `tools_list_bytes`, `largest_tool` and `pages_at_default_budget`.
+- The companion follows `nextCursor` when it lists tools, names a response body over
+  its 1 MiB read cap instead of reporting an HTTP 200 failure, and
+  `stonewright doctor` prints `tools_list_pages` and `tools_list_bytes` and the fix
+  when a body passes the cap.
+- Stop the change journal import, the rescue helper check and the audit, change
+  history and OAuth clean-up events from failing on a file that disappears while
+  their request runs, as when the plugin folder is deleted, updated or renamed.
+  These hooks now check that the classes they need are still on disk and return
+  when they are not. Before, the autoloader failed on the missing file and
+  WordPress mailed a fatal error for each request that had started before the
+  deletion finished. Other late hooks of the plugin still load their classes
+  when they run, so deactivate the plugin before deleting it.
+- Remove the plugin's runtime state on deactivation and on every uninstall, with
+  or without `STONEWRIGHT_REMOVE_ALL_DATA`: lock rows, schema back-offs, the
+  cached compatibility and widget verdicts, the rescue helper's remembered
+  state, the loopback probe cool-down, the site pressure measurement, and
+  Elementor editor baselines and save counts. The
+  scheduled events are unscheduled on every uninstall too, on every site of a
+  network. Settings, tables, OAuth clients and keys, memory, skills and the
+  audit history stay unless the constant asks for their removal.
+- Keep Elementor editor baselines as transients that expire seven days after
+  they were last written, instead of options that stayed in `wp_options` for
+  every post and user who ever opened the editor. A baseline that expired counts
+  as missing, so an editor tab left open for more than a week is no longer
+  refused as stale. Baselines stored by an earlier version are read once and
+  moved.
+
+### Security
+
+- Companion: update the shipped dependencies that `npm audit` flagged
+  (body-parser 2.4.0, fast-uri 3.1.9, ip-address 10.7.5, zod 4.6.7; the
+  advisory ids are in the companion changelog). The tool contracts and token
+  budgets are unchanged.
+
 ## [1.0.0-beta.17.2] - 2026-10-22
 
 ### Fixed
@@ -146,17 +299,9 @@ development builds were never stable releases.
   rescue helper and the data stay, also when the deleted copy is an older
   version.
 
-## [1.0.0-beta.16.1] - 2026-10-13
-
-### Added
-
-- Add a **Show in admin bar** switch to **Stonewright → Setup → Settings**. It is
-  on by default. Turned off, the Stonewright status badge and its menu are removed
-  from the toolbar at the top of the dashboard and the site; the AI abilities keep
-  their state and the **AI abilities** switch still turns them on and off.
-
 ## Older releases
 
+- [1.0.0-beta.16.1](docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](docs/releases/1.0.0-beta.16.md)
 - [1.0.0-beta.15](docs/releases/1.0.0-beta.15.md)
 - [1.0.0-beta.14](docs/releases/1.0.0-beta.14.md)

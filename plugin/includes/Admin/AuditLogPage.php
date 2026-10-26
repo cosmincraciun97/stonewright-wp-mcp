@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Admin;
 use Stonewright\WpMcp\Admin\Ui\Badge;
 use Stonewright\WpMcp\Admin\Ui\Button;
 use Stonewright\WpMcp\Admin\Ui\Card;
+use Stonewright\WpMcp\Admin\Ui\CodeBlock;
 use Stonewright\WpMcp\Admin\Ui\EmptyState;
 use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
@@ -17,9 +18,11 @@ use Stonewright\WpMcp\Authorization\WordPress\ClientNames;
 use Stonewright\WpMcp\Security\AccessDenied;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\AuditEvent;
+use Stonewright\WpMcp\Security\BlobStore;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Security\RuntimeCodeHistory;
 use Stonewright\WpMcp\Security\SensitiveContent;
 
 /**
@@ -173,6 +176,12 @@ final class AuditLogPage {
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			AccessDenied::deny( esc_html__( 'You do not have permission to view the Stonewright audit log.', 'stonewright' ) );
+		}
+
+		$view_code = isset( $_GET['view_code'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['view_code'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The code view checks its own nonce.
+		if ( '' !== $view_code ) {
+			self::render_code_view( $view_code );
+			return;
 		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only GET filters.
@@ -665,23 +674,7 @@ final class AuditLogPage {
 				'result'  => [ 'html' => Html::element( 'div', [ 'class' => 'sw-audit-cell' ], $result ) ],
 				'user'    => $user_text,
 				'when'    => [ 'html' => self::time_html( (string) $row['created_at'] ) ],
-				'actions' => [
-					'html' => Button::render(
-						__( 'Details', 'stonewright' ),
-						[
-							'size'    => 'sm',
-							'context' => sprintf( /* translators: 1: event number, 2: ability name */ __( 'of event %1$d, %2$s', 'stonewright' ), $id, $ability ),
-							'attrs'   => [
-								'hidden'                  => true,
-								'data-sw-audit-open'      => 'sw-audit-row-' . $id,
-								'data-sw-audit-title'     => sprintf( /* translators: %d: event number */ __( 'Event %d', 'stonewright' ), $id ),
-								'data-sw-ui-dialog-open'  => '#sw-audit-drawer',
-								'aria-haspopup'           => 'dialog',
-								'aria-controls'           => 'sw-audit-drawer',
-							],
-						]
-					),
-				],
+				'actions' => [ 'html' => self::row_actions_html( $row, $id, $ability ) ],
 			];
 			$panels .= self::row_panel_html( $row, $user_text, $status_label, $variant, $icon, $pairs, $details, $incident_states, $is_problem );
 		}
@@ -700,6 +693,128 @@ final class AuditLogPage {
 
 		return Html::element( 'div', [ 'class' => 'sw-audit-log' ], $table . self::pagination_html( $filters, $page, $total_pages ) )
 			. self::drawer_html( $panels );
+	}
+
+	/**
+	 * The buttons of a row: Details, and for a php-execute row that kept a copy of its code, View code. The code is
+	 * for an administrator only, so a user without the capability sees no button.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function row_actions_html( array $row, int $id, string $ability ): string {
+		$context = sprintf( /* translators: 1: event number, 2: ability name */ __( 'of event %1$d, %2$s', 'stonewright' ), $id, $ability );
+		$details = Button::render(
+			__( 'Details', 'stonewright' ),
+			[
+				'size'    => 'sm',
+				'context' => $context,
+				'attrs'   => [
+					'hidden'                 => true,
+					'data-sw-audit-open'     => 'sw-audit-row-' . $id,
+					'data-sw-audit-title'    => sprintf( /* translators: %d: event number */ __( 'Event %d', 'stonewright' ), $id ),
+					'data-sw-ui-dialog-open' => '#sw-audit-drawer',
+					'aria-haspopup'          => 'dialog',
+					'aria-controls'          => 'sw-audit-drawer',
+				],
+			]
+		);
+		$ref     = self::code_ref_of_row( $row );
+		if ( '' === $ref ) {
+			return $details;
+		}
+		$view = Button::render(
+			__( 'View code', 'stonewright' ),
+			[
+				'size'    => 'sm',
+				'context' => $context,
+				'href'    => add_query_arg(
+					[
+						'page'      => self::SLUG,
+						'view_code' => $ref,
+						'event'     => $id,
+						'_wpnonce'  => wp_create_nonce( self::code_nonce_action( $ref ) ),
+					],
+					admin_url( 'admin.php' )
+				),
+			]
+		);
+
+		return Button::group( [ $details, $view ] );
+	}
+
+	/**
+	 * The reference of the kept copy of the code a php-execute row ran, or '' for any other row, for a user who may
+	 * not read it, and for a row with no copy (the setting was off, or the copy could not be stored).
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function code_ref_of_row( array $row ): string {
+		if ( 'runtime_php' !== (string) ( $row['operation_class'] ?? '' ) || ! current_user_can( self::CAPABILITY ) ) {
+			return '';
+		}
+		foreach ( [ 'sanitized_args', 'redacted_details' ] as $column ) {
+			$decoded = json_decode( (string) ( $row[ $column ] ?? '' ), true );
+			$meta    = is_array( $decoded ) && is_array( $decoded['_meta'] ?? null ) ? $decoded['_meta'] : [];
+			$ref     = $meta['code_ref'] ?? '';
+			if ( is_string( $ref ) && BlobStore::is_valid_hash( $ref ) ) {
+				return $ref;
+			}
+		}
+
+		return '';
+	}
+
+	private static function code_nonce_action( string $ref ): string {
+		return 'stonewright_view_code_' . $ref;
+	}
+
+	/**
+	 * One kept copy of the code php-execute ran, in place of the log. The link carries a nonce for this reference, and
+	 * the copy itself is read through RuntimeCodeHistory, which asks for the capability again.
+	 */
+	private static function render_code_view( string $ref ): void {
+		$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['_wpnonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified on the next line.
+		if ( ! BlobStore::is_valid_hash( $ref ) || false === wp_verify_nonce( $nonce, self::code_nonce_action( $ref ) ) ) {
+			wp_die( esc_html__( 'Forbidden', 'stonewright' ), '', [ 'response' => 403 ] );
+		}
+		$event = isset( $_GET['event'] ) ? max( 0, (int) $_GET['event'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified above.
+		$code  = RuntimeCodeHistory::read( $ref );
+
+		if ( null === $code ) {
+			$body = Notice::render(
+				'warn',
+				__( 'This copy is no longer kept', 'stonewright' ),
+				__( 'It was deleted with the audit retention window, or the file was removed. The audit entry still holds the sha256 of the code that ran.', 'stonewright' )
+			);
+		} else {
+			$body = Notice::render(
+				'info',
+				__( 'A masked copy', 'stonewright' ),
+				sprintf(
+					/* translators: %d: number of kilobytes kept at most */
+					__( 'Values of passwords, tokens, API keys, authorization headers and WordPress salts were masked when the copy was kept, and code longer than %d KB was cut. The sha256 on the audit entry names the code exactly as it ran.', 'stonewright' ),
+					(int) ( RuntimeCodeHistory::MAX_BYTES / 1024 )
+				)
+			) . CodeBlock::render(
+				$code,
+				[
+					'title'      => __( 'PHP run by php-execute', 'stonewright' ),
+					'where'      => $event > 0 ? sprintf( /* translators: %d: event number */ __( 'Event %d', 'stonewright' ), $event ) : '',
+					'copy_label' => __( 'the code', 'stonewright' ),
+				]
+			);
+		}
+
+		AdminShell::open(
+			self::SLUG,
+			[
+				'title'   => __( 'Code that php-execute ran', 'stonewright' ),
+				'lede'    => '',
+				'actions' => Button::render( __( 'Back to the audit log', 'stonewright' ), [ 'size' => 'sm', 'href' => admin_url( 'admin.php?page=' . self::SLUG ) ] ),
+			]
+		);
+		echo Scope::wrap( $body, [ 'page' => true, 'class' => 'sw-audit-page' ] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Markup built by the Ui helpers, which escape every value.
+		AdminShell::close();
 	}
 
 	/**

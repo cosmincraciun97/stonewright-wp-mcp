@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Elementor\ElementorCustomCssGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\CssValueGuard;
@@ -113,6 +114,7 @@ final class UpdatePageSettings extends AbilityKernel {
 					}
 
 					PostCacheInvalidator::invalidate( $post_id );
+					CachePurgeAdvisor::note_write();
 
 					return $content_filtered + [
 						'post_id'     => $post_id,

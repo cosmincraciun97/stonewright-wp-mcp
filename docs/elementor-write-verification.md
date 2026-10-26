@@ -228,9 +228,37 @@ An Elementor editor session captures the server `_elementor_data` hash and
 writer changed the document after the editor loaded, save is blocked with
 `stonewright_elementor_stale_editor`, the local editor draft is not discarded,
 and `post_status` stays unchanged. Visual `save` and the native editor button
-share that PHP gate. `expected_tree_hash` on
+share that PHP gate. The captured baseline is kept as a transient for seven
+days after the last editor load, save or restore, so an editor nobody opens
+again leaves no row in `wp_options`. A baseline that expired (or that an object
+cache evicted) counts as missing: the save goes through, as it does for an
+editor that never captured one, so a tab left open for more than a week is no
+longer protected by this check. `expected_tree_hash` on
 `stonewright-elementor-v3-batch-mutate` is a different path: it protects a stale
 MCP plan, not an open editor.
+
+## Write pacing
+
+A run of small saves of one document is the costliest way to edit on a busy site:
+each save rebuilds the element cache and can empty the page cache. Stonewright counts
+the saves of each Elementor document in a ten-minute window, whoever makes them
+(a Stonewright writer or a person in the editor), and reports the count to the agent.
+
+- The response of the request that made the third save of a post in the window
+  carries `write_pacing`: the posts, the number of saves each had, the window in
+  minutes and the hint to consolidate the remaining changes into one
+  `stonewright-elementor-v3-batch-mutate` apply.
+- Under **Stonewright > Setup > Settings > Busy sites**, **Elementor write pacing**
+  can be set to strict. The sixth save of one post in the window is then refused with
+  `stonewright_write_pacing` (status 429, with `retry_after` in seconds and the same
+  hint) until the window has passed. The default is warn, which never refuses; off
+  counts nothing. Only a person in wp-admin makes the setting looser.
+- The editor's autosaves and revisions are not saves of the post and are not counted.
+- The count lives in the transient `stonewright_elementor_saves_<post id>`, which
+  expires with the window. A write that is refused is not counted, and a rollback is
+  never paced.
+
+See [Stonewright on busy or constrained sites](busy-sites.md).
 
 ## Schema evidence, not guessed controls
 

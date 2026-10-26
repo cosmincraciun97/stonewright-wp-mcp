@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-17T17:59:18+00:00",
+    "generated_at": "2026-10-25T21:58:29+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -5978,7 +5978,7 @@
             "mcp_name": "stonewright-plugin-activate",
             "kind": "Write",
             "input_schema_hash": "aa6d83da2164d5899df8c515103212349d3ee3007d28aabcee6a24d127350dca",
-            "output_schema_hash": "0b97a397fc9478fac77fb6acaf956fd68c0e0d2b89e5bb7f7d030ec02b343425",
+            "output_schema_hash": "8f708bb574a6c93eac06857e710d8e6cf3dfc204320728fd79541db7cbe7b6af",
             "permission_class": "Permissions::activate_plugins()",
             "gates": {
                 "backup": false,
@@ -5998,7 +5998,7 @@
             "mcp_name": "stonewright-plugin-deactivate",
             "kind": "Write",
             "input_schema_hash": "aa6d83da2164d5899df8c515103212349d3ee3007d28aabcee6a24d127350dca",
-            "output_schema_hash": "0b97a397fc9478fac77fb6acaf956fd68c0e0d2b89e5bb7f7d030ec02b343425",
+            "output_schema_hash": "8f708bb574a6c93eac06857e710d8e6cf3dfc204320728fd79541db7cbe7b6af",
             "permission_class": "Permissions::activate_plugins()",
             "gates": {
                 "backup": false,
@@ -6158,7 +6158,7 @@
             "mcp_name": "stonewright-sandbox-activate",
             "kind": "Write",
             "input_schema_hash": "c4bae242fc11be57a1734c09417251350c093148509ec29bae08dc12b41be057",
-            "output_schema_hash": "db01909200f09c4b63aa3378b50713dfb50cdb2e17fe68da2cf05c7bfb5634c0",
+            "output_schema_hash": "40d2fa641140245759e36cfd21002a9b0c4650a9fb2dcb02899547c6998281f9",
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
                 "backup": false,
@@ -6178,7 +6178,7 @@
             "mcp_name": "stonewright-sandbox-deactivate",
             "kind": "Write",
             "input_schema_hash": "c4bae242fc11be57a1734c09417251350c093148509ec29bae08dc12b41be057",
-            "output_schema_hash": "db01909200f09c4b63aa3378b50713dfb50cdb2e17fe68da2cf05c7bfb5634c0",
+            "output_schema_hash": "40d2fa641140245759e36cfd21002a9b0c4650a9fb2dcb02899547c6998281f9",
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
                 "backup": false,
@@ -6718,7 +6718,7 @@
             "mcp_name": "stonewright-site-pulse",
             "kind": "Read",
             "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "2012c09cf1f40e143e6ceab5f8ff199466c8b0ae24f4191f6fffaa57f42aaed6",
+            "output_schema_hash": "a0603e1b34cb304a2635ff1218d5575a6688665ee2a478896d1d0a046788a32e",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

@@ -427,7 +427,10 @@ than registering duplicate tool or prompt names. In Direct mode task-start also 
 a per-site write latch (30-minute TTL); write tools re-require task-start after
 expiry or when targeting a different site. Use companion tool
 `stonewright-client-surface-check` (or `stonewright doctor --client-surface`)
-to diagnose profile vs client registration mismatches. Set the env profile to
+to diagnose profile vs client registration mismatches. `stonewright doctor` also
+lists the plugin's tools and prints how many `tools/list` pages came back
+(`tools_list_pages`) and how many bytes they held (`tools_list_bytes`); see
+[tools/list pagination](companion-contract.md#toolslist-pagination). Set the env profile to
 `full` only for deliberate specialist diagnostics.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under

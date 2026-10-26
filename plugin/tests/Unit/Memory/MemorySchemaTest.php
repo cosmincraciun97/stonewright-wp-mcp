@@ -480,9 +480,9 @@ final class MemorySchemaTest extends TestCase {
 		self::assertSame( 4, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
-	public function test_maybe_install_repairs_when_version_current_but_columns_missing(): void {
+	public function test_init_trusts_a_current_version_and_repair_table_fixes_missing_columns(): void {
 		update_option( 'stonewright_memory_schema_version', 4 );
-		// Incomplete columns: must attempt reinstall (charset/dbDelta path).
+		// Incomplete columns behind a current version: init does not look, repair_table() does and reinstalls.
 		$GLOBALS['wpdb'] = new class() {
 			public $prefix       = 'wp_';
 			public int $charset_calls   = 0;
@@ -521,9 +521,113 @@ final class MemorySchemaTest extends TestCase {
 
 		Memory::maybe_install_table();
 
-		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls );
+		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls, 'init trusts the version option' );
+
+		self::assertTrue( Memory::repair_table() );
+
+		self::assertSame( 1, $GLOBALS['wpdb']->charset_calls );
 		self::assertTrue( Memory::table_schema_ok() );
 		self::assertSame( 4, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
+	}
+
+	public function test_init_with_current_version_issues_no_show_columns(): void {
+		update_option( 'stonewright_memory_schema_version', 4 );
+		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
+
+		Memory::maybe_install_table();
+		Memory::maybe_install_table();
+
+		self::assertSame( [], $GLOBALS['wpdb']->queries );
+	}
+
+	public function test_a_schema_error_on_insert_triggers_one_repair_and_one_retry(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public $prefix        = 'wp_';
+			public $last_error    = '';
+			public $insert_id     = 0;
+			public int $inserts   = 0;
+			public int $installs  = 0;
+
+			public function get_charset_collate(): string {
+				++$this->installs;
+				return 'DEFAULT CHARSET=utf8mb4';
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return 0 === $this->installs ? [ 'id' ] : [ 'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence', 'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence', 'created_by', 'created_at', 'updated_at', 'last_retrieved_at' ];
+			}
+
+			public function get_var( string $query ): mixed {
+				return null;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int|false {
+				++$this->inserts;
+				if ( 1 === $this->inserts ) {
+					$this->last_error = "Unknown column 'topic' in 'field list'";
+					return false;
+				}
+				$this->last_error = '';
+				$this->insert_id  = 7;
+				return 1;
+			}
+		};
+
+		$id = Memory::put_typed( 'feedback', 'project', 'repair-retry', 'Repair retry', [ 'x' => 1 ] );
+
+		self::assertSame( 7, $id );
+		self::assertSame( 2, $GLOBALS['wpdb']->inserts );
+		self::assertSame( 1, $GLOBALS['wpdb']->installs );
+	}
+
+	public function test_a_schema_error_on_update_of_an_existing_entry_triggers_one_repair_and_one_retry(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public $prefix        = 'wp_';
+			public $last_error    = '';
+			public $insert_id     = 0;
+			public int $updates   = 0;
+			public int $installs  = 0;
+
+			public function get_charset_collate(): string {
+				++$this->installs;
+				return 'DEFAULT CHARSET=utf8mb4';
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return 0 === $this->installs ? [ 'id' ] : [ 'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence', 'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence', 'created_by', 'created_at', 'updated_at', 'last_retrieved_at' ];
+			}
+
+			public function get_var( string $query ): mixed {
+				return '5';
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+				++$this->updates;
+				if ( 1 === $this->updates ) {
+					$this->last_error = "Unknown column 'updated_at' in 'field list'";
+					return false;
+				}
+				$this->last_error = '';
+				return 1;
+			}
+		};
+
+		Memory::put( 'project', 'update-retry', [ 'x' => 1 ] );
+
+		self::assertSame( 2, $GLOBALS['wpdb']->updates );
+		self::assertSame( 1, $GLOBALS['wpdb']->installs );
 	}
 
 	/**
@@ -532,6 +636,8 @@ final class MemorySchemaTest extends TestCase {
 	private function make_wpdb( array $columns ): object {
 		return new class( $columns ) {
 			public $prefix = 'wp_';
+			/** @var list<string> */
+			public array $queries = [];
 			/** @var array<int, string> */
 			private array $columns;
 
@@ -546,6 +652,7 @@ final class MemorySchemaTest extends TestCase {
 
 			/** @return array<int, string> */
 			public function get_col( string $query, int $x = 0 ): array {
+				$this->queries[] = $query;
 				return $this->columns;
 			}
 		};

@@ -14,6 +14,10 @@
  * - task-start non-visual compact < 800 estimated tokens
  * - task-start visual compact < 1200 estimated tokens
  *
+ * Every surface also reports what a client sees on the wire: tools_list_bytes (the JSON size
+ * the REST layer sends), largest_tool, and pages_at_default_budget (how many tools/list pages
+ * ToolsListPagination cuts it into at DEFAULT_PAGE_BYTES). These are informational, not budgets.
+ *
  * Usage:
  *   cd plugin && composer tokens:measure
  *   php bin/measure-token-surface.php --fixture=over-budget   # dry-run exit 1
@@ -28,6 +32,7 @@ require_once dirname( __DIR__ ) . '/tests/bootstrap.php';
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Core\ToolsListPagination;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 $fixture = null;
@@ -78,6 +83,45 @@ function stonewright_token_metrics( mixed $value ): array {
 	return [
 		'bytes'            => $bytes,
 		'estimated_tokens' => (int) ceil( $bytes / 4 ),
+	];
+}
+
+/**
+ * Wire size of a tools/list answer and how the default page budget cuts it.
+ *
+ * @param list<array<string, mixed>> $documents
+ * @return array{tools_list_bytes:int,largest_tool:array{name:string,bytes:int}|null,pages_at_default_budget:int}
+ * @throws RuntimeException When the pagination refuses its own cursor.
+ */
+function stonewright_pagination_metrics( array $documents ): array {
+	$encoded = wp_json_encode( $documents );
+	$largest = null;
+	foreach ( $documents as $document ) {
+		$json  = wp_json_encode( $document );
+		$bytes = false === $json ? 0 : strlen( $json );
+		if ( null === $largest || $bytes > $largest['bytes'] ) {
+			$largest = [
+				'name'  => (string) $document['name'],
+				'bytes' => $bytes,
+			];
+		}
+	}
+
+	$pages  = 0;
+	$cursor = null;
+	do {
+		$page = ToolsListPagination::page( $documents, $cursor, ToolsListPagination::DEFAULT_PAGE_BYTES );
+		if ( $page instanceof WP_Error ) {
+			throw new RuntimeException( $page->get_error_message() );
+		}
+		++$pages;
+		$cursor = $page['nextCursor'];
+	} while ( null !== $cursor );
+
+	return [
+		'tools_list_bytes'        => false === $encoded ? 0 : strlen( $encoded ),
+		'largest_tool'            => $largest,
+		'pages_at_default_budget' => $pages,
 	];
 }
 
@@ -147,6 +191,7 @@ function stonewright_profile_metrics( string $profile, int $max_tools, array $al
 		'profile_tool_count' => $result['profile_tool_count'],
 		'under_limit'        => $result['under_limit'],
 		'tools_list'         => stonewright_token_metrics( $documents ),
+		'wire'               => stonewright_pagination_metrics( $documents ),
 	];
 }
 
@@ -183,14 +228,17 @@ $report = [
 		'full'       => [
 			'tool_count' => count( $full_tools ),
 			'tools_list' => stonewright_token_metrics( $full_tools ),
+			'wire'       => stonewright_pagination_metrics( $full_tools ),
 		],
 		'essential'  => [
 			'tool_count' => count( $essential_tools ),
 			'tools_list' => stonewright_token_metrics( $essential_tools ),
+			'wire'       => stonewright_pagination_metrics( $essential_tools ),
 		],
 		'bootstrap'  => [
 			'tool_count' => count( $bootstrap_tools ),
 			'tools_list' => stonewright_token_metrics( $bootstrap_tools ),
+			'wire'       => stonewright_pagination_metrics( $bootstrap_tools ),
 		],
 		'default_20' => stonewright_profile_metrics( 'elementor-design', TokenSurfaceBudgets::DEFAULT_MAX_TOOLS, $full_rows ),
 		'strict_12'  => stonewright_profile_metrics( 'low-tools', TokenSurfaceBudgets::STRICT_MAX_TOOLS, $full_rows ),

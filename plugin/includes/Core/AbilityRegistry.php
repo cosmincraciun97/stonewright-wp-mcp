@@ -966,7 +966,8 @@ final class AbilityRegistry {
 	 *
 	 * An ability that runs or writes code is refused unless the configured surface or the session profile
 	 * lists it. A confirmation token never lifts that refusal; only a person choosing the Full surface in
-	 * wp-admin does. An ability the surface only hides from the tool list (section reuse switched off,
+	 * wp-admin does. While an administrator's write freeze is on, an ability that changes the site is refused
+	 * with `stonewright_write_freeze`; reads, the task start and the rollbacks still run. An ability the surface only hides from the tool list (section reuse switched off,
 	 * Atomic abilities not turned on) goes on to its own handling, which answers that state itself.
 	 *
 	 * @return \WP_Error|null The refusal, or null when the ability may go on to its own gates.
@@ -991,7 +992,15 @@ final class AbilityRegistry {
 			);
 		}
 
-		return FullProfileOnlyAbilities::is_restricted( $name ) ? self::surface_refusal( $ability ) : null;
+		if ( FullProfileOnlyAbilities::is_restricted( $name ) ) {
+			$surface = self::surface_refusal( $ability );
+			if ( $surface instanceof \WP_Error ) {
+				return $surface;
+			}
+		}
+
+		// An administrator's write freeze refuses the abilities that change the site; reads and the ways back pass.
+		return \Stonewright\WpMcp\Security\WriteFreeze::gate( $name );
 	}
 
 	/**

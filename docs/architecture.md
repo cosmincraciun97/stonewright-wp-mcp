@@ -265,8 +265,8 @@ defining `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes it:
 every plugin table, every `stonewright_` option (the OAuth keys included),
 every `stonewright_` and `sw_cc_` transient, and the scheduled OAuth clean-up,
 audit retention and change history retention events, on every site of a network,
-and the change journal files and change history blobs in
-`uploads/stonewright-state/`. See
+and the change journal files, change history blobs and kept copies of
+`php-execute` code in `uploads/stonewright-state/`. See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 The rescue helper in `wp-content/mu-plugins/` is code, not data, and deleting the
 plugin always removes it.
@@ -1099,6 +1099,10 @@ Profile and surface switching is transport-specific. Agents should treat
 - Each `tools/list` request reads the saved site surface plus an optional,
   expiring profile bound to `Mcp-Session-Id`. Bootstrap task-start activates
   only that session; it never rewrites the site option or another session.
+- `Core\ToolsListPagination` pages the `tools/list` answer on both MCP routes at the
+  REST boundary (`rest_post_dispatch`), by a 768 KiB byte budget, with MCP cursors
+  (`nextCursor` / `params.cursor`); the vendored adapter is not forked. See
+  [tools/list pagination](companion-contract.md#toolslist-pagination).
 - The vendor initialize payload may not declare `tools.listChanged`. Clients
   must honor `re_list_instruction` in the ability response and call `tools/list`
   again even when no `notifications/tools/list_changed` arrives.
