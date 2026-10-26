@@ -558,6 +558,11 @@ final class AuditLog {
 		return true;
 	}
 
+	/** The audit retention window in days: 0 keeps every row, otherwise 1 to 365. */
+	public static function retention_days(): int {
+		return max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
+	}
+
 	/**
 	 * Daily sweep. Every run that is not throttled closes quiet incidents, with
 	 * or without a retention window. Only when a retention window is configured
@@ -568,7 +573,7 @@ final class AuditLog {
 	 * @return array{status:string,retention_days:int,cutoff_utc:string,deleted_rows:int,run_at:string}
 	 */
 	public static function enforce_retention( bool $force = false, ?int $now = null ): array {
-		$days = max( 0, min( 365, (int) get_option( self::RETENTION_OPTION, 0 ) ) );
+		$days = self::retention_days();
 		$now  = $now ?? time();
 		$base = [
 			'status'         => 0 === $days ? 'disabled' : 'skipped',
@@ -636,6 +641,8 @@ final class AuditLog {
 			Logger::warning( 'lesson_migrations_failed', [ 'error' => $throwable->getMessage() ] );
 		}
 		self::enforce_retention( true );
+		// The copies of executed code follow the audit window; the call guards itself, so it cannot fail the job.
+		RuntimeCodeHistory::prune_expired();
 	}
 
 	public static function unschedule_retention(): void {

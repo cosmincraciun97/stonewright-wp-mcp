@@ -440,9 +440,9 @@ history, and settings stay in the database. Defining
 `STONEWRIGHT_REMOVE_ALL_DATA` as `true` before deleting removes every plugin
 table, every `stonewright_` option (the OAuth signing and encryption keys
 included), every `stonewright_` and `sw_cc_` transient, and the scheduled
-events, on every site of a network, and the change journal files and change
-history blobs in `uploads/stonewright-state/` (a file in those folders that
-Stonewright did not write stays). See
+events, on every site of a network, and the change journal files, change
+history blobs and kept copies of `php-execute` code in `uploads/stonewright-state/`
+(a file in those folders that Stonewright did not write stays). See
 [Updating Stonewright](updates.md#roll-back-reinstall-or-remove-the-plugin).
 Leave the constant undefined unless the data is meant to go.
 
@@ -575,6 +575,55 @@ post meta, option, Elementor data, or menu patterns returns a `routing_hint`
 that names the typed tool. The hint is advice built from fixed text after the
 guards and the snippet have run; it does not block, change, or repeat the
 snippet.
+
+### What the audit keeps for php-execute
+
+The `code` argument is a redacted key, so the audit row never holds the snippet.
+It holds `code_sha256`, the hash of the code exactly as it ran, which says that
+two runs were the same and not what either did. To let an administrator
+reconstruct what ran, the row also points at a copy of the code kept apart from
+the log, with three more fields: `code_ref` (the sha256 of the copy),
+`code_bytes` (the length of the code that ran) and `code_truncated`.
+
+- **Masked.** Before the copy is stored, the value of a password, secret, token,
+  API key, authorization or private key (a variable, an array or JSON key, or the
+  name in a call such as `update_option( 'vendor_api_key', '…' )`), the value of a
+  WordPress key or salt in `define()`, and the credential in an `Authorization:
+  Bearer` or `Basic` header are replaced by their first two and last two
+  characters with an ellipsis between them; a value of fewer than nine characters
+  is replaced by the ellipsis alone. This is a best-effort filter for source
+  text. A secret held in a variable with another name, built from pieces or read
+  from a file is not found, so read a copy before sharing it. If the masking
+  itself fails, a notice is kept in place of the code.
+- **Bounded.** A copy is cut at 256 KiB (262144 bytes), after the masking, and
+  `code_truncated` says so. The folder holds at most 50 MB of compressed copies;
+  when it is full, or cannot be written, the snippet still runs and the row keeps
+  the hash alone.
+- **Every call that reaches the audit row.** A call a guard refused, one that
+  needed a confirmation token it did not have, one that failed to parse and one
+  that threw are kept as well as the ones that ran.
+- **Apart from the change history.** The copies are gzip files named by the
+  sha256 of the copy in `uploads/stonewright-state/runtime/`, with the same deny
+  files as the change history blobs, which sit in `uploads/stonewright-state/blobs/`.
+  The change history retention never counts a copy as one of its own.
+- **Read by an administrator only.** **Stonewright > Activity > Audit log** shows
+  **View code** on a `php-execute` row that has a copy, to a user with
+  `manage_options`; the link carries a nonce, and the code is shown as text. No
+  ability, REST route or export returns it.
+- **Deleted with the audit window.** The daily audit retention job deletes the
+  copies that were not kept or run again within the retention window. With no
+  window set the audit rows stay, and so do the copies. A full data removal
+  (`STONEWRIGHT_REMOVE_ALL_DATA`) deletes the folder; the default uninstall keeps
+  it with the rest of the data.
+
+The copy is on by default. To keep only the hash, turn off **Keep the code
+php-execute runs** under Stonewright > Setup > Settings, or define
+`STONEWRIGHT_PHP_EXECUTE_KEEP_CODE` as `false` in `wp-config.php` (the constant
+wins over the setting; `true` leaves the setting in charge). Turning it off keeps
+no new copy and does not delete the ones kept. Only a person in wp-admin can turn
+the setting off: a REST request that is not a person (an Application Password, an
+OAuth bearer, or a snippet that runs inside one) keeps it on and leaves an event in
+the change ledger, like the other settings that hold an agent on its leash.
 
 Direct credentials belong only in private environment configuration or a
 permission-restricted `~/.stonewright/sites.json`. Plugin and Direct

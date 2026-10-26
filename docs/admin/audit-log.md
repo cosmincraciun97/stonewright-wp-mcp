@@ -24,6 +24,14 @@ incident with its state, and then the redacted payload. Use **Copy** on the
 payload when attaching evidence to a private support report. Review it first
 even though Stonewright redacts known credential and code fields.
 
+A `php-execute` row that kept a copy of its code (the default; see
+[Security](../security.md#what-the-audit-keeps-for-php-execute)) has a **View
+code** button beside **Details**. It opens that copy in place of the log, as text,
+with the values of passwords, tokens, keys and salts masked and code longer than
+256 KB cut; **Back to the audit log** returns to the list. Only a user with
+`manage_options` sees the button, and the link works for that reference only. The
+copy is deleted with the audit retention window.
+
 The page header carries **Export redacted JSON**, **Export redacted CSV** and
 **Delete all logs**; none of them is the primary action. Above the log an
 incident band counts the open, observing, resolved and suppressed incidents, and
@@ -179,6 +187,9 @@ The log is append-only during normal operation. Plugin updates and schema
 migrations preserve existing audit rows; the update that adds `repair_of` adds
 the column and its index in place. A genuinely fresh installation starts
 with zero rows; the first real operation may add one.
+
+When a retention window is configured, the same daily job also deletes the
+copies of `php-execute` code that were not kept or run again within that window.
 
 Cleanup of memory, incidents, and recurring-error state uses only
 `stonewright/security-runtime-data-purge`. Review its count-only dry run, then

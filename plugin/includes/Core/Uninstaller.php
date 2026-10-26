@@ -21,8 +21,8 @@ namespace Stonewright\WpMcp\Core;
  * The removal list is the constants below: every table the plugin creates, the name
  * prefixes of its options (this covers the OAuth signing and encryption keys) and of its
  * transients, and the events it schedules. A site is cleaned in this order: events,
- * tables, options and transients, then the change history blobs and the change journal files in
- * uploads/stonewright-state/.
+ * tables, options and transients, then the change history blobs, the copies of executed code and the change
+ * journal files in uploads/stonewright-state/.
  * On a multisite network every site is cleaned, because deleting the plugin removes it for all
  * of them. The object cache is flushed once at the end; transients that live only in an
  * external object cache expire on their own.
@@ -238,14 +238,16 @@ final class Uninstaller {
 	}
 
 	/**
-	 * Deletes the change history blobs of the current site (uploads/stonewright-state/blobs/), then the
-	 * change journal file with its lock and the files that close the state folder to the web
-	 * (uploads/stonewright-state/). A file in either folder that the plugin did not write stays, and so
-	 * does the folder then. uninstall.php loads the blob store and journal classes for this.
+	 * Deletes the change history blobs of the current site (uploads/stonewright-state/blobs/) and the copies of
+	 * the code php-execute ran (uploads/stonewright-state/runtime/), then the change journal file with its lock
+	 * and the files that close the state folder to the web (uploads/stonewright-state/). A file in any of these
+	 * folders that the plugin did not write stays, and so does the folder then. uninstall.php loads the blob store
+	 * and journal classes for this.
 	 */
 	private function erase_state_files(): void {
 		if ( class_exists( \Stonewright\WpMcp\Security\BlobStore::class ) ) {
 			\Stonewright\WpMcp\Security\BlobStore::erase_default();
+			\Stonewright\WpMcp\Security\BlobStore::erase_default( \Stonewright\WpMcp\Security\BlobStore::RUNTIME_DIRECTORY );
 		}
 		if ( class_exists( \Stonewright\WpMcp\Security\ChangeJournal::class ) ) {
 			\Stonewright\WpMcp\Security\ChangeJournal::erase_state_files();

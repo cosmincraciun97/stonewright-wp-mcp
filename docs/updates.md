@@ -250,9 +250,9 @@ Deleting the plugin then removes:
 - every transient whose name starts with `stonewright_` or `sw_cc_`;
 - the scheduled events `stonewright_oauth_gc`, `stonewright_audit_retention`
   and `stonewright_change_ledger_prune`;
-- the change journal files and the change history blobs in
-  `uploads/stonewright-state/` (a file in those folders that Stonewright did
-  not write stays);
+- the change journal files, the change history blobs and the kept copies of
+  `php-execute` code in `uploads/stonewright-state/` (a file in those folders
+  that Stonewright did not write stays);
 - all of the above on every site of a multisite network, because deleting the
   plugin removes it for all of them.
 

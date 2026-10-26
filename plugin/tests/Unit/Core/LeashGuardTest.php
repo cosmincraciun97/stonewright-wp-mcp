@@ -455,6 +455,58 @@ final class LeashGuardTest extends TestCase {
 		self::assertStringContainsString( "'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ]", $source );
 	}
 
+	public function test_the_copy_of_executed_code_is_guarded_with_the_other_option_hooks(): void {
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
+
+		self::assertStringContainsString( "'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ]", $source );
+	}
+
+	public function test_a_rest_request_that_is_not_a_person_cannot_stop_the_copy_of_executed_code(): void {
+		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		$GLOBALS['stonewright_test_serving_rest'] = true;
+
+		// The registered default is on, so that is the old value WordPress passes while the option is missing.
+		self::assertTrue( LeashGuard::guard_keep_code_write( false, true ) );
+
+		$GLOBALS['stonewright_test_options']['stonewright_php_execute_keep_code'] = '1';
+		update_option( 'stonewright_php_execute_keep_code', '0' );
+		self::assertSame( '1', get_option( 'stonewright_php_execute_keep_code' ) );
+	}
+
+	public function test_a_rest_request_that_is_not_a_person_can_leave_the_copy_on_or_switch_it_back_on(): void {
+		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		$GLOBALS['stonewright_test_serving_rest'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_php_execute_keep_code'] = '0';
+
+		update_option( 'stonewright_php_execute_keep_code', '1' );
+
+		self::assertSame( '1', get_option( 'stonewright_php_execute_keep_code' ) );
+	}
+
+	public function test_a_person_in_wp_admin_can_stop_the_copy_through_a_rest_request(): void {
+		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		$GLOBALS['stonewright_test_serving_rest'] = true;
+		self::as_person();
+		$_SERVER['HTTP_X_WP_NONCE'] = 'valid-nonce';
+		$GLOBALS['stonewright_test_options']['stonewright_php_execute_keep_code'] = '1';
+
+		update_option( 'stonewright_php_execute_keep_code', '0' );
+
+		self::assertSame( '0', get_option( 'stonewright_php_execute_keep_code' ) );
+	}
+
+	public function test_an_admin_screen_wp_cli_and_cron_can_stop_the_copy(): void {
+		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		foreach ( [ true, false ] as $is_admin ) {
+			$GLOBALS['stonewright_test_is_admin']                                     = $is_admin;
+			$GLOBALS['stonewright_test_options']['stonewright_php_execute_keep_code'] = '1';
+
+			update_option( 'stonewright_php_execute_keep_code', '0' );
+
+			self::assertSame( '0', get_option( 'stonewright_php_execute_keep_code' ), 'is_admin=' . var_export( $is_admin, true ) );
+		}
+	}
+
 	/** @dataProvider loosening_pairs */
 	public function test_a_rest_request_that_is_not_a_person_cannot_loosen_the_mode_through_the_option( string $from, string $to ): void {
 		self::hook_backstop();

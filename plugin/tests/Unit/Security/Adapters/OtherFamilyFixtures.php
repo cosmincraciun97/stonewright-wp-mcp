@@ -128,7 +128,8 @@ trait OtherFamilyFixtures {
 		$files    = [];
 		$iterator = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $this->uploads, \FilesystemIterator::SKIP_DOTS ) );
 		foreach ( $iterator as $file ) {
-			if ( $file->isFile() ) {
+			// The copies of the code php-execute ran sit in a folder of their own (RuntimeCodeHistory), not in the ledger.
+			if ( $file->isFile() && ! str_contains( str_replace( '\\', '/', $file->getPathname() ), '/stonewright-state/runtime/' ) ) {
 				$files[] = $file->getPathname();
 			}
 		}

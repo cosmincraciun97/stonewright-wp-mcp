@@ -11,6 +11,20 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Keep a masked, size-capped copy of the code `stonewright/php-execute` ran, so
+  an administrator can see what ran after an incident. The audit row still holds
+  `code_sha256`, the hash of the code as it ran, and now also `code_ref`,
+  `code_bytes` and `code_truncated`. Passwords, tokens, API keys, authorization
+  headers and WordPress keys and salts are masked, the copy is cut at 256 KiB, and
+  a call a guard refused is kept too. Administrators read it under Audit log >
+  View code. The daily audit retention job deletes copies older than the
+  retention window, and a full data removal deletes the folder. The setting
+  **Keep the code php-execute runs** (on by default) or the constant
+  `STONEWRIGHT_PHP_EXECUTE_KEEP_CODE` set to `false` keeps only the hash, and
+  only a person in wp-admin can turn the setting off.
+
 ### Fixed
 
 - Stop checking Stonewright's database tables on every request. Each store

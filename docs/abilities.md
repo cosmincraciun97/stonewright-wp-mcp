@@ -313,6 +313,15 @@ abilities for common workflows, and use PHP execute when direct plugin API or
 database inspection is the shorter correct path. Runtime `$wpdb` and protected
 meta writes are blocked; see [Security](security.md#php-execute-runtime-guards).
 
+The audit row of a call keeps `code_sha256`, the hash of the code as it ran, and,
+by default, `code_ref`, `code_bytes` and `code_truncated`: a reference to a copy of
+the code with passwords, tokens, keys and salts masked, cut at 256 KiB, that an
+administrator reads under Audit log > **View code**. Calls a guard refused are kept
+too. The hash is the same with or without the copy. Turn the copy off with the
+setting **Keep the code php-execute runs** or the constant
+`STONEWRIGHT_PHP_EXECUTE_KEEP_CODE` set to `false`; see
+[What the audit keeps for php-execute](security.md#what-the-audit-keeps-for-php-execute).
+
 When a snippet that ran uses a common pattern, the response adds a short
 `routing_hint` that names the typed tool for it. `prefer` maps the pattern to
 MCP tool names, and `note` says the call was not blocked.

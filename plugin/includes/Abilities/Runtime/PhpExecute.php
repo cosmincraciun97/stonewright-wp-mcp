@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Security\ProtectedCustomCssWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedFilesystemWriteGuard;
 use Stonewright\WpMcp\Security\ProtectedWpdbWriteGuard;
+use Stonewright\WpMcp\Security\RuntimeCodeHistory;
 use Stonewright\WpMcp\Support\ToolRouting;
 
 /**
@@ -212,8 +213,9 @@ final class PhpExecute extends AbilityKernel {
 
 	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
 		$data = $result instanceof \WP_Error ? (array) $result->get_error_data() : $result;
+		$code = (string) ( $args['code'] ?? '' );
 		$meta = [
-			'code_sha256'         => hash( 'sha256', (string) ( $args['code'] ?? '' ) ),
+			'code_sha256'         => hash( 'sha256', $code ),
 			'duration_ms'         => $elapsed_ms,
 			'result_status'       => $result instanceof \WP_Error ? 'error' : 'ok',
 			'result_type'         => (string) ( $data['result_type'] ?? ( $result instanceof \WP_Error ? 'WP_Error' : 'unknown' ) ),
@@ -226,9 +228,17 @@ final class PhpExecute extends AbilityKernel {
 			'verification_status' => $result instanceof \WP_Error ? 'not_applicable' : 'runtime_return',
 			'effect_verified'     => false,
 		];
+		// Every call that reaches the audit row is kept, a refused or failed one too: what was asked is what an
+		// administrator needs to see after an incident. A copy that is off or cannot be stored leaves the hash alone.
+		$kept = RuntimeCodeHistory::keep( $code );
+		if ( null !== $kept ) {
+			$meta['code_ref']       = $kept['ref'];
+			$meta['code_bytes']     = $kept['bytes'];
+			$meta['code_truncated'] = $kept['truncated'];
+		}
 		if ( $result instanceof \WP_Error ) {
-			$code = (string) $result->get_error_code();
-			if ( str_contains( $code, 'blocked' ) ) {
+			$error_code = (string) $result->get_error_code();
+			if ( str_contains( $error_code, 'blocked' ) ) {
 				$meta['execution_status']    = 'blocked';
 				$meta['verification_status'] = 'blocked';
 			}

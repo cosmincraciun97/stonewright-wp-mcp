@@ -21,6 +21,7 @@ use Stonewright\WpMcp\Admin\Ui\Html;
 use Stonewright\WpMcp\Admin\Ui\Icon;
 use Stonewright\WpMcp\Admin\Ui\Notice;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
+use Stonewright\WpMcp\Security\RuntimeCodeHistory;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
@@ -54,6 +55,7 @@ final class SettingsForm {
 				$context->atomic_enabled,
 				__( 'Exposes the experimental Elementor V4 atomic abilities. Requires an Elementor version with the Atomic Widgets module. Writes are always blocked in production-safe.', 'stonewright' )
 			)
+			. self::keep_code_row()
 			. SectionReuseRow::html()
 			. '</tbody></table>';
 
@@ -140,6 +142,21 @@ final class SettingsForm {
 			)
 			. self::help( $help_id, $help )
 			. $extra_html
+		);
+	}
+
+	/** The switch for the copy of the code php-execute runs, with a note when wp-config.php turns it off for the site. */
+	private static function keep_code_row(): string {
+		$note = RuntimeCodeHistory::forced_off()
+			? Notice::callout( 'warn', '', sprintf( /* translators: %s: constant name */ __( '%s is set to false in wp-config.php, so no copy is kept whatever this switch says.', 'stonewright' ), RuntimeCodeHistory::CONSTANT ) )
+			: '';
+
+		return self::switch_row(
+			RuntimeCodeHistory::OPTION,
+			__( 'Keep the code php-execute runs', 'stonewright' ),
+			RuntimeCodeHistory::setting_on(),
+			__( 'Keeps a copy of each snippet the audit log records for php-execute, with passwords, tokens, keys and salts masked and long code cut, so an administrator can see what ran under Audit log > View code. The copies are deleted with the audit retention window. Turn it off to keep only the hash of the code.', 'stonewright' ),
+			$note
 		);
 	}
 
