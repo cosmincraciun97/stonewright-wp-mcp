@@ -32,8 +32,8 @@ PHP;
 
 	public function test_a_password_assignment_keeps_the_first_two_and_last_two_characters(): void {
 		self::assertSame(
-			"\$db_password = 'hu…02';",
-			SecretRedactor::redact( "\$db_password = 'hunter2hunter202';" )
+			"\$db_password = 'fi…02';",
+			SecretRedactor::redact( "\$db_password = 'fixture-hunter202';" )
 		);
 		self::assertSame(
 			'$DB_PASSWD = "co…le";',
@@ -42,63 +42,63 @@ PHP;
 	}
 
 	public function test_array_keys_are_masked_with_either_arrow_or_colon_and_either_quote(): void {
-		$code = "\$args = [ 'client_secret' => 'abcdef0123456789', \"api-key\" => \"sk_live_9876543210\", 'access_token'=>'tok_abcdefghijkl' ];"
+		$code = "\$args = [ 'client_secret' => 'fixture-0123456789', \"api-key\" => \"test-sk-9876543210\", 'access_token'=>'test-abcdefghijkl' ];"
 			. "\n\$json = '{\"private_key\": \"-----BEGIN KEY-----ABCD\", \"apiKey\":\"zyxwvutsrqpo\"}';";
 
 		$out = SecretRedactor::redact( $code );
 
 		self::assertSame(
-			"\$args = [ 'client_secret' => 'ab…89', \"api-key\" => \"sk…10\", 'access_token'=>'to…kl' ];"
+			"\$args = [ 'client_secret' => 'fi…89', \"api-key\" => \"te…10\", 'access_token'=>'te…kl' ];"
 			. "\n\$json = '{\"private_key\": \"--…CD\", \"apiKey\":\"zy…po\"}';",
 			$out
 		);
 	}
 
 	public function test_a_secret_set_through_an_option_or_transient_call_is_masked(): void {
-		$out = SecretRedactor::redact( "update_option( 'vendor_api_key', 'sk_test_0123456789abcdef' );\nset_transient( 'vendor_token', 'ghp_abcdefghijklmnop', 60 );" );
+		$out = SecretRedactor::redact( "update_option( 'vendor_api_key', 'test-0123456789abcdef' );\nset_transient( 'vendor_token', 'test-abcdefghijklmnop', 60 );" );
 
-		self::assertSame( "update_option( 'vendor_api_key', 'sk…ef' );\nset_transient( 'vendor_token', 'gh…op', 60 );", $out );
+		self::assertSame( "update_option( 'vendor_api_key', 'te…ef' );\nset_transient( 'vendor_token', 'te…op', 60 );", $out );
 	}
 
 	public function test_the_name_of_the_key_and_the_code_around_it_stay_readable(): void {
-		$out = SecretRedactor::redact( "if ( 'yes' === \$mode ) {\n\t\$token = 'abcdefghijklmnop'; // rotate monthly\n}\nreturn \$token;" );
+		$out = SecretRedactor::redact( "if ( 'yes' === \$mode ) {\n\t\$token = 'fixture-abcdefghijkl'; // rotate monthly\n}\nreturn \$token;" );
 
-		self::assertSame( "if ( 'yes' === \$mode ) {\n\t\$token = 'ab…op'; // rotate monthly\n}\nreturn \$token;", $out );
+		self::assertSame( "if ( 'yes' === \$mode ) {\n\t\$token = 'fi…kl'; // rotate monthly\n}\nreturn \$token;", $out );
 	}
 
 	public function test_other_password_names_are_masked(): void {
-		$out = SecretRedactor::redact( "\$user_pass = 'abcdefghijklmn'; \$args = [ 'pwd' => 'opqrstuvwxyz12', 'pass1' => 'correct-horse-battery' ];" );
+		$out = SecretRedactor::redact( "\$user_pass = 'fixture-abcdefghij'; \$args = [ 'pwd' => 'test-opqrstuvwxyz', 'pass1' => 'fixture-horse-battery' ];" );
 
-		self::assertSame( "\$user_pass = 'ab…mn'; \$args = [ 'pwd' => 'op…12', 'pass1' => 'co…ry' ];", $out );
+		self::assertSame( "\$user_pass = 'fi…ij'; \$args = [ 'pwd' => 'te…yz', 'pass1' => 'fi…ry' ];", $out );
 	}
 
 	public function test_a_password_passed_by_position_is_masked(): void {
 		$out = SecretRedactor::redact(
-			"wp_set_password( 'correct-horse-battery', 5 );
+			"wp_set_password( 'fixture-horse-battery', 5 );
 "
-			. "\$id = wp_create_user( 'alice', 'hunter2hunter202', 'alice@example.test' );
+			. "\$id = wp_create_user( 'alice', 'fixture-hunter202', 'alice@example.test' );
 "
-			. "\$db = new wpdb( 'dbuser', 'dbvalue-xyz-123456', 'wp', 'localhost' );
+			. "\$db = new wpdb( 'dbuser', 'test-dbvalue-123456', 'wp', 'localhost' );
 "
-			. "wp_check_password( \"typed-secret-value\", \$hash );"
+			. "wp_check_password( \"test-typed-secret-value\", \$hash );"
 		);
 
 		self::assertSame(
-			"wp_set_password( 'co…ry', 5 );
+			"wp_set_password( 'fi…ry', 5 );
 "
-			. "\$id = wp_create_user( 'alice', 'hu…02', 'alice@example.test' );
+			. "\$id = wp_create_user( 'alice', 'fi…02', 'alice@example.test' );
 "
-			. "\$db = new wpdb( 'dbuser', 'db…56', 'wp', 'localhost' );
+			. "\$db = new wpdb( 'dbuser', 'te…56', 'wp', 'localhost' );
 "
-			. "wp_check_password( \"ty…ue\", \$hash );",
+			. "wp_check_password( \"te…ue\", \$hash );",
 			$out
 		);
 	}
 
 	public function test_a_value_with_an_escaped_quote_is_masked_whole(): void {
-		$out = SecretRedactor::redact( "\$secret = 'abc\\'defghijklm\\'nop'; echo 1;" );
+		$out = SecretRedactor::redact( "\$secret = 'fixture-abc\\'defghijklm\\'nop'; echo 1;" );
 
-		self::assertSame( "\$secret = 'ab…op'; echo 1;", $out );
+		self::assertSame( "\$secret = 'fi…op'; echo 1;", $out );
 		self::assertStringNotContainsString( 'defghij', $out );
 	}
 
@@ -127,28 +127,28 @@ PHP;
 
 	public function test_authorization_headers_are_masked_for_bearer_and_basic(): void {
 		$out = SecretRedactor::redact(
-			"\$h = 'Authorization: Bearer eyJhbGciOi.payload.signature-1234';\n"
-			. "\$g = \"authorization: Basic dXNlcjpwYXNzd29yZA==\";\n"
-			. "\$r = wp_remote_get( \$url, [ 'headers' => [ 'Authorization' => 'Bearer abcdefghijklmnop' ] ] );"
+			"\$h = 'Authorization: Bearer fixture-eyJhbGciOi.payload.signature-1234';\n"
+			. "\$g = \"authorization: Basic fixture-dXNlcjpwYXNzd29yZA==\";\n"
+			. "\$r = wp_remote_get( \$url, [ 'headers' => [ 'Authorization' => 'Bearer fixture-ABCDEF0123' ] ] );"
 		);
 
 		self::assertSame(
-			"\$h = 'Authorization: Bearer ey…34';\n"
-			. "\$g = \"authorization: Basic dX…==\";\n"
-			. "\$r = wp_remote_get( \$url, [ 'headers' => [ 'Authorization' => 'Be…op' ] ] );",
+			"\$h = 'Authorization: Bearer fi…34';\n"
+			. "\$g = \"authorization: Basic fi…==\";\n"
+			. "\$r = wp_remote_get( \$url, [ 'headers' => [ 'Authorization' => 'Be…23' ] ] );",
 			$out
 		);
 	}
 
 	public function test_multibyte_values_are_cut_on_character_boundaries(): void {
-		$out = SecretRedactor::redact( "\$password = 'éàüöß-secret-ñandú';" );
+		$out = SecretRedactor::redact( "\$password = 'fixture-éàüöß-ñandú';" );
 
-		self::assertSame( "\$password = 'éà…dú';", $out );
+		self::assertSame( "\$password = 'fi…dú';", $out );
 		self::assertTrue( mb_check_encoding( $out, 'UTF-8' ) );
 	}
 
 	public function test_redacted_code_still_parses(): void {
-		$code = "\$password = 'hunter2hunter202';\n\$a = [ 'token' => \"abc\\\"defghijkl\", 'x' => 1 ];\ndefine( 'AUTH_KEY', 'abcdefghijkl' );\nreturn \$a;";
+		$code = "\$password = 'fixture-hunter202';\n\$a = [ 'token' => \"abc\\\"defghijkl\", 'x' => 1 ];\ndefine( 'AUTH_KEY', 'abcdefghijkl' );\nreturn \$a;";
 
 		$out = SecretRedactor::redact( $code );
 
@@ -157,11 +157,11 @@ PHP;
 	}
 
 	public function test_a_long_run_of_identifier_characters_is_handled_without_backtracking_trouble(): void {
-		$code = '$blob = "' . str_repeat( 'abcdefgh_', 40000 ) . '"; $password = \'abcdefghijkl\';';
+		$code = '$blob = "' . str_repeat( 'abcdefgh_', 40000 ) . '"; $password = \'fixture-abcdefghijkl\';';
 
 		$out = SecretRedactor::redact( $code );
 
-		self::assertStringContainsString( "\$password = 'ab…kl';", $out );
+		self::assertStringContainsString( "\$password = 'fi…kl';", $out );
 		self::assertStringContainsString( str_repeat( 'abcdefgh_', 40000 ), $out );
 	}
 
@@ -177,7 +177,7 @@ PHP;
 		ini_set( 'pcre.jit', '0' );
 		ini_set( 'pcre.backtrack_limit', '10' );
 		try {
-			$out = SecretRedactor::redact( "\$password = '" . str_repeat( 'a', 5000 ) . "';" );
+			$out = SecretRedactor::redact( "\$password = 'fixture-" . str_repeat( 'a', 5000 ) . "';" );
 		} finally {
 			ini_set( 'pcre.jit', false === $jit ? '1' : (string) $jit );
 			ini_set( 'pcre.backtrack_limit', false === $limit ? '1000000' : (string) $limit );

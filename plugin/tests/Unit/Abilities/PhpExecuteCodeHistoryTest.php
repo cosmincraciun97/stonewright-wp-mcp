@@ -137,7 +137,7 @@ final class PhpExecuteCodeHistoryTest extends TestCase {
 	}
 
 	public function test_secrets_are_masked_in_the_kept_copy_but_the_original_hash_is_recorded(): void {
-		$code = "\$password = 'correct-horse-battery';\n\$headers = [ 'Authorization' => 'Bearer abcdefghijklmnop' ];\nreturn strlen( \$password );";
+		$code = "\$password = 'fixture-horse-battery';\n\$headers = [ 'Authorization' => 'Bearer fixture-ABCDEF0123' ];\nreturn strlen( \$password );";
 
 		$result = ( new PhpExecute() )->execute( [ 'code' => $code ] );
 
@@ -146,20 +146,20 @@ final class PhpExecuteCodeHistoryTest extends TestCase {
 		$meta = $this->audit_meta();
 		self::assertSame( hash( 'sha256', $code ), $meta['code_sha256'] );
 		$kept = RuntimeCodeHistory::read( (string) $meta['code_ref'] );
-		self::assertSame( "\$password = 'co…ry';\n\$headers = [ 'Authorization' => 'Be…op' ];\nreturn strlen( \$password );", $kept );
+		self::assertSame( "\$password = 'fi…ry';\n\$headers = [ 'Authorization' => 'Be…23' ];\nreturn strlen( \$password );", $kept );
 		self::assertNotSame( $meta['code_sha256'], $meta['code_ref'], 'the reference names the redacted copy, not the original code' );
 		foreach ( $this->runtime_blobs() as $file ) {
-			self::assertStringNotContainsString( 'correct-horse', (string) gzdecode( (string) file_get_contents( $this->runtime_dir() . '/' . $file ) ) );
+			self::assertStringNotContainsString( 'fixture-horse', (string) gzdecode( (string) file_get_contents( $this->runtime_dir() . '/' . $file ) ) );
 		}
 		$stored_row = (string) end( $GLOBALS['stonewright_test_wpdb_inserts'] )['data']['sanitized_args'];
-		self::assertStringNotContainsString( 'correct-horse', $stored_row );
+		self::assertStringNotContainsString( 'fixture-horse', $stored_row );
 	}
 
 	public function test_a_secret_that_straddles_the_size_cap_is_not_kept_in_part(): void {
 		$code = "return 1;
 // " . str_repeat( 'y', RuntimeCodeHistory::MAX_BYTES - 60 )
 			. "
-\$password = 'straddling-secret-value-0123456789-tail';
+\$password = 'fixture-straddling-secret-value-0123456789-tail';
 " . str_repeat( 'z', 200 );
 
 		( new PhpExecute() )->execute( [ 'code' => $code ] );
@@ -168,7 +168,7 @@ final class PhpExecuteCodeHistoryTest extends TestCase {
 		self::assertTrue( $meta['code_truncated'] );
 		$kept = (string) RuntimeCodeHistory::read( (string) $meta['code_ref'] );
 		self::assertSame( RuntimeCodeHistory::MAX_BYTES, strlen( $kept ) );
-		self::assertStringContainsString( "\$password = 'st…il';", $kept );
+		self::assertStringContainsString( "\$password = 'fi…il';", $kept );
 		self::assertStringNotContainsString( 'straddling', $kept );
 		self::assertStringNotContainsString( 'secret-value', $kept );
 	}
