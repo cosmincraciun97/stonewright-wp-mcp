@@ -23,7 +23,7 @@ use Stonewright\WpMcp\Security\SensitiveContent;
  *
  * Attaching changes only array results, never replaces a key an ability already returns, and
  * adds nothing when there is nothing to say. An output schema that forbids extra properties
- * gets the two optional fields declared by declare_in_schema(), so a notice can never make a
+ * gets the optional fields declared by declare_in_schema(), so a notice can never make a
  * response invalid against the schema the client holds.
  */
 final class AgentNotices {
@@ -63,6 +63,13 @@ final class AgentNotices {
 		}
 		update_option( self::OPTION, $stored, true );
 		return true;
+	}
+
+	/**
+	 * Whether a line pushed under $key is still alive.
+	 */
+	public static function has( string $key, ?int $now = null ): bool {
+		return isset( self::stored( $now ?? time() )[ $key ] );
 	}
 
 	public static function dismiss( string $key ): void {
@@ -139,8 +146,10 @@ final class AgentNotices {
 			return $schema;
 		}
 		$properties = isset( $schema['properties'] ) && is_array( $schema['properties'] ) ? $schema['properties'] : [];
-		if ( ! array_key_exists( 'pending_incident', $properties ) ) {
-			$properties['pending_incident'] = [ 'type' => 'object' ];
+		foreach ( [ 'pending_incident', 'site_pressure', 'write_pacing' ] as $field ) {
+			if ( ! array_key_exists( $field, $properties ) ) {
+				$properties[ $field ] = [ 'type' => 'object' ];
+			}
 		}
 		if ( ! array_key_exists( 'notices', $properties ) ) {
 			$properties['notices'] = [

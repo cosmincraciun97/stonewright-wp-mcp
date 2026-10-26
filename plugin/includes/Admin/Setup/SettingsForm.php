@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Admin\Setup;
 
 use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\ChangeHistoryRetention;
+use Stonewright\WpMcp\Admin\WriteFreezeSettings;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\MenuOrder;
 use Stonewright\WpMcp\Admin\Ui\Button;
@@ -78,6 +79,7 @@ final class SettingsForm {
 				[ 'desc' => __( 'Optional keys for the stock-image abilities. A stored key is never shown again.', 'stonewright' ) ]
 			)
 			. ChangeHistoryRetention::settings_html()
+			. WriteFreezeSettings::settings_html()
 			. self::bridge( $context )
 			. $actions
 		);
@@ -98,7 +100,7 @@ final class SettingsForm {
 			return '';
 		}
 
-		return Notice::render( 'ok', __( 'Settings saved', 'stonewright' ), ConfigurationPage::surface_saved_notice() ) . ChangeHistoryRetention::refusal_html();
+		return Notice::render( 'ok', __( 'Settings saved', 'stonewright' ), ConfigurationPage::surface_saved_notice() ) . ChangeHistoryRetention::refusal_html() . WriteFreezeSettings::refusal_html();
 	}
 
 	private static function row( string $label_html, string $cell_html ): string {

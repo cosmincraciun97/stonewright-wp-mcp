@@ -557,6 +557,8 @@ or a knowledge import: text that tells an agent to override the plugin rules or 
 credentials is refused (`stonewright_instructions_need_review`), and an import reports it
 as `instructions_rejected`.
 
+A write freeze is a limit an administrator sets, in wp-admin under Stonewright > Setup > Settings > Busy sites (a time and a reason, stored in `stonewright_write_freeze`). While it is on, every ability that the recorded ability facts list as a write is refused in `AbilityRegistry::authorize_execution()` with `stonewright_write_freeze` (423, `agent_must_stop`, the end time, the reason and the settings link), on every path that runs an ability by name. Reads, `stonewright/task-start`, `rescue-rollback`, `change-rollback`, `change-restore`, the confirmation token that a production-safe rollback needs, the incident record, the learning and feedback records and the tool profile are exempt, so a change can still be taken back during a freeze. The freeze follows the leash rule: a filter on the option keeps the old value when a REST request that is not a person in wp-admin lifts it or ends it sooner (and leaves an event in the change ledger); making it longer, WP-CLI, cron and admin screens are not affected. A change of the freeze from wp-admin is written to the audit log. See [Stonewright on busy or constrained sites](busy-sites.md).
+
 A companion in front of a plugin older than this rule does not offer or forward a
 switch to `full` either. `stonewright-tool-profile` in the companion refuses a
 request for `full` (an activation, or a call with no `action`, which the plugin

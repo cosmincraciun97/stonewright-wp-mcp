@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\PluginsManage;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RescueGuard;
@@ -49,6 +50,7 @@ final class PluginDeactivate extends AbilityKernel {
 			'properties'           => [
 				'plugin' => [ 'type' => 'string' ],
 				'active' => [ 'type' => 'boolean' ],
+				'cache_purge' => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'plugin', 'active' ],
 		];
@@ -79,10 +81,12 @@ final class PluginDeactivate extends AbilityKernel {
 				$plugin = PluginTarget::normalise( (string) $args['plugin'] );
 				RescueGuard::arm_plugin_write( $plugin, is_plugin_active( $plugin ) );
 				deactivate_plugins( $plugin );
-				return [
-					'plugin' => $plugin,
-					'active' => is_plugin_active( $plugin ),
-				];
+				return CachePurgeAdvisor::attach_to_plugin_change(
+					[
+						'plugin' => $plugin,
+						'active' => is_plugin_active( $plugin ),
+					]
+				);
 			}
 		);
 	}

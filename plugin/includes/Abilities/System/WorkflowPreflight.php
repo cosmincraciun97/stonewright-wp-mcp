@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Context\UserContext;
 use Stonewright\WpMcp\Core\SiteMode;
 use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
+use Stonewright\WpMcp\Elementor\CachePurgeAdvisor;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ToolRouting;
 
@@ -396,6 +397,12 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 		];
 
+		// Present only while the page cache of the site purges on its own: what it purges and how to write around it.
+		$cache_purge = CachePurgeAdvisor::advisories();
+		if ( [] !== $cache_purge ) {
+			$response['site']['cache_purge'] = $cache_purge;
+		}
+
 		// Present only while no adapter serves the MCP route: the owner, the version and what the site owner can do.
 		$mcp_runtime = McpRuntimeStatus::agent_notice( McpRuntimeStatus::current() );
 		if ( [] !== $mcp_runtime ) {
@@ -654,6 +661,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
 			],
 		];
+		if ( is_array( $site['cache_purge'] ?? null ) ) {
+			$compact_response['site']['cache_purge'] = $site['cache_purge'];
+		}
 		if ( is_array( $response['mcp_runtime'] ?? null ) ) {
 			$compact_response['mcp_runtime'] = $response['mcp_runtime'];
 		}

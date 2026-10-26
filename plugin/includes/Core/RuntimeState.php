@@ -38,6 +38,7 @@ final class RuntimeState {
 		'stonewright_lock_',
 		'stonewright_rescue_key_',
 		'stonewright_rescue_sess_',
+		'stonewright_site_pressure',
 	];
 
 	/**
@@ -50,6 +51,7 @@ final class RuntimeState {
 		'stonewright_oauth_schema_backoff',
 		'stonewright_probe_loopback_failing',
 		'stonewright_elementor_editor_baseline_',
+		'stonewright_elementor_saves_',
 	];
 
 	/** Sites read from a network per get_sites() call. */

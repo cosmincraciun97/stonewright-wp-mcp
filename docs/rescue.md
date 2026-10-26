@@ -267,6 +267,8 @@ A page's address must have exactly the home URL's scheme, host and port, and no 
 
 When every leg of a probe fails to connect, later probes send one request with a three second timeout for ten minutes, so a host that cannot call itself never makes writes wait, and a leg that gets no answer then is not tried a second time. Any answer ends that.
 
+While the site is under load, the probe asks for less: with the site pressure at `elevated` a site-wide check asks for the front page alone, and at `critical` any probe is one short request, like the cooldown above. See [Stonewright on busy or constrained sites](busy-sites.md#site-pressure).
+
 Three filters adjust the probe: `stonewright_rescue_probe_enabled` (return `false` to turn it off), `stonewright_rescue_probe_args` and `https_local_ssl_verify`. On a slow host, raise `timeout` through `stonewright_rescue_probe_args`: a leg that passed before a write and times out twice after it counts as failed.
 
 ## What an agent sees

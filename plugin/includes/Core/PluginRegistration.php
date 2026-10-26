@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\Setup\DomainLockCard;
 use Stonewright\WpMcp\Admin\Setup\SetupTabs;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Admin\WriteFreezeSettings;
 use Stonewright\WpMcp\Authorization\WordPress\AuthorizationLifecycle;
 use Stonewright\WpMcp\Authorization\WordPress\HttpSurface;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
@@ -26,6 +27,7 @@ use Stonewright\WpMcp\Design\Motion\MotionAssetLoader;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\Provider\NativeObserver;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Gutenberg\BrowserQueue\QueueConsole;
@@ -48,7 +50,9 @@ use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\RescueHooks;
+use Stonewright\WpMcp\Security\SitePressure;
 use Stonewright\WpMcp\Security\StaticAnalysis;
+use Stonewright\WpMcp\Support\AgentNotices;
 use Stonewright\WpMcp\Support\LegacyMirrorCleanup;
 use Stonewright\WpMcp\Support\Logger;
 use Stonewright\WpMcp\Support\OptionLock;
@@ -158,6 +162,9 @@ final class PluginRegistration {
 		// Nor can it stop the audit log from keeping a copy of the code php-execute runs.
 		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
 		add_action( 'add_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_added' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_write_freeze', [ LeashGuard::class, 'guard_write_freeze_write' ], 10, 2 );
+		add_filter( 'pre_update_option_stonewright_elementor_write_pacing', [ LeashGuard::class, 'guard_write_pacing_write' ], 10, 2 );
+		WriteFreezeSettings::register();
 
 		CrashRecovery::register();
 		WidgetLoader::register();
@@ -172,6 +179,9 @@ final class PluginRegistration {
 		// tools/list answers over a byte budget are paged with MCP cursors, so a large surface stays under the companion's read cap.
 		ToolsListPagination::register();
 		EditorSaveGuard::register();
+		// Agents learn from every ability response when the site is under load.
+		AgentNotices::register_field( 'site_pressure', [ SitePressure::class, 'notice' ] );
+		AgentNotices::register_field( 'write_pacing', [ WritePacing::class, 'notice' ] );
 		// Elementor's own write abilities that run outside stonewright-elementor-native-execute are snapshotted and recorded, never blocked.
 		NativeObserver::register();
 		BasicAuthCredentials::register();

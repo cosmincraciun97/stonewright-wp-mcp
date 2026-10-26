@@ -12,10 +12,12 @@ use Stonewright\WpMcp\Core\RuntimeState;
 use Stonewright\WpMcp\Core\Uninstaller;
 use Stonewright\WpMcp\Elementor\EditorSaveGuard;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\ScanCache;
+use Stonewright\WpMcp\Elementor\WritePacing;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ChangeJournal;
 use Stonewright\WpMcp\Security\ChangeLedgerRetention;
 use Stonewright\WpMcp\Security\HealthProbe;
+use Stonewright\WpMcp\Security\SitePressure;
 use Stonewright\WpMcp\Support\OptionLock;
 use Stonewright\WpMcp\Support\SchemaGate;
 use Stonewright\WpMcp\Tests\Unit\Authorization\WordPress\Fixtures\StorageRig;
@@ -124,6 +126,7 @@ final class UninstallerRuntimeStateTest extends TestCase {
 			'option locks'    => self::constant( OptionLock::class, 'PREFIX' ),
 			'helper keys'     => self::helper_constant( 'KEY_PREFIX' ),
 			'helper sessions' => self::helper_constant( 'SESSION_PREFIX' ),
+			'site pressure'   => SitePressure::OPTION,
 		];
 		self::assertEqualsCanonicalizing( array_values( $options ), RuntimeState::OPTION_PREFIXES, 'every option prefix has an owner here, and the other way round' );
 
@@ -132,6 +135,7 @@ final class UninstallerRuntimeStateTest extends TestCase {
 			'oauth back-off'  => StorageTables::BACKOFF_TRANSIENT,
 			'loopback probe'  => HealthProbe::COOLDOWN_KEY,
 			'edit baseline'   => self::constant( EditorSaveGuard::class, 'OPTION_PREFIX' ),
+			'save counts'     => WritePacing::TRANSIENT_PREFIX,
 		];
 		self::assertEqualsCanonicalizing( array_values( $transients ), RuntimeState::TRANSIENT_PREFIXES );
 	}
@@ -161,6 +165,10 @@ final class UninstallerRuntimeStateTest extends TestCase {
 			}
 			preg_match_all( "/'(stonewright_[a-z0-9_]+)'/", (string) file_get_contents( $file->getPathname() ), $found );
 			foreach ( $found[1] as $literal ) {
+				// A filter name is not a stored row, even when it starts like one.
+				if ( in_array( $literal, self::HOOK_NAMES, true ) ) {
+					continue;
+				}
 				foreach ( $prefixes as $prefix ) {
 					if ( $literal !== $prefix && str_starts_with( $literal, $prefix ) ) {
 						$collisions[ $literal ] = substr( str_replace( '\\', '/', $file->getPathname() ), strlen( str_replace( '\\', '/', $root ) ) + 1 );
@@ -171,6 +179,9 @@ final class UninstallerRuntimeStateTest extends TestCase {
 
 		self::assertSame( [], $collisions, 'A name that a runtime prefix would delete. Rename it, or make it runtime state on purpose.' );
 	}
+
+	/** Filter names that start with a runtime prefix and are never stored. */
+	private const HOOK_NAMES = [ 'stonewright_site_pressure_thresholds' ];
 
 	private static function constant( string $class, string $name ): string {
 		return (string) ( new \ReflectionClassConstant( $class, $name ) )->getValue();
