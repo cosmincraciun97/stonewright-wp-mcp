@@ -42,8 +42,8 @@
   freeze (rollbacks and restores of the change history are exempt). Backup, token, validation and audit
   gates are unchanged, and a change of the freeze or the pacing setting is audited.
 - `wp stonewright cleanup` removes the runtime state Stonewright rebuilds on its
-  own (locks, back-offs, cached verdicts, the rescue helper's remembered state
-  and Elementor editor baselines) from the command line, and is safe on a live
+  own (locks, back-offs, cached verdicts, the rescue helper's remembered state,
+  the site pressure measurement, and Elementor editor baselines and save counts) from the command line, and is safe on a live
   site. With `--all-data --yes` it also removes every Stonewright table, option,
   transient, scheduled event and state file, as `STONEWRIGHT_REMOVE_ALL_DATA`
   does at uninstall. It deactivates the plugin first, so the plugin does not
@@ -119,7 +119,8 @@
 - Remove the plugin's runtime state on deactivation and on every uninstall, with
   or without `STONEWRIGHT_REMOVE_ALL_DATA`: lock rows, schema back-offs, the
   cached compatibility and widget verdicts, the rescue helper's remembered
-  state, the loopback probe cool-down and Elementor editor baselines. The
+  state, the loopback probe cool-down, the site pressure measurement, and
+  Elementor editor baselines and save counts. The
   scheduled events are unscheduled on every uninstall too, on every site of a
   network. Settings, tables, OAuth clients and keys, memory, skills and the
   audit history stay unless the constant asks for their removal.
