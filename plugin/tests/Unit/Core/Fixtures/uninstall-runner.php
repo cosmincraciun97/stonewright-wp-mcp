@@ -63,6 +63,10 @@ function wp_cache_flush(): bool {
 	return true;
 }
 
+function wp_cache_delete( string $key, string $group = '' ): bool {
+	return true;
+}
+
 /** @return array<string, mixed> */
 function wp_upload_dir( ?string $time = null, bool $create_dir = true ): array {
 	return [

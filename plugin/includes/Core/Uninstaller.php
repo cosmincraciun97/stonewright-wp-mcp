@@ -16,7 +16,9 @@ namespace Stonewright\WpMcp\Core;
  *
  * The rescue helper, the must-use plugin file that the plugin installs, is code and not data. It is
  * removed when the plugin is deleted whatever the setting says, by remove_code(), which uninstall.php
- * runs before it looks at the setting.
+ * runs before it looks at the setting. So are the scheduled events (unschedule_events()) and the runtime state
+ * (remove_runtime_state(), the rows RuntimeState names): locks, back-offs, cached verdicts and the like are
+ * rebuilt by whoever needs them and mean nothing once the plugin is gone.
  *
  * The removal list is the constants below: every table the plugin creates, the name
  * prefixes of its options (this covers the OAuth signing and encryption keys) and of its
@@ -28,7 +30,7 @@ namespace Stonewright\WpMcp\Core;
  * external object cache expire on their own.
  *
  * WordPress includes uninstall.php without loading the plugin, so this class uses no other
- * plugin class except RescueInstaller, which uninstall.php loads first and which needs no other
+ * plugin class except RescueInstaller and RuntimeState, which uninstall.php loads first and which need no other
  * class either, and the change journal classes, which uninstall.php loads when the data is to go.
  * UninstallerTest keeps the lists in step with the code that creates the data.
  */
@@ -159,8 +161,44 @@ final class Uninstaller {
 	 * uninstall, on every site of a network, and the other options stay.
 	 */
 	public static function forget_registered_widgets(): void {
+		self::on_every_site( static fn () => delete_option( self::REGISTERED_WIDGETS_OPTION ) );
+	}
+
+	/**
+	 * Unschedule the plugin's events on this site, or on every site of a network. Deleting the plugin leaves nothing
+	 * that could run them, so a scheduled event would only wait in the cron option, and the retention and clean-up
+	 * hooks would fire into a plugin that is gone. Like the rescue helper this is code state, not data: it runs on
+	 * every uninstall.
+	 */
+	public static function unschedule_events(): void {
+		self::on_every_site(
+			static function (): void {
+				foreach ( self::SCHEDULED_HOOKS as $hook ) {
+					wp_clear_scheduled_hook( $hook );
+				}
+			}
+		);
+	}
+
+	/**
+	 * Delete the runtime state (see RuntimeState) of this site, or of every site of a network: what the plugin
+	 * rebuilds on its own, and so never data. It runs on every uninstall, with or without the setting that removes
+	 * the data. uninstall.php loads RuntimeState first.
+	 */
+	public static function remove_runtime_state(): void {
+		global $wpdb;
+		RuntimeState::clear_everywhere( $wpdb, is_multisite() );
+	}
+
+	/**
+	 * Run a callback on the current site, or on each site of a network in pages of SITE_PAGE, with the switch undone
+	 * after each one.
+	 *
+	 * @param callable(): mixed $callback
+	 */
+	private static function on_every_site( callable $callback ): void {
 		if ( ! is_multisite() ) {
-			delete_option( self::REGISTERED_WIDGETS_OPTION );
+			$callback();
 			return;
 		}
 		$offset = 0;
@@ -171,7 +209,7 @@ final class Uninstaller {
 			foreach ( $sites as $site ) {
 				switch_to_blog( (int) $site );
 				try {
-					delete_option( self::REGISTERED_WIDGETS_OPTION );
+					$callback();
 				} finally {
 					restore_current_blog();
 				}

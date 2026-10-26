@@ -262,6 +262,64 @@ files the plugin wrote (such as `wp-content/stonewright-sandbox/`), and the
 companion's private state under `~/.stonewright/` are not touched. Remove the
 constant again afterwards if the plugin may be installed on the site again.
 
+### Removing Stonewright on a host with resource limits
+
+Some shared hosts cap the processes, memory or CPU of one account, and deleting a
+plugin with several thousand files from wp-admin can hit that cap halfway. On such
+a host remove the plugin in this order:
+
+1. Deactivate it (**Plugins**, or `wp plugin deactivate stonewright`). A deactivated
+   plugin runs no code, so the removal that follows cannot leave a request running
+   code from a folder that is half gone.
+2. Delete it from WP-CLI with `wp plugin uninstall stonewright`. WP-CLI runs outside
+   the web server's limits. (`wp plugin uninstall stonewright --deactivate` does both
+   steps.) If the host also stops WP-CLI, delete the plugin's folder over SFTP, then
+   delete `wp-content/mu-plugins/stonewright-rescue.php` by hand.
+
+There are three ways to remove the plugin, and they leave different things behind:
+
+| What | **Plugins** screen, or `wp plugin uninstall` | Folder deleted over SFTP, or `wp plugin delete` | The same as the first, with `STONEWRIGHT_REMOVE_ALL_DATA` set to `true` |
+| --- | --- | --- | --- |
+| Database tables, settings, OAuth clients and keys, memory, skills, audit history | Stay | Stay | Removed |
+| Runtime state: lock rows, schema back-offs, cached compatibility and widget verdicts, the rescue helper's remembered state, the loopback probe cool-down, Elementor editor baselines | Removed on deactivation and again at uninstall | Removed on deactivation; stays if the plugin was never deactivated | Removed |
+| Scheduled events (`stonewright_oauth_gc`, `stonewright_audit_retention`, `stonewright_change_ledger_prune`) | Unscheduled on deactivation and again at uninstall, on every site of a network | Unscheduled on deactivation | Unscheduled |
+| `wp-content/mu-plugins/stonewright-rescue.php` | Removed | Stays: delete it by hand | Removed |
+| Change journal files and change history blobs in `uploads/stonewright-state/` | Stay | Stay | Removed |
+
+Runtime state is what Stonewright rebuilds on its own, so it goes with deactivation and
+with every uninstall. Everything else stays unless the constant, or the command below,
+asks for its removal. A site with a persistent object cache (Redis, Memcached) keeps its
+transients (editor baselines, back-offs, the loopback cool-down) in that cache and not in
+`wp_options`: Stonewright cannot list them, and they expire on their own, the baselines
+within seven days.
+
+When wp-config.php cannot be edited, `wp stonewright cleanup` does the work from the
+command line while the plugin is still active:
+
+```bash
+wp stonewright cleanup                  # runtime state only; safe on a live site
+wp stonewright cleanup --all-data --yes # every table, option, transient, event and state file
+wp stonewright cleanup --all-data --yes --network # the same on every site of a network
+```
+
+`--all-data` removes what `STONEWRIGHT_REMOVE_ALL_DATA` removes at uninstall. It never
+asks a question and refuses to run without `--yes`. It deactivates the plugin first,
+because an active plugin creates its tables and OAuth keys again on the next request,
+and it does not delete the plugin's files or the rescue helper: uninstall the plugin
+afterwards with `wp plugin uninstall stonewright`. On a network the command acts on the
+site selected with `--url`; `--network` makes it act on every site, and a plugin that is
+active for the whole network is refused without it. The OAuth signing and
+encryption keys go with the data, so every connected client has to sign in again after a
+reinstall.
+
+A request that started before the files were deleted can still reach a hook that runs
+late. The change journal import (the hook that failed in the field), the rescue helper
+check and the retention and clean-up events now check that the classes they need are
+still on disk and return when they are not, instead of asking the autoloader for a file
+that is gone. Other hooks of the plugin still load their classes when they run, so a
+request that started before the folder was deleted can still fail on one of them.
+Deactivating the plugin first, as above, is what makes the removal safe.
+
 ## Fresh install versus update
 
 A genuinely new plugin installation creates the database schema with:
