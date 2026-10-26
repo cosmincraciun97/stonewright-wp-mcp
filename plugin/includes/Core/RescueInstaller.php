@@ -11,6 +11,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Security\SitePressure;
+use Stonewright\WpMcp\Support\LateLoad;
 
 /**
  * Keeps plugin/mu/stonewright-rescue.php installed in the must-use plugins directory.
@@ -201,6 +202,10 @@ final class RescueInstaller {
 		if ( (string) get_option( self::OPTION_VERSION, '' ) === $version && (string) get_option( self::OPTION_PLUGIN, '' ) === self::plugin_basename() ) {
 			return;
 		}
+		// Only now: a request with nothing to do (nearly every request) must not pay for the file checks.
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
 		if ( self::recently_failed() ) {
 			return;
 		}
@@ -214,6 +219,9 @@ final class RescueInstaller {
 	 * every other request costs one stat.
 	 */
 	public static function on_admin_init(): void {
+		if ( ! self::late_load_ready() ) {
+			return;
+		}
 		// The check reads and hashes two files and may write one: it waits while the site is under any pressure.
 		if ( self::check_due() && SitePressure::NORMAL === SitePressure::level() ) {
 			self::verify_and_repair();
@@ -451,6 +459,18 @@ final class RescueInstaller {
 			update_option( self::OPTION_PLUGIN, self::plugin_basename(), true );
 		}
 		self::remember_state_dir();
+	}
+
+	/**
+	 * False when a class this class loads late is gone from disk, as in a request that outlives the deletion
+	 * of the plugin folder: the hooks that run after plugins_loaded return then instead of reaching the autoloader.
+	 */
+	private static function late_load_ready(): bool {
+		return LateLoad::ready(
+			\Stonewright\WpMcp\Security\ChangeJournal::class,
+			\Stonewright\WpMcp\Security\ChangeJournalFile::class,
+			\Stonewright\WpMcp\Security\AuditLog::class
+		);
 	}
 
 	private static function remember_state_dir(): void {

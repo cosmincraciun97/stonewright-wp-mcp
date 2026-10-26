@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Admin\RescueSettings;
 use Stonewright\WpMcp\Cli\ChangesCommand;
+use Stonewright\WpMcp\Cli\CleanupCommand;
 use Stonewright\WpMcp\Cli\RescueCommand;
 use Stonewright\WpMcp\Cli\StonewrightCommand;
 use Stonewright\WpMcp\Security\RescueRecoveryEmail;
@@ -28,7 +29,7 @@ use Stonewright\WpMcp\Security\RescueSafeBoot;
  *   and an admin notice says so when it cannot be installed;
  * - the recovery mode email gets the safe mode link, the entry into safe boot is audited, and the
  *   optional MCP route setting is on Settings > General;
- * - when WP-CLI runs, "wp stonewright rescue" and "wp stonewright changes" are registered.
+ * - when WP-CLI runs, "wp stonewright rescue", "wp stonewright changes" and "wp stonewright cleanup" are registered.
  */
 final class RescueBootstrap {
 
@@ -63,7 +64,7 @@ final class RescueBootstrap {
 	}
 
 	/**
-	 * Registers "wp stonewright rescue" and "wp stonewright changes", and the "stonewright" parent when no one else did.
+	 * Registers "wp stonewright rescue", "wp stonewright changes" and "wp stonewright cleanup", and the "stonewright" parent when no one else did.
 	 * WP_CLI is not a dependency: the classes are only touched when WP-CLI is running.
 	 */
 	private static function register_commands(): void {
@@ -77,5 +78,6 @@ final class RescueBootstrap {
 		}
 		$cli::add_command( 'stonewright rescue', new RescueCommand() );
 		$cli::add_command( 'stonewright changes', new ChangesCommand() );
+		$cli::add_command( 'stonewright cleanup', new CleanupCommand() );
 	}
 }
