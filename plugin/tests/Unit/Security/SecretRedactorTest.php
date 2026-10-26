@@ -66,6 +66,35 @@ PHP;
 		self::assertSame( "if ( 'yes' === \$mode ) {\n\t\$token = 'ab…op'; // rotate monthly\n}\nreturn \$token;", $out );
 	}
 
+	public function test_other_password_names_are_masked(): void {
+		$out = SecretRedactor::redact( "\$user_pass = 'abcdefghijklmn'; \$args = [ 'pwd' => 'opqrstuvwxyz12', 'pass1' => 'correct-horse-battery' ];" );
+
+		self::assertSame( "\$user_pass = 'ab…mn'; \$args = [ 'pwd' => 'op…12', 'pass1' => 'co…ry' ];", $out );
+	}
+
+	public function test_a_password_passed_by_position_is_masked(): void {
+		$out = SecretRedactor::redact(
+			"wp_set_password( 'correct-horse-battery', 5 );
+"
+			. "\$id = wp_create_user( 'alice', 'hunter2hunter202', 'alice@example.test' );
+"
+			. "\$db = new wpdb( 'dbuser', 'dbvalue-xyz-123456', 'wp', 'localhost' );
+"
+			. "wp_check_password( \"typed-secret-value\", \$hash );"
+		);
+
+		self::assertSame(
+			"wp_set_password( 'co…ry', 5 );
+"
+			. "\$id = wp_create_user( 'alice', 'hu…02', 'alice@example.test' );
+"
+			. "\$db = new wpdb( 'dbuser', 'db…56', 'wp', 'localhost' );
+"
+			. "wp_check_password( \"ty…ue\", \$hash );",
+			$out
+		);
+	}
+
 	public function test_a_value_with_an_escaped_quote_is_masked_whole(): void {
 		$out = SecretRedactor::redact( "\$secret = 'abc\\'defghijklm\\'nop'; echo 1;" );
 

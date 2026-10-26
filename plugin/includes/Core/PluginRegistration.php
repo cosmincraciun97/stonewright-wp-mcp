@@ -157,6 +157,7 @@ final class PluginRegistration {
 		add_filter( 'pre_update_option_stonewright_disabled_abilities', [ LeashGuard::class, 'guard_disabled_abilities_write' ], 10, 2 );
 		// Nor can it stop the audit log from keeping a copy of the code php-execute runs.
 		add_filter( 'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ], 10, 2 );
+		add_action( 'add_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_added' ], 10, 2 );
 
 		CrashRecovery::register();
 		WidgetLoader::register();

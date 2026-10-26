@@ -189,6 +189,63 @@ final class PhpExecuteCodeHistoryTest extends TestCase {
 		self::assertDirectoryDoesNotExist( $this->runtime_dir() );
 	}
 
+	public function test_a_snippet_cannot_keep_its_own_code_out_of_the_copy(): void {
+		$code = 'update_option( "' . RuntimeCodeHistory::OPTION . '", false ); return "turned off from inside";';
+
+		$result = ( new PhpExecute() )->execute( [ 'code' => $code ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 'turned off from inside', $result['result'] );
+		self::assertFalse( (bool) get_option( RuntimeCodeHistory::OPTION, true ), 'the snippet did turn the setting off' );
+		$meta = $this->audit_meta();
+		self::assertSame( $code, RuntimeCodeHistory::read( (string) $meta['code_ref'] ), 'the copy was decided before it ran' );
+	}
+
+	public function test_the_copy_is_stored_before_the_snippet_runs(): void {
+		$code    = '$count = count( glob( ' . var_export( $this->runtime_dir() . '/*.gz', true ) . ' ) ?: [] ); return $count;';
+		$result  = ( new PhpExecute() )->execute( [ 'code' => $code ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['result'], 'the snippet found its own copy already on disk' );
+	}
+
+	public function test_a_copy_that_was_due_and_could_not_be_stored_says_so_in_the_row(): void {
+		RuntimeCodeHistory::use_blob_store_for_tests( new BlobStore( $this->runtime_dir(), 10 ) );
+
+		( new PhpExecute() )->execute( [ 'code' => 'return 5;' ] );
+
+		$meta = $this->audit_meta();
+		self::assertFalse( $meta['code_kept'] );
+		self::assertArrayNotHasKey( 'code_ref', $meta );
+		self::assertSame( hash( 'sha256', 'return 5;' ), $meta['code_sha256'] );
+	}
+
+	public function test_the_setting_off_leaves_no_code_kept_marker(): void {
+		$GLOBALS['stonewright_test_options'][ RuntimeCodeHistory::OPTION ] = false;
+
+		( new PhpExecute() )->execute( [ 'code' => 'return 5;' ] );
+
+		self::assertArrayNotHasKey( 'code_kept', $this->audit_meta() );
+	}
+
+	public function test_a_full_folder_deletes_the_oldest_copies_to_make_room_for_the_newest(): void {
+		$first = RuntimeCodeHistory::keep( 'return "first";' );
+		self::assertIsArray( $first );
+		$one_blob = (int) filesize( $this->runtime_dir() . '/' . $first['ref'] . '.gz' );
+		RuntimeCodeHistory::use_blob_store_for_tests( new BlobStore( $this->runtime_dir(), ( $one_blob * 2 ) + 8 ) );
+		$second = RuntimeCodeHistory::keep( 'return "second";' );
+		self::assertIsArray( $second );
+		touch( $this->runtime_dir() . '/' . $first['ref'] . '.gz', time() - 3000 );
+		touch( $this->runtime_dir() . '/' . $second['ref'] . '.gz', time() - 2000 );
+
+		$third = RuntimeCodeHistory::keep( 'return "third";' );
+
+		self::assertIsArray( $third );
+		self::assertNull( RuntimeCodeHistory::read( $first['ref'] ), 'the oldest copy made room' );
+		self::assertSame( 'return "second";', RuntimeCodeHistory::read( $second['ref'] ) );
+		self::assertSame( 'return "third";', RuntimeCodeHistory::read( $third['ref'] ) );
+	}
+
 	public function test_the_setting_is_on_by_default_and_a_stored_zero_turns_it_off(): void {
 		unset( $GLOBALS['stonewright_test_options'][ RuntimeCodeHistory::OPTION ] );
 		self::assertTrue( RuntimeCodeHistory::enabled() );

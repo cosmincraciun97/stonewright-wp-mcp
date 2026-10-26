@@ -32,7 +32,7 @@ final class SecretRedactor {
 	/** A value shorter than this is masked whole. */
 	private const MIN_PARTIAL_LENGTH = 9;
 
-	private const NAME_WORDS = 'password|passwd|secret|token|api[_-]?key|authorization|private[_-]?key';
+	private const NAME_WORDS = 'pass|pwd|secret|token|api[_-]?key|authorization|private[_-]?key';
 
 	/**
 	 * @param string $code PHP source, or any text that holds it.
@@ -44,16 +44,25 @@ final class SecretRedactor {
 		}
 		$quoted = '(?<q>[\'"])(?<value>(?:[^\'"\\\\]++|\\\\.|(?!\k<q>)[\'"])*+)\k<q>';
 
-		// A name that holds a secret, then = => : or, for a call that takes the name and the value as two arguments, a comma after a quoted name.
+		// A name that holds a secret ("pass" covers password, passwd and user_pass), then = => : or, for a call that takes the
+		// name and the value as two arguments, a comma after a quoted name.
 		$by_name = '/(?<head>(?:' . self::NAME_WORDS . ')[A-Za-z0-9_\-]{0,40}(?:[\'"]\s*,|[\'"]?\s*(?:=>|===|==|=|:))\s*)' . $quoted . '/is';
 		// define( 'AUTH_KEY', '…' ) and the other WordPress keys and salts. DB_PASSWORD and the like are caught by name above.
 		$define = '/(?<head>\bdefine\s*\(\s*[\'"](?:SECURE_AUTH|AUTH|LOGGED_IN|NONCE)_(?:KEY|SALT)[\'"]\s*,\s*)' . $quoted . '/s';
+		// A password passed by position: the first argument of the password functions, the second of the calls that take a user name first.
+		$first_argument  = '/(?<head>\b(?:wp_set_password|wp_check_password|wp_hash_password)\s*\(\s*)' . $quoted . '/is';
+		$second_argument = '/(?<head>(?:\bwp_create_user|\bwp_authenticate|\bnew\s+wpdb|\bnew\s+mysqli|\bnew\s+PDO|\bmysqli_connect)\s*\(\s*[^,()]{0,200}+,\s*)' . $quoted . '/is';
 		// Authorization: Bearer <credential> and Authorization: Basic <credential> inside a string.
 		$header = '/(?<head>\bAuthorization\s*:\s*(?:Bearer|Basic)\s+)(?<value>[A-Za-z0-9._~+\/=\-]+)/i';
 
-		$out = self::replace( $by_name, $code, true );
-		$out = null === $out ? null : self::replace( $define, $out, true );
-		$out = null === $out ? null : self::replace( $header, $out, false );
+		$out = $code;
+		foreach ( [ $by_name, $define, $first_argument, $second_argument ] as $pattern ) {
+			$out = self::replace( $pattern, $out, true );
+			if ( null === $out ) {
+				return self::WITHHELD;
+			}
+		}
+		$out = self::replace( $header, $out, false );
 
 		return $out ?? self::WITHHELD;
 	}

@@ -213,6 +213,36 @@ class BlobStore {
 		return $this->has( $sha256 ) ? max( 0, (int) @filesize( $this->path( $sha256 ) ) ) : 0;
 	}
 
+	/**
+	 * Delete the oldest blobs until $needed more bytes fit under the folder limit. A blob's age is the modification
+	 * time of its file, which put() renews when the same bytes are stored again.
+	 *
+	 * @return int Blobs deleted.
+	 */
+	public function make_room( int $needed ): int {
+		$excess = $this->total_bytes() + max( 0, $needed ) - $this->max_total;
+		if ( $excess <= 0 ) {
+			return 0;
+		}
+		$aged = [];
+		foreach ( $this->hashes() as $hash ) {
+			$aged[ $hash ] = (int) @filemtime( $this->path( $hash ) );
+		}
+		asort( $aged );
+		$deleted = 0;
+		foreach ( array_keys( $aged ) as $hash ) {
+			if ( $excess <= 0 ) {
+				break;
+			}
+			$size = max( 0, (int) @filesize( $this->path( (string) $hash ) ) );
+			if ( $this->delete( (string) $hash ) ) {
+				$excess -= $size;
+				++$deleted;
+			}
+		}
+		return $deleted;
+	}
+
 	/** Delete one blob. A link, an unknown name and a missing file delete nothing. */
 	public function delete( string $sha256 ): bool {
 		if ( ! $this->has( $sha256 ) ) {

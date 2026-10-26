@@ -27,6 +27,14 @@ final class PhpExecute extends AbilityKernel {
 	private const MIN_MAX_OUTPUT_BYTES     = 1024;
 	private const MAX_MAX_OUTPUT_BYTES     = 65536;
 
+	/**
+	 * What was decided about the copy of each call's code before it ran, by the sha256 of the code, until its audit row
+	 * is written.
+	 *
+	 * @var array<string, array{enabled: bool, copy: array{ref: string, bytes: int, truncated: bool}|null}>
+	 */
+	private array $code_copies = [];
+
 	public function name(): string {
 		return 'stonewright/php-execute';
 	}
@@ -146,6 +154,14 @@ final class PhpExecute extends AbilityKernel {
 			return $this->error( 'php_execute_missing_code', __( 'A non-empty PHP code string is required.', 'stonewright' ), [ 'status' => 400 ] );
 		}
 
+		// The copy of the code is decided and stored before anything runs: a snippet that turns the setting off, defines
+		// the constant or ends the request cannot take its own code out of the history. The audit row picks it up.
+		$enabled = RuntimeCodeHistory::enabled();
+		$this->code_copies[ hash( 'sha256', $args['code'] ) ] = [
+			'enabled' => $enabled,
+			'copy'    => $enabled ? RuntimeCodeHistory::keep( $args['code'] ) : null,
+		];
+
 		return $this->audit(
 			$args,
 			function ( array $runtime_args ): array|\WP_Error {
@@ -229,12 +245,20 @@ final class PhpExecute extends AbilityKernel {
 			'effect_verified'     => false,
 		];
 		// Every call that reaches the audit row is kept, a refused or failed one too: what was asked is what an
-		// administrator needs to see after an incident. A copy that is off or cannot be stored leaves the hash alone.
-		$kept = RuntimeCodeHistory::keep( $code );
-		if ( null !== $kept ) {
-			$meta['code_ref']       = $kept['ref'];
-			$meta['code_bytes']     = $kept['bytes'];
-			$meta['code_truncated'] = $kept['truncated'];
+		// administrator needs to see after an incident. A copy that is off leaves the hash alone; one that was due and
+		// could not be stored says so, so the gap shows in the log.
+		$key  = hash( 'sha256', $code );
+		$kept = $this->code_copies[ $key ] ?? [
+			'enabled' => RuntimeCodeHistory::enabled(),
+			'copy'    => RuntimeCodeHistory::keep( $code ),
+		];
+		unset( $this->code_copies[ $key ] );
+		if ( null !== $kept['copy'] ) {
+			$meta['code_ref']       = $kept['copy']['ref'];
+			$meta['code_bytes']     = $kept['copy']['bytes'];
+			$meta['code_truncated'] = $kept['copy']['truncated'];
+		} elseif ( $kept['enabled'] ) {
+			$meta['code_kept'] = false;
 		}
 		if ( $result instanceof \WP_Error ) {
 			$error_code = (string) $result->get_error_code();

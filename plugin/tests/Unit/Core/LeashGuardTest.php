@@ -459,6 +459,34 @@ final class LeashGuardTest extends TestCase {
 		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
 
 		self::assertStringContainsString( "'pre_update_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_write' ]", $source );
+		self::assertStringContainsString( "'add_option_stonewright_php_execute_keep_code', [ LeashGuard::class, 'guard_keep_code_added' ]", $source );
+	}
+
+	public function test_a_rest_request_that_is_not_a_person_cannot_create_the_copy_setting_as_off(): void {
+		$GLOBALS['stonewright_test_serving_rest'] = true;
+		add_option( 'stonewright_php_execute_keep_code', false );
+
+		LeashGuard::guard_keep_code_added( 'stonewright_php_execute_keep_code', false );
+
+		self::assertArrayNotHasKey( 'stonewright_php_execute_keep_code', $GLOBALS['stonewright_test_options'], 'the option is deleted again, so the default, on, stands' );
+	}
+
+	public function test_creating_the_copy_setting_as_on_or_by_a_person_or_outside_rest_is_left_alone(): void {
+		$GLOBALS['stonewright_test_serving_rest'] = true;
+		add_option( 'stonewright_php_execute_keep_code', true );
+		LeashGuard::guard_keep_code_added( 'stonewright_php_execute_keep_code', true );
+		self::assertArrayHasKey( 'stonewright_php_execute_keep_code', $GLOBALS['stonewright_test_options'] );
+
+		unset( $GLOBALS['stonewright_test_options']['stonewright_php_execute_keep_code'] );
+		self::as_person();
+		$_SERVER['HTTP_X_WP_NONCE'] = 'valid-nonce';
+		add_option( 'stonewright_php_execute_keep_code', false );
+		LeashGuard::guard_keep_code_added( 'stonewright_php_execute_keep_code', false );
+		self::assertArrayHasKey( 'stonewright_php_execute_keep_code', $GLOBALS['stonewright_test_options'], 'a person in wp-admin may' );
+
+		unset( $GLOBALS['stonewright_test_serving_rest'], $_SERVER['HTTP_X_WP_NONCE'], $GLOBALS['wp_rest_auth_cookie'] );
+		LeashGuard::guard_keep_code_added( 'stonewright_php_execute_keep_code', false );
+		self::assertArrayHasKey( 'stonewright_php_execute_keep_code', $GLOBALS['stonewright_test_options'], 'an admin screen, WP-CLI and cron are not held back' );
 	}
 
 	public function test_a_rest_request_that_is_not_a_person_cannot_stop_the_copy_of_executed_code(): void {

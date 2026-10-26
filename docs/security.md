@@ -585,23 +585,28 @@ reconstruct what ran, the row also points at a copy of the code kept apart from
 the log, with three more fields: `code_ref` (the sha256 of the copy),
 `code_bytes` (the length of the code that ran) and `code_truncated`.
 
-- **Masked.** Before the copy is stored, the value of a password, secret, token,
-  API key, authorization or private key (a variable, an array or JSON key, or the
-  name in a call such as `update_option( 'vendor_api_key', '…' )`), the value of a
-  WordPress key or salt in `define()`, and the credential in an `Authorization:
-  Bearer` or `Basic` header are replaced by their first two and last two
-  characters with an ellipsis between them; a value of fewer than nine characters
-  is replaced by the ellipsis alone. This is a best-effort filter for source
-  text. A secret held in a variable with another name, built from pieces or read
+- **Masked.** Before the copy is stored, the value of a password (any name with
+  `pass` or `pwd` in it), secret, token, API key, authorization or private key (a
+  variable, an array or JSON key, or the name in a call such as
+  `update_option( 'vendor_api_key', '…' )`), a password passed by position to
+  `wp_set_password()`, `wp_check_password()`, `wp_create_user()` and `new wpdb()`,
+  the value of a WordPress key or salt in `define()`, and the credential in an
+  `Authorization: Bearer` or `Basic` header are replaced by their first two and
+  last two characters with an ellipsis between them; a value of fewer than nine
+  characters is replaced by the ellipsis alone. This is a best-effort filter for
+  source text. A secret held in a variable with another name, built from pieces or read
   from a file is not found, so read a copy before sharing it. If the masking
   itself fails, a notice is kept in place of the code.
 - **Bounded.** A copy is cut at 256 KiB (262144 bytes), after the masking, and
   `code_truncated` says so. The folder holds at most 50 MB of compressed copies;
-  when it is full, or cannot be written, the snippet still runs and the row keeps
-  the hash alone.
+  when it is full, the oldest copies are deleted to make room for the newest. A
+  copy that cannot be written does not stop the snippet: the row keeps the hash and
+  says `code_kept: false`.
 - **Every call that reaches the audit row.** A call a guard refused, one that
   needed a confirmation token it did not have, one that failed to parse and one
-  that threw are kept as well as the ones that ran.
+  that threw are kept as well as the ones that ran. The copy is stored before the
+  snippet runs, so a snippet cannot take its own code out of the history by
+  changing the setting or the constant.
 - **Apart from the change history.** The copies are gzip files named by the
   sha256 of the copy in `uploads/stonewright-state/runtime/`, with the same deny
   files as the change history blobs, which sit in `uploads/stonewright-state/blobs/`.

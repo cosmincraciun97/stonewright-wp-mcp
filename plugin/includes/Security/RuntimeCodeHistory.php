@@ -21,7 +21,8 @@ use Stonewright\WpMcp\Support\Logger;
  *
  * A blob is named after the sha256 of the copy that was stored, so the same code run again shares one file, and
  * running it again refreshes the age retention reads. The daily audit job deletes the blobs older than the audit
- * retention window; with no window set, the audit rows stay and so do the copies, up to MAX_TOTAL_BYTES.
+ * retention window; with no window set, the audit rows stay and so do the copies, up to MAX_TOTAL_BYTES, after which
+ * a new copy deletes the oldest ones to make room.
  *
  * An administrator turns the copy off with the setting OPTION on Setup > Settings, or with the constant
  * STONEWRIGHT_PHP_EXECUTE_KEEP_CODE set to false in wp-config.php. Keeping a copy never stops a snippet: a store
@@ -32,7 +33,7 @@ final class RuntimeCodeHistory {
 	/** The most bytes of code one copy holds. Longer code is cut and the row says so. */
 	public const MAX_BYTES = 262144;
 
-	/** The most bytes all copies hold together, compressed. A full folder keeps no new copy. */
+	/** The most bytes all copies hold together, compressed. A full folder makes room by deleting the oldest copies. */
 	public const MAX_TOTAL_BYTES = 52428800;
 
 	/** The setting that keeps the copy; on unless an administrator turns it off. */
@@ -91,6 +92,11 @@ final class RuntimeCodeHistory {
 			$redacted = SecretRedactor::redact( $code );
 			$copy     = strlen( $redacted ) > self::MAX_BYTES ? mb_strcut( $redacted, 0, self::MAX_BYTES, 'UTF-8' ) : $redacted;
 			$stored   = $store->put( $copy );
+			if ( $stored instanceof \WP_Error && 'stonewright_blob_store_full' === $stored->get_error_code() ) {
+				// The newest code is the most useful, so the oldest copies make room, not the other way round.
+				$store->make_room( strlen( $copy ) );
+				$stored = $store->put( $copy );
+			}
 			if ( $stored instanceof \WP_Error ) {
 				Logger::warning( 'runtime_code_not_kept', [ 'code' => $stored->get_error_code() ] );
 				return null;

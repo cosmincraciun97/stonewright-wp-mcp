@@ -155,7 +155,7 @@ final class SettingsForm {
 			RuntimeCodeHistory::OPTION,
 			__( 'Keep the code php-execute runs', 'stonewright' ),
 			RuntimeCodeHistory::setting_on(),
-			__( 'Keeps a copy of each snippet the audit log records for php-execute, with passwords, tokens, keys and salts masked and long code cut, so an administrator can see what ran under Audit log > View code. The copies are deleted with the audit retention window. Turn it off to keep only the hash of the code.', 'stonewright' ),
+			__( 'Keeps a copy of each snippet the audit log records for php-execute, with the values it recognises as passwords, tokens, keys and salts masked on a best-effort basis, and long code cut, so an administrator can see what ran under Audit log > View code. Review a copy before sharing it. The copies are deleted with the audit retention window. Turn it off to keep only the hash of the code.', 'stonewright' ),
 			$note
 		);
 	}
