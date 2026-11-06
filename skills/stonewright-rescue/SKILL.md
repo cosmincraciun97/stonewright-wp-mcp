@@ -28,6 +28,7 @@ reported back), each with the rollback it would run, and the `recent` changes.
 |---|---|---|
 | `stonewright_rescue_write_rolled_back` | The site stopped loading and the change was undone | Read `site_status`. `healthy`: the site loads again, so change the approach before any retry. `still_failing` or `unknown`: stop and report; the fault may not come from this change |
 | `stonewright_rescue_rollback_failed` | The site stopped loading and the automatic rollback failed | Roll back with the `incident_id` from the error, below |
+| `stonewright_theme_write_smoke_failed` | A theme-file write was rolled back after the site check | Read `verification_reason` and `attribution`. `site_failed`: the candidate broke the site; fix it, dry-run again, and show the new approval handoff. `check_lost` with `attribution` `unattributed` and `custom_code_grant_status` `reusable_once`: a check that passed before the write got no answer with and without the change, the grant was not spent, and the same bytes can be applied once more with the same grant before it expires; check the site first, and do not change the candidate. `custom_code_grant_status` `spent`: dry-run again and show the new approval handoff |
 | `pending_incident` on any response | An incident is open | Call `stonewright-rescue-status`, then roll it back before any other write |
 | A `notices` line saying the probe is unavailable | The host cannot call itself, so changes are recorded but not verified | Check the page, wp-admin, and the REST index by other means, then `recheck` |
 | `stonewright_rescue_in_progress` | Another caller is already rolling this change set back | Wait a minute, then call `stonewright-rescue-status`; do not start a second rollback |
@@ -120,7 +121,8 @@ around it. `wp stonewright changes rollback` is not the administrator either.
 When a person undid the change, call `stonewright-rescue-rollback` with
 `action` `recheck`. It probes again and closes the incident when every check that
 passed before the change passes again; `verification_reason` says why it did not
-(`not_started`, `transport_unavailable`, `check_lost` or `site_failed`). It never
+(`not_started`, `transport_unavailable`, `check_lost` or `site_failed`). A check that
+answered slowly before the change is a slow witness and is not required. It never
 changes the site. In production-safe mode it needs a confirmation
 token, even with `dry_run`, because it can close the incident.
 

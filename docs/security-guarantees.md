@@ -362,8 +362,11 @@ wp-admin, and an agent that meets one shows the approval link and stops:
 
 - custom code (theme files, Customizer CSS, WPCode and Code Snippets snippets, Elementor
   custom CSS and raw HTML): a single-use grant that an administrator issues, bound to
-  the exact site, user, path, language, candidate hash and byte budget; rolling back a
-  snippet needs the same grant (`stonewright_custom_code_grant_required`);
+  the exact site, user, path, language, candidate hash and byte budget; it works once,
+  except that a theme-file or `theme.json` write rolled back for a check that was lost
+  with and without the change (`attribution` `unattributed`) gets its grant back once, for
+  the same bytes only, within the original lifetime; rolling back a snippet needs the same
+  grant (`stonewright_custom_code_grant_required`);
 - the undo or rollback of a verified change to code: only an administrator pressing the
   button on the Rescue or Changes page; an ability, REST or WP-CLI call is refused with
   `stonewright_rescue_approval_required`, and a confirmation token does not lift it;

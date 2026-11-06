@@ -348,8 +348,8 @@ final class ThemeFilePatch extends AbilityKernel {
 				}
 
 				// Applying code assets requires a custom-code grant bound to candidate hash.
+				$grant = $is_code ? (string) ( $runtime_args['custom_code_grant'] ?? '' ) : '';
 				if ( $is_code ) {
-					$grant = (string) ( $runtime_args['custom_code_grant'] ?? '' );
 					if ( '' === $grant ) {
 						$proposal = CustomCodeGrant::missing_grant_proposal(
 							[
@@ -409,7 +409,8 @@ final class ThemeFilePatch extends AbilityKernel {
 					]
 				);
 				if ( $applied instanceof \WP_Error ) {
-					return $applied;
+					// A smoke failure the product cannot attribute to the approved bytes gives the grant back, once.
+					return $is_code ? ThemeWriteTransaction::with_grant_outcome( $applied, $grant, $resolved['relative'], $after_hash, $language ) : $applied;
 				}
 
 				return array_merge(
@@ -702,6 +703,10 @@ final class ThemeFilePatch extends AbilityKernel {
 			'validator_summary'   => wp_json_encode( $data['validator_summary'] ?? [] ) ?: '',
 			'smoke_summary'       => wp_json_encode( $data['smoke_summary'] ?? [] ) ?: '',
 			'cause_key'           => (string) ( $data['cause_key'] ?? ( $result instanceof \WP_Error ? $result->get_error_code() : '' ) ),
+			'verification_reason' => (string) ( $data['verification_reason'] ?? '' ),
+			// Whether the grant was given back after a rollback that was not the change's doing.
+			'custom_code_grant_status' => (string) ( $data['custom_code_grant_status'] ?? '' ),
+			'grant_released'      => 'reusable_once' === ( $data['custom_code_grant_status'] ?? '' ),
 		];
 	}
 }

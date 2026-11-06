@@ -266,7 +266,7 @@ final class ThemeJsonHandoff extends AbilityKernel {
 					return $grant_ok;
 				}
 
-				return ThemeWriteTransaction::apply(
+				$applied = ThemeWriteTransaction::apply(
 					[
 						'absolute'          => $resolved['absolute'],
 						'relative'          => $resolved['relative'],
@@ -276,8 +276,23 @@ final class ThemeJsonHandoff extends AbilityKernel {
 						'max_changed_bytes' => $max_bytes,
 					]
 				);
+				if ( $applied instanceof \WP_Error ) {
+					// A smoke failure the product cannot attribute to the approved bytes gives the grant back, once.
+					return ThemeWriteTransaction::with_grant_outcome( $applied, $grant, $resolved['relative'], $after_hash, 'html' );
+				}
+				return $applied;
 			}
 		);
+	}
+
+	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
+		$data = $result instanceof \WP_Error ? (array) $result->get_error_data() : $result;
+		return [
+			'verification_reason'      => (string) ( $data['verification_reason'] ?? '' ),
+			// Whether the grant was given back after a rollback that was not the change's doing.
+			'custom_code_grant_status' => (string) ( $data['custom_code_grant_status'] ?? '' ),
+			'grant_released'           => 'reusable_once' === ( $data['custom_code_grant_status'] ?? '' ),
+		];
 	}
 
 	/**

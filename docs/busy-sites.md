@@ -134,6 +134,15 @@ front page alone, and on a `critical` site any probe is one short request.
 The probe of a page that was just written keeps its own request. See
 [Rescue](rescue.md#the-health-probe).
 
+On a slow host the probe costs time, not checks. Each request waits up to 10 seconds, a
+check that passed before the write and is silent after it is asked once more for up to
+15 seconds, and a probe with its retries takes at most 45 seconds: a write to code can
+hold its call for that long before it is verified or rolled back. A page that took longer
+than 5 seconds to answer before the write (`stonewright_rescue_probe_witness_ms`) is a slow
+witness: its silence after the write is not held against the write, so a slow front page
+does not roll back a change that the wp-admin screen and the REST index show to be fine,
+and it is not asked a second time.
+
 ## Removing Stonewright on a constrained host
 
 See [Updating the plugin and companion](updates.md) for removing the plugin.

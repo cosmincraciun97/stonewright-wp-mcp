@@ -200,7 +200,7 @@ abstract class AbilityKernel implements Ability {
 			if ( ! isset( $metadata['remediation_code'] ) || ! is_scalar( $metadata['remediation_code'] ) || '' === trim( (string) $metadata['remediation_code'] ) ) {
 				$cause   = (string) ( $metadata['root_error_code'] ?? '' );
 				$wrapper = (string) ( $metadata['error_code'] ?? '' );
-				$hint    = RemediationHints::for_code( $cause, $this->name(), $wrapper );
+				$hint    = RemediationHints::for_code( $cause, $this->name(), $wrapper, is_array( $data ) ? $data : [] );
 				if ( $hint !== RemediationHints::for_code( '', '' ) && ( '' !== $cause || '' !== $wrapper ) ) {
 					$metadata['remediation_code'] = '' !== $cause ? $cause : $wrapper;
 				}

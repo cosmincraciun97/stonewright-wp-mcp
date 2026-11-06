@@ -43,6 +43,24 @@ final class HealthProbe {
 	 */
 	public const RETRY_TIMEOUT = self::MAX_TIMEOUT;
 
+	/**
+	 * The longest a baseline leg may take, in milliseconds, and still judge silence after a change. A page that took
+	 * longer than this to answer before the write is a slow witness: when it does not answer after the write, that
+	 * silence is as likely the host's as the change's, so it is not held against the change (see
+	 * RescueRollback::judge()). A real failure (HTTP 500, the critical error page, a fatal marker) fails whatever the
+	 * witness did. Filterable through stonewright_rescue_probe_witness_ms, kept between MIN_WITNESS_MS and MAX_WITNESS_MS.
+	 */
+	public const WITNESS_MS     = 5000;
+	public const MIN_WITNESS_MS = 1000;
+	public const MAX_WITNESS_MS = self::BUDGET_SECS * 1000;
+
+	/**
+	 * Whether a failure after a change is the change's doing (see attribution()): attributed (a check answered with a
+	 * failure, or the site loads again without the change), unattributed (the only failure is a check that was lost
+	 * after the change and is still lost without it) or unknown (the site could not be checked after the rollback).
+	 */
+	public const ATTRIBUTIONS = [ 'attributed', 'unattributed', 'unknown' ];
+
 	/** Seconds a request waits while loopback requests are known to fail, and how long that is remembered. */
 	public const QUICK_TIMEOUT = 3;
 	public const COOLDOWN_KEY  = 'stonewright_probe_loopback_failing';
@@ -248,6 +266,114 @@ final class HealthProbe {
 	}
 
 	/**
+	 * The longest a baseline leg may take, in milliseconds, and still be trusted to judge silence after a change.
+	 * WITNESS_MS, or what the filter stonewright_rescue_probe_witness_ms makes of it, kept between MIN_WITNESS_MS and
+	 * MAX_WITNESS_MS so that no value can make every leg a slow witness or none.
+	 */
+	public static function witness_ms(): int {
+		$ms = apply_filters( 'stonewright_rescue_probe_witness_ms', self::WITNESS_MS );
+		$ms = is_numeric( $ms ) ? (int) $ms : self::WITNESS_MS;
+		return max( self::MIN_WITNESS_MS, min( self::MAX_WITNESS_MS, $ms ) );
+	}
+
+	/**
+	 * Say on a probe which silent legs were not judged because their witness was slow: a leg that gets no answer
+	 * (or a server error) after the change, whose baseline leg passed but took longer than witness_ms(), is marked
+	 * `witness` slow with the `baseline_ms` it took, so the evidence explains why that silence was not held against
+	 * the change. Statuses are not changed.
+	 *
+	 * @param array<string, mixed> $probe A probe taken after the change, already judged (see compare()).
+	 * @param array<string, int>   $slow  Leg name to the milliseconds its baseline leg took.
+	 * @return array<string, mixed>
+	 */
+	public static function note_slow_witnesses( array $probe, array $slow ): array {
+		if ( [] === $slow || ! is_array( $probe['legs'] ?? null ) ) {
+			return $probe;
+		}
+		$legs = [];
+		foreach ( $probe['legs'] as $leg ) {
+			$name = is_array( $leg ) ? (string) ( $leg['leg'] ?? '' ) : '';
+			if ( is_array( $leg ) && isset( $slow[ $name ] ) && 'unavailable' === ( $leg['status'] ?? '' ) && self::is_degradation( $leg ) ) {
+				$leg['witness']     = 'slow';
+				$leg['baseline_ms'] = max( 0, (int) $slow[ $name ] );
+			}
+			$legs[] = $leg;
+		}
+		$probe['legs'] = $legs;
+		return $probe;
+	}
+
+	/**
+	 * Whether a failure after a change was the change's doing, judged from the probe that failed after it and the
+	 * probe taken after the rollback. One of ATTRIBUTIONS:
+	 *
+	 * - attributed: a check answered with a failure (site_failed), or the site loads again without the change, or a
+	 *   check that was lost after the change answers again without it;
+	 * - unattributed: the only failures were checks that passed before the change and were lost after it, and every
+	 *   one of them is still lost with the change undone, so the fault is not shown to come from the change;
+	 * - unknown: the rollback did not complete, or the site could not be checked after it.
+	 *
+	 * @param array<string, mixed> $probe       The probe that failed after the change, judged against the baseline.
+	 * @param array<string, mixed> $after       The probe taken after the rollback, judged against the same baseline.
+	 * @param bool                 $rolled_back Whether the rollback completed, so that $after shows the site without the change.
+	 */
+	public static function attribution( array $probe, array $after, bool $rolled_back = true ): string {
+		$reason = self::verdict( $probe );
+		if ( 'site_failed' === $reason ) {
+			return 'attributed';
+		}
+		if ( 'check_lost' !== $reason || ! $rolled_back ) {
+			return 'unknown';
+		}
+		$status = (string) ( $after['status'] ?? '' );
+		if ( 'passed' === $status ) {
+			return 'attributed';
+		}
+		if ( 'failed' !== $status ) {
+			return 'unknown';
+		}
+		$lost = [];
+		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
+			if ( is_array( $leg ) && 'failed' === ( $leg['status'] ?? '' ) && str_starts_with( (string) ( $leg['reason'] ?? '' ), 'degraded_' ) ) {
+				$lost[ (string) ( $leg['leg'] ?? '' ) ] = true;
+			}
+		}
+		foreach ( is_array( $after['legs'] ?? null ) ? $after['legs'] : [] as $leg ) {
+			if ( is_array( $leg ) && isset( $lost[ (string) ( $leg['leg'] ?? '' ) ] ) && 'passed' === ( $leg['status'] ?? '' ) ) {
+				return 'attributed';
+			}
+		}
+		return [] === $lost ? 'unknown' : 'unattributed';
+	}
+
+	/**
+	 * The legs of a probe that reached no verdict: not passed and not failed (no answer, a login wall, a redirect, a
+	 * skipped leg). Each keeps its name, status and reason, and the witness note when it has one.
+	 *
+	 * @param array<string, mixed> $probe
+	 * @return list<array{leg:string,status:string,reason:string,witness?:string,baseline_ms?:int}>
+	 */
+	public static function unjudged_legs( array $probe ): array {
+		$out = [];
+		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
+			if ( ! is_array( $leg ) || in_array( (string) ( $leg['status'] ?? '' ), [ 'passed', 'failed' ], true ) ) {
+				continue;
+			}
+			$entry = [
+				'leg'    => (string) ( $leg['leg'] ?? '' ),
+				'status' => (string) ( $leg['status'] ?? '' ),
+				'reason' => (string) ( $leg['reason'] ?? '' ),
+			];
+			if ( 'slow' === ( $leg['witness'] ?? '' ) ) {
+				$entry['witness']     = 'slow';
+				$entry['baseline_ms'] = (int) ( $leg['baseline_ms'] ?? 0 );
+			}
+			$out[] = $entry;
+		}
+		return $out;
+	}
+
+	/**
 	 * Ask once more about a leg that got no answer at all.
 	 *
 	 * A leg that passed before a change and gets no answer after it (HTTP 0: a timeout, a refused
@@ -258,7 +384,11 @@ final class HealthProbe {
 	 * before, nor one the probe could not ask for (no token). A leg is marked "retried" and keeps the
 	 * reason of the first attempt. Once a second attempt also gets no answer, the remaining legs are
 	 * left as they are: the verdict is failed and waiting longer would only delay the rollback.
-	 * The second attempts together stay inside what is left of BUDGET_SECS.
+	 * The second attempts together stay inside what is left of BUDGET_SECS, counting the time the legs
+	 * that passed before took and the second attempts already made. A leg that did not pass before can
+	 * neither be judged nor retried, so the time it spent (a wp-admin screen that times out on every
+	 * request) does not use up the one retry of a leg that can: a probe and its retries may then take
+	 * up to BUDGET_SECS plus RETRY_TIMEOUT in all.
 	 *
 	 * @param array<string, mixed> $probe         A probe taken after the change.
 	 * @param list<string>         $passed_before Names of the legs that passed before it.
@@ -271,7 +401,9 @@ final class HealthProbe {
 		}
 		$spent = 0.0;
 		foreach ( $probe['legs'] as $leg ) {
-			$spent += is_array( $leg ) ? max( 0, (int) ( $leg['ms'] ?? 0 ) ) / 1000 : 0.0;
+			if ( is_array( $leg ) && in_array( (string) ( $leg['leg'] ?? '' ), $passed_before, true ) ) {
+				$spent += max( 0, (int) ( $leg['ms'] ?? 0 ) ) / 1000;
+			}
 		}
 		$legs    = [];
 		$retried = false;

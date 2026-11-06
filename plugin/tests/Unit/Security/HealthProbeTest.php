@@ -867,6 +867,168 @@ final class HealthProbeTest extends TestCase {
 		self::assertSame( [], $this->requests );
 	}
 
+	public function test_only_the_legs_that_can_be_judged_count_against_the_retry_budget(): void {
+		// The home leg passed before the write and is silent now; the wp-admin leg never passed before, so it can be
+		// neither judged nor retried, and the 10 s it spent timing out must not use up the one retry of the home leg.
+		// A probe and its retries may then take BUDGET_SECS plus RETRY_TIMEOUT (45 s) in all, rather than give a slow
+		// host no second chance at all.
+		$this->sequence( [ [ 200, 'ok' ] ] );
+		$context = [ 'legs' => [ 'home', 'admin', 'rest' ], 'user_id' => 7 ];
+		$probe   = HealthProbe::summary_of(
+			[
+				[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+				[ 'leg' => 'admin', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+				[ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 500 ],
+			]
+		);
+
+		$retried = HealthProbe::retry_silent_legs( $probe, [ 'home', 'rest' ], $context );
+
+		self::assertCount( 1, $this->requests, 'The home leg alone is asked again.' );
+		self::assertSame( HealthProbe::RETRY_TIMEOUT, $this->requests[0]['args']['timeout'], 'The judged legs spent 10.5 s of the budget, so the retry gets its full wait.' );
+		self::assertSame( 'passed', $retried['legs'][0]['status'] );
+		self::assertTrue( $retried['legs'][0]['retried'] );
+		self::assertSame( 'passed', $retried['status'] );
+
+		// With the judged legs alone over the budget the retry is still skipped, as before.
+		$this->requests = [];
+		$probe          = HealthProbe::summary_of(
+			[
+				[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 15000 ],
+				[ 'leg' => 'rest', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+			]
+		);
+		self::assertSame( $probe, HealthProbe::retry_silent_legs( $probe, [ 'home', 'rest' ], $context ) );
+		self::assertSame( [], $this->requests );
+	}
+
+	// -- A slow witness does not judge silence ------------------------------------------------------
+
+	public function test_the_witness_threshold_is_filterable_within_bounds(): void {
+		self::assertSame( HealthProbe::WITNESS_MS, HealthProbe::witness_ms() );
+		self::assertLessThan( HealthProbe::TIMEOUT * 1000, HealthProbe::WITNESS_MS, 'A witness answers well inside the timeout.' );
+
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_probe_witness_ms'] = static fn (): int => 2500;
+		self::assertSame( 2500, HealthProbe::witness_ms() );
+
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_probe_witness_ms'] = static fn (): int => 0;
+		self::assertSame( HealthProbe::MIN_WITNESS_MS, HealthProbe::witness_ms(), 'A threshold under which every leg would be a slow witness is not accepted.' );
+
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_probe_witness_ms'] = static fn (): int => 3600000;
+		self::assertSame( HealthProbe::MAX_WITNESS_MS, HealthProbe::witness_ms(), 'Nor one beyond the probe budget.' );
+
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_probe_witness_ms'] = static fn (): string => 'soon';
+		self::assertSame( HealthProbe::WITNESS_MS, HealthProbe::witness_ms(), 'A value that is not a number is ignored.' );
+	}
+
+	public function test_a_silent_leg_whose_witness_was_slow_is_marked_so_and_not_failed(): void {
+		$after = HealthProbe::summary_of(
+			[
+				[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10010 ],
+				[ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 300 ],
+			]
+		);
+
+		// The home leg is not among the legs that passed before (its witness was slow), so compare() leaves it alone.
+		$noted = HealthProbe::note_slow_witnesses( HealthProbe::compare( $after, [ 'rest' ] ), [ 'home' => 7200 ] );
+
+		self::assertSame( 'passed', $noted['status'] );
+		self::assertSame( 'unavailable', $noted['legs'][0]['status'] );
+		self::assertSame( 'http_request_failed', $noted['legs'][0]['reason'] );
+		self::assertSame( 'slow', $noted['legs'][0]['witness'] );
+		self::assertSame( 7200, $noted['legs'][0]['baseline_ms'] );
+		self::assertArrayNotHasKey( 'witness', $noted['legs'][1] );
+		self::assertSame( $after, HealthProbe::note_slow_witnesses( $after, [] ), 'Nothing to note, nothing changed.' );
+	}
+
+	/** @dataProvider failingAnswerProvider */
+	public function test_a_leg_that_answers_with_a_failure_fails_whatever_its_witness_did( array $reply ): void {
+		$this->transport( [ 'home' => $reply ] );
+		$after = HealthProbe::run( [ 'legs' => [ 'home' ] ] );
+
+		$noted = HealthProbe::note_slow_witnesses( HealthProbe::compare( $after, [] ), [ 'home' => 9500 ] );
+
+		self::assertSame( 'failed', $noted['status'], 'A failing answer is an answer: a slow witness changes nothing about it.' );
+		self::assertSame( 'failed', $noted['legs'][0]['status'] );
+		self::assertArrayNotHasKey( 'witness', $noted['legs'][0] );
+		self::assertSame( 'site_failed', HealthProbe::verdict( $noted ) );
+	}
+
+	/** @return array<string, array{0:array{0:int,1:string}}> */
+	public static function failingAnswerProvider(): array {
+		return [
+			'a bare 500'              => [ [ 500, 'x' ] ],
+			'the critical error page' => [ [ 500, '<body id="error-page"><p>There has been a critical error on this website.</p></body>' ] ],
+			'a fatal marker'          => [ [ 200, 'Fatal error: Uncaught Error: boom in /srv/site/wp-content/themes/site-a/functions.php on line 3' ] ],
+		];
+	}
+
+	public function test_the_legs_that_reached_no_verdict_are_listed_with_their_witness_note(): void {
+		$probe = HealthProbe::summary_of(
+			[
+				[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+				[ 'leg' => 'admin', 'status' => 'skipped', 'http' => 0, 'reason' => 'no_user', 'ms' => 0 ],
+				[ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 200 ],
+			]
+		);
+		$probe = HealthProbe::note_slow_witnesses( HealthProbe::compare( $probe, [ 'rest' ] ), [ 'home' => 6000 ] );
+
+		self::assertSame(
+			[
+				[ 'leg' => 'home', 'status' => 'unavailable', 'reason' => 'http_request_failed', 'witness' => 'slow', 'baseline_ms' => 6000 ],
+				[ 'leg' => 'admin', 'status' => 'skipped', 'reason' => 'no_user' ],
+			],
+			HealthProbe::unjudged_legs( $probe )
+		);
+	}
+
+	// -- Whether a failure after a change was the change's doing -------------------------------------
+
+	/** @return array<string, mixed> A probe after a change whose home leg was lost, judged against a baseline where home and rest passed. */
+	private static function lost_home(): array {
+		return HealthProbe::compare(
+			HealthProbe::summary_of(
+				[
+					[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000, 'retried' => true ],
+					[ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 300 ],
+				]
+			),
+			[ 'home', 'rest' ]
+		);
+	}
+
+	public function test_a_failing_answer_is_attributed_to_the_change_whatever_the_rollback_shows(): void {
+		$failed = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'failed', 'http' => 500, 'reason' => 'http_500', 'ms' => 80 ] ] );
+		$silent = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ] ] );
+
+		self::assertSame( 'attributed', HealthProbe::attribution( $failed, $silent ) );
+		self::assertSame( 'attributed', HealthProbe::attribution( $failed, [], false ) );
+	}
+
+	public function test_a_lost_check_that_answers_again_without_the_change_is_attributed_to_it(): void {
+		$healthy = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 400 ], [ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 300 ] ] );
+		self::assertSame( 'attributed', HealthProbe::attribution( self::lost_home(), $healthy ) );
+
+		// Even when another check fails after the rollback: the lost check came back once the change was gone.
+		$mixed = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 400 ], [ 'leg' => 'rest', 'status' => 'failed', 'http' => 500, 'reason' => 'http_500', 'ms' => 90 ] ] );
+		self::assertSame( 'attributed', HealthProbe::attribution( self::lost_home(), $mixed ) );
+	}
+
+	public function test_a_lost_check_that_is_still_lost_without_the_change_is_not_attributed_to_it(): void {
+		self::assertSame( 'unattributed', HealthProbe::attribution( self::lost_home(), self::lost_home() ) );
+		self::assertContains( 'unattributed', HealthProbe::ATTRIBUTIONS );
+	}
+
+	public function test_attribution_is_unknown_when_the_site_without_the_change_cannot_be_seen(): void {
+		$unavailable = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ], [ 'leg' => 'rest', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ] ] );
+		$healthy     = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 400 ] ] );
+
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $unavailable ), 'No answer after the rollback either: nothing is shown.' );
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), [] ) );
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $healthy, false ), 'A rollback that did not complete shows the site with the change still in place.' );
+		self::assertSame( 'unknown', HealthProbe::attribution( $unavailable, $healthy ), 'A probe that reached no verdict blames nothing.' );
+	}
+
 	public function test_once_a_second_attempt_gets_no_answer_the_other_legs_are_not_tried(): void {
 		$this->sequence( [ $this->silence() ] );
 		$context = [ 'legs' => [ 'home', 'rest' ], 'user_id' => 7 ];

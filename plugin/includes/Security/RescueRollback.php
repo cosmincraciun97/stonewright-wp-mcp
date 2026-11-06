@@ -158,7 +158,10 @@ final class RescueRollback {
 	 * Judge a probe against the baselines the entries took before their writes: a leg that passed
 	 * then and cannot be reached now counts as failed (see HealthProbe::compare()). For the probe taken
 	 * right after a write, $retry asks such a leg once more first, in case it was only slow (see
-	 * HealthProbe::retry_silent_legs()).
+	 * HealthProbe::retry_silent_legs()). A leg that passed before but took longer than
+	 * HealthProbe::witness_ms() is a slow witness: it is neither retried nor held against the change,
+	 * and the judged probe says so on that leg (`witness` slow, `baseline_ms`). A leg that answers with
+	 * a failure fails whatever its witness did.
 	 *
 	 * @param array<string, mixed>       $probe   A probe taken after the change.
 	 * @param list<array<string, mixed>> $entries The entries the probe covers.
@@ -171,11 +174,12 @@ final class RescueRollback {
 		if ( $retry ) {
 			$probe = HealthProbe::retry_silent_legs( $probe, $passed, $context );
 		}
-		return HealthProbe::compare( $probe, $passed );
+		return HealthProbe::note_slow_witnesses( HealthProbe::compare( $probe, $passed ), self::slow_witnesses( $entries, $context ) );
 	}
 
 	/**
-	 * The legs that passed in the baselines the entries took before their writes.
+	 * The legs that passed in the baselines the entries took before their writes, and passed fast enough to
+	 * witness: a leg that took longer than HealthProbe::witness_ms() is left out (see slow_witnesses()).
 	 *
 	 * @param list<array<string, mixed>> $entries
 	 * @param array<string, mixed>       $context
@@ -183,10 +187,49 @@ final class RescueRollback {
 	 */
 	private static function passed_before( array $entries, array $context ): array {
 		$passed  = [];
+		$witness = HealthProbe::witness_ms();
+		foreach ( self::baseline_legs( $entries, $context ) as $name => $leg ) {
+			if ( max( 0, (int) ( $leg['ms'] ?? 0 ) ) <= $witness ) {
+				$passed[ $name ] = true;
+			}
+		}
+		return array_keys( $passed );
+	}
+
+	/**
+	 * The legs that passed in the baselines but took longer than HealthProbe::witness_ms(): slow witnesses, whose
+	 * silence after the change proves nothing about it.
+	 *
+	 * @param list<array<string, mixed>> $entries
+	 * @param array<string, mixed>       $context
+	 * @return array<string, int> Leg name to the milliseconds its baseline leg took.
+	 */
+	private static function slow_witnesses( array $entries, array $context ): array {
+		$slow    = [];
+		$witness = HealthProbe::witness_ms();
+		foreach ( self::baseline_legs( $entries, $context ) as $name => $leg ) {
+			$ms = max( 0, (int) ( $leg['ms'] ?? 0 ) );
+			if ( $ms > $witness ) {
+				$slow[ $name ] = $ms;
+			}
+		}
+		return $slow;
+	}
+
+	/**
+	 * The passed legs of the baselines the entries took before their writes, by name. When two entries hold the same
+	 * leg, the slower one counts: a witness is only as reliable as its slowest answer.
+	 *
+	 * @param list<array<string, mixed>> $entries
+	 * @param array<string, mixed>       $context
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function baseline_legs( array $entries, array $context ): array {
+		$legs    = [];
 		$post_id = (int) ( $context['post_id'] ?? 0 );
 		foreach ( $entries as $entry ) {
-			$legs = is_array( $entry['baseline']['legs'] ?? null ) ? $entry['baseline']['legs'] : [];
-			foreach ( $legs as $leg ) {
+			$baseline = is_array( $entry['baseline']['legs'] ?? null ) ? $entry['baseline']['legs'] : [];
+			foreach ( $baseline as $leg ) {
 				if ( ! is_array( $leg ) || 'passed' !== ( $leg['status'] ?? '' ) ) {
 					continue;
 				}
@@ -195,10 +238,12 @@ final class RescueRollback {
 				if ( 'post' === $name && (int) ( $entry['resource_key'] ?? 0 ) !== $post_id ) {
 					continue;
 				}
-				$passed[ $name ] = true;
+				if ( ! isset( $legs[ $name ] ) || (int) ( $legs[ $name ]['ms'] ?? 0 ) < (int) ( $leg['ms'] ?? 0 ) ) {
+					$legs[ $name ] = $leg;
+				}
 			}
 		}
-		return array_keys( $passed );
+		return $legs;
 	}
 
 	/**
@@ -251,6 +296,11 @@ final class RescueRollback {
 			];
 			if ( ! empty( $leg['retried'] ) ) {
 				$entry['retried'] = true;
+			}
+			if ( 'slow' === ( $leg['witness'] ?? '' ) ) {
+				// Why a silent leg was not held against the change: its witness before the change was slow.
+				$entry['witness']     = 'slow';
+				$entry['baseline_ms'] = (int) ( $leg['baseline_ms'] ?? 0 );
 			}
 			$legs[] = $entry;
 		}
@@ -1136,6 +1186,12 @@ final class RescueRollback {
 			'site'            => (string) ( $result['site_status'] ?? '' ),
 			'probe'           => isset( $result['probe'] ) && is_array( $result['probe'] ) ? self::message_probe( $result['probe'] ) : [],
 		];
+		// What the probe proved, and whether the failure was the change's doing, for a client that only reads the message.
+		foreach ( [ 'verification_reason', 'post_rollback_reason', 'attribution' ] as $key ) {
+			if ( isset( $result[ $key ] ) && is_string( $result[ $key ] ) && '' !== $result[ $key ] ) {
+				$evidence[ $key ] = $result[ $key ];
+			}
+		}
 		$json = wp_json_encode( $evidence, JSON_UNESCAPED_SLASHES );
 		return is_string( $json ) ? $json : '{}';
 	}
@@ -1155,6 +1211,9 @@ final class RescueRollback {
 				];
 				if ( ! empty( $leg['retried'] ) ) {
 					$entry['retried'] = true;
+				}
+				if ( 'slow' === ( $leg['witness'] ?? '' ) ) {
+					$entry['witness'] = 'slow';
 				}
 				$legs[] = $entry;
 			}

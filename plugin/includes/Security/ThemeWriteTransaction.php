@@ -163,6 +163,7 @@ final class ThemeWriteTransaction {
 			'reason'  => 'not_requested',
 		];
 		$site_probe = 'skipped';
+		$probe      = [];
 		if ( empty( $plan['skip_smoke'] ) && null !== $rescue ) {
 			$raw_rollback = [];
 			$verdict      = RescueGuard::verify_or_rollback(
@@ -179,38 +180,52 @@ final class ThemeWriteTransaction {
 					},
 				]
 			);
-			$smoke      = HealthProbe::smoke_summary( $verdict['probe'] );
+			$probe      = $verdict['probe'];
+			$smoke      = HealthProbe::smoke_summary( $probe );
 			$site_probe = 'verified' === $verdict['status'] ? 'passed' : ( 'unavailable' === $verdict['status'] ? 'unavailable' : 'failed' );
 			if ( in_array( $verdict['status'], [ 'rolled_back', 'rollback_failed' ], true ) ) {
 				CodeAdapter::finish( $change, (string) $verdict['status'] );
-				$failure = [
-					'execution_status'    => 'ok',
-					'verification_status' => 'failed',
-					'rollback_status'     => (string) ( $raw_rollback['status'] ?? 'failed' ),
-					'before_sha256'       => $before_hash,
-					'after_sha256'        => $after_hash,
-					'backup_path'         => $backup,
-					'backup_ref'          => $backup,
-					'recovery_ref'        => 'failed' === ( $raw_rollback['status'] ?? 'failed' ) ? $backup : '',
-					'smoke_summary'       => $smoke,
-					'post_rollback_smoke' => HealthProbe::smoke_summary( (array) $verdict['post_rollback_probe'] ),
-					'rollback'            => $raw_rollback,
-					'incident_id'         => $verdict['incident_id'],
-					'change_set_id'       => $verdict['incident_id'],
-					'site_status'         => $verdict['site_status'],
-					'probe'               => RescueRollback::compact_probe( $verdict['probe'] ),
+				$rolled_back = 'rolled_back' === $verdict['status'];
+				$after_probe = (array) $verdict['post_rollback_probe'];
+				// What the check proved (a failing answer, or a check that passed before and was lost), what the check
+				// after the restore proved, and whether the failure was this change's doing.
+				$reason      = HealthProbe::verdict( $probe );
+				$attribution = HealthProbe::attribution( $probe, $after_probe, $rolled_back );
+				$failure     = [
+					'execution_status'     => 'ok',
+					'verification_status'  => 'failed',
+					'rollback_status'      => (string) ( $raw_rollback['status'] ?? 'failed' ),
+					'before_sha256'        => $before_hash,
+					'after_sha256'         => $after_hash,
+					'backup_path'          => $backup,
+					'backup_ref'           => $backup,
+					'recovery_ref'         => 'failed' === ( $raw_rollback['status'] ?? 'failed' ) ? $backup : '',
+					'smoke_summary'        => $smoke,
+					'post_rollback_smoke'  => HealthProbe::smoke_summary( $after_probe ),
+					'rollback'             => $raw_rollback,
+					'incident_id'          => $verdict['incident_id'],
+					'change_set_id'        => $verdict['incident_id'],
+					'site_status'          => $verdict['site_status'],
+					'verification_reason'  => $reason,
+					'post_rollback_reason' => HealthProbe::verdict( $after_probe ),
+					'attribution'          => $attribution,
+					'probe'                => RescueRollback::compact_probe( $probe ),
 				];
-				$message = 'rolled_back' === $verdict['status']
+				$message = $rolled_back
 					? __( 'Fresh WordPress bootstrap smoke failed after theme write. Original file restored.', 'stonewright' )
 					: __( 'Fresh WordPress bootstrap smoke failed after theme write and the original file could not be restored. Use Stonewright > Rescue or stonewright-rescue-rollback.', 'stonewright' );
+				$message .= self::attribution_sentence( $attribution, $rolled_back );
 				return self::err(
 					'theme_write_smoke_failed',
 					$message . ' ' . RescueRollback::evidence_json(
 						[
-							'rollback_status' => 'rolled_back' === $verdict['status'] ? 'succeeded' : 'failed',
-							'incident_id'     => $verdict['incident_id'],
-							'site_status'     => $verdict['site_status'],
-							'probe'           => $failure['probe'],
+							'rollback_status'      => $rolled_back ? 'succeeded' : 'failed',
+							'incident_id'          => $verdict['incident_id'],
+							'site_status'          => $verdict['site_status'],
+							'probe'                => $failure['probe'],
+							'verification_reason'  => $reason,
+							'post_rollback_reason' => $failure['post_rollback_reason'],
+							'attribution'          => $attribution,
 						]
 					),
 					$failure
@@ -249,7 +264,101 @@ final class ThemeWriteTransaction {
 		if ( 'unavailable' === $site_probe ) {
 			$result['probe_unavailable'] = true;
 		}
+		// What the check after the write proved, and which of its legs reached no verdict (a slow witness that did not
+		// answer, a wp-admin screen behind a login wall) so that a partial pass says what it did not see.
+		if ( [] !== $probe ) {
+			$result['verification_reason'] = HealthProbe::verdict( $probe );
+			$warnings                      = self::unjudged_warnings( $probe );
+			if ( [] !== $warnings ) {
+				$result['warnings'] = $warnings;
+			}
+		} else {
+			$result['verification_reason'] = $changed ? 'not_started' : 'verified';
+		}
 		return $result;
+	}
+
+	/**
+	 * One sentence per leg of a probe that reached no verdict, for the warnings of a write that was kept.
+	 *
+	 * @param array<string, mixed> $probe
+	 * @return list<string>
+	 */
+	private static function unjudged_warnings( array $probe ): array {
+		$warnings = [];
+		foreach ( HealthProbe::unjudged_legs( $probe ) as $leg ) {
+			if ( 'slow' === ( $leg['witness'] ?? '' ) ) {
+				$warnings[] = sprintf(
+					/* translators: 1: probe leg name, 2: milliseconds the leg took before the write, 3: milliseconds a witness may take. */
+					__( 'The %1$s check got no answer after the write and was not judged against it: it took %2$d ms before the write, more than the %3$d ms a witness may take.', 'stonewright' ),
+					$leg['leg'],
+					(int) ( $leg['baseline_ms'] ?? 0 ),
+					HealthProbe::witness_ms()
+				);
+				continue;
+			}
+			$warnings[] = sprintf(
+				/* translators: 1: probe leg name, 2: reason code. */
+				__( 'The %1$s check reached no verdict (%2$s).', 'stonewright' ),
+				$leg['leg'],
+				'' !== $leg['reason'] ? $leg['reason'] : $leg['status']
+			);
+		}
+		return $warnings;
+	}
+
+	/**
+	 * What the attribution adds to the message of a smoke failure: nothing when the failure is the change's doing.
+	 */
+	private static function attribution_sentence( string $attribution, bool $rolled_back ): string {
+		if ( 'unattributed' === $attribution ) {
+			return ' ' . __( 'A check that passed before the write got no answer after it and still gets none with the original file back, so the failure is not attributed to this change.', 'stonewright' );
+		}
+		if ( 'unknown' === $attribution && $rolled_back ) {
+			return ' ' . __( 'The site could not be checked after the restore, so whether the failure came from this change is unknown.', 'stonewright' );
+		}
+		return '';
+	}
+
+	/**
+	 * After a smoke failure, give the operator grant back when the rollback was not attributable to the bytes it
+	 * approved: the write was rolled back, and the only failure was a check that passed before the write, got no
+	 * answer after it, and still gets none with the original file back. The error then carries
+	 * `custom_code_grant_status` reusable_once, a `recommended_next`, and one more sentence: the same bytes may be
+	 * applied once more with the same grant before it expires. In every other case the grant stays spent
+	 * (`custom_code_grant_status` spent). Any other error is returned as it is.
+	 *
+	 * @param \WP_Error $error        What apply() returned.
+	 * @param string    $token        The grant the apply ran under.
+	 * @param string    $path         The theme-relative path the grant is bound to.
+	 * @param string    $after_sha256 The hash of the approved bytes.
+	 * @param string    $language     The language the grant was issued for.
+	 */
+	public static function with_grant_outcome( \WP_Error $error, string $token, string $path, string $after_sha256, string $language ): \WP_Error {
+		if ( 'stonewright_theme_write_smoke_failed' !== $error->get_error_code() ) {
+			return $error;
+		}
+		$data     = is_array( $error->get_error_data() ) ? $error->get_error_data() : [];
+		$released = false;
+		if ( 'succeeded' === ( $data['rollback_status'] ?? '' ) && 'unattributed' === ( $data['attribution'] ?? '' ) ) {
+			$released = true === CustomCodeGrant::release( $token, $path, $after_sha256, $language, 'rolled_back_unattributed' );
+		}
+		$data['custom_code_grant_status'] = $released ? 'reusable_once' : 'spent';
+		$message                          = (string) $error->get_error_message();
+		if ( $released ) {
+			$data['recommended_next'] = 'check the site, then apply the same bytes once more with the same grant before it expires';
+			$message                  = self::before_evidence(
+				$message,
+				__( 'The grant was not spent: the same bytes can be applied once more with the same grant before it expires.', 'stonewright' )
+			);
+		}
+		return new \WP_Error( $error->get_error_code(), $message, $data );
+	}
+
+	/** Put a sentence before the compact evidence object that ends a message, so that the message still ends with it. */
+	private static function before_evidence( string $message, string $sentence ): string {
+		$at = strrpos( $message, ' {"' );
+		return false === $at ? $message . ' ' . $sentence : substr( $message, 0, $at ) . ' ' . $sentence . substr( $message, $at );
 	}
 
 	/**

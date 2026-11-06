@@ -49,6 +49,12 @@ It also overrides these, whose kernel defaults fit only a no-argument read:
   is gated by a human-issued `custom_code_grant` (`Security\CustomCodeGrant`);
   its refusal carries the `approval_url`, and the agent shows it and stops.
   List it in `Core\FullProfileOnlyAbilities` when it runs or loads code.
+  The grant is consumed before the write (`verify_and_consume()`). A theme-file
+  write hands its smoke failure to `ThemeWriteTransaction::with_grant_outcome()`,
+  which gives the grant back once (`CustomCodeGrant::release()`) only when the
+  rollback was `unattributed`: the check that was lost after the write is still
+  lost with the original file back. Never release a grant for any other reason,
+  and never mint one outside wp-admin.
 
 ## Confirmation token for destructive abilities
 

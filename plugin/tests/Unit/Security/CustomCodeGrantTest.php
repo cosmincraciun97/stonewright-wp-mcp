@@ -27,6 +27,102 @@ final class CustomCodeGrantTest extends TestCase {
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options']    = [];
+		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
+
+	// -- Giving a consumed grant back after a rollback that was not the change's doing ----------------
+
+	private const CANDIDATE = '<?php // the approved bytes';
+
+	/** @return array{token:string,grant_id:string,hash:string} An issued grant for CANDIDATE on functions.php, consumed once. */
+	private function consumed_grant(): array {
+		$hash   = hash( 'sha256', self::CANDIDATE );
+		$issued = CustomCodeGrant::issue( [ 'path' => 'functions.php', 'after_sha256' => $hash, 'language' => 'php', 'high_risk' => true ] );
+		self::assertIsArray( $issued );
+		self::assertTrue( CustomCodeGrant::verify_and_consume( (string) $issued['token'], 'functions.php', $hash, 'php', 20, true ) );
+		return [ 'token' => (string) $issued['token'], 'grant_id' => (string) $issued['grant_id'], 'hash' => $hash ];
+	}
+
+	/** @param array<string, mixed>|\WP_Error $result */
+	private static function assert_release_refused( $result, string $why ): void {
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_grant_release_refused', $result->get_error_code() );
+		self::assertSame( $why, $result->get_error_data()['reason'] );
+	}
+
+	public function test_a_consumed_grant_is_released_once_and_applies_the_same_bytes_once_more_within_its_lifetime(): void {
+		$grant   = $this->consumed_grant();
+		$key     = CustomCodeGrant::TRANSIENT_PREFIX . $grant['grant_id'];
+		$expires = (int) $GLOBALS['stonewright_test_transients'][ $key ]['expires_at'];
+
+		self::assertTrue( CustomCodeGrant::release( $grant['token'], 'functions.php', $grant['hash'], 'php', 'rolled_back_unattributed' ) );
+
+		$stored = $GLOBALS['stonewright_test_transients'][ $key ];
+		self::assertFalse( $stored['used'] );
+		self::assertSame( 'rolled_back_unattributed', $stored['release_reason'] );
+		self::assertGreaterThan( 0, $stored['released_at'] );
+		self::assertSame( $expires, (int) $stored['expires_at'], 'The expiry does not move.' );
+		self::assertLessThanOrEqual( $expires - time(), $GLOBALS['stonewright_test_transient_ttls'][ $key ], 'It is stored for what is left of its lifetime, no more.' );
+
+		self::assert_release_refused( CustomCodeGrant::release( $grant['token'], 'functions.php', $grant['hash'], 'php', 'again' ), 'not_used' );
+		self::assertTrue( CustomCodeGrant::verify_and_consume( $grant['token'], 'functions.php', $grant['hash'], 'php', 20, true ), 'The same bytes go in once more.' );
+		$reuse = CustomCodeGrant::verify_and_consume( $grant['token'], 'functions.php', $grant['hash'], 'php', 20, true );
+		self::assertInstanceOf( \WP_Error::class, $reuse );
+		self::assertSame( 'stonewright_custom_code_grant_reused', $reuse->get_error_code(), 'And not a third time.' );
+		self::assert_release_refused( CustomCodeGrant::release( $grant['token'], 'functions.php', $grant['hash'], 'php', 'rolled_back_unattributed' ), 'already_released' );
+		self::assertTrue( $GLOBALS['stonewright_test_transients'][ $key ]['used'], 'A grant is released at most once: the second apply spent it for good.' );
+	}
+
+	/** @dataProvider releaseMismatchProvider */
+	public function test_a_release_is_refused_when_the_write_does_not_match_the_grant( string $why, callable $arrange ): void {
+		$grant = $this->consumed_grant();
+		$args  = $arrange( $grant );
+
+		self::assert_release_refused( CustomCodeGrant::release( $grant['token'], $args['path'], $args['hash'], $args['language'], 'rolled_back_unattributed' ), $why );
+		self::assertTrue( $GLOBALS['stonewright_test_transients'][ CustomCodeGrant::TRANSIENT_PREFIX . $grant['grant_id'] ]['used'], 'The grant stays spent.' );
+	}
+
+	/** @return array<string, array{0:string,1:callable}> */
+	public static function releaseMismatchProvider(): array {
+		$same = static fn ( array $grant ): array => [ 'path' => 'functions.php', 'hash' => $grant['hash'], 'language' => 'php' ];
+		return [
+			'another hash'     => [ 'hash_mismatch', static fn ( array $grant ): array => array_merge( $same( $grant ), [ 'hash' => hash( 'sha256', 'other bytes' ) ] ) ],
+			'another path'     => [ 'path_mismatch', static fn ( array $grant ): array => array_merge( $same( $grant ), [ 'path' => 'inc/other.php' ] ) ],
+			'another language' => [ 'language_mismatch', static fn ( array $grant ): array => array_merge( $same( $grant ), [ 'language' => 'css' ] ) ],
+			'another user'     => [
+				'user_mismatch',
+				static function ( array $grant ) use ( $same ): array {
+					$GLOBALS['stonewright_test_current_user_id'] = 10;
+					return $same( $grant );
+				},
+			],
+			'another site'     => [
+				'site_mismatch',
+				static function ( array $grant ) use ( $same ): array {
+					$GLOBALS['stonewright_test_home_url'] = 'https://other.example.test/';
+					return $same( $grant );
+				},
+			],
+		];
+	}
+
+	public function test_a_release_is_refused_for_a_grant_that_was_not_used_or_has_expired(): void {
+		$hash   = hash( 'sha256', self::CANDIDATE );
+		$issued = CustomCodeGrant::issue( [ 'path' => 'functions.php', 'after_sha256' => $hash, 'language' => 'php' ] );
+		self::assertIsArray( $issued );
+		self::assert_release_refused( CustomCodeGrant::release( (string) $issued['token'], 'functions.php', $hash, 'php', 'rolled_back_unattributed' ), 'not_used' );
+
+		$grant = $this->consumed_grant();
+		$GLOBALS['stonewright_test_transients'][ CustomCodeGrant::TRANSIENT_PREFIX . $grant['grant_id'] ]['expires_at'] = time() - 1;
+		self::assert_release_refused( CustomCodeGrant::release( $grant['token'], 'functions.php', $grant['hash'], 'php', 'rolled_back_unattributed' ), 'expired' );
+	}
+
+	public function test_a_release_is_refused_for_a_token_that_is_not_a_grant(): void {
+		self::assert_release_refused( CustomCodeGrant::release( 'not.a.token', 'functions.php', hash( 'sha256', 'x' ), 'php', 'rolled_back_unattributed' ), 'invalid_token' );
+
+		$grant = $this->consumed_grant();
+		unset( $GLOBALS['stonewright_test_transients'][ CustomCodeGrant::TRANSIENT_PREFIX . $grant['grant_id'] ] );
+		self::assert_release_refused( CustomCodeGrant::release( $grant['token'], 'functions.php', $grant['hash'], 'php', 'rolled_back_unattributed' ), 'missing' );
 	}
 
 	public function test_grant_binds_hash_and_is_single_use(): void {
