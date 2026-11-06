@@ -133,13 +133,26 @@ final class ThemeWriteSmokeBaselineTest extends TestCase {
 		self::assertTrue( $again, 'The human approved exactly these bytes and the rollback was not attributable to them: the same grant must still apply the same candidate once. Got: ' . ( $again instanceof \WP_Error ? $again->get_error_code() : 'true' ) );
 	}
 
+	public function test_a_grant_stays_spent_when_the_lost_check_fails_outright_without_the_change(): void {
+		[ $error, $token, $after_hash, $changed_bytes ] = $this->apply_php_patch_on_the_field_host( true );
+
+		$data = $error->get_error_data();
+		self::assertSame( 'site_failed', $data['post_rollback_reason'], 'Precondition: with the original file back, the front page answers with a server error.' );
+		self::assertSame( 'unknown', $data['attribution'], 'A check that fails outright without the change shows nothing about whose fault the lost check was.' );
+		self::assertSame( 'spent', $data['custom_code_grant_status'] );
+		$again = CustomCodeGrant::verify_and_consume( $token, 'inc/custom.php', $after_hash, 'php', $changed_bytes, true );
+		self::assertInstanceOf( \WP_Error::class, $again );
+		self::assertSame( 'stonewright_custom_code_grant_reused', $again->get_error_code() );
+	}
+
 	/**
 	 * A human-approved replace_between_markers PHP patch of a child-theme include on a host whose front page
 	 * answers just inside the timeout before the write and not at all afterwards, with or without the change.
 	 *
+	 * @param bool $fatal_after_rollback Whether the front page answers with a server error once the original file is back.
 	 * @return array{0:\WP_Error,1:string,2:string,3:int}
 	 */
-	private function apply_php_patch_on_the_field_host(): array {
+	private function apply_php_patch_on_the_field_host( bool $fatal_after_rollback = false ): array {
 		$path   = $this->base . '/themes/site-a/inc/custom.php';
 		$before = "<?php\n// SW:START\n// old\n// SW:END\n";
 		file_put_contents( $path, $before );
@@ -152,7 +165,7 @@ final class ThemeWriteSmokeBaselineTest extends TestCase {
 			}
 			return $written ? 'after_rollback' : 'baseline';
 		};
-		$this->field_host( $phase );
+		$this->field_host( $phase, $fatal_after_rollback );
 
 		$ability = new ThemeFilePatch();
 		$args    = [
@@ -199,11 +212,12 @@ final class ThemeWriteSmokeBaselineTest extends TestCase {
 	 * The field host: REST always answers; wp-admin times out before the write and after it, and answers once the
 	 * original file is back; the front page answers before the write and times out after it, with or without the change.
 	 *
-	 * @param callable():string $phase baseline, after_write or after_rollback.
+	 * @param callable():string $phase                baseline, after_write or after_rollback.
+	 * @param bool              $fatal_after_rollback Whether the front page answers with a server error once the original file is back.
 	 */
-	private function field_host( callable $phase ): void {
+	private function field_host( callable $phase, bool $fatal_after_rollback = false ): void {
 		HealthProbe::set_transport(
-			function ( string $url, array $args ) use ( $phase ) {
+			function ( string $url, array $args ) use ( $phase, $fatal_after_rollback ) {
 				$this->requests[] = [ 'url' => $url, 'args' => $args ];
 				$leg              = match ( true ) {
 					str_contains( $url, 'page=stonewright-rescue' ), str_contains( $url, '/wp-admin/' ) => 'admin',
@@ -215,7 +229,11 @@ final class ThemeWriteSmokeBaselineTest extends TestCase {
 				return match ( $leg ) {
 					'rest'  => $ok( '{"name":"Site","namespaces":["wp/v2"]}' ),
 					'admin' => 'after_rollback' === $phase() ? $ok( '<html><body class="wp-admin"><div data-sw-rescue-probe="ok"></div></body></html>' ) : $timeout,
-					default => 'baseline' === $phase() ? $ok( '<html><body>home</body></html>' ) : $timeout,
+					default => match ( true ) {
+						'baseline' === $phase()                                => $ok( '<html><body>home</body></html>' ),
+						$fatal_after_rollback && 'after_rollback' === $phase() => [ 'response' => [ 'code' => 500 ], 'body' => '<html><body>There has been a critical error on this website.</body></html>', 'headers' => [] ],
+						default                                                 => $timeout,
+					},
 				};
 			}
 		);

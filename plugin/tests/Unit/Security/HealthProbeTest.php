@@ -1019,6 +1019,54 @@ final class HealthProbeTest extends TestCase {
 		self::assertContains( 'unattributed', HealthProbe::ATTRIBUTIONS );
 	}
 
+	public function test_a_lost_check_is_not_unattributed_when_the_site_without_the_change_fails_outright(): void {
+		// The lost check now answers with a real failure: the site fails without the change too, for a reason
+		// this probe cannot pin on the change or on the host.
+		$fatal = HealthProbe::compare(
+			HealthProbe::summary_of(
+				[
+					[ 'leg' => 'home', 'status' => 'failed', 'http' => 500, 'reason' => 'critical_error_page', 'ms' => 120 ],
+					[ 'leg' => 'rest', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 300 ],
+				]
+			),
+			[ 'home', 'rest' ]
+		);
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $fatal ) );
+
+		// The lost check is still silent, but another check fails outright without the change.
+		$other = HealthProbe::compare(
+			HealthProbe::summary_of(
+				[
+					[ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+					[ 'leg' => 'rest', 'status' => 'failed', 'http' => 500, 'reason' => 'fatal_marker', 'ms' => 90 ],
+				]
+			),
+			[ 'home', 'rest' ]
+		);
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $other ) );
+	}
+
+	public function test_a_lost_check_that_was_not_asked_again_is_not_unattributed(): void {
+		// Skipped after the rollback (the budget ran out) while another check is lost.
+		$skipped = HealthProbe::compare(
+			HealthProbe::summary_of(
+				[
+					[ 'leg' => 'home', 'status' => 'skipped', 'http' => 0, 'reason' => 'budget', 'ms' => 0 ],
+					[ 'leg' => 'rest', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ],
+				]
+			),
+			[ 'home', 'rest' ]
+		);
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $skipped ) );
+
+		// Not asked at all after the rollback (a probe under pressure asks fewer legs).
+		$missing = HealthProbe::compare(
+			HealthProbe::summary_of( [ [ 'leg' => 'rest', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ] ] ),
+			[ 'home', 'rest' ]
+		);
+		self::assertSame( 'unknown', HealthProbe::attribution( self::lost_home(), $missing ) );
+	}
+
 	public function test_attribution_is_unknown_when_the_site_without_the_change_cannot_be_seen(): void {
 		$unavailable = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ], [ 'leg' => 'rest', 'status' => 'unavailable', 'http' => 0, 'reason' => 'http_request_failed', 'ms' => 10000 ] ] );
 		$healthy     = HealthProbe::summary_of( [ [ 'leg' => 'home', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 400 ] ] );

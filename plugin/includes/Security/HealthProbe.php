@@ -329,21 +329,46 @@ final class HealthProbe {
 		if ( 'passed' === $status ) {
 			return 'attributed';
 		}
-		if ( 'failed' !== $status ) {
-			return 'unknown';
-		}
 		$lost = [];
 		foreach ( is_array( $probe['legs'] ?? null ) ? $probe['legs'] : [] as $leg ) {
-			if ( is_array( $leg ) && 'failed' === ( $leg['status'] ?? '' ) && str_starts_with( (string) ( $leg['reason'] ?? '' ), 'degraded_' ) ) {
-				$lost[ (string) ( $leg['leg'] ?? '' ) ] = true;
+			if ( is_array( $leg ) && self::is_lost( $leg ) ) {
+				$lost[] = (string) ( $leg['leg'] ?? '' );
 			}
 		}
+		$after_legs = [];
 		foreach ( is_array( $after['legs'] ?? null ) ? $after['legs'] : [] as $leg ) {
-			if ( is_array( $leg ) && isset( $lost[ (string) ( $leg['leg'] ?? '' ) ] ) && 'passed' === ( $leg['status'] ?? '' ) ) {
+			if ( is_array( $leg ) ) {
+				$after_legs[ (string) ( $leg['leg'] ?? '' ) ] = $leg;
+			}
+		}
+		// A lost check that answers again once the change is gone shows that the change caused it.
+		foreach ( $lost as $name ) {
+			if ( 'passed' === ( $after_legs[ $name ]['status'] ?? '' ) ) {
 				return 'attributed';
 			}
 		}
-		return [] === $lost ? 'unknown' : 'unattributed';
+		// Unattributed needs the same symptom without the change: no check answered with a failure, and every lost
+		// check was asked again and is still lost. A check that now fails outright (HTTP 500, the critical error page,
+		// a fatal marker), or a lost check that was skipped or not asked again, shows nothing either way.
+		if ( [] === $lost || 'failed' !== $status || 'check_lost' !== self::verdict( $after ) ) {
+			return 'unknown';
+		}
+		foreach ( $lost as $name ) {
+			if ( ! isset( $after_legs[ $name ] ) || ! self::is_lost( $after_legs[ $name ] ) ) {
+				return 'unknown';
+			}
+		}
+		return 'unattributed';
+	}
+
+	/**
+	 * Whether a judged leg is a check that passed before the change and got no answer, or a gateway error, after it
+	 * (see compare()).
+	 *
+	 * @param array<string, mixed> $leg
+	 */
+	private static function is_lost( array $leg ): bool {
+		return 'failed' === ( $leg['status'] ?? '' ) && str_starts_with( (string) ( $leg['reason'] ?? '' ), 'degraded_' );
 	}
 
 	/**
