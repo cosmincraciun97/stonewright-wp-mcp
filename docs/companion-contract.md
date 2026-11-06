@@ -306,7 +306,10 @@ that ends at most 90 days after authorization, where each refresh token
 expires after 30 days without use. Each WordPress MCP request is sent once and is not
 repeated after a timeout or network error; on OAuth connections an HTTP 401
 refreshes the access token and the request is sent once more, a tool call
-included. A token refresh that got no response at all is sent once more with the same
+included. An HTTP 404 to a request that carried an `Mcp-Session-Id` (the server
+ended the session before running it) opens a new session, and the request is sent
+once more, a tool call included; a `rest_no_route` 404 is not an ended session.
+A token refresh that got no response at all is sent once more with the same
 refresh credential within the bounds in the
 [OAuth failure contract](permanent-remediation-contracts.md#oauth-failure-and-rate-limit-contract).
 

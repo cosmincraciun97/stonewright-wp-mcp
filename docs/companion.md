@@ -250,7 +250,9 @@ within a grant that ends at most 90 days after authorization, where each
 refresh token expires after 30 days without use. Each WordPress MCP
 request is sent once and is not repeated after a timeout or network error; on
 OAuth connections an HTTP 401 refreshes the access token and the request is
-sent once more, a tool call included. Degraded
+sent once more, a tool call included. An HTTP 404 to a request that carried an
+`Mcp-Session-Id` means the server ended the session before running it: the
+companion opens a new session and sends the request once more. Degraded
 `stonewright-task-start` reconnects once. See
 [Permanent remediation contracts](permanent-remediation-contracts.md).
 
