@@ -92,8 +92,11 @@ development builds were never stable releases.
   (`stonewright_acf_group_id_mismatch`, `stonewright_acf_field_id_mismatch`), a
   key that two posts hold is refused until the call names one with `group.ID`
   (`stonewright_acf_group_key_ambiguous`), and a group registered in PHP is
-  refused (`stonewright_acf_group_registered_in_code`). A group that exists only
-  in local JSON is created, and the answer says so (`local`).
+  refused (`stonewright_acf_group_registered_in_code`), as is a group or a
+  payload whose fields nest more than 11 levels deep
+  (`stonewright_acf_group_too_deep`), where the save could not see which fields
+  ACF would delete. A group that exists only in local JSON is created, and the
+  answer says so (`local`).
 - Record every post an ACF field group save inserts in the change ledger. The
   ledger compared ACF's answer before and after the import, which names one post
   per key, so a duplicate group and its fields had no created row and a rollback

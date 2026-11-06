@@ -58,6 +58,12 @@ final class AcfRuntime {
 
 	private const DECIMAL_MAX_DIGITS = 80;
 
+	/**
+	 * How many levels of nested fields (a sub field of a repeater, group or flexible content layout is one level
+	 * down) the field walks follow. A save refuses a group nested deeper (see import_field_group()).
+	 */
+	public const MAX_FIELD_LEVELS = 11;
+
 	public static function is_active(): bool {
 		// Unit tests toggle this without unloading function stubs.
 		if ( array_key_exists( 'stonewright_test_acf_active', $GLOBALS ) ) {
@@ -132,21 +138,28 @@ final class AcfRuntime {
 	 * @return array<string, int>
 	 */
 	public static function field_posts_of_group( int $group_id ): array {
-		$map = [];
-		if ( $group_id < 1 || ! function_exists( 'get_posts' ) ) {
-			return $map;
+		return self::field_post_inventory( $group_id )['map'];
+	}
+
+	/**
+	 * The field posts of a group as field_posts_of_group() returns them, and whether that map is complete: it is
+	 * not when a field sits more than MAX_FIELD_LEVELS levels deep, where the walk stops.
+	 *
+	 * @return array{map: array<string, int>, complete: bool}
+	 */
+	public static function field_post_inventory( int $group_id ): array {
+		$map      = [];
+		$complete = true;
+		if ( $group_id > 0 && function_exists( 'get_posts' ) ) {
+			self::collect_field_posts( $group_id, $map, 0, $complete );
 		}
-		self::collect_field_posts( $group_id, $map, 0 );
-		return $map;
+		return [ 'map' => $map, 'complete' => $complete ];
 	}
 
 	/**
 	 * @param array<string, int> $map
 	 */
-	private static function collect_field_posts( int $parent_id, array &$map, int $depth ): void {
-		if ( $depth > 10 ) {
-			return;
-		}
+	private static function collect_field_posts( int $parent_id, array &$map, int $depth, bool &$complete ): void {
 		$posts = get_posts(
 			[
 				'post_type'              => 'acf-field',
@@ -160,6 +173,16 @@ final class AcfRuntime {
 				'update_post_term_cache' => false,
 			]
 		);
+		if ( $depth >= self::MAX_FIELD_LEVELS ) {
+			// A field deeper than the walk follows: the map cannot name every field ACF would see.
+			foreach ( (array) $posts as $post ) {
+				if ( is_object( $post ) && (int) $post->ID > 0 ) {
+					$complete = false;
+					return;
+				}
+			}
+			return;
+		}
 		foreach ( (array) $posts as $post ) {
 			if ( ! is_object( $post ) ) {
 				continue;
@@ -170,8 +193,33 @@ final class AcfRuntime {
 				continue;
 			}
 			$map[ $key ] = $id;
-			self::collect_field_posts( $id, $map, $depth + 1 );
+			self::collect_field_posts( $id, $map, $depth + 1, $complete );
 		}
+	}
+
+	/**
+	 * Whether a payload nests fields more than MAX_FIELD_LEVELS levels deep, where flatten_fields() stops.
+	 *
+	 * @param mixed $fields
+	 */
+	public static function fields_nested_too_deep( mixed $fields, int $depth = 0 ): bool {
+		if ( ! is_array( $fields ) ) {
+			return false;
+		}
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+			if ( $depth >= self::MAX_FIELD_LEVELS || self::fields_nested_too_deep( $field['sub_fields'] ?? null, $depth + 1 ) ) {
+				return true;
+			}
+			foreach ( (array) ( $field['layouts'] ?? [] ) as $layout ) {
+				if ( is_array( $layout ) && self::fields_nested_too_deep( $layout['sub_fields'] ?? null, $depth + 1 ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -201,7 +249,7 @@ final class AcfRuntime {
 	 * @return mixed
 	 */
 	public static function fields_with_post_ids( mixed $fields, array $map, int $depth = 0 ): mixed {
-		if ( ! is_array( $fields ) || $depth > 10 ) {
+		if ( ! is_array( $fields ) || $depth >= self::MAX_FIELD_LEVELS ) {
 			return $fields;
 		}
 		foreach ( $fields as $index => $field ) {
@@ -236,7 +284,7 @@ final class AcfRuntime {
 	 */
 	public static function flatten_fields( mixed $fields, int $depth = 0 ): array {
 		$out = [];
-		if ( ! is_array( $fields ) || $depth > 10 ) {
+		if ( ! is_array( $fields ) || $depth >= self::MAX_FIELD_LEVELS ) {
 			return $out;
 		}
 		foreach ( $fields as $field ) {
@@ -263,7 +311,7 @@ final class AcfRuntime {
 	 * @return array<string, mixed>|null
 	 */
 	public static function find_field( mixed $fields, string $key, int $depth = 0 ): ?array {
-		if ( ! is_array( $fields ) || '' === $key || $depth > 10 ) {
+		if ( ! is_array( $fields ) || '' === $key || $depth >= self::MAX_FIELD_LEVELS ) {
 			return null;
 		}
 		foreach ( $fields as $field ) {
@@ -357,8 +405,23 @@ final class AcfRuntime {
 		}
 		$group['ID'] = $post_id;
 
-		// 2. A field id must belong to that field of this group; a field without one is ACF's to resolve by key.
-		$db_fields      = self::field_posts_of_group( $post_id );
+		// 2. The checks below need every field ACF will see. A group or a payload nested deeper than the walk follows
+		// is refused: ACF would still import, change or delete the fields past that depth, unchecked.
+		$inventory = self::field_post_inventory( $post_id );
+		if ( ! $inventory['complete'] || self::fields_nested_too_deep( $group['fields'] ?? null ) ) {
+			return new \WP_Error(
+				'stonewright_acf_group_too_deep',
+				sprintf(
+					/* translators: %d: number of nested field levels the save can check. */
+					__( 'This field group nests fields more than %d levels deep, so the save cannot check which fields ACF would add, change or delete. Nothing was written.', 'stonewright' ),
+					self::MAX_FIELD_LEVELS
+				),
+				[ 'status' => 409, 'key' => $key, 'max_levels' => self::MAX_FIELD_LEVELS ]
+			);
+		}
+
+		// A field id must belong to that field of this group; a field without one is ACF's to resolve by key.
+		$db_fields      = $inventory['map'];
 		$payload_fields = self::flatten_fields( $group['fields'] ?? null );
 		foreach ( $payload_fields as $field ) {
 			if ( $field['ID'] > 0 && ( $db_fields[ $field['key'] ] ?? 0 ) !== $field['ID'] ) {

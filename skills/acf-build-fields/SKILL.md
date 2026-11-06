@@ -70,6 +70,9 @@ Refusals, each before anything is written:
 - `stonewright_acf_group_registered_in_code`: the group is registered in PHP
   (`local: "php"`); a save cannot change it. A group that exists only in local
   JSON is created and the answer says `local: "json"`.
+- `stonewright_acf_group_too_deep`: the group or the payload nests fields more
+  than 11 levels deep, so the save cannot check which fields ACF would change or
+  delete. Make that change in ACF > Field Groups in wp-admin.
 
 Minimum group:
 

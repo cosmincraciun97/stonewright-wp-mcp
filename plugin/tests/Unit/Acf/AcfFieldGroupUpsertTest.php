@@ -12,6 +12,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Acf;
 
 use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupGet;
 use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupSave;
+use Stonewright\WpMcp\Abilities\Acf\AcfRuntime;
 use Stonewright\WpMcp\Security\Adapters\PostAdapter;
 use Stonewright\WpMcp\Security\ChangeLedger;
 use Stonewright\WpMcp\Tests\Unit\Acf\Fixtures\AcfImportStandIn;
@@ -264,6 +265,44 @@ final class AcfFieldGroupUpsertTest extends FamilyLedgerTestCase {
 		self::assertSame( [ self::GROUP_POST => false, self::FIELD_POST => false, 310 => false, 311 => false ], $this->post_rows() );
 	}
 
+	public function test_a_group_whose_fields_nest_deeper_than_the_save_can_check_is_refused(): void {
+		// A chain of nested group fields one level deeper than the walk follows.
+		$parent = self::GROUP_POST;
+		for ( $level = 1; $level <= AcfRuntime::MAX_FIELD_LEVELS + 1; $level++ ) {
+			$this->make_field( 400 + $level, 'field_level_' . $level, 'level_' . $level, 'Level ' . $level, $parent, [ 'type' => 'group' ] );
+			$parent = 400 + $level;
+		}
+		AcfImportStandIn::sync_from_posts();
+		// The payload names every level but the deepest, which ACF would delete.
+		$payload                      = $this->payload_without_ids();
+		$payload['group']['fields'][] = self::nested_chain( 'level', AcfRuntime::MAX_FIELD_LEVELS );
+
+		$result = ( new AcfFieldGroupSave() )->execute( $payload );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_acf_group_too_deep', $result->get_error_code() );
+		$deepest = AcfRuntime::MAX_FIELD_LEVELS + 1;
+		self::assertSame( [ 400 + $deepest ], $this->field_posts_with_key( 'field_level_' . $deepest ), 'The deepest field is still there.' );
+		$this->assertNothingWritten();
+
+		// Allowing removal does not lift it: the save still cannot see what ACF would change past that depth.
+		$allowed = ( new AcfFieldGroupSave() )->execute( $payload + [ 'allow_field_removal' => true ] );
+		self::assertInstanceOf( \WP_Error::class, $allowed );
+		self::assertSame( 'stonewright_acf_group_too_deep', $allowed->get_error_code() );
+		$this->assertNothingWritten();
+	}
+
+	public function test_a_payload_whose_fields_nest_deeper_than_the_save_can_check_is_refused(): void {
+		$payload                      = $this->payload_without_ids();
+		$payload['group']['fields'][] = self::nested_chain( 'new', AcfRuntime::MAX_FIELD_LEVELS + 1 );
+
+		$result = ( new AcfFieldGroupSave() )->execute( $payload );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_acf_group_too_deep', $result->get_error_code() );
+		$this->assertNothingWritten();
+	}
+
 	public function test_the_mirror_holds_the_resolved_post_ids(): void {
 		$this->make_field( 310, 'field_rows', 'rows', 'Rows', self::GROUP_POST, [ 'type' => 'repeater' ] );
 		$this->make_field( 311, 'field_rows_title', 'title', 'Title', 310 );
@@ -306,6 +345,23 @@ final class AcfFieldGroupUpsertTest extends FamilyLedgerTestCase {
 	 */
 	private function make_field( int $id, string $key, string $name, string $label, int $parent, array $settings = [ 'type' => 'text' ] ): void {
 		$this->make_post( $id, [ 'post_type' => 'acf-field', 'post_title' => $label, 'post_name' => $key, 'post_excerpt' => $name, 'post_parent' => $parent, 'post_content' => serialize( $settings ) ] );
+	}
+
+	/**
+	 * A group field holding a group field, $levels deep, with keys field_<prefix>_1 (outermost) to field_<prefix>_<levels>.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function nested_chain( string $prefix, int $levels ): array {
+		$nested = [];
+		for ( $level = $levels; $level >= 1; $level-- ) {
+			$field = [ 'key' => 'field_' . $prefix . '_' . $level, 'label' => ucfirst( $prefix ) . ' ' . $level, 'name' => $prefix . '_' . $level, 'type' => 'group' ];
+			if ( [] !== $nested ) {
+				$field['sub_fields'] = [ $nested ];
+			}
+			$nested = $field;
+		}
+		return $nested;
 	}
 
 	private function field_type( int $post_id ): string {
