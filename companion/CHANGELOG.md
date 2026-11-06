@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18.1] - 2026-11-06
+
+### Fixed
+
+- Send `MCP-Protocol-Version` with the negotiated protocol version on every
+  request after `initialize`, as MCP 2025-06-18 requires. A site where another
+  active plugin ships a newer `wordpress/mcp-adapter` (0.7 or later, for example
+  the copy in Gravity Forms 3.2.2) serves the Stonewright route with that copy,
+  which refuses `notifications/initialized` without the header: the companion
+  connected with no WordPress tools and reported `WordPress MCP HTTP 400 during
+  initialize`.
+- After an HTTP 404 to a request that carried an `Mcp-Session-Id` (the session
+  ended), open a new session and send that request once more, as the MCP
+  Streamable HTTP transport requires. Requests that found the session ended at
+  the same time share one new session. A `rest_no_route` 404 is not an ended
+  session, and a request is never sent a third time.
+- Accept the protocol version the site chooses at `initialize` when the
+  companion speaks it (2025-06-18, 2025-11-25 or 2025-03-26); otherwise stop with
+  `protocol_version_unsupported` and an update hint.
+- Report a route that answers `initialize` but refuses the rest of the handshake
+  as `plugin_handshake_rejected` in `stonewright-wordpress-mcp-status` and
+  `stonewright-connect-doctor`, with a next action that points to Stonewright >
+  Troubleshoot > MCP runtime, instead of `plugin_unavailable` and advice to
+  install the plugin.
+
 ## [1.0.0-beta.18] - 2026-10-26
 
 ### Fixed

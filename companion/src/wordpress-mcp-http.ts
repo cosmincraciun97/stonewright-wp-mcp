@@ -25,6 +25,57 @@ export class WordPressMcpHttpError extends Error {
 	}
 }
 
+/** The handshake step a {@link WordPressMcpHandshakeError} failed at. */
+export type WordPressMcpHandshakeStep = 'protocol_version' | 'initialized_notification';
+
+/**
+ * The plugin route answered `initialize`, but the MCP handshake could not be completed: the
+ * server chose a protocol version this companion does not speak, or it refused the
+ * `notifications/initialized` that follows. The route and the credentials work, so this is
+ * not a missing plugin; it usually means the MCP adapter that serves the route (possibly
+ * another plugin's copy) applies protocol rules this companion does not meet.
+ */
+export class WordPressMcpHandshakeError extends WordPressMcpHttpError {
+	constructor(
+		message: string,
+		status: number,
+		restCode: string | null,
+		bodyKind: WordPressMcpBodyKind,
+		checkedAt: string,
+		readonly step: WordPressMcpHandshakeStep,
+		readonly negotiatedVersion: string | null,
+	) {
+		super(message, status, restCode, bodyKind, checkedAt);
+		this.name = 'WordPressMcpHandshakeError';
+	}
+}
+
+export interface HandshakeFailure {
+	code: 'plugin_handshake_rejected' | 'protocol_version_unsupported';
+	nextAction: string;
+}
+
+const HANDSHAKE_FAILURES: Record<WordPressMcpHandshakeStep, HandshakeFailure> = {
+	initialized_notification: {
+		code: 'plugin_handshake_rejected',
+		nextAction: 'The Stonewright MCP route answered initialize but refused the rest of the MCP handshake, so the plugin is installed and the credentials work. The MCP adapter serving the route may come from another active plugin with stricter protocol rules: open Stonewright > Troubleshoot > MCP runtime to see which plugin supplies it, update the plugin and the companion to the same latest release, then call stonewright-reconnect with force_probe=true.',
+	},
+	protocol_version: {
+		code: 'protocol_version_unsupported',
+		nextAction: 'The MCP adapter serving the Stonewright route chose a protocol version this companion does not speak. Update the companion to the latest release (the same version as the plugin), then call stonewright-reconnect with force_probe=true. Stonewright > Troubleshoot > MCP runtime shows which plugin supplies the adapter.',
+	},
+};
+
+/** Error codes a failed MCP handshake reports, for status consumers such as the doctor. */
+export const HANDSHAKE_FAILURE_CODES: ReadonlySet<string> = new Set(
+	Object.values(HANDSHAKE_FAILURES).map((failure) => failure.code),
+);
+
+/** The status error code and next action for a handshake the plugin route could not finish. */
+export function handshakeFailure(error: unknown): HandshakeFailure | null {
+	return error instanceof WordPressMcpHandshakeError ? HANDSHAKE_FAILURES[error.step] : null;
+}
+
 export interface BoundedBodyResult {
 	text: string;
 	truncated: boolean;

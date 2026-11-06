@@ -13,13 +13,17 @@ import {
 	type TransportPhase,
 } from './connection/transport-diagnostic.js';
 import {
+	WordPressMcpHandshakeError,
 	WordPressMcpHttpError,
 	classifyMcpHttpPayload,
 	readBoundedBody,
 } from './wordpress-mcp-http.js';
 
 export {
+	HANDSHAKE_FAILURE_CODES,
+	WordPressMcpHandshakeError,
 	WordPressMcpHttpError,
+	handshakeFailure,
 	isConfirmedPluginRouteAbsence,
 	isWordPressMcpAuthFailure,
 	readBoundedBody,
@@ -27,6 +31,21 @@ export {
 import { OAuthTokenManager, OAuthTokenStore, OAuthReauthRequiredError, OAuthTransientError } from './oauth-token-manager.js';
 import { runWpCliOperator, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
+
+/** The MCP protocol revision the companion asks for at initialize. */
+const REQUESTED_MCP_PROTOCOL_VERSION = '2025-06-18';
+
+/**
+ * MCP protocol revisions this companion speaks over Streamable HTTP. A server may answer
+ * initialize with another revision it prefers; the companion accepts it when listed here and
+ * then sends it as `MCP-Protocol-Version` on every later request.
+ */
+export const SUPPORTED_MCP_PROTOCOL_VERSIONS: readonly string[] = [REQUESTED_MCP_PROTOCOL_VERSION, '2025-11-25', '2025-03-26'];
+
+/** A 4xx answer to `notifications/initialized` that is neither an auth, route, timeout nor rate-limit answer. */
+function isHandshakeRefusal(status: number): boolean {
+	return status >= 400 && status < 500 && ![401, 403, 404, 408, 429].includes(status);
+}
 
 export interface WordPressMcpOAuthConfig {
 	tokenEndpoint: string;
@@ -1560,7 +1579,11 @@ export function wordpressRestUrlFromMcpUrl(mcpUrl: string, restPath: string): st
 export class WordPressMcpClient {
 	private nextId = 1;
 	private sessionId = '';
+	/** The protocol version the server chose at initialize; empty until then. */
+	private protocolVersion = '';
 	private initialized = false;
+	/** The handshake in flight, shared by every caller that needs it. */
+	private handshake: Promise<void> | null = null;
 	private remoteInstructionsValue = '';
 	private readonly oauthTokenManager: OAuthTokenManager | null;
 	private toolsListPages = 0;
@@ -1681,8 +1704,18 @@ export class WordPressMcpClient {
 	public async ensureInitialized(): Promise<void> {
 		if (this.initialized) return;
 
+		this.handshake ??= this.initialize().finally(() => {
+			this.handshake = null;
+		});
+		return this.handshake;
+	}
+
+	private async initialize(): Promise<void> {
+		// initialize opens a new session: it never carries the previous session or version.
+		this.sessionId = '';
+		this.protocolVersion = '';
 		const result = await this.request('initialize', {
-			protocolVersion: '2025-06-18',
+			protocolVersion: REQUESTED_MCP_PROTOCOL_VERSION,
 			capabilities: {},
 			clientInfo: {
 				name: 'stonewright-companion',
@@ -1690,12 +1723,43 @@ export class WordPressMcpClient {
 			},
 		}, 'initialize');
 
-		const instructions = asRecord(result)?.['instructions'];
+		const record = asRecord(result);
+		const negotiated = record?.['protocolVersion'];
+		if (typeof negotiated === 'string' && negotiated !== '' && !SUPPORTED_MCP_PROTOCOL_VERSIONS.includes(negotiated)) {
+			throw new WordPressMcpHandshakeError(
+				`WordPress MCP chose protocol version ${negotiated} during initialize; this companion supports ${SUPPORTED_MCP_PROTOCOL_VERSIONS.join(', ')}`,
+				200,
+				null,
+				'json_rpc',
+				new Date().toISOString(),
+				'protocol_version',
+				negotiated,
+			);
+		}
+		// A server that names no version is taken to have accepted the requested one.
+		this.protocolVersion = typeof negotiated === 'string' && negotiated !== '' ? negotiated : REQUESTED_MCP_PROTOCOL_VERSION;
+
+		const instructions = record?.['instructions'];
 		if (typeof instructions === 'string' && instructions.trim() !== '') {
 			this.remoteInstructionsValue = instructions;
 		}
 
-		await this.notification('notifications/initialized', {}, 'initialize');
+		try {
+			await this.notification('notifications/initialized', {}, 'initialize');
+		} catch (error) {
+			if (error instanceof WordPressMcpHttpError && !(error instanceof WordPressMcpHandshakeError) && isHandshakeRefusal(error.status)) {
+				throw new WordPressMcpHandshakeError(
+					`WordPress MCP HTTP ${error.status} during initialize: the plugin accepted initialize but refused notifications/initialized`,
+					error.status,
+					error.restCode,
+					error.bodyKind,
+					error.checkedAt,
+					'initialized_notification',
+					this.protocolVersion,
+				);
+			}
+			throw error;
+		}
 		this.initialized = true;
 	}
 
@@ -1705,12 +1769,22 @@ export class WordPressMcpClient {
 		phase: TransportPhase = 'tool_call',
 		received?: { bytes: number },
 	): Promise<unknown> {
-		const response = await this.send({
+		const payload = {
 			jsonrpc: '2.0',
 			id: this.nextId++,
 			method,
 			params,
-		}, phase, received);
+		};
+		const sentSession = this.sessionId;
+		let response: JsonRpcResponse;
+		try {
+			response = await this.send(payload, phase, received);
+		} catch (error) {
+			if (method === 'initialize' || !this.sessionEnded(error, sentSession)) throw error;
+			// The server ended the session before running the request: open a new one and send it once more.
+			await this.reopenSession(sentSession);
+			response = await this.send(payload, phase, received);
+		}
 
 		if (response.error) {
 			throw new WordPressMcpHttpError(
@@ -1722,6 +1796,27 @@ export class WordPressMcpClient {
 			);
 		}
 		return response.result ?? {};
+	}
+
+	/**
+	 * MCP Streamable HTTP: a 404 to a request that carried an Mcp-Session-Id means the server
+	 * ended that session and did not run the request. A WordPress "no route" 404 is not that.
+	 */
+	private sessionEnded(error: unknown, sentSession: string): boolean {
+		return sentSession !== ''
+			&& error instanceof WordPressMcpHttpError
+			&& error.status === 404
+			&& error.restCode !== 'rest_no_route';
+	}
+
+	/** Drops the ended session (unless a concurrent caller already replaced it) and handshakes again. */
+	private async reopenSession(endedSession: string): Promise<void> {
+		if (this.sessionId === endedSession) {
+			this.sessionId = '';
+			this.protocolVersion = '';
+			this.initialized = false;
+		}
+		await this.ensureInitialized();
 	}
 
 	private async notification(
@@ -1888,6 +1983,11 @@ export class WordPressMcpClient {
 
 		if (this.sessionId) {
 			headers['Mcp-Session-Id'] = this.sessionId;
+		}
+
+		// Required on every request after initialize from protocol 2025-06-18 on.
+		if (this.protocolVersion) {
+			headers['MCP-Protocol-Version'] = this.protocolVersion;
 		}
 
 		if (oauthAccessToken) {

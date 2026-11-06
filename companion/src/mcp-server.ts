@@ -35,6 +35,7 @@ import {
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
 	WordPressMcpHttpError,
+	handshakeFailure,
 	isConfirmedPluginRouteAbsence,
 	isWordPressMcpAuthFailure,
 	profileOffersPhpExecute,
@@ -386,6 +387,7 @@ async function bootstrapConnection(
 		// plugin-only: fail closed, no Direct fallback.
 		if (modeProbe.configured === 'plugin-only') {
 			const routeMissing = isConfirmedPluginRouteAbsence(err);
+			const handshake = handshakeFailure(err);
 			wpMcpStatus.ok = false;
 			wpMcpStatus.connected = false;
 			wpMcpStatus.error = { message };
@@ -393,8 +395,9 @@ async function bootstrapConnection(
 				? 'plugin_route_missing'
 				: isWordPressMcpAuthFailure(err)
 					? 'auth_error'
-					: 'plugin_unavailable';
-			wpMcpStatus.next_action = 'Fix plugin connectivity, then call stonewright-reconnect. Direct tools are not available in plugin-only mode.';
+					: handshake?.code ?? 'plugin_unavailable';
+			wpMcpStatus.next_action = handshake?.nextAction
+				?? 'Fix plugin connectivity, then call stonewright-reconnect. Direct tools are not available in plugin-only mode.';
 			runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error_code });
 			runtime.syncLegacyStatus();
 			return;
@@ -439,6 +442,17 @@ async function bootstrapConnection(
 			wpMcpStatus.error_code = 'auth_error';
 			wpMcpStatus.next_action = 'Fix WordPress credentials, then call stonewright-reconnect.';
 			runtime.stateMachine.transition('degraded', { error: 'auth_error' });
+			runtime.syncLegacyStatus();
+			return;
+		}
+		const handshake = handshakeFailure(err);
+		if (handshake) {
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message };
+			wpMcpStatus.error_code = handshake.code;
+			wpMcpStatus.next_action = handshake.nextAction;
+			runtime.stateMachine.transition('degraded', { error: handshake.code });
 			runtime.syncLegacyStatus();
 			return;
 		}

@@ -82,7 +82,9 @@ days after it was authorized, after which the client signs in again. Seven-day
 continuity is a refresh SLO within that grant, not a seven-day bearer token.
 Each WordPress MCP request is sent once and is not repeated after a timeout or
 network error; on OAuth connections an HTTP 401 refreshes the access token and
-the request is sent once more, a tool call included. `stonewright-task-start`
+the request is sent once more, a tool call included. When the site ended the MCP
+session (an HTTP 404 to a request that carried the session), the companion opens
+a new session and sends that request once more. `stonewright-task-start`
 reconnects a degraded session once. A token refresh whose response never
 arrived (a timeout or a reset connection) is the one request that is repeated:
 the companion sends it once more with the same refresh credential, within 30

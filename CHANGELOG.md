@@ -11,6 +11,33 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.18.1] - 2026-11-06
+
+### Fixed
+
+- The companion sends `MCP-Protocol-Version` with the negotiated protocol
+  version on every request after `initialize`, as MCP 2025-06-18 requires. On a
+  site where another active plugin ships a newer `wordpress/mcp-adapter` (0.7
+  or later, for example the copy in Gravity Forms 3.2.2), Jetpack Autoloader
+  serves the Stonewright route with that copy, which refuses
+  `notifications/initialized` without the header: the companion connected with
+  no WordPress tools and reported `WordPress MCP HTTP 400 during initialize`.
+- When the site answers HTTP 404 to a request that carried an `Mcp-Session-Id`
+  (the session ended, for example after 24 hours without use or when one
+  account holds more than 32 sessions), the companion opens a new session and
+  sends that request once more, as the MCP Streamable HTTP transport requires.
+  A WordPress `rest_no_route` 404 is not treated as an ended session, and a
+  request is never sent a third time.
+- The companion accepts the protocol version the site chooses at `initialize`
+  when it speaks it (2025-06-18, 2025-11-25 or 2025-03-26) and otherwise stops
+  with `protocol_version_unsupported` and an update hint.
+- A plugin route that answers `initialize` but refuses the rest of the
+  handshake is reported as `plugin_handshake_rejected` by
+  `stonewright-wordpress-mcp-status` and `stonewright-connect-doctor`, with a
+  next action that points to Stonewright > Troubleshoot > MCP runtime. It was
+  reported as `plugin_unavailable`, and the doctor advised installing the
+  plugin.
+
 ## [1.0.0-beta.18] - 2026-10-26
 
 ### Added
@@ -278,29 +305,9 @@ development builds were never stable releases.
   on the Sandbox Library admin page and with the sandbox abilities on the Full
   surface.
 
-## [1.0.0-beta.16.2] - 2026-10-13
-
-### Added
-
-- Add a **Show in admin menu** switch to **Stonewright → Setup → Settings**. It
-  is on by default. Turned off, the Stonewright entry is hidden in the menu on
-  the left of the dashboard; every Stonewright page keeps its address, and the
-  **Overview** and **Setup** links on the Plugins screen open them.
-- Say so on the Plugins screen and the Dashboard when Stonewright is installed
-  twice, for example after uploading the ZIP when the installed copy sits in
-  another folder: the notice names each folder, its version and the copy that
-  runs.
-
-### Fixed
-
-- Let a second copy of Stonewright be deleted on the Plugins screen while the
-  other copy runs; the delete stopped with a fatal error. Deleting one copy while
-  another stays installed removes nothing: the list of registered widgets, the
-  rescue helper and the data stay, also when the deleted copy is an older
-  version.
-
 ## Older releases
 
+- [1.0.0-beta.16.2](docs/releases/1.0.0-beta.16.2.md)
 - [1.0.0-beta.16.1](docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](docs/releases/1.0.0-beta.16.md)
 - [1.0.0-beta.15](docs/releases/1.0.0-beta.15.md)
