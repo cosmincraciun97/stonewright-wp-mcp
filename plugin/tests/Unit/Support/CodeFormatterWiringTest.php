@@ -157,6 +157,50 @@ final class CodeFormatterWiringTest extends TestCase {
 					'decode_escaped_layout' => true,
 				],
 			],
+			'theme patch drops the default block placement' => [
+				'stonewright/theme-file-patch',
+				[
+					'path'      => 'style.css',
+					'mode'      => 'replace_all',
+					'content'   => '.x { color: red; }  ',
+					'placement' => 'block',
+				],
+				[
+					'path'    => 'style.css',
+					'mode'    => 'replace_all',
+					'content' => ".x { color: red; }\n",
+				],
+			],
+			'theme patch exact placement keeps the content bytes' => [
+				'stonewright/theme-file-patch',
+				[
+					'path'      => '/style.css',
+					'mode'      => 'replace_between_markers',
+					'content'   => "\r\n.x { color: red; }  ",
+					'placement' => 'exact',
+				],
+				[
+					'path'      => 'style.css',
+					'mode'      => 'replace_between_markers',
+					'content'   => "\r\n.x { color: red; }  ",
+					'placement' => 'exact',
+				],
+			],
+			'theme patch replace_string keeps old_string and content bytes' => [
+				'stonewright/theme-file-patch',
+				[
+					'path'       => 'style.css',
+					'mode'       => 'replace_string',
+					'old_string' => "color: red;  \r\n",
+					'content'    => 'color: blue;  ',
+				],
+				[
+					'path'       => 'style.css',
+					'mode'       => 'replace_string',
+					'old_string' => "color: red;  \r\n",
+					'content'    => 'color: blue;  ',
+				],
+			],
 			'sandbox write keeps complete php file' => [
 				'stonewright/sandbox-write',
 				[
@@ -478,6 +522,30 @@ final class CodeFormatterWiringTest extends TestCase {
 			$audit['content'] ?? null
 		);
 		self::assertStringNotContainsString( $canonical_content, (string) wp_json_encode( $audit ) );
+	}
+
+	public function test_exact_theme_patch_hashes_the_content_as_sent_and_still_decodes_on_request(): void {
+		$before = (string) file_get_contents( $this->theme_dir . '/style.css' );
+		$patch  = static fn( array $extra ): array|\WP_Error => ( new ThemeFilePatch() )->execute(
+			$extra + [
+				'path'       => 'style.css',
+				'mode'       => 'append',
+				'placement'  => 'exact',
+				'dry_run'    => true,
+				'native_gap' => [
+					'reason'        => 'The fixture exercises the typed custom-code transaction.',
+					'methods_tried' => [ 'typed_api' ],
+				],
+			]
+		);
+
+		$as_sent = $patch( [ 'content' => '.after { color: red; }  ' ] );
+		self::assertIsArray( $as_sent );
+		self::assertSame( hash( 'sha256', $before . '.after { color: red; }  ' ), $as_sent['after_sha256'] );
+
+		$decoded = $patch( [ 'content' => '.a { color: red; }\n.b { color: blue; }', 'decode_escaped_layout' => true ] );
+		self::assertIsArray( $decoded );
+		self::assertSame( hash( 'sha256', $before . ".a { color: red; }\n.b { color: blue; }" ), $decoded['after_sha256'] );
 	}
 
 	/**

@@ -115,7 +115,7 @@ final class ThemeFileProvider implements ProviderInterface, VerifiedApplyInterfa
 			'end_marker'        => (string) ( $args['end_marker'] ?? '' ),
 			'create_if_missing' => (bool) ( $args['create_if_missing'] ?? false ),
 			'theme'             => (string) ( $args['theme'] ?? 'stylesheet' ),
-		] + ChangeSet::lineage_input( $args );
+		] + self::patch_options( $args ) + ChangeSet::lineage_input( $args );
 		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
@@ -123,6 +123,23 @@ final class ThemeFileProvider implements ProviderInterface, VerifiedApplyInterfa
 		$result['provider']  = $this->id();
 		$result['target_id'] = $path;
 		return $result;
+	}
+
+	/**
+	 * The optional theme-file-patch inputs, forwarded only when the call names them.
+	 *
+	 * @param array<string, mixed> $args
+	 * @return array<string, string>
+	 */
+	private static function patch_options( array $args ): array {
+		$options = [];
+		if ( isset( $args['placement'] ) ) {
+			$options['placement'] = (string) $args['placement'];
+		}
+		if ( isset( $args['old_string'] ) ) {
+			$options['old_string'] = (string) $args['old_string'];
+		}
+		return $options;
 	}
 
 	/** @param array<string, mixed> $args */
@@ -156,7 +173,7 @@ final class ThemeFileProvider implements ProviderInterface, VerifiedApplyInterfa
 			'create_if_missing'  => (bool) ( $args['create_if_missing'] ?? false ),
 			'theme'              => (string) ( $args['theme'] ?? 'stylesheet' ),
 			'smoke_url'          => (string) ( $args['smoke_url'] ?? '' ),
-		] + ChangeSet::lineage_input( $args );
+		] + self::patch_options( $args ) + ChangeSet::lineage_input( $args );
 		$result = $token_verified ? $ability->execute_with_verified_token( $input ) : $ability->execute( $input );
 		if ( $result instanceof \WP_Error ) {
 			return $result;
