@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.19] - 2026-11-06
+
 ### Added
 
 - `stonewright/theme-file-patch`, and the `theme-file` provider of
@@ -299,65 +301,9 @@
   from your own computer instead, for example Claude Desktop with an Application
   Password or Claude Code.
 
-## [1.0.0-beta.17] - 2026-10-18
-
-### Security
-
-- Check the tool surface on every way an ability can be run. An ability that runs or
-  writes code is refused unless an administrator chose the Full tool surface in
-  wp-admin, whether it is called as an MCP tool, through `execute-ability`, the
-  REST runner or WordPress's own Abilities API route, and a confirmation token no
-  longer lifts that refusal. `security-issue-confirmation-token` issues no token for
-  such an ability.
-- Validate the input of `POST /stonewright/v1/abilities/run` against the ability's
-  schema, as `execute-ability` does.
-- Make the Direct task-start and learning-record routes respect the master toggle
-  and the list of disabled abilities.
-- Read the site mode through one accessor. A missing mode follows the
-  environment, as it does on activation, and a damaged or unknown value counts as
-  production-safe, so neither can loosen a gate.
-- Require an administrator in wp-admin to make the mode less strict, switch a
-  disabled ability back on or change feature flags. Requests signed in with an
-  Application Password or OAuth can still make the mode stricter and switch
-  abilities off. The admin Abilities routes also need a person in wp-admin, and
-  feature flags are stored as a short list of on/off values.
-- Check custom instructions the way memory is checked before they are saved
-  through REST, `system-instructions-set` or a knowledge import.
-- Require `edit_posts` to use the MCP servers, on the Application Password route
-  and the OAuth route alike. Sites can change it with the
-  `stonewright_mcp_required_capability` filter. Subscribers and shop customers
-  can no longer connect.
-- Return site memory, custom instructions, recurring errors and incident actions
-  from `task-start` and `context-bootstrap` only to administrators, as the memory
-  and instructions abilities already do.
-- `search-query` needs `edit_posts` and lists a post type the caller cannot edit
-  only when the type is public. `oembed-resolve` needs `edit_posts`.
-  `stock-image-search` needs `upload_files` and encodes the search terms it sends
-  to the provider.
-- Sign releases. This version ships the release public keys, an active key and
-  an offline backup key, and installs an update only when the release's
-  `SHA256SUMS.txt.sig`, an Ed25519 signature of `SHA256SUMS.txt`, verifies
-  against one of them. The release workflow signs every release and stops when
-  it cannot, so each release now has this fourth asset. A site on an earlier
-  version installs this one with the checksum check only; every update after it
-  is verified.
-- Record a GitHub build provenance attestation for the plugin ZIP and the
-  companion package of each release. It adds no release asset.
-
-### Changed
-
-- Describe the update package check accurately: the ZIP is compared with the
-  SHA-256 in its release's `SHA256SUMS.txt`.
-- Leave the PHPStan stub folder out of the plugin release ZIP.
-
-### Removed
-
-- Remove the `/stonewright/v1/sandbox/files` REST routes. Sandbox files are managed
-  on the Sandbox Library admin page and with the sandbox abilities on the Full
-  surface.
-
 ## Older releases
 
+- [1.0.0-beta.17](../docs/releases/1.0.0-beta.17.md)
 - [1.0.0-beta.16.2](../docs/releases/1.0.0-beta.16.2.md)
 - [1.0.0-beta.16.1](../docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](../docs/releases/1.0.0-beta.16.md)
