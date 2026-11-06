@@ -76,9 +76,10 @@ final class RescueRecheckBaselineTest extends TestCase {
 	 * An incident whose baseline is the probe taken before the change.
 	 *
 	 * @param array<string, string> $before Leg name to its state before the change: passed, or any other status.
+	 * @param array<string, int>    $ms     Leg name to the milliseconds it took before the change (5 when not given).
 	 * @return string The entry id.
 	 */
-	private function incident( array $before, string $scope = 'site', string $state = 'rollback_failed' ): string {
+	private function incident( array $before, string $scope = 'site', string $state = 'rollback_failed', array $ms = [] ): string {
 		$entry = ChangeJournal::arm(
 			[
 				'ability'       => 'stonewright/theme-file-patch',
@@ -92,7 +93,7 @@ final class RescueRecheckBaselineTest extends TestCase {
 		if ( [] !== $before ) {
 			$legs = [];
 			foreach ( $before as $name => $status ) {
-				$legs[] = [ 'leg' => $name, 'status' => $status, 'http' => 'passed' === $status ? 200 : 0, 'reason' => 'passed' === $status ? 'ok' : 'no_response', 'ms' => 5 ];
+				$legs[] = [ 'leg' => $name, 'status' => $status, 'http' => 'passed' === $status ? 200 : 0, 'reason' => 'passed' === $status ? 'ok' : 'no_response', 'ms' => $ms[ $name ] ?? 5 ];
 			}
 			ChangeJournal::record_baseline( $entry['id'], HealthProbe::summary_of( $legs ) );
 		}
@@ -277,6 +278,36 @@ final class RescueRecheckBaselineTest extends TestCase {
 
 		self::assertTrue( $result['resolved'] );
 		self::assertSame( 'verified', $result['verification_reason'] );
+	}
+
+	// -- A check that was slow before the change is not a witness ----------------------------------------
+
+	public function test_a_check_that_answered_slowly_before_the_change_is_not_required_to_recover(): void {
+		// The front page took 9 s of the 10 s timeout before the change: too slow a witness to say that its silence now
+		// is the change's doing. The checks that answered quickly before pass, so the site is as healthy as it was.
+		$id                 = $this->incident( self::ALL_PASSED, 'site', 'rollback_failed', [ 'home' => 9000 ] );
+		$this->legs['home'] = 'timeout';
+
+		$result = $this->recheck( $id );
+
+		self::assertTrue( $result['resolved'] );
+		self::assertSame( 'verified', $result['verification_reason'] );
+		self::assertSame( 'verified', ChangeJournal::get( $id )['state'] );
+		self::assertSame( [ 'home', 'admin', 'rest' ], $this->asked, 'A slow witness is not asked a second time.' );
+		$home = array_values( array_filter( $result['probe']['legs'], static fn ( array $leg ): bool => 'home' === $leg['leg'] ) )[0];
+		self::assertSame( 'unavailable', $home['status'] );
+		self::assertSame( 'slow', $home['witness'] );
+		self::assertSame( 9000, $home['baseline_ms'] );
+	}
+
+	public function test_a_check_that_answered_slowly_before_the_change_still_fails_on_a_failing_answer(): void {
+		$id                 = $this->incident( self::ALL_PASSED, 'site', 'rollback_failed', [ 'home' => 9000 ] );
+		$this->legs['home'] = 500;
+
+		$result = $this->recheck( $id );
+
+		$this->assert_not_recovered( $result, $id );
+		self::assertSame( 'site_failed', $result['verification_reason'] );
 	}
 
 	// -- The same verdict code for the probe a rollback takes -------------------------------------------

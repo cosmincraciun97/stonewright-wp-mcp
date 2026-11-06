@@ -1240,7 +1240,7 @@ final class AuditLogPage {
 			$ability       = (string) ( $row['ability_name'] ?? '' );
 			$remediation   = '';
 			if ( '' !== $hint_code ) {
-				$hint    = RemediationHints::for_code( $cause_code, $ability, $error_code );
+				$hint    = RemediationHints::for_code( $cause_code, $ability, $error_code, $details );
 				$generic = RemediationHints::for_code( '', '' );
 				if ( $hint !== $generic ) {
 					$remediation = $hint;
@@ -1310,7 +1310,7 @@ final class AuditLogPage {
 		$repair  = '';
 		$hint    = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $cause, $code ], 190 );
 		if ( '' !== $hint ) {
-			$text    = RemediationHints::for_code( $cause, $ability, $code );
+			$text    = RemediationHints::for_code( $cause, $ability, $code, $details );
 			$generic = RemediationHints::for_code( '', '' );
 			if ( $text !== $generic ) {
 				$repair = $text;

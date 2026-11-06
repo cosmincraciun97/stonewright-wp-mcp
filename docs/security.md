@@ -227,6 +227,19 @@ authenticated wp-admin approval, a single-use grant bound to the exact site,
 user, logical path, language, candidate hash, risk class, and byte budget, then
 atomic replace, readback, fresh bootstrap smoke, and rollback.
 
+The grant is spent when the write runs. One case gives it back, once: the write
+was rolled back because a check that passed before it got no answer after it,
+and that check still gets no answer with the original file back, so the failure
+is not attributed to the approved bytes (`attribution` `unattributed`,
+`custom_code_grant_status` `reusable_once` in the error). The same bytes, and
+only those, can then be applied once more with the same grant, bound to the
+same user, site, path, language and hash, within the original lifetime: the
+expiry does not move, a grant is released at most once, and nothing about it is
+minted outside wp-admin. A rollback the site recovers from, a failing answer, or
+a rollback that could not be checked spends the grant as before
+(`custom_code_grant_status` `spent`). The same rule covers the `theme.json`
+handoff; WPCode and Code Snippets grants are not given back.
+
 Backups use opaque references. Stored files have a non-executable extension,
 restricted permissions, and Apache/IIS access-denial files; the backup directory
 also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which

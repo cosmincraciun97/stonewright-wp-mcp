@@ -52,7 +52,7 @@ final class RemediationHints {
 		'stonewright_php_read_only_violation'         => 'The snippet declared read_only but attempted a mutation. Keep the inspection read-only, or rerun the intended mutation through the appropriate typed ability. php-execute read_only is not a write bypass.',
 		'stonewright_elementor_write_busy'            => 'Another write holds this post. Wait retry_after_seconds, then retry the same mutation up to the retry limit of 3. Do not change the payload or start a parallel write.',
 		'stonewright_rollback_failed'                 => 'Rollback failed. Stop. Do not retry the original write. Inspect backups and the live document, then investigate before any further mutation.',
-		'stonewright_theme_write_smoke_failed'       => 'Theme write was rolled back after fresh-bootstrap smoke failed. Inspect the backup under uploads/stonewright-theme-backups, fix the candidate, dry_run again, then re-apply with a new grant.',
+		'stonewright_theme_write_smoke_failed'       => 'Theme write was rolled back after the site check failed (verification_reason site_failed: the site answered with a failure). The grant is spent (custom_code_grant_status spent). Inspect the backup under uploads/stonewright-theme-backups, fix the candidate, dry_run again, then re-apply with a new grant.',
 		'stonewright_elementor_css_delivery_protected' => 'The CSS file was written and verified on disk and the page stylesheet version changed; an anonymous request to its URL is redirected, refused or answered by another page. Read delivery_cause and the warning for the cause and the next step. Do not rebuild or re-save the layout and do not call the regenerator again for this. Purge the host, CDN or page cache and check the stylesheet in a logged-out browser.',
 		'stonewright_elementor_css_delivery_unverified' => 'The CSS file was written and verified on disk, but public delivery could not be checked (HTTP 5xx or no answer, another 4xx, a non-CSS answer, or the stylesheet URL is on another origin that is never requested). Read delivery_cause. Do not rebuild the layout; check the stylesheet URL in a logged-out browser and purge the CDN or page cache by hand.',
 		'stonewright_elementor_frontend_verification_failed' => 'Read missing_elements and render_context in the result: each missing element names why it is missing (not_in_document, not_rendered, cached_html_suspected, password_protected, render_empty, renderer_failed). Fix the cause that is named, not the layout, unless the reason is not_in_document. For cached_html_suspected clear the Elementor cache and verify again once; for password_protected or a draft verify in a logged-in browser.',
@@ -83,15 +83,16 @@ final class RemediationHints {
 	private const GENERIC = 'Re-run the failing ability with dry_run:true where supported, read the per-operation errors and repair hints in the response, fix the cause, then retry once. If it recurs, record it with stonewright/learning-record.';
 
 	/**
-	 * @param string $code         Cause / root error code when present.
-	 * @param string $ability      Ability name (slash form) for per-ability fallback.
-	 * @param string $wrapper_code Outer wrapper code when distinct from the cause.
+	 * @param string               $code         Cause / root error code when present.
+	 * @param string               $ability      Ability name (slash form) for per-ability fallback.
+	 * @param string               $wrapper_code Outer wrapper code when distinct from the cause.
+	 * @param array<string, mixed> $data         The error data (or the audit details), for a hint whose next step depends on it.
 	 */
-	public static function for_code( string $code, string $ability = '', string $wrapper_code = '' ): string {
+	public static function for_code( string $code, string $ability = '', string $wrapper_code = '', array $data = [] ): string {
 		foreach ( [ $code, $wrapper_code ] as $candidate ) {
 			$candidate = sanitize_key( $candidate );
 			if ( '' !== $candidate && isset( self::CODE_HINTS[ $candidate ] ) ) {
-				return self::CODE_HINTS[ $candidate ];
+				return self::refine( $candidate, self::CODE_HINTS[ $candidate ], $data );
 			}
 		}
 		$ability = (string) $ability;
@@ -102,6 +103,29 @@ final class RemediationHints {
 			return 'Fix the cause, then retry once. This ability has no dry_run parameter. If it recurs, record it with stonewright/learning-record.';
 		}
 		return self::GENERIC;
+	}
+
+	/**
+	 * A hint that reads the error data where the next step depends on it. After a theme write was rolled back,
+	 * `custom_code_grant_status` says whether the grant is spent or was given back because the rollback was not the
+	 * change's doing (reusable_once: the same bytes go in once more with the same grant), and `verification_reason`
+	 * says whether the site answered with a failure or a check that passed before the write was lost after it.
+	 *
+	 * @param array<string, mixed> $data
+	 */
+	private static function refine( string $code, string $hint, array $data ): string {
+		if ( 'stonewright_theme_write_smoke_failed' !== $code ) {
+			return $hint;
+		}
+		$grant  = is_scalar( $data['custom_code_grant_status'] ?? null ) ? (string) $data['custom_code_grant_status'] : '';
+		$reason = is_scalar( $data['verification_reason'] ?? null ) ? (string) $data['verification_reason'] : '';
+		if ( 'reusable_once' === $grant ) {
+			return 'Theme write was rolled back because a check that passed before the write got no answer after it, and it still gets none with the original file back (verification_reason check_lost, attribution unattributed), so the grant was not spent (custom_code_grant_status reusable_once). Check the site and how long its pages take to answer, then apply the same bytes once more with the same grant before it expires. A changed candidate needs dry_run and a new grant.';
+		}
+		if ( 'check_lost' === $reason ) {
+			return 'Theme write was rolled back because a check that passed before the write got no answer after it (verification_reason check_lost), not because the site answered with a failure; attribution says whether the site loaded again without the change. The grant is spent (custom_code_grant_status spent). Inspect the backup under uploads/stonewright-theme-backups, review the candidate, dry_run again, then re-apply with a new grant.';
+		}
+		return $hint;
 	}
 
 	private static function ability_supports_dry_run( string $ability ): ?bool {

@@ -935,6 +935,11 @@ final class ChangeJournal {
 				$entry['retried']      = true;
 				$entry['first_reason'] = self::short_text( $leg['first_reason'] ?? '', 48 );
 			}
+			if ( 'slow' === ( $leg['witness'] ?? '' ) ) {
+				// A silent leg that was not held against the change because it answered slowly before it.
+				$entry['witness']     = 'slow';
+				$entry['baseline_ms'] = isset( $leg['baseline_ms'] ) && is_numeric( $leg['baseline_ms'] ) ? max( 0, (int) $leg['baseline_ms'] ) : 0;
+			}
 			$legs[] = $entry;
 		}
 		$status = isset( $probe['status'] ) && is_scalar( $probe['status'] ) ? (string) $probe['status'] : '';

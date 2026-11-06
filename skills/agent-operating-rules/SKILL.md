@@ -108,6 +108,14 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   counts, and a short change summary. Then stop.
 - Never open the approval page, issue or retrieve a grant, or apply the candidate
   unless the user explicitly asks the agent to perform that approval step.
+- A grant works once. When a theme-file or `theme.json` write is rolled back
+  because a check that passed before it got no answer after it and still gets
+  none with the original file back (`stonewright_theme_write_smoke_failed` with
+  `attribution: "unattributed"` and `custom_code_grant_status: "reusable_once"`),
+  the grant is given back once: check the site, then apply the same bytes once
+  more with the same grant before it expires. Any other rollback spends the
+  grant (`custom_code_grant_status: "spent"`): dry-run again and show the new
+  approval handoff.
 - This applies to theme files, Customizer CSS, WPCode, Code Snippets, Gutenberg
   style-tag HTML, theme.json css, Elementor custom_css, and equivalent code
   surfaces.

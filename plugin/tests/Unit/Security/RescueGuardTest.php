@@ -169,6 +169,9 @@ final class RescueGuardTest extends TestCase {
 		self::assertSame( 'critical_error_page', $data['probe']['legs'][0]['reason'] );
 		self::assertSame( 500, $data['status'] );
 		self::assertFalse( $data['retryable'] );
+		self::assertSame( 'site_failed', $data['verification_reason'], 'The site answered with a failure.' );
+		self::assertSame( 'verified', $data['post_rollback_reason'] );
+		self::assertSame( 'attributed', $data['attribution'] );
 
 		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content, 'The post is back as it was.' );
 		$entry = ChangeJournal::get( $data['incident_id'] );
@@ -601,6 +604,9 @@ final class RescueGuardTest extends TestCase {
 		self::assertSame( 'healthy', $data['site_status'] );
 		self::assertSame( 'failed', $data['probe']['status'] );
 		self::assertStringStartsWith( 'degraded_', $data['probe']['legs'][0]['reason'] );
+		self::assertSame( 'check_lost', $data['verification_reason'], 'No failing answer: a check that passed before was lost.' );
+		self::assertSame( 'verified', $data['post_rollback_reason'] );
+		self::assertSame( 'attributed', $data['attribution'], 'It answers again without the change, so the change is to blame.' );
 		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
 		self::assertSame( 'rolled_back', ChangeJournal::get( $data['incident_id'] )['state'] );
 	}
@@ -612,6 +618,65 @@ final class RescueGuardTest extends TestCase {
 			'a timeout'            => [ 'timeout' ],
 			'a gateway error'      => [ 'gateway' ],
 		];
+	}
+
+	public function test_a_page_that_was_slow_to_answer_before_the_write_does_not_judge_silence_after_it(): void {
+		$this->site( static fn (): string => 'broken' === self::post_is_changed() ? 'timeout' : 'healthy' );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		// The page answered before the write, but took most of the timeout to do it: a slow witness.
+		$id = ChangeJournal::recent()[0]['id'];
+		ChangeJournal::record_baseline( $id, HealthProbe::summary_of( [ [ 'leg' => 'post', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 8200 ] ] ) );
+		$before = count( $this->requests );
+
+		$result = RescueGuard::leave( [ 'ok' => true, 'applied' => 1 ] );
+
+		self::assertSame( [ 'ok' => true, 'applied' => 1 ], $result, 'Silence after the write is not held against it: the witness was too slow to tell the host from the change.' );
+		self::assertSame( 1, count( $this->requests ) - $before, 'A slow witness is not asked a second time either.' );
+		self::assertSame( 'changed body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+		$entry = ChangeJournal::get( $id );
+		self::assertSame( 'armed', $entry['state'], 'Not verified, and not rolled back.' );
+		self::assertSame( 'unavailable', $entry['probe']['status'] );
+		self::assertSame( 'slow', $entry['probe']['legs'][0]['witness'] );
+		self::assertSame( 8200, $entry['probe']['legs'][0]['baseline_ms'] );
+		self::assertStringContainsString( 'not verified', AgentNotices::fields()['notices'][0] );
+	}
+
+	public function test_a_page_that_was_slow_before_the_write_and_fails_after_it_is_still_rolled_back(): void {
+		$this->site( static fn (): string => self::post_is_changed() );
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		ChangeJournal::record_baseline( ChangeJournal::recent()[0]['id'], HealthProbe::summary_of( [ [ 'leg' => 'post', 'status' => 'passed', 'http' => 200, 'reason' => 'ok', 'ms' => 8200 ] ] ) );
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result, 'The critical error page is an answer, and a slow witness changes nothing about it.' );
+		self::assertSame( 'site_failed', $result->get_error_data()['verification_reason'] );
+		self::assertSame( 'original body', $GLOBALS['stonewright_test_posts'][31]->post_content );
+	}
+
+	public function test_a_rollback_that_leaves_the_lost_check_lost_is_not_attributed_to_the_change(): void {
+		$this->site( static fn (): string => [] === $GLOBALS['stonewright_test_phase'] ? 'healthy' : 'timeout' );
+		$GLOBALS['stonewright_test_phase'] = [];
+		RescueGuard::enter( 'stonewright/elementor-v3-batch-mutate' );
+		$this->armed_post_change();
+		$GLOBALS['stonewright_test_phase'] = [ 'after' ];
+
+		$result = RescueGuard::leave( [ 'ok' => true ] );
+		unset( $GLOBALS['stonewright_test_phase'] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$data = $result->get_error_data();
+		self::assertSame( 'succeeded', $data['rollback_status'] );
+		self::assertSame( 'still_failing', $data['site_status'] );
+		self::assertSame( 'check_lost', $data['verification_reason'], 'The page answered before the write and not after it, twice.' );
+		self::assertSame( 'check_lost', $data['post_rollback_reason'], 'And not with the change undone either.' );
+		self::assertSame( 'unattributed', $data['attribution'], 'So the fault is not shown to come from the change.' );
+		self::assertTrue( $data['probe']['legs'][0]['retried'] );
+		$message = $result->get_error_message();
+		self::assertStringContainsString( '"verification_reason":"check_lost"', $message, 'A client that only reads the message sees it too.' );
+		self::assertStringContainsString( '"attribution":"unattributed"', $message );
+		self::assertSame( 1, preg_match( '/\{"rollback_status".*\}\s*$/', $message ), 'The message still ends with the compact evidence.' );
 	}
 
 	/**

@@ -30,6 +30,26 @@
   says so and describes where block placement puts the content: a newline after
   `start_marker`, the content with one trailing newline, and another newline
   before `end_marker`.
+- A theme-file write on a slow host is no longer rolled back, and its grant spent,
+  for a check the host could not pass anyway. The health check after a write asks a
+  check that passed before the write once more when it gets no answer; that one retry
+  was skipped whenever a check that never passed (a wp-admin screen that times out on
+  every request) had used up the time budget. Only the checks that can be judged count
+  against it now, so a probe and its retries take at most 45 seconds instead of 30. A
+  page that took longer than 5 seconds to answer before the write is a slow witness:
+  its silence after the write is not held against the write, the evidence says so
+  (`witness: slow` with `baseline_ms`), it is not asked a second time, and Check again
+  no longer requires it; a failing answer still fails at once. The threshold is the
+  filter `stonewright_rescue_probe_witness_ms` (1 to 30 seconds). The result of a write
+  that was kept adds `verification_reason` and `warnings` for the checks that reached no
+  verdict; a rolled back write adds `verification_reason`, `post_rollback_reason` and
+  `attribution` (`attributed`, `unattributed` or `unknown`) to its error and its
+  evidence. When a theme-file or `theme.json` write was rolled back and the lost check
+  is still lost with the original file back (`unattributed`), the custom-code grant it
+  ran under is given back once (`custom_code_grant_status` `reusable_once`): the same
+  bytes can be applied once more with the same grant before it expires. Every other
+  rollback spends the grant as before, and the repair hint no longer asks for a new
+  grant when the same one still applies.
 
 ## [1.0.0-beta.18.1] - 2026-11-06
 

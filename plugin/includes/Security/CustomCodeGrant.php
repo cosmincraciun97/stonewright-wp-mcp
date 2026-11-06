@@ -275,6 +275,74 @@ final class CustomCodeGrant {
 	}
 
 	/**
+	 * Give a consumed grant back, once, after a rollback the product itself found not attributable to the bytes
+	 * it approved (see ThemeWriteTransaction::with_grant_outcome()). The same candidate may then be applied once
+	 * more, within the original lifetime: the grant stays bound to the same user, site, path, hash and language,
+	 * its expiry does not move, and a released grant cannot be released again. The token and the stored grant
+	 * are checked exactly as verify_and_consume() checks them; a grant that was not used, was released before,
+	 * has expired, or does not match the write is refused. Nothing here mints a grant: only a person in
+	 * wp-admin does that.
+	 *
+	 * @param string $reason A short code for why it is released, kept on the grant (for example rolled_back_unattributed).
+	 * @return true|\WP_Error stonewright_custom_code_grant_release_refused, with `reason` in its data, for every refusal.
+	 */
+	public static function release( string $token, string $path, string $after_sha256, string $language, string $reason ) {
+		$parsed = self::parse_token( $token );
+		if ( $parsed instanceof \WP_Error ) {
+			return self::release_refused( 'invalid_token' );
+		}
+		$grant_id = $parsed['grant_id'];
+		$stored   = get_transient( self::TRANSIENT_PREFIX . $grant_id );
+		if ( ! is_array( $stored ) ) {
+			return self::release_refused( 'missing' );
+		}
+		if ( true !== ( $stored['used'] ?? false ) ) {
+			return self::release_refused( 'not_used' );
+		}
+		if ( ! empty( $stored['released_at'] ) ) {
+			return self::release_refused( 'already_released' );
+		}
+		if ( (int) ( $stored['expires_at'] ?? 0 ) < time() ) {
+			return self::release_refused( 'expired' );
+		}
+		if ( (int) ( $stored['user_id'] ?? 0 ) !== get_current_user_id() ) {
+			return self::release_refused( 'user_mismatch' );
+		}
+		if ( (string) ( $stored['site_fingerprint'] ?? '' ) !== self::site_fingerprint() ) {
+			return self::release_refused( 'site_mismatch' );
+		}
+		$grant_path = self::normalise_path( (string) ( $stored['path'] ?? '' ) );
+		if ( '' !== $grant_path && $grant_path !== self::normalise_path( $path ) ) {
+			return self::release_refused( 'path_mismatch' );
+		}
+		if ( ! hash_equals( strtolower( (string) ( $stored['after_sha256'] ?? '' ) ), strtolower( $after_sha256 ) ) ) {
+			return self::release_refused( 'hash_mismatch' );
+		}
+		if ( strtolower( (string) ( $stored['language'] ?? '' ) ) !== strtolower( $language ) ) {
+			return self::release_refused( 'language_mismatch' );
+		}
+
+		$stored['used']           = false;
+		$stored['released_at']    = time();
+		$stored['release_reason'] = sanitize_key( $reason );
+		set_transient( self::TRANSIENT_PREFIX . $grant_id, $stored, max( 1, (int) $stored['expires_at'] - time() ) );
+
+		return true;
+	}
+
+	private static function release_refused( string $why ): \WP_Error {
+		return new \WP_Error(
+			'stonewright_custom_code_grant_release_refused',
+			__( 'The custom-code grant was not released; it stays spent.', 'stonewright' ),
+			[
+				'status'    => 400,
+				'retryable' => false,
+				'reason'    => $why,
+			]
+		);
+	}
+
+	/**
 	 * Proposal payload when a grant is required but missing.
 	 *
 	 * @param array<string, mixed> $extra
