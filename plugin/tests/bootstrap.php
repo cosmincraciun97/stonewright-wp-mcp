@@ -1711,6 +1711,8 @@ if ( ! function_exists( 'wp_insert_post' ) ) {
 			],
 			$postarr
 		);
+		// WordPress fires this once the row exists; listeners that collect created posts rely on it.
+		do_action( 'wp_insert_post', $id, $GLOBALS['stonewright_test_posts'][ $id ], false );
 		return $id;
 	}
 }
@@ -2472,6 +2474,16 @@ if ( ! function_exists( 'get_posts' ) ) {
 			);
 		}
 
+		if ( isset( $args['post_parent'] ) && '' !== (string) $args['post_parent'] ) {
+			$parent = (int) $args['post_parent'];
+			$posts  = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => (int) ( $post->post_parent ?? 0 ) === $parent
+				)
+			);
+		}
+
 		if ( isset( $args['post__in'] ) && is_array( $args['post__in'] ) ) {
 			$wanted = array_map( 'intval', $args['post__in'] );
 			$posts  = array_values(
@@ -3016,6 +3028,24 @@ if ( ! function_exists( 'do_action' ) ) {
 			$accepted = max( 0, (int) ( $registered['args'] ?? 1 ) );
 			call_user_func_array( $registered['callback'], array_slice( $args, 0, $accepted ) );
 		}
+	}
+}
+
+if ( ! function_exists( 'remove_action' ) ) {
+	function remove_action( string $hook_name, callable|array|string $callback, int $priority = 10 ): bool {
+		$kept = [];
+		foreach ( (array) ( $GLOBALS['stonewright_test_actions'][ $hook_name ] ?? [] ) as $registered ) {
+			if ( $registered['callback'] === $callback && (int) $registered['priority'] === $priority ) {
+				continue;
+			}
+			$kept[] = $registered;
+		}
+		if ( [] === $kept ) {
+			unset( $GLOBALS['stonewright_test_actions'][ $hook_name ] );
+		} else {
+			$GLOBALS['stonewright_test_actions'][ $hook_name ] = $kept;
+		}
+		return true;
 	}
 }
 
@@ -4254,6 +4284,12 @@ if ( ! function_exists( 'acf_get_field_group' ) ) {
 			}
 		}
 		return false;
+	}
+}
+if ( ! function_exists( 'acf_get_local_field_group' ) ) {
+	// A group registered in code ('local' => 'php') or loaded from a JSON file ('local' => 'json').
+	function acf_get_local_field_group( $key = '' ) {
+		return $GLOBALS['stonewright_test_acf_local_groups'][ (string) $key ] ?? null;
 	}
 }
 if ( ! function_exists( 'acf_get_fields' ) ) {

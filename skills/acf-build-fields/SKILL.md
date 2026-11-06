@@ -31,8 +31,8 @@ If list returns `stonewright_plugin_missing`, stop. ACF is not loaded.
 | MCP tool | Ability | Job |
 |---|---|---|
 | `stonewright-acf-field-group-list` | `stonewright/acf-field-group-list` | List groups |
-| `stonewright-acf-field-group-get` | `stonewright/acf-field-group-get` | One group + compact fields |
-| `stonewright-acf-field-group-save` | `stonewright/acf-field-group-save` | Create/update group schema |
+| `stonewright-acf-field-group-get` | `stonewright/acf-field-group-get` | One group + fields, with post IDs; full settings with `include_settings` |
+| `stonewright-acf-field-group-save` | `stonewright/acf-field-group-save` | Create or update group schema (an upsert by key) |
 | `stonewright-acf-values-get` | `stonewright/acf-values-get` | All values on a post |
 | `stonewright-acf-value-update` | `stonewright/acf-value-update` | One selector on a post |
 
@@ -43,12 +43,33 @@ token from `stonewright-security-issue-confirmation-token`.
 
 ## Field-group model
 
-`stonewright-acf-field-group-save` requires `group` with `group.key`. It
-saves through ACF's own import (`acf_import_field_group`), reads the group
-back, and records the group and field posts in the change ledger. When the
-ACF version cannot import, it returns `stonewright_acf_import_unavailable`
-and saves nothing. Shape the payload like ACF JSON, not like guessed
-`post_meta` keys.
+`stonewright-acf-field-group-save` requires `group` with `group.key`. It is
+an upsert by key: the group and its fields are resolved to the posts that
+already hold their keys, so `ID` on the group and on its fields is optional
+and an existing group is updated in place (ACF's importer alone would insert
+a second group with the same key). It saves through ACF's own import
+(`acf_import_field_group`), reads the group back, and records the group
+and field posts in the change ledger, the posts the import inserts included.
+The answer carries `post_id`, `created`, `fields_created`, `fields_removed`,
+`created_post_ids`, `duplicate_post_ids` and `local`. When the ACF version
+cannot import, it returns `stonewright_acf_import_unavailable` and saves
+nothing. Shape the payload like ACF JSON, not like guessed `post_meta` keys.
+
+Refusals, each before anything is written:
+
+- `stonewright_acf_fields_would_be_removed`: the payload leaves out fields
+  the group holds (`field_keys` in the error). ACF deletes them permanently.
+  Send the full field list, or pass `allow_field_removal: true` only when the
+  user wants those fields gone.
+- `stonewright_acf_group_key_ambiguous`: two posts hold the key (`post_ids`).
+  Pass `group.ID` with the one to keep; the other is reported as
+  `duplicate_post_ids`.
+- `stonewright_acf_group_id_mismatch` / `stonewright_acf_field_id_mismatch`:
+  an ID in the payload belongs to another group or field. Read the IDs with
+  the get, or leave them out.
+- `stonewright_acf_group_registered_in_code`: the group is registered in PHP
+  (`local: "php"`); a save cannot change it. A group that exists only in local
+  JSON is created and the answer says `local: "json"`.
 
 Minimum group:
 
@@ -78,18 +99,22 @@ Rules:
   prefer field keys when names collide.
 - Location rules are arrays of arrays (OR of AND groups). Options screens
   use `param: "options_page"` and the options-page slug ACF already has.
-- `stonewright-acf-field-group-get` returns compact field DTOs only:
-  `key`, `name`, `label`, `type`, `required`. It **drops** `sub_fields`,
-  `layouts`, `min`, `max`, and location. Do not treat that compact get as
-  the full schema. For nested types, inspect with `stonewright-php-execute`
-  (`acf_get_field_group` + `acf_get_fields`; `full` profile only) or re-import
-  the JSON you saved.
+- `stonewright-acf-field-group-get` returns compact field DTOs by default:
+  `key`, `name`, `label`, `type`, `required`, `ID`, plus `group.ID`,
+  `group.local` and `group.duplicate_post_ids`. The compact read drops
+  `sub_fields`, `layouts`, `min`, `max` and location, so do not treat it as
+  the full schema. For nested types pass `include_settings: true`: the full
+  group array and the full `acf_get_fields()` arrays (`parent`, `sub_fields`,
+  `layouts`, every setting), capped at 200 fields or 256 KiB; above the cap
+  the answer is `truncated: true` with the compact fields and `field_keys`,
+  and `field_key` reads one field in full.
 
 ## Discover → read → write
 
 1. List groups. Pick the `key`.
 2. Get the compact DTO. If the type is repeater, group, flexible content,
-   or clone, read the full field array in PHP before writing values.
+   or clone, read the full field array with `include_settings: true` (or
+   `field_key`) before writing values.
 3. For posts: `stonewright-acf-values-get` with `post_id` (integer ≥ 1).
    Optional `format_value` (default true) is `get_fields( $post_id, … )`.
 4. Plan the write. Schema goes through `stonewright-acf-field-group-save`
@@ -132,8 +157,8 @@ No typed options-page register/list/update ability.
   consistent for the readback.
 - Relationship / post object / taxonomy: pass IDs (or ID arrays), not
   titles. Read the field type before writing.
-- Clone fields follow the cloned group's names. Confirm with a full
-  `acf_get_fields` dump, not the compact get.
+- Clone fields follow the cloned group's names. Confirm with
+  `include_settings: true`, not the compact get.
 
 ## ACF 6.8 notes
 
@@ -176,8 +201,8 @@ tools. Only an administrator chooses Full, in wp-admin under Stonewright >
 Setup > Settings; an agent never switches to it, and `stonewright-tool-profile`
 refuses `full` with `approval_required`. If the user wants those snippets, show
 the settings link and stop. It is for official ACF API
-snippets the typed surface cannot take (options pages, full nested schema,
-`'option'` values). Do not replace `acf-field-group-save` with a homemade importer
+snippets the typed surface cannot take (options pages, `'option'` values).
+Do not replace `acf-field-group-save` with a homemade importer
 and do not write ACF tables through `$wpdb`.
 
 Never `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or

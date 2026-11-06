@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Acf;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupGet;
 use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupList;
 use Stonewright\WpMcp\Abilities\Acf\AcfRuntime;
 use Stonewright\WpMcp\Abilities\Acf\AcfValueUpdate;
@@ -29,10 +30,14 @@ final class AcfAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_acf_flush_calls']             = [];
 		$GLOBALS['stonewright_test_acf_references']              = [];
 		$GLOBALS['stonewright_test_backup_calls']                = [];
+		$GLOBALS['stonewright_test_posts']                       = [];
+		$GLOBALS['stonewright_test_acf_groups']                  = [];
 		unset(
 			$GLOBALS['stonewright_test_acf_get_field_callback'],
 			$GLOBALS['stonewright_test_acf_update_field_return'],
-			$GLOBALS['stonewright_test_acf_update_field_skip_write']
+			$GLOBALS['stonewright_test_acf_update_field_skip_write'],
+			$GLOBALS['stonewright_test_acf_field_defs'],
+			$GLOBALS['stonewright_test_acf_local_groups']
 		);
 	}
 
@@ -43,8 +48,12 @@ final class AcfAbilitiesTest extends TestCase {
 			$GLOBALS['stonewright_test_acf_field_types'],
 			$GLOBALS['stonewright_test_acf_get_field_callback'],
 			$GLOBALS['stonewright_test_acf_update_field_return'],
-			$GLOBALS['stonewright_test_acf_update_field_skip_write']
+			$GLOBALS['stonewright_test_acf_update_field_skip_write'],
+			$GLOBALS['stonewright_test_acf_field_defs'],
+			$GLOBALS['stonewright_test_acf_local_groups']
 		);
+		$GLOBALS['stonewright_test_posts']      = [];
+		$GLOBALS['stonewright_test_acf_groups'] = [];
 		$GLOBALS['stonewright_test_acf_update_field_calls'] = 0;
 		$GLOBALS['stonewright_test_acf_update_field_args']  = [];
 		$GLOBALS['stonewright_test_acf_flush_calls']        = [];
@@ -518,8 +527,143 @@ final class AcfAbilitiesTest extends TestCase {
 		$this->assertStringContainsString( '[redacted', $decoded['value'] );
 	}
 
+	public function test_get_reports_the_post_ids_and_whether_the_group_is_local(): void {
+		$this->activate_acf();
+		$this->seed_group();
+		// ACF answers with its JSON copy (id 0) although the posts exist; the read reports the posts.
+		$GLOBALS['stonewright_test_acf_groups'][0]['ID']             = 0;
+		$GLOBALS['stonewright_test_acf_local_groups']['group_books'] = [ 'key' => 'group_books', 'local' => 'json' ];
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'key' => 'group_books', 'title' => 'Books', 'active' => true, 'ID' => 300, 'local' => 'json', 'duplicate_post_ids' => [] ], $result['group'] );
+		self::assertSame( [ 'key', 'name', 'label', 'type', 'required', 'ID' ], array_keys( $result['fields'][0] ) );
+		self::assertSame( 301, $result['fields'][0]['ID'] );
+		self::assertSame( 302, $result['fields'][1]['ID'] );
+		self::assertArrayNotHasKey( 'sub_fields', $result['fields'][1], 'The compact read stays compact.' );
+	}
+
+	public function test_get_names_the_other_posts_that_hold_the_key(): void {
+		$this->activate_acf();
+		$this->seed_group();
+		$this->seed_post( 500, 'acf-field-group' );
+		$GLOBALS['stonewright_test_posts'][500]->post_name = 'group_books';
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 300, $result['group']['ID'] );
+		self::assertSame( [ 500 ], $result['group']['duplicate_post_ids'] );
+	}
+
+	public function test_get_with_include_settings_returns_the_full_group_and_fields(): void {
+		$this->activate_acf();
+		$this->seed_group();
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books', 'include_settings' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['truncated'] );
+		self::assertSame( [ [ [ 'param' => 'post_type', 'operator' => '==', 'value' => 'book' ] ] ], $result['group']['location'] );
+		self::assertSame( 300, $result['group']['ID'] );
+		self::assertSame( '', $result['group']['local'] );
+		self::assertSame( 300, $result['fields'][0]['parent'] );
+		self::assertSame( 301, $result['fields'][0]['ID'] );
+		self::assertSame( 'Enter the ISBN', $result['fields'][0]['instructions'] );
+		self::assertSame( 302, $result['fields'][1]['ID'] );
+		self::assertSame( 5, $result['fields'][1]['max'] );
+		self::assertSame( 303, $result['fields'][1]['sub_fields'][0]['ID'], 'Nested fields carry their post ids too.' );
+	}
+
+	public function test_get_with_field_key_returns_that_field_in_full_and_refuses_an_unknown_key(): void {
+		$this->activate_acf();
+		$this->seed_group();
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books', 'field_key' => 'field_rows_title' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( 300, $result['group']['ID'] );
+		self::assertSame( [ 'key' => 'field_rows_title', 'name' => 'title', 'label' => 'Title', 'type' => 'text', 'ID' => 303, 'parent' => 302 ], $result['field'] );
+		self::assertArrayNotHasKey( 'fields', $result );
+
+		$missing = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books', 'field_key' => 'field_nope' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $missing );
+		self::assertSame( 'stonewright_acf_field_not_found', $missing->get_error_code() );
+	}
+
+	public function test_get_with_include_settings_is_truncated_above_the_field_cap(): void {
+		$this->activate_acf();
+		$this->seed_group();
+		for ( $i = 0; $i < 199; $i++ ) {
+			$GLOBALS['stonewright_test_acf_field_defs']['group_books'][] = [ 'key' => 'field_extra_' . $i, 'name' => 'extra_' . $i, 'label' => 'Extra ' . $i, 'type' => 'text', 'ID' => 0 ];
+		}
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books', 'include_settings' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['truncated'] );
+		self::assertSame( 202, $result['field_count'] );
+		self::assertCount( 202, $result['field_keys'] );
+		self::assertContains( 'field_rows_title', $result['field_keys'], 'Nested keys are listed so each field can be read with field_key.' );
+		self::assertSame( [ 'key', 'name', 'label', 'type', 'required', 'ID' ], array_keys( $result['fields'][0] ) );
+		self::assertSame( 300, $result['group']['ID'] );
+	}
+
+	public function test_get_with_include_settings_is_truncated_above_the_size_cap(): void {
+		$this->activate_acf();
+		$this->seed_group();
+		$GLOBALS['stonewright_test_acf_field_defs']['group_books'][0]['default_value'] = str_repeat( 'x', 300 * 1024 );
+
+		$result = ( new AcfFieldGroupGet() )->execute( [ 'key' => 'group_books', 'include_settings' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['truncated'] );
+		self::assertSame( 3, $result['field_count'] );
+		self::assertArrayNotHasKey( 'default_value', $result['fields'][0] );
+	}
+
+	public function test_get_input_schema_declares_include_settings_and_field_key(): void {
+		$schema = ( new AcfFieldGroupGet() )->input_schema();
+
+		self::assertSame( 'boolean', $schema['properties']['include_settings']['type'] );
+		self::assertFalse( $schema['properties']['include_settings']['default'] );
+		self::assertSame( 'string', $schema['properties']['field_key']['type'] );
+		self::assertSame( [ 'key' ], $schema['required'] );
+	}
+
 	private function activate_acf(): void {
 		$GLOBALS['stonewright_test_acf_active'] = true;
+	}
+
+	/** A group post (300) with a text field (301) and a repeater (302) holding one sub field (303). */
+	private function seed_group(): void {
+		$this->seed_post( 300, 'acf-field-group' );
+		$GLOBALS['stonewright_test_posts'][300]->post_name = 'group_books';
+		foreach ( [ 301 => [ 'field_isbn', 300 ], 302 => [ 'field_rows', 300 ], 303 => [ 'field_rows_title', 302 ] ] as $id => [ $key, $parent ] ) {
+			$this->seed_post( $id, 'acf-field' );
+			$GLOBALS['stonewright_test_posts'][ $id ]->post_name   = $key;
+			$GLOBALS['stonewright_test_posts'][ $id ]->post_parent = $parent;
+		}
+		$GLOBALS['stonewright_test_acf_groups']     = [
+			[ 'key' => 'group_books', 'ID' => 300, 'title' => 'Books', 'active' => true, 'location' => [ [ [ 'param' => 'post_type', 'operator' => '==', 'value' => 'book' ] ] ] ],
+		];
+		$GLOBALS['stonewright_test_acf_field_defs'] = [
+			'group_books' => [
+				[ 'key' => 'field_isbn', 'name' => 'isbn', 'label' => 'ISBN', 'type' => 'text', 'required' => 1, 'instructions' => 'Enter the ISBN', 'ID' => 301, 'parent' => 300 ],
+				[
+					'key'        => 'field_rows',
+					'name'       => 'rows',
+					'label'      => 'Rows',
+					'type'       => 'repeater',
+					'max'        => 5,
+					'ID'         => 0,
+					'parent'     => 300,
+					'sub_fields' => [ [ 'key' => 'field_rows_title', 'name' => 'title', 'label' => 'Title', 'type' => 'text', 'ID' => 0, 'parent' => 302 ] ],
+				],
+			],
+		];
 	}
 
 	private function seed_post( int $id, string $type = 'post' ): void {

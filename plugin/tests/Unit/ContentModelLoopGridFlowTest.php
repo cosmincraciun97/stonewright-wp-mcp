@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Tests\Unit\Acf\Fixtures\AcfImportStandIn;
 use Stonewright\WpMcp\Tests\Unit\ContentModel\Fixtures\CptUiRegistration;
 
 require_once dirname( __DIR__ ) . '/Unit/Elementor/Loop/SyntheticLoopWidgets.php';
@@ -61,6 +62,7 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		AcfImportStandIn::uninstall();
 		\Elementor\Plugin::$instance = $this->original_elementor;
 		$GLOBALS['stonewright_test_options']                = [];
 		$GLOBALS['stonewright_test_transients']             = [];
@@ -316,6 +318,43 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 		self::assertSame( 1, $group['fields'][0]['required'] );
 		self::assertSame( 0, $group['fields'][1]['required'] );
 		self::assertSame( 'post_type', $group['location'][0][0]['param'] );
+	}
+
+	public function test_a_second_run_with_the_same_fields_updates_the_field_group_in_place(): void {
+		$this->include_registered_post_types_in_loop_schema();
+		$GLOBALS['stonewright_test_acf_active'] = true;
+		AcfImportStandIn::install();
+
+		$first = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $first );
+		self::assertSame( 'acf', $first['acf']['saved'] );
+		$group_posts = $this->acf_posts( 'acf-field-group', 'group_stonewright_speaker' );
+		$field_posts = $this->acf_posts( 'acf-field' );
+		self::assertCount( 1, $group_posts );
+		self::assertCount( 2, $field_posts );
+
+		$second = ( new CptAcfLoopGridFlow() )->execute( self::acf_flow_args() );
+
+		self::assertIsArray( $second );
+		self::assertSame( 'acf', $second['acf']['saved'] );
+		self::assertSame( $group_posts, $this->acf_posts( 'acf-field-group', 'group_stonewright_speaker' ), 'The same post holds the group: no second group was inserted.' );
+		self::assertSame( $field_posts, $this->acf_posts( 'acf-field' ), 'The same posts hold the fields: none was removed or inserted.' );
+		self::assertSame( $group_posts[0], AcfImportStandIn::$received[1]['ID'], 'The second import received the post id of the group.' );
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	private function acf_posts( string $type, string $name = '' ): array {
+		$ids = [];
+		foreach ( $GLOBALS['stonewright_test_posts'] as $post ) {
+			if ( $type === (string) ( $post->post_type ?? '' ) && ( '' === $name || $name === (string) ( $post->post_name ?? '' ) ) ) {
+				$ids[] = (int) $post->ID;
+			}
+		}
+		sort( $ids );
+		return $ids;
 	}
 
 	public function test_an_acf_import_failure_is_reported_as_a_failed_step_after_the_post_type(): void {

@@ -107,6 +107,9 @@ abstract class PostLedgerTestCase extends TestCase {
 		$GLOBALS['stonewright_test_transients']        = [];
 		$GLOBALS['stonewright_test_user_can_callback'] = null;
 		$GLOBALS['stonewright_test_current_user_id']   = 0;
+		// setUp() pins the search fixture to an empty result; a later test's WP_Query must count its own posts again.
+		$GLOBALS['stonewright_test_search_posts']      = [];
+		unset( $GLOBALS['stonewright_test_search_found_posts'] );
 		self::remove_tree( $this->uploads );
 	}
 

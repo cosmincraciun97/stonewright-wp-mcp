@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-11-06T12:35:48+00:00",
+    "generated_at": "2026-11-06T13:06:38+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -89,7 +89,9 @@
             "stonewright/theme-json-handoff",
             "stonewright/rescue-rollback",
             "stonewright/change-rollback",
-            "stonewright/change-restore"
+            "stonewright/change-restore",
+            "stonewright/acf-field-group-save",
+            "stonewright/acf-field-group-get"
         ]
     },
     "abilities": [
@@ -97,7 +99,7 @@
             "ability_name": "stonewright/acf-field-group-get",
             "mcp_name": "stonewright-acf-field-group-get",
             "kind": "Read",
-            "input_schema_hash": "71b7b4e2e3db1026349e712236f9d3231abdec149243becc4ac6fd1f85f6f08d",
+            "input_schema_hash": "bacdf97adfbdee223fb48a986466b2150c4da3b32821f8e0c63878762e409b5c",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_acf()",
             "gates": {
@@ -137,8 +139,8 @@
             "ability_name": "stonewright/acf-field-group-save",
             "mcp_name": "stonewright-acf-field-group-save",
             "kind": "Write",
-            "input_schema_hash": "70d1c1f6ee788b291653a8127943532d847ec7f79a0cc342a1f837abd1c35612",
-            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "input_schema_hash": "9b7026fa70459c77ffb4bfd00f137e55a1732da8d22d1942c23c96d36a2b7b59",
+            "output_schema_hash": "e36aa60206ced7451710fa928a699bdf25a614e8ae8e4fa4b681550e74463efb",
             "permission_class": "Permissions::manage_acf()",
             "gates": {
                 "backup": false,
