@@ -1,5 +1,7 @@
 version: 2
 
+# Dependabot proposes minor and patch updates only. Major updates are planned and
+# done by hand, because they can change the shipped plugin, companion or Visual.
 updates:
   - package-ecosystem: composer
     directory: /plugin
@@ -7,6 +9,11 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # The Abilities API polyfill stays on 0.1 until the minimum WordPress version is 6.9.
+      - dependency-name: "wordpress/abilities-api"
     groups:
       composer-minor-patch:
         update-types:
@@ -19,6 +26,9 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       companion-npm-minor-patch:
         update-types:
@@ -31,6 +41,9 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       visual-npm-minor-patch:
         update-types:
@@ -44,6 +57,8 @@ updates:
       interval: monthly
     open-pull-requests-limit: 3
     ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
       # Newer releases pull php-wasm packages that need Node 24.18; the e2e job and local runs use Node 22.
       - dependency-name: "@wordpress/env"
     groups:
@@ -58,6 +73,9 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       github-actions-minor-patch:
         update-types:
