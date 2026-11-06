@@ -6,8 +6,10 @@ import { OAuthTokenStore } from '../src/oauth-token-manager.js';
 import { WordPressMcpClient, type WordPressMcpConfig } from '../src/wordpress-mcp.js';
 
 // The documented retry behaviour: each WordPress MCP request is sent once and is not
-// repeated after a timeout, a network error or an error response. The one repeat is on
+// repeated after a timeout, a network error or an error response. One repeat is on
 // OAuth connections: an HTTP 401 refreshes the access token and sends that request once more.
+// The other follows a 404 to a request that carried a session, which the server did not run
+// (tests/wordpress-mcp-protocol-version.test.ts).
 
 interface RpcPayload {
 	id?: number;

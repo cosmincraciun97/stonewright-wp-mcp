@@ -13,6 +13,7 @@ import {
 	type ToolInventory,
 } from '../setup-profile.js';
 import {
+	HANDSHAKE_FAILURE_CODES,
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	coerceProxyToolProfile,
 	emitToolListChanged,
@@ -896,6 +897,10 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 			} else if (!runtime.status.configured && runtime.status.configured_mode !== 'direct-only') {
 				errorCode = 'not_configured';
 				nextAction = 'Call stonewright-setup-profile and set STONEWRIGHT_WP_URL plus credentials.';
+			} else if (!runtime.status.connected && v3.error_code !== null && HANDSHAKE_FAILURE_CODES.has(v3.error_code)) {
+				// The route answered and the credentials work; the MCP handshake itself failed.
+				errorCode = v3.error_code;
+				nextAction = v3.next_action ?? nextAction;
 			} else if (runtime.status.configured_mode === 'plugin-only' && !runtime.status.connected) {
 				errorCode = 'plugin_connection_unavailable';
 				nextAction = 'Install/enable the Stonewright plugin and credentials, then call stonewright-reconnect with force_probe=true.';

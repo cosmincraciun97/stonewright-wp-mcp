@@ -185,7 +185,12 @@ In Plugin mode the companion sends each WordPress MCP request once and does not
 repeat it after a timeout or network error. (Direct mode's REST client retries a
 read once after a network error and never retries a write.) On OAuth connections an HTTP 401 refreshes the
 access token and the request is sent once more with the new token, a tool call
-included.
+included. An HTTP 404 to a request that carried an `Mcp-Session-Id` means the
+server ended that session before running the request (MCP Streamable HTTP): the
+companion opens a new session and sends that request once more, a tool call
+included, and never a third time. A WordPress `rest_no_route` 404 is not an
+ended session. After `initialize`, every request carries `MCP-Protocol-Version`
+with the version the server chose.
 
 Terminal OAuth results use `error_code: reauthentication_required` (never
 `plugin_unavailable` and never a generic transport error). Companion-backed
@@ -531,6 +536,18 @@ and is reported as `foreign_adapter`, and a mixed family (the adapter class from
 from another) is reported as a warning. A copy that fails the check leaves the route unregistered:
 the owner and version are shown in an admin notice, on Troubleshoot, in `site-capabilities` and
 `task-start`, and both MCP routes answer HTTP 503 with the same explanation.
+The preflight judges the PHP server API, not the wire protocol. Jetpack Autoloader
+selects the newest adapter among the active plugins that ship one, so a newer copy
+can serve the Stonewright route with stricter MCP Streamable HTTP rules than the
+bundled one: adapter 0.7 refuses a request after `initialize` that lacks
+`MCP-Protocol-Version`. The companion therefore follows the transport rules
+itself (the protocol version header with the version the server chose, a new
+session after a 404 on a session) instead of relying on what the bundled adapter
+tolerates. A route that answers `initialize` but refuses the rest of the handshake
+is reported as `plugin_handshake_rejected`, and a protocol version the companion
+does not speak as `protocol_version_unsupported`, both with a next action that
+points to Troubleshoot > MCP runtime, which names the plugin that supplied the
+adapter.
 The same preflight runs again inside the actual `mcp_adapter_init` server
 registration callback. Its target is the exact runtime adapter object's class;
 the Ability and Registry targets remain the canonical runtime classes. Filters
