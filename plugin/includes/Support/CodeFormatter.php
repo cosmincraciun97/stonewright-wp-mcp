@@ -21,6 +21,20 @@ final class CodeFormatter {
 	): string {
 		$language = strtolower( trim( $language ) );
 
+		return self::tidy_physical_layout( self::decode_escaped_layout( $code, $language, $decode_escaped_layout ), $language );
+	}
+
+	/**
+	 * Only the opt-in decoding step of normalize(): the code keeps its bytes otherwise (no trimming,
+	 * no line-ending change, no newline added). Used where the caller places its text byte for byte.
+	 */
+	public static function decode_escaped_layout(
+		string $code,
+		string $language,
+		bool $decode_escaped_layout
+	): string {
+		$language = strtolower( trim( $language ) );
+
 		if (
 			$decode_escaped_layout
 			&& ! str_contains( $code, "\n" )
@@ -34,11 +48,11 @@ final class CodeFormatter {
 				&& ( 'php' !== $language || self::php_is_valid( $candidate ) )
 				&& ( 'json' !== $language || self::json_is_valid( $candidate ) )
 			) {
-				$code = $candidate;
+				return $candidate;
 			}
 		}
 
-		return self::tidy_physical_layout( $code, $language );
+		return $code;
 	}
 
 	private static function php_is_valid( string $code ): bool {

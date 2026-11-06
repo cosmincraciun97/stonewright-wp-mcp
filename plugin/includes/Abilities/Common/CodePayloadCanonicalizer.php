@@ -132,6 +132,45 @@ final class CodePayloadCanonicalizer {
 		$args['path'] = $path;
 		$language     = ThemeWriteTransaction::detect_language( $path );
 
+		if ( array_key_exists( 'placement', $args ) && ! in_array( $args['placement'], [ 'block', 'exact' ], true ) ) {
+			return self::invalid_payload(
+				'stonewright/theme-file-patch',
+				'placement',
+				__( 'placement must be block or exact.', 'stonewright' )
+			);
+		}
+		if ( array_key_exists( 'old_string', $args ) && ! is_string( $args['old_string'] ) ) {
+			return self::invalid_payload(
+				'stonewright/theme-file-patch',
+				'old_string',
+				__( 'old_string must be a string.', 'stonewright' )
+			);
+		}
+
+		// Block is the default placement, so leaving it out is its canonical form: a confirmation token
+		// issued without placement also covers an explicit "block". old_string is matched against the
+		// file byte for byte and is never changed.
+		if ( 'block' === ( $args['placement'] ?? null ) ) {
+			unset( $args['placement'] );
+		}
+
+		// Exact placement and replace_string write the content as sent: only the opt-in decoding of
+		// escaped layout runs, nothing is trimmed and no newline is added.
+		if ( 'exact' === ( $args['placement'] ?? null ) || 'replace_string' === ( $args['mode'] ?? null ) ) {
+			if ( ! array_key_exists( 'content', $args ) ) {
+				return $args;
+			}
+			if ( ! is_string( $args['content'] ) ) {
+				return self::invalid_payload(
+					'stonewright/theme-file-patch',
+					'content',
+					__( 'content must be a string.', 'stonewright' )
+				);
+			}
+			$args['content'] = CodeFormatter::decode_escaped_layout( $args['content'], $language, $decode );
+			return $args;
+		}
+
 		return self::canonicalize_field(
 			$args,
 			'content',

@@ -6,16 +6,19 @@ namespace Stonewright\WpMcp\Tests\Unit\Security;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\CustomCode\ProviderOps as CustomCodeProviderOps;
+use Stonewright\WpMcp\Abilities\FSE\ThemeJsonHandoff;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginActivate;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginDeactivate;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxActivate;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\CustomCode\ProviderInterface;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
+use Stonewright\WpMcp\CustomCode\Providers\ThemeFileProvider;
 use Stonewright\WpMcp\CustomCode\ProviderSupport;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ChangeJournal;
+use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\HealthProbe;
 use Stonewright\WpMcp\Security\RescueGuard;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
@@ -70,10 +73,11 @@ final class RescueWriteSiteIntegrationTest extends TestCase {
 		} else {
 			$GLOBALS['stonewright_test_stylesheet_directory'] = $this->original_stylesheet_dir;
 		}
-		unset( $GLOBALS['stonewright_test_upload_dir'], $GLOBALS['stonewright_test_extra_plugins'] );
+		unset( $GLOBALS['stonewright_test_upload_dir'], $GLOBALS['stonewright_test_extra_plugins'], $GLOBALS['stonewright_test_user_logged_in'] );
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_filters']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_user_caps']  = [];
 		self::remove_tree( $this->base );
 	}
 
@@ -475,6 +479,262 @@ final class RescueWriteSiteIntegrationTest extends TestCase {
 		self::assertSame( 'functions.php', $raw['entries'][0]['resource_key'] );
 		// The test theme lives outside ABSPATH, so no path can be expressed relative to it.
 		self::assertSame( [], $raw['entries'][0]['paths'] );
+	}
+
+	// -- A slow host: witnesses, attribution and the grant -----------------------------
+
+	/**
+	 * A transport that answers by leg and by phase. The phase is what the file says: baseline until the write lands,
+	 * after_write while the file holds $marker, after_rollback once it held it and no longer does.
+	 *
+	 * @param array<string, array<string, string>> $answers Phase to leg (home, admin, rest) to ok or timeout; a missing leg is ok.
+	 */
+	private function host_by_phase( string $path, string $marker, array $answers ): void {
+		$written = false;
+		HealthProbe::set_transport(
+			function ( string $url, array $args ) use ( $path, $marker, $answers, &$written ) {
+				$this->requests[] = [ 'url' => $url, 'args' => $args ];
+				$content          = is_file( $path ) ? (string) file_get_contents( $path ) : '';
+				if ( str_contains( $content, $marker ) ) {
+					$written = true;
+					$phase   = 'after_write';
+				} else {
+					$phase = $written ? 'after_rollback' : 'baseline';
+				}
+				$leg = str_contains( $url, 'wp-json' ) ? 'rest' : ( str_contains( $url, 'stonewright-rescue' ) ? 'admin' : 'home' );
+				if ( 'timeout' === ( $answers[ $phase ][ $leg ] ?? 'ok' ) ) {
+					return new \WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out after 10000 milliseconds' );
+				}
+				return [
+					'response' => [ 'code' => 200 ],
+					'body'     => 'rest' === $leg ? '{"namespaces":["wp/v2"]}' : ( 'admin' === $leg ? 'data-sw-rescue-probe="ok"' : 'ok' ),
+					'headers'  => [],
+				];
+			}
+		);
+	}
+
+	/** The administrator who approves custom code in wp-admin and the agent that applies it are the same account here. */
+	private function as_administrator(): void {
+		$GLOBALS['stonewright_test_user_logged_in'] = true;
+		$GLOBALS['stonewright_test_user_caps']      = [ 'read' => true, 'manage_options' => true, 'edit_theme_options' => true, 'edit_css' => true ];
+	}
+
+	public function test_a_php_write_is_kept_when_the_front_page_is_a_slow_witness(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_rescue_probe_witness_ms'] = static fn (): int => HealthProbe::MIN_WITNESS_MS;
+		$path  = $this->base . '/themes/site-a/functions.php';
+		$slept = false;
+		HealthProbe::set_transport(
+			function ( string $url, array $args ) use ( $path, &$slept ) {
+				$this->requests[] = [ 'url' => $url, 'args' => $args ];
+				$home             = ! str_contains( $url, 'wp-json' ) && ! str_contains( $url, 'stonewright-rescue' );
+				if ( $home && str_contains( (string) file_get_contents( $path ), 'slow' ) ) {
+					// After the write the front page never answers.
+					return new \WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' );
+				}
+				if ( $home && ! $slept ) {
+					// Before it, the front page answers, but takes longer than a witness may.
+					$slept = true;
+					usleep( ( HealthProbe::MIN_WITNESS_MS + 150 ) * 1000 );
+				}
+				return [
+					'response' => [ 'code' => 200 ],
+					'body'     => str_contains( $url, 'wp-json' ) ? '{"namespaces":["wp/v2"]}' : ( str_contains( $url, 'stonewright-rescue' ) ? 'data-sw-rescue-probe="ok"' : 'ok' ),
+					'headers'  => [],
+				];
+			}
+		);
+
+		$result = ThemeWriteTransaction::apply( $this->theme_plan( "<?php\n// ok\n", "<?php\n// ok\n// slow\n" ) );
+
+		self::assertIsArray( $result, 'The front page took longer before the write than a witness may, so its silence afterwards is not the change\'s doing.' );
+		self::assertSame( "<?php\n// ok\n// slow\n", file_get_contents( $path ), 'The write stays.' );
+		self::assertSame( 'passed', $result['site_probe'], 'wp-admin and the REST index, a full bootstrap that loads the theme, answered.' );
+		self::assertSame( 'verified', $result['verification_status'] );
+		self::assertSame( 'verified', $result['verification_reason'] );
+		self::assertCount( 1, $result['warnings'] );
+		self::assertStringContainsString( 'home check got no answer after the write', $result['warnings'][0] );
+		self::assertCount( 6, $this->requests, 'Three legs before the write and three after: a slow witness is not asked a second time.' );
+		$entry = ChangeJournal::recent()[0];
+		self::assertSame( 'verified', $entry['state'] );
+		$home = array_values( array_filter( $entry['probe']['legs'], static fn ( array $leg ): bool => 'home' === $leg['leg'] ) )[0];
+		self::assertSame( 'unavailable', $home['status'] );
+		self::assertSame( 'slow', $home['witness'] );
+		self::assertGreaterThan( HealthProbe::MIN_WITNESS_MS, $home['baseline_ms'] );
+	}
+
+	public function test_a_theme_file_apply_through_the_custom_code_provider_gives_the_grant_back_after_an_unattributed_rollback(): void {
+		$this->as_administrator();
+		mkdir( $this->base . '/themes/site-a/inc', 0700, true );
+		$path   = $this->base . '/themes/site-a/inc/custom.php';
+		$before = "<?php\n// SW:START\n// old\n// SW:END\n";
+		file_put_contents( $path, $before );
+		// The front page answers before the write and never after it, with or without the change; wp-admin never
+		// answers until the original file is back; the REST index, a full bootstrap that loads the theme, always does.
+		$this->host_by_phase(
+			$path,
+			'sw_provider',
+			[
+				'baseline'       => [ 'admin' => 'timeout' ],
+				'after_write'    => [ 'home' => 'timeout', 'admin' => 'timeout' ],
+				'after_rollback' => [ 'home' => 'timeout' ],
+			]
+		);
+		ProviderRegistry::set_for_tests( [ 'theme-file' => new ThemeFileProvider() ] );
+		$args = [
+			'provider'     => 'theme-file',
+			'target_id'    => 'inc/custom.php',
+			'mode'         => 'replace_between_markers',
+			'start_marker' => '// SW:START',
+			'end_marker'   => '// SW:END',
+			'code'         => "function sw_provider() {\n\treturn 1;\n}",
+			'native_gap'   => [ 'reason' => 'A theme hook has no typed API.', 'methods_tried' => [ 'typed_api' ] ],
+		];
+		try {
+			$dry = ( new CustomCodeProviderOps() )->execute( array_merge( $args, [ 'action' => 'dry-run' ] ) );
+			self::assertIsArray( $dry, $dry instanceof \WP_Error ? $dry->get_error_message() : '' );
+			$issued = CustomCodeGrant::issue( [ 'path' => 'inc/custom.php', 'after_sha256' => (string) $dry['after_sha256'], 'language' => 'php', 'high_risk' => true ] );
+			self::assertIsArray( $issued );
+			$token = (string) $issued['token'];
+
+			$result = ( new CustomCodeProviderOps() )->execute( array_merge( $args, [ 'action' => 'apply', 'custom_code_grant' => $token ] ) );
+		} finally {
+			ProviderRegistry::reset_for_tests();
+		}
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_theme_write_smoke_failed', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( 'succeeded', $data['rollback_status'] );
+		self::assertSame( 'still_failing', $data['site_status'] );
+		self::assertSame( 'check_lost', $data['verification_reason'] );
+		self::assertSame( 'check_lost', $data['post_rollback_reason'] );
+		self::assertSame( 'unattributed', $data['attribution'] );
+		self::assertSame( 'reusable_once', $data['custom_code_grant_status'], 'The provider inherits the release through the theme-file patch.' );
+		self::assertStringContainsString( 'same grant', $data['recommended_next'] );
+		self::assertStringContainsString( 'the same bytes can be applied once more with the same grant', $result->get_error_message() );
+		self::assertSame( 1, preg_match( '/\{"rollback_status".*"attribution":"unattributed"\}\s*$/', $result->get_error_message() ), 'The message still ends with the compact evidence, which names the attribution.' );
+		self::assertSame( $before, file_get_contents( $path ) );
+		self::assertTrue( CustomCodeGrant::verify_and_consume( $token, 'inc/custom.php', (string) $dry['after_sha256'], 'php', (int) $dry['changed_bytes'], true ), 'The same bytes may go in once more with the same grant.' );
+		$rows = array_values( array_filter( array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ), static fn ( array $row ): bool => 'stonewright/theme-file-patch' === ( $row['ability_name'] ?? '' ) && 'error' === ( $row['result_status'] ?? '' ) ) );
+		self::assertNotSame( [], $rows, 'The patch wrote its audit row.' );
+		$meta = json_decode( (string) end( $rows )['sanitized_args'], true )['_meta'] ?? [];
+		self::assertTrue( $meta['grant_released'] );
+		self::assertSame( 'reusable_once', $meta['custom_code_grant_status'] );
+		self::assertSame( 'check_lost', $meta['verification_reason'] );
+	}
+
+	public function test_a_rollback_the_site_recovers_from_keeps_the_grant_spent(): void {
+		$this->as_administrator();
+		$path   = $this->base . '/themes/site-a/functions.php';
+		$before = "<?php\n// SW:START\n// old\n// SW:END\n";
+		file_put_contents( $path, $before );
+		// The front page stops answering with the change and answers again without it: the change is to blame.
+		$this->host_by_phase( $path, 'sw_blame', [ 'after_write' => [ 'home' => 'timeout' ] ] );
+		$ability = new \Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch();
+		$args    = [ 'path' => 'functions.php', 'mode' => 'replace_between_markers', 'start_marker' => '// SW:START', 'end_marker' => '// SW:END', 'content' => "function sw_blame() {\n\treturn 1;\n}" ];
+		$dry     = $ability->execute( array_merge( $args, [ 'dry_run' => true, 'native_gap' => [ 'reason' => 'A theme hook has no typed API.', 'methods_tried' => [ 'typed_api' ] ] ] ) );
+		self::assertIsArray( $dry );
+		$issued = CustomCodeGrant::issue( [ 'path' => 'functions.php', 'after_sha256' => (string) $dry['after_sha256'], 'language' => 'php', 'high_risk' => true ] );
+		self::assertIsArray( $issued );
+
+		$result = $ability->execute( array_merge( $args, [ 'custom_code_grant' => (string) $issued['token'] ] ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$data = $result->get_error_data();
+		self::assertSame( 'healthy', $data['site_status'] );
+		self::assertSame( 'check_lost', $data['verification_reason'] );
+		self::assertSame( 'verified', $data['post_rollback_reason'] );
+		self::assertSame( 'attributed', $data['attribution'] );
+		self::assertSame( 'spent', $data['custom_code_grant_status'] );
+		self::assertArrayNotHasKey( 'recommended_next', $data );
+		self::assertStringNotContainsString( 'same grant', $result->get_error_message() );
+		$again = CustomCodeGrant::verify_and_consume( (string) $issued['token'], 'functions.php', (string) $dry['after_sha256'], 'php', (int) $dry['changed_bytes'], true );
+		self::assertInstanceOf( \WP_Error::class, $again );
+		self::assertSame( 'stonewright_custom_code_grant_reused', $again->get_error_code() );
+	}
+
+	public function test_a_backup_restore_names_what_its_check_proved(): void {
+		$path  = $this->base . '/themes/site-a/functions.php';
+		$write = ThemeWriteTransaction::apply( $this->theme_plan( "<?php\n// original\n", "<?php\n// changed\n", [ 'skip_smoke' => true ] ) );
+		self::assertIsArray( $write );
+		$ref = (string) $write['backup_ref'];
+
+		$restored = ThemeWriteTransaction::restore_owned_backup( $ref, $path );
+
+		self::assertIsArray( $restored );
+		self::assertSame( "<?php\n// original\n", file_get_contents( $path ) );
+		self::assertSame( 'verified', $restored['verification_reason'] );
+		self::assertArrayNotHasKey( 'warnings', $restored, 'Every leg answered.' );
+
+		// Write again, then restore on a host whose front page stops answering once anything is written and stays
+		// silent with the restore undone: the restore is put back, and the failure is not attributed to it.
+		$write = ThemeWriteTransaction::apply( $this->theme_plan( "<?php\n// original\n", "<?php\n// changed\n", [ 'skip_smoke' => true ] ) );
+		self::assertIsArray( $write );
+		$this->requests = [];
+		$this->host_by_phase( $path, '// original', [ 'after_write' => [ 'home' => 'timeout' ], 'after_rollback' => [ 'home' => 'timeout' ] ] );
+
+		$result = ThemeWriteTransaction::restore_owned_backup( (string) $write['backup_ref'], $path );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_theme_write_smoke_failed', $result->get_error_code() );
+		$data = $result->get_error_data();
+		self::assertSame( "<?php\n// changed\n", file_get_contents( $path ), 'The restore was put back.' );
+		self::assertSame( 'succeeded', $data['rollback_status'] );
+		self::assertSame( 'still_failing', $data['site_status'] );
+		self::assertSame( 'check_lost', $data['verification_reason'] );
+		self::assertSame( 'check_lost', $data['post_rollback_reason'] );
+		self::assertSame( 'unattributed', $data['attribution'] );
+		self::assertArrayNotHasKey( 'custom_code_grant_status', $data, 'A restore runs under no grant, so there is none to give back.' );
+		self::assertStringContainsString( 'not attributed to this change', $result->get_error_message() );
+	}
+
+	public function test_a_theme_json_handoff_rolled_back_for_a_lost_check_gives_the_grant_back_once(): void {
+		$this->as_administrator();
+		$GLOBALS['stonewright_test_stylesheet'] = 'sw-child';
+		$GLOBALS['stonewright_test_template']   = 'sw-parent';
+		$path                                   = $this->base . '/themes/site-a/theme.json';
+		$original                               = "{\n    \"version\": 3\n}\n";
+		file_put_contents( $path, $original );
+		// A theme.json write checks the front page alone. It answers before the write and never after it, with or without the change.
+		$this->host_by_phase( $path, '"custom": false', [ 'after_write' => [ 'home' => 'timeout' ], 'after_rollback' => [ 'home' => 'timeout' ] ] );
+		$ability    = new ThemeJsonHandoff();
+		$theme_json = [ 'version' => 3, 'settings' => [ 'color' => [ 'custom' => false ] ] ];
+		try {
+			$dry = $ability->execute( [ 'theme_json' => $theme_json, 'dry_run' => true, 'native_gap' => [ 'reason' => 'No typed theme.json writer covers this.', 'methods_tried' => [ 'typed_api' ] ] ] );
+			self::assertIsArray( $dry, $dry instanceof \WP_Error ? $dry->get_error_message() : '' );
+			$issued = CustomCodeGrant::issue( [ 'path' => 'theme.json', 'after_sha256' => (string) $dry['after_sha256'], 'language' => 'html' ] );
+			self::assertIsArray( $issued );
+			$token = (string) $issued['token'];
+
+			$result = $ability->execute( [ 'theme_json' => $theme_json, 'dry_run' => false, 'custom_code_grant' => $token ] );
+
+			self::assertInstanceOf( \WP_Error::class, $result );
+			self::assertSame( 'stonewright_theme_write_smoke_failed', $result->get_error_code() );
+			$data = $result->get_error_data();
+			self::assertSame( $original, file_get_contents( $path ) );
+			self::assertSame( 'still_failing', $data['site_status'] );
+			self::assertSame( 'check_lost', $data['verification_reason'] );
+			self::assertSame( 'unattributed', $data['attribution'] );
+			self::assertSame( 'reusable_once', $data['custom_code_grant_status'] );
+			self::assertStringContainsString( 'same grant', $result->get_error_message() );
+			$rows = array_values( array_filter( array_map( static fn ( array $row ): array => $row['data'], $GLOBALS['stonewright_test_wpdb_inserts'] ), static fn ( array $row ): bool => 'stonewright/theme-json-handoff' === ( $row['ability_name'] ?? '' ) && 'error' === ( $row['result_status'] ?? '' ) ) );
+			self::assertNotSame( [], $rows );
+			self::assertTrue( json_decode( (string) end( $rows )['sanitized_args'], true )['_meta']['grant_released'] );
+
+			// The same bytes go in once more with the same grant. The front page is still silent, before and after, so the
+			// write is kept unverified; and the grant is now spent for good.
+			$again = $ability->execute( [ 'theme_json' => $theme_json, 'dry_run' => false, 'custom_code_grant' => $token ] );
+			self::assertIsArray( $again, $again instanceof \WP_Error ? $again->get_error_message() : '' );
+			self::assertSame( 'unverified', $again['verification_status'] );
+			self::assertSame( 'transport_unavailable', $again['verification_reason'] );
+			self::assertStringContainsString( '"custom": false', (string) file_get_contents( $path ) );
+			$third = CustomCodeGrant::verify_and_consume( $token, 'theme.json', (string) $dry['after_sha256'], 'html', (int) $dry['changed_bytes'] );
+			self::assertInstanceOf( \WP_Error::class, $third );
+			self::assertSame( 'stonewright_custom_code_grant_reused', $third->get_error_code() );
+		} finally {
+			unset( $GLOBALS['stonewright_test_stylesheet'], $GLOBALS['stonewright_test_template'] );
+		}
 	}
 
 	// -- Plugin, sandbox and custom-code write sites ------------------------------

@@ -42,6 +42,10 @@ widget controls → custom CSS only through approval-gated tools. On
 `stonewright_custom_code_approval_required` or
 `stonewright_custom_code_grant_required`, show `approval_url` and stop; never
 open it or issue a grant unless the user asks you to do that approval step.
+A theme-file write that was rolled back answers `stonewright_theme_write_smoke_failed`:
+read `attribution` and `custom_code_grant_status`. `reusable_once` means the rollback
+was not the change's doing and the same bytes may be applied once more with the same
+grant before it expires; `spent` means a new dry run and a new approval handoff.
 
 Gutenberg headings: check whether the theme already prints the page title as
 H1. If it does, section titles are H2 — do not double up. Query loops need a

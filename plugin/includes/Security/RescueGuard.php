@@ -843,17 +843,22 @@ final class RescueGuard {
 		}
 		$site = RescueRollback::site_status( $after );
 		$data = [
-			'status'              => 500,
-			'retryable'           => false,
-			'execution_status'    => 'ok',
-			'verification_status' => 'failed',
-			'rollback_status'     => $ok ? 'succeeded' : 'failed',
-			'incident_id'         => (string) $primary['id'],
-			'change_set_id'       => (string) $primary['id'],
-			'site_status'         => $site,
-			'probe'               => RescueRollback::compact_probe( $probe ),
-			'resource_type'       => (string) $primary['resource_type'],
-			'root_error_code'     => 'stonewright_rescue_probe_failed',
+			'status'               => 500,
+			'retryable'            => false,
+			'execution_status'     => 'ok',
+			'verification_status'  => 'failed',
+			'rollback_status'      => $ok ? 'succeeded' : 'failed',
+			'incident_id'          => (string) $primary['id'],
+			'change_set_id'        => (string) $primary['id'],
+			'site_status'          => $site,
+			// What the probe proved (site_failed or check_lost), what the probe after the rollback proved, and whether
+			// the failure was the change's doing.
+			'verification_reason'  => HealthProbe::verdict( $probe ),
+			'post_rollback_reason' => HealthProbe::verdict( $after ),
+			'attribution'          => HealthProbe::attribution( $probe, $after, $ok ),
+			'probe'                => RescueRollback::compact_probe( $probe ),
+			'resource_type'        => (string) $primary['resource_type'],
+			'root_error_code'      => 'stonewright_rescue_probe_failed',
 		];
 		if ( $original instanceof \WP_Error ) {
 			$data['original_error_code'] = (string) $original->get_error_code();

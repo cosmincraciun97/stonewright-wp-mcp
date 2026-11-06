@@ -2,6 +2,100 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.19] - 2026-11-06
+
+### Added
+
+- `stonewright/theme-file-patch`, and the `theme-file` provider of
+  `stonewright-custom-code-provider`, take `mode: replace_string` with an
+  `old_string` that occurs exactly once in the file. That text is replaced
+  byte for byte, so a change inside one line no longer needs markers.
+  - A missing, empty or repeated `old_string` is refused
+    (`stonewright_theme_file_old_string_missing`, `_required`, or `_ambiguous`
+    with `matches`). Overlapping occurrences count as repeats.
+  - `old_string` is never written to the audit log.
+- `placement: exact` makes the other patch modes write the content byte for
+  byte. Nothing is added after the marker or before `end_marker`, trailing
+  spaces are kept, and line endings stay as sent. As a result:
+  - an edit inside one line works with `replace_between_markers`;
+  - sending the current block back reports no change and needs no approval;
+  - the approval page shows only the lines that change, instead of every
+    following line shifted.
+
+  `placement: block`, the default, keeps the bytes it produced before, so
+  proposals and grants already issued stay valid.
+- `stonewright-acf-field-group-get` returns the post IDs of the group and of its
+  fields (`group.ID`, `fields[].ID`), whether ACF also keeps the group in a JSON
+  file or in PHP code (`group.local`), and the other posts that hold the same key
+  (`group.duplicate_post_ids`). `include_settings: true` returns the full group
+  array and the full field arrays (`parent`, `sub_fields`, `layouts` and every
+  setting), capped at 200 fields or 256 KiB; above the cap the answer is
+  `truncated: true` with the compact fields and `field_keys`, and `field_key`
+  returns one field in full.
+- `stonewright-acf-field-group-save` answers with `post_id`, `created`,
+  `fields_created`, `fields_removed`, `created_post_ids`, `duplicate_post_ids`
+  and `local`, and the contract mirror it keeps stores the payload with the
+  resolved post IDs.
+
+### Changed
+
+- Removing fields from an ACF field group needs `allow_field_removal: true` on
+  `stonewright-acf-field-group-save`. ACF deletes a field the payload leaves out
+  permanently, so such a save is refused with
+  `stonewright_acf_fields_would_be_removed` (the field keys in the error) and
+  nothing is written until the call allows it. The input and output schemas of
+  `stonewright-acf-field-group-save` and the input schema of
+  `stonewright-acf-field-group-get` changed; names, permission, backup, token,
+  validation and audit gates are unchanged.
+
+### Fixed
+
+- The `theme-file-patch` schema described `replace_between_markers` as
+  "inclusive", but both markers have always stayed in the file. The schema now
+  says so and describes where block placement puts the content: a newline after
+  `start_marker`, the content with one trailing newline, and another newline
+  before `end_marker`.
+- A theme-file write on a slow host is no longer rolled back, and its grant spent,
+  for a check the host could not pass anyway. The health check after a write asks a
+  check that passed before the write once more when it gets no answer; that one retry
+  was skipped whenever a check that never passed (a wp-admin screen that times out on
+  every request) had used up the time budget. Only the checks that can be judged count
+  against it now, so a probe and its retries take at most 45 seconds instead of 30. A
+  page that took longer than 5 seconds to answer before the write is a slow witness:
+  its silence after the write is not held against the write, the evidence says so
+  (`witness: slow` with `baseline_ms`), it is not asked a second time, and Check again
+  no longer requires it; a failing answer still fails at once. The threshold is the
+  filter `stonewright_rescue_probe_witness_ms` (1 to 30 seconds). The result of a write
+  that was kept adds `verification_reason` and `warnings` for the checks that reached no
+  verdict; a rolled back write adds `verification_reason`, `post_rollback_reason` and
+  `attribution` (`attributed`, `unattributed` or `unknown`) to its error and its
+  evidence. When a theme-file or `theme.json` write was rolled back and the lost check
+  is still lost with the original file back (`unattributed`), the custom-code grant it
+  ran under is given back once (`custom_code_grant_status` `reusable_once`): the same
+  bytes can be applied once more with the same grant before it expires. Every other
+  rollback spends the grant as before, and the repair hint no longer asks for a new
+  grant when the same one still applies.
+- Save an ACF field group by key as an update of the posts that already hold it.
+  `stonewright-acf-field-group-save` handed the payload to ACF's importer as it
+  came, and without the post ID of the group ACF inserted a second
+  `acf-field-group` post with the same key and a second copy of every field, so
+  the edit screen showed two metaboxes and a field name resolved to either
+  field. The save now resolves the group and its fields by key, so IDs are
+  optional; a payload ID that belongs to another group or field is refused
+  (`stonewright_acf_group_id_mismatch`, `stonewright_acf_field_id_mismatch`), a
+  key that two posts hold is refused until the call names one with `group.ID`
+  (`stonewright_acf_group_key_ambiguous`), and a group registered in PHP is
+  refused (`stonewright_acf_group_registered_in_code`), as is a group or a
+  payload whose fields nest more than 11 levels deep
+  (`stonewright_acf_group_too_deep`), where the save could not see which fields
+  ACF would delete. A group that exists only in local JSON is created, and the
+  answer says so (`local`).
+- Record every post an ACF field group save inserts in the change ledger. The
+  ledger compared ACF's answer before and after the import, which names one post
+  per key, so a duplicate group and its fields had no created row and a rollback
+  could not remove them. The save now listens to `wp_insert_post` during the
+  import and records each group or field post it inserts.
+
 ## [1.0.0-beta.18.1] - 2026-11-06
 
 ### Changed
@@ -207,65 +301,9 @@
   from your own computer instead, for example Claude Desktop with an Application
   Password or Claude Code.
 
-## [1.0.0-beta.17] - 2026-10-18
-
-### Security
-
-- Check the tool surface on every way an ability can be run. An ability that runs or
-  writes code is refused unless an administrator chose the Full tool surface in
-  wp-admin, whether it is called as an MCP tool, through `execute-ability`, the
-  REST runner or WordPress's own Abilities API route, and a confirmation token no
-  longer lifts that refusal. `security-issue-confirmation-token` issues no token for
-  such an ability.
-- Validate the input of `POST /stonewright/v1/abilities/run` against the ability's
-  schema, as `execute-ability` does.
-- Make the Direct task-start and learning-record routes respect the master toggle
-  and the list of disabled abilities.
-- Read the site mode through one accessor. A missing mode follows the
-  environment, as it does on activation, and a damaged or unknown value counts as
-  production-safe, so neither can loosen a gate.
-- Require an administrator in wp-admin to make the mode less strict, switch a
-  disabled ability back on or change feature flags. Requests signed in with an
-  Application Password or OAuth can still make the mode stricter and switch
-  abilities off. The admin Abilities routes also need a person in wp-admin, and
-  feature flags are stored as a short list of on/off values.
-- Check custom instructions the way memory is checked before they are saved
-  through REST, `system-instructions-set` or a knowledge import.
-- Require `edit_posts` to use the MCP servers, on the Application Password route
-  and the OAuth route alike. Sites can change it with the
-  `stonewright_mcp_required_capability` filter. Subscribers and shop customers
-  can no longer connect.
-- Return site memory, custom instructions, recurring errors and incident actions
-  from `task-start` and `context-bootstrap` only to administrators, as the memory
-  and instructions abilities already do.
-- `search-query` needs `edit_posts` and lists a post type the caller cannot edit
-  only when the type is public. `oembed-resolve` needs `edit_posts`.
-  `stock-image-search` needs `upload_files` and encodes the search terms it sends
-  to the provider.
-- Sign releases. This version ships the release public keys, an active key and
-  an offline backup key, and installs an update only when the release's
-  `SHA256SUMS.txt.sig`, an Ed25519 signature of `SHA256SUMS.txt`, verifies
-  against one of them. The release workflow signs every release and stops when
-  it cannot, so each release now has this fourth asset. A site on an earlier
-  version installs this one with the checksum check only; every update after it
-  is verified.
-- Record a GitHub build provenance attestation for the plugin ZIP and the
-  companion package of each release. It adds no release asset.
-
-### Changed
-
-- Describe the update package check accurately: the ZIP is compared with the
-  SHA-256 in its release's `SHA256SUMS.txt`.
-- Leave the PHPStan stub folder out of the plugin release ZIP.
-
-### Removed
-
-- Remove the `/stonewright/v1/sandbox/files` REST routes. Sandbox files are managed
-  on the Sandbox Library admin page and with the sandbox abilities on the Full
-  surface.
-
 ## Older releases
 
+- [1.0.0-beta.17](../docs/releases/1.0.0-beta.17.md)
 - [1.0.0-beta.16.2](../docs/releases/1.0.0-beta.16.2.md)
 - [1.0.0-beta.16.1](../docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](../docs/releases/1.0.0-beta.16.md)

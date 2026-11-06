@@ -170,7 +170,9 @@ final class FamilyLedgerHookTest extends FamilyLedgerTestCase {
 
 		$result = ( new AcfFieldGroupSave() )->execute( [ 'group' => [ 'key' => 'group_books', 'title' => 'Books', 'fields' => [ [ 'key' => 'field_isbn', 'label' => 'ISBN', 'name' => 'isbn', 'type' => 'text' ] ] ] ] );
 
-		self::assertSame( [ 'ok' => true, 'key' => 'group_books' ], $result );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'group_books', $result['key'] );
 		$row = $this->only_row();
 		self::assertSame( 'stonewright/acf-field-group-save', $row['ability'] );
 		self::assertSame( 'stonewright_acf_field_groups:group_books', $row['resource_id'] );

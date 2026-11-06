@@ -112,9 +112,19 @@ final class ProviderOps extends AbilityKernel {
 				],
 				'mode'                   => [
 					'type'        => 'string',
-					'enum'        => [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_all' ],
+					'enum'        => [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_string', 'replace_all' ],
 					'default'     => 'replace_all',
-					'description' => 'Theme-file patch mode when provider=theme-file.',
+					'description' => 'Theme-file patch mode when provider=theme-file. replace_string replaces old_string, which must occur exactly once, with code, byte for byte: use it for an edit inside one line.',
+				],
+				'placement'              => [
+					'type'        => 'string',
+					'enum'        => [ 'block', 'exact' ],
+					'description' => 'Theme-file only. block (the default): the code goes on its own lines, so a newline follows the marker, the code ends with one newline, and replace_between_markers adds another newline before end_marker. exact: byte for byte, nothing added, trimmed or converted. replace_string is always exact.',
+				],
+				'old_string'             => [
+					'type'        => 'string',
+					'maxLength'   => 4096,
+					'description' => 'Required for mode replace_string (theme-file): the exact text to replace, as it is in the file. Must occur exactly once. Never logged in audit.',
 				],
 				'marker'                 => [
 					'type'        => 'string',
@@ -124,12 +134,12 @@ final class ProviderOps extends AbilityKernel {
 				'start_marker'           => [
 					'type'        => 'string',
 					'maxLength'   => 4096,
-					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once; the replacement keeps the marker.',
+					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once; the marker stays and only the text between the markers is replaced.',
 				],
 				'end_marker'             => [
 					'type'        => 'string',
 					'maxLength'   => 4096,
-					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once, after start_marker.',
+					'description' => 'Required for mode replace_between_markers (theme-file). Must match exactly once, after start_marker; the marker stays.',
 				],
 				'create_if_missing'      => [
 					'type'        => 'boolean',
@@ -449,6 +459,7 @@ final class ProviderOps extends AbilityKernel {
 			[
 				'code',
 				'content',
+				'old_string',
 				'css',
 				'custom_code_grant',
 				'confirmation_token',
