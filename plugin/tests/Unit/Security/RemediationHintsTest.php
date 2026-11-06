@@ -80,6 +80,31 @@ final class RemediationHintsTest extends TestCase {
 		];
 	}
 
+	/**
+	 * @dataProvider acf_upsert_codes
+	 */
+	public function test_acf_upsert_refusals_have_specific_repairs( string $code, string $needle ): void {
+		$hint = RemediationHints::for_code( $code, 'stonewright/acf-field-group-save' );
+
+		self::assertStringContainsString( $needle, $hint );
+		self::assertStringNotContainsString( 'learning-record', $hint );
+		self::assertStringNotContainsString( 'php-execute', $hint );
+	}
+
+	/**
+	 * @return array<string, array{string, string}>
+	 */
+	public static function acf_upsert_codes(): array {
+		return [
+			'ambiguous key'      => [ 'stonewright_acf_group_key_ambiguous', 'group.ID' ],
+			'group id mismatch'  => [ 'stonewright_acf_group_id_mismatch', 'never renames a group key' ],
+			'registered in code' => [ 'stonewright_acf_group_registered_in_code', 'registered in PHP code' ],
+			'field id mismatch'  => [ 'stonewright_acf_field_id_mismatch', 'include_settings:true' ],
+			'fields removed'     => [ 'stonewright_acf_fields_would_be_removed', 'allow_field_removal:true' ],
+			'field not found'    => [ 'stonewright_acf_field_not_found', 'field_key' ],
+		];
+	}
+
 	public function test_cause_code_is_resolved_before_wrapper(): void {
 		$hint = RemediationHints::for_code(
 			'stonewright_php_parse_error',

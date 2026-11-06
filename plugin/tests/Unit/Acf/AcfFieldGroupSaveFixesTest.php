@@ -38,7 +38,9 @@ final class AcfFieldGroupSaveFixesTest extends TestCase {
 	public function test_it_saves_through_acf_and_keeps_the_contract_mirror(): void {
 		$result = ( new AcfFieldGroupSave() )->execute( [ 'group' => self::GROUP ] );
 
-		self::assertSame( [ 'ok' => true, 'key' => 'group_books' ], $result );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'group_books', $result['key'] );
 		self::assertSame( 'group_books', $GLOBALS['stonewright_test_acf_groups'][0]['key'] );
 		self::assertSame( 'Books', get_option( 'stonewright_acf_field_groups' )['group_books']['title'] );
 	}

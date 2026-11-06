@@ -22,6 +22,29 @@
 
   `placement: block`, the default, keeps the bytes it produced before, so
   proposals and grants already issued stay valid.
+- `stonewright-acf-field-group-get` returns the post IDs of the group and of its
+  fields (`group.ID`, `fields[].ID`), whether ACF also keeps the group in a JSON
+  file or in PHP code (`group.local`), and the other posts that hold the same key
+  (`group.duplicate_post_ids`). `include_settings: true` returns the full group
+  array and the full field arrays (`parent`, `sub_fields`, `layouts` and every
+  setting), capped at 200 fields or 256 KiB; above the cap the answer is
+  `truncated: true` with the compact fields and `field_keys`, and `field_key`
+  returns one field in full.
+- `stonewright-acf-field-group-save` answers with `post_id`, `created`,
+  `fields_created`, `fields_removed`, `created_post_ids`, `duplicate_post_ids`
+  and `local`, and the contract mirror it keeps stores the payload with the
+  resolved post IDs.
+
+### Changed
+
+- Removing fields from an ACF field group needs `allow_field_removal: true` on
+  `stonewright-acf-field-group-save`. ACF deletes a field the payload leaves out
+  permanently, so such a save is refused with
+  `stonewright_acf_fields_would_be_removed` (the field keys in the error) and
+  nothing is written until the call allows it. The input and output schemas of
+  `stonewright-acf-field-group-save` and the input schema of
+  `stonewright-acf-field-group-get` changed; names, permission, backup, token,
+  validation and audit gates are unchanged.
 
 ### Fixed
 
@@ -50,6 +73,26 @@
   bytes can be applied once more with the same grant before it expires. Every other
   rollback spends the grant as before, and the repair hint no longer asks for a new
   grant when the same one still applies.
+- Save an ACF field group by key as an update of the posts that already hold it.
+  `stonewright-acf-field-group-save` handed the payload to ACF's importer as it
+  came, and without the post ID of the group ACF inserted a second
+  `acf-field-group` post with the same key and a second copy of every field, so
+  the edit screen showed two metaboxes and a field name resolved to either
+  field. The save now resolves the group and its fields by key, so IDs are
+  optional; a payload ID that belongs to another group or field is refused
+  (`stonewright_acf_group_id_mismatch`, `stonewright_acf_field_id_mismatch`), a
+  key that two posts hold is refused until the call names one with `group.ID`
+  (`stonewright_acf_group_key_ambiguous`), and a group registered in PHP is
+  refused (`stonewright_acf_group_registered_in_code`), as is a group or a
+  payload whose fields nest more than 11 levels deep
+  (`stonewright_acf_group_too_deep`), where the save could not see which fields
+  ACF would delete. A group that exists only in local JSON is created, and the
+  answer says so (`local`).
+- Record every post an ACF field group save inserts in the change ledger. The
+  ledger compared ACF's answer before and after the import, which names one post
+  per key, so a duplicate group and its fields had no created row and a rollback
+  could not remove them. The save now listens to `wp_insert_post` during the
+  import and records each group or field post it inserts.
 
 ## [1.0.0-beta.18.1] - 2026-11-06
 
