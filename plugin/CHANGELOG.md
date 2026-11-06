@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Added
+
+- `stonewright/theme-file-patch`, and the `theme-file` provider of
+  `stonewright-custom-code-provider`, take `mode: replace_string` with an
+  `old_string` that occurs exactly once in the file. That text is replaced
+  byte for byte, so a change inside one line no longer needs markers.
+  - A missing, empty or repeated `old_string` is refused
+    (`stonewright_theme_file_old_string_missing`, `_required`, or `_ambiguous`
+    with `matches`). Overlapping occurrences count as repeats.
+  - `old_string` is never written to the audit log.
+- `placement: exact` makes the other patch modes write the content byte for
+  byte. Nothing is added after the marker or before `end_marker`, trailing
+  spaces are kept, and line endings stay as sent. As a result:
+  - an edit inside one line works with `replace_between_markers`;
+  - sending the current block back reports no change and needs no approval;
+  - the approval page shows only the lines that change, instead of every
+    following line shifted.
+
+  `placement: block`, the default, keeps the bytes it produced before, so
+  proposals and grants already issued stay valid.
+
+### Fixed
+
+- The `theme-file-patch` schema described `replace_between_markers` as
+  "inclusive", but both markers have always stayed in the file. The schema now
+  says so and describes where block placement puts the content: a newline after
+  `start_marker`, the content with one trailing newline, and another newline
+  before `end_marker`.
+
 ## [1.0.0-beta.18.1] - 2026-11-06
 
 ### Changed

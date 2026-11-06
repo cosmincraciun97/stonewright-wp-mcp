@@ -16,7 +16,8 @@ use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 /**
  * Patch allowlisted theme files with validation, grant, backup, atomic write, smoke, rollback.
  *
- * Modes: append | insert_after_marker | replace_between_markers | replace_all.
+ * Modes: append | insert_after_marker | replace_between_markers | replace_string | replace_all.
+ * Placement: block (the default: the content goes on its own lines) | exact (written byte for byte).
  *
  * @stonewright-status stable
  */
@@ -34,7 +35,7 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Requires dry_run first for code assets, full-file validation, a human-issued custom-code grant for apply, atomic write, readback, and bootstrap smoke with automatic rollback. Prefer marker-bounded replacements over unrestricted append.', 'stonewright' );
+		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Requires dry_run first for code assets, full-file validation, a human-issued custom-code grant for apply, atomic write, readback, and bootstrap smoke with automatic rollback. Prefer marker-bounded replacements over unrestricted append; use replace_string for an edit inside one line.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -58,24 +59,37 @@ final class ThemeFilePatch extends AbilityKernel {
 					'default' => 'stylesheet',
 				],
 				'mode'               => [
-					'type' => 'string',
-					'enum' => [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_all' ],
+					'type'        => 'string',
+					'enum'        => [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_string', 'replace_all' ],
+					'description' => 'replace_string replaces old_string, which must occur exactly once, with content, byte for byte: use it for an edit inside one line.',
 				],
 				'content'            => [
 					'type'        => 'string',
-					'description' => 'Text to append/insert, or the replacement body between markers.',
+					'description' => 'Text to append or insert, the replacement between the markers, the replacement of old_string, or the whole file for replace_all.',
+				],
+				'placement'          => [
+					'type'        => 'string',
+					'enum'        => [ 'block', 'exact' ],
+					'default'     => 'block',
+					'description' => 'How content is placed. block: on its own lines, so a newline follows the marker, the content ends with one newline, and replace_between_markers adds another newline before end_marker; trailing spaces are trimmed. exact: byte for byte, nothing added, trimmed or converted, so an edit inside one line works and sending the current text back changes nothing. replace_string is always exact.',
+				],
+				'old_string'         => [
+					'type'        => 'string',
+					'minLength'   => 1,
+					'maxLength'   => 4096,
+					'description' => 'Required for replace_string: the exact text to replace, as it is in the file (spaces and line endings included). Must occur exactly once.',
 				],
 				'marker'             => [
 					'type'        => 'string',
-					'description' => 'Required for insert_after_marker.',
+					'description' => 'Required for insert_after_marker. Must match exactly once in the file; the content goes right after it.',
 				],
 				'start_marker'       => [
 					'type'        => 'string',
-					'description' => 'Required for replace_between_markers (inclusive start).',
+					'description' => 'Required for replace_between_markers. Must match exactly once in the file. The marker stays: only the text between the two markers is replaced.',
 				],
 				'end_marker'         => [
 					'type'        => 'string',
-					'description' => 'Required for replace_between_markers (inclusive end).',
+					'description' => 'Required for replace_between_markers. Must match exactly once in the file, after start_marker. The marker stays.',
 				],
 				'create_if_missing'  => [
 					'type'    => 'boolean',
@@ -421,17 +435,20 @@ final class ThemeFilePatch extends AbilityKernel {
 	 * @return string|\WP_Error
 	 */
 	private static function apply_patch( string $before, string $mode, string $content, array $args ) {
+		$exact = 'exact' === ( $args['placement'] ?? 'block' );
 		return match ( $mode ) {
-			'append' => self::ends_with_newline( $before ) || '' === $before
+			'append' => $exact || self::ends_with_newline( $before ) || '' === $before
 				? $before . $content
 				: $before . "\n" . $content,
-			'insert_after_marker' => self::insert_after_marker( $before, (string) ( $args['marker'] ?? '' ), $content ),
+			'insert_after_marker' => self::insert_after_marker( $before, (string) ( $args['marker'] ?? '' ), $content, $exact ),
 			'replace_between_markers' => self::replace_between(
 				$before,
 				(string) ( $args['start_marker'] ?? '' ),
 				(string) ( $args['end_marker'] ?? '' ),
-				$content
+				$content,
+				$exact
 			),
+			'replace_string' => self::replace_string( $before, (string) ( $args['old_string'] ?? '' ), $content ),
 			'replace_all' => $content,
 			default => new \WP_Error(
 				'stonewright_theme_file_mode_invalid',
@@ -442,7 +459,7 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	/** @return string|\WP_Error */
-	private static function insert_after_marker( string $before, string $marker, string $content ) {
+	private static function insert_after_marker( string $before, string $marker, string $content, bool $exact ) {
 		if ( '' === $marker ) {
 			return new \WP_Error(
 				'stonewright_theme_file_marker_required',
@@ -455,11 +472,57 @@ final class ThemeFilePatch extends AbilityKernel {
 			return $pos;
 		}
 		$insert_at = $pos + strlen( $marker );
-		return substr( $before, 0, $insert_at ) . "\n" . $content . substr( $before, $insert_at );
+		return substr( $before, 0, $insert_at ) . ( $exact ? '' : "\n" ) . $content . substr( $before, $insert_at );
+	}
+
+	/**
+	 * Replaces the one occurrence of $old with $content, byte for byte.
+	 *
+	 * @return string|\WP_Error
+	 */
+	private static function replace_string( string $before, string $old, string $content ) {
+		if ( '' === $old ) {
+			return new \WP_Error(
+				'stonewright_theme_file_old_string_required',
+				__( 'old_string is required for replace_string.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'old_string' ]
+			);
+		}
+		$matches = self::occurrences( $before, $old );
+		if ( 0 === $matches ) {
+			return new \WP_Error(
+				'stonewright_theme_file_old_string_missing',
+				__( 'old_string was not found in the theme file. Read the file and send the text exactly as it is there, spaces and line endings included.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'old_string', 'error_code' => 'old_string_missing' ]
+			);
+		}
+		if ( $matches > 1 ) {
+			return new \WP_Error(
+				'stonewright_theme_file_old_string_ambiguous',
+				__( 'old_string occurs more than once in the theme file. Add the text around it until it occurs exactly once.', 'stonewright' ),
+				[ 'status' => 400, 'field' => 'old_string', 'error_code' => 'old_string_ambiguous', 'matches' => $matches ]
+			);
+		}
+		$pos = (int) strpos( $before, $old );
+		return substr( $before, 0, $pos ) . $content . substr( $before, $pos + strlen( $old ) );
+	}
+
+	/**
+	 * Number of occurrences of $needle in $haystack. Overlapping ones count too: "aa" occurs twice in
+	 * "aaa", so it does not name one place.
+	 */
+	private static function occurrences( string $haystack, string $needle ): int {
+		$count = 0;
+		$found = strpos( $haystack, $needle );
+		while ( false !== $found ) {
+			++$count;
+			$found = strpos( $haystack, $needle, $found + 1 );
+		}
+		return $count;
 	}
 
 	/** @return string|\WP_Error */
-	private static function replace_between( string $before, string $start, string $end, string $content ) {
+	private static function replace_between( string $before, string $start, string $end, string $content, bool $exact ) {
 		if ( '' === $start || '' === $end ) {
 			return new \WP_Error(
 				'stonewright_theme_file_markers_required',
@@ -483,7 +546,8 @@ final class ThemeFilePatch extends AbilityKernel {
 			);
 		}
 		$end_pos += strlen( $end );
-		return substr( $before, 0, $start_pos ) . $start . "\n" . $content . "\n" . $end . substr( $before, $end_pos );
+		$inner    = $exact ? $content : "\n" . $content . "\n";
+		return substr( $before, 0, $start_pos ) . $start . $inner . $end . substr( $before, $end_pos );
 	}
 
 	/** @return int|\WP_Error */
@@ -593,7 +657,7 @@ final class ThemeFilePatch extends AbilityKernel {
 
 	/** @return array<int, string> */
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'content', 'custom_code_grant' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'content', 'old_string', 'custom_code_grant' ] );
 	}
 
 	/**

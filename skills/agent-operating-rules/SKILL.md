@@ -98,6 +98,12 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   single-use custom-code grant issued by the human operator from authenticated
   wp-admin.
 - Grant is bound to path + candidate `after_sha256`.
+- To change text inside one line of a theme file, use `mode: replace_string`
+  with an `old_string` copied from the file (spaces and line endings included)
+  that occurs exactly once. For a marker block, `placement: exact` writes the
+  content byte for byte. The default `block` placement puts the content on its
+  own lines and leaves a blank line before `end_marker`. Both markers always
+  stay.
 - First run `dry_run`. Show the user `approval_url`, exact target path, byte
   counts, and a short change summary. Then stop.
 - Never open the approval page, issue or retrieve a grant, or apply the candidate

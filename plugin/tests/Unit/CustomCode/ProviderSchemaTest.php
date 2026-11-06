@@ -82,14 +82,62 @@ final class ProviderSchemaTest extends TestCase {
 	public function test_the_new_properties_are_typed_and_bounded(): void {
 		$properties = ( new ProviderOps() )->input_schema()['properties'];
 
-		foreach ( [ 'marker', 'start_marker', 'end_marker', 'id', 'smoke_url' ] as $key ) {
+		foreach ( [ 'marker', 'start_marker', 'end_marker', 'old_string', 'id', 'smoke_url' ] as $key ) {
 			self::assertSame( 'string', $properties[ $key ]['type'], $key );
 			self::assertArrayHasKey( 'maxLength', $properties[ $key ], $key );
 		}
 		self::assertSame( 'boolean', $properties['create_if_missing']['type'] );
 		self::assertSame( 'boolean', $properties['expected_active']['type'] );
 		self::assertSame( [ 'stylesheet', 'template' ], $properties['theme']['enum'] );
-		self::assertSame( [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_all' ], $properties['mode']['enum'] );
+		self::assertSame( [ 'block', 'exact' ], $properties['placement']['enum'] );
+		self::assertSame( [ 'append', 'insert_after_marker', 'replace_between_markers', 'replace_string', 'replace_all' ], $properties['mode']['enum'] );
+	}
+
+	public function test_replace_string_dry_runs_and_applies_through_the_tool(): void {
+		$request = [
+			'provider'   => 'theme-file',
+			'target_id'  => 'style.css',
+			'mode'       => 'replace_string',
+			'old_string' => 'a{color:red;}',
+			'code'       => 'a{color:blue;}',
+			'language'   => 'css',
+		];
+		self::assertSame( [], $this->schema_errors( $request ) );
+
+		$ops = new ProviderOps();
+		$dry = $ops->execute( [ 'action' => 'dry-run', 'native_gap' => self::GAP ] + $request );
+		self::assertIsArray( $dry, $dry instanceof \WP_Error ? $dry->get_error_code() . ': ' . $dry->get_error_message() : '' );
+
+		$grant = CustomCodeGrant::issue(
+			[
+				'path'          => 'style.css',
+				'after_sha256'  => $dry['after_sha256'],
+				'language'      => 'css',
+				'changed_bytes' => $dry['changed_bytes'],
+			]
+		);
+		self::assertIsArray( $grant, $grant instanceof \WP_Error ? $grant->get_error_message() : '' );
+
+		$result = $ops->execute( [ 'action' => 'apply', 'custom_code_grant' => (string) $grant['token'] ] + $request );
+		self::assertIsArray( $result, $result instanceof \WP_Error ? $result->get_error_code() . ': ' . $result->get_error_message() : '' );
+
+		self::assertSame(
+			"/* theme */\n/* sw:start */\nbody{color:#111;}\n/* sw:end */\na{color:blue;}\n",
+			(string) file_get_contents( $this->theme_dir . '/style.css' )
+		);
+	}
+
+	public function test_exact_placement_reaches_the_provider(): void {
+		$request = [ 'placement' => 'exact', 'code' => "\nbody{color:#222;}\n" ] + $this->request();
+		self::assertSame( [], $this->schema_errors( $request ) );
+		self::assertSame( [ 'placement' ], $this->schema_errors( [ 'placement' => 'inline' ] + $this->request() ) );
+
+		$dry = ( new ProviderOps() )->execute( [ 'action' => 'dry-run', 'native_gap' => self::GAP ] + $request );
+		self::assertIsArray( $dry, $dry instanceof \WP_Error ? $dry->get_error_code() . ': ' . $dry->get_error_message() : '' );
+		self::assertSame(
+			hash( 'sha256', "/* theme */\n/* sw:start */\nbody{color:#222;}\n/* sw:end */\na{color:red;}\n" ),
+			$dry['after_sha256']
+		);
 	}
 
 	public function test_a_replace_between_markers_request_passes_the_schema(): void {

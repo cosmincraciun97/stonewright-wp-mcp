@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-10-25T21:58:29+00:00",
+    "generated_at": "2026-11-06T12:35:48+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {
@@ -1157,7 +1157,7 @@
             "ability_name": "stonewright/custom-code-provider",
             "mcp_name": "stonewright-custom-code-provider",
             "kind": "Write",
-            "input_schema_hash": "5b602bc3c3e1fa8a6ed2b6b2510c9549fd976e17dd368d97f24ae62d48ffbc42",
+            "input_schema_hash": "27ba01dc17f08f75d97fbe4be5550c6af4e1d3f44812827158057cc52fd6aef7",
             "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -7237,7 +7237,7 @@
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "a6ffc6a03e9047c70573a6d58ff4088dfa148b25d83a6e945991b1fd24d9118d",
+            "input_schema_hash": "5a7273efe305836706564932455836ebff13ac17116d05e4ecd2f2f8962e648e",
             "output_schema_hash": "82699d99fd9e33ae8b748b07b87af9050b1870eb4bc0061089a47263c9009179",
             "permission_class": "Permissions::manage_options()",
             "gates": {
