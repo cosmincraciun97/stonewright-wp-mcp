@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18.1] - 2026-11-06
+
+### Changed
+
+- Align the plugin version with the companion. No other plugin change.
+
 ## [1.0.0-beta.18] - 2026-10-26
 
 ### Added
@@ -258,29 +264,9 @@
   on the Sandbox Library admin page and with the sandbox abilities on the Full
   surface.
 
-## [1.0.0-beta.16.2] - 2026-10-13
-
-### Added
-
-- Add a **Show in admin menu** switch to **Stonewright → Setup → Settings**. It
-  is on by default. Turned off, the Stonewright entry is hidden in the menu on
-  the left of the dashboard; every Stonewright page keeps its address, and the
-  **Overview** and **Setup** links on the Plugins screen open them.
-- Say so on the Plugins screen and the Dashboard when Stonewright is installed
-  twice, for example after uploading the ZIP when the installed copy sits in
-  another folder: the notice names each folder, its version and the copy that
-  runs.
-
-### Fixed
-
-- Let a second copy of Stonewright be deleted on the Plugins screen while the
-  other copy runs; the delete stopped with a fatal error. Deleting one copy while
-  another stays installed removes nothing: the list of registered widgets, the
-  rescue helper and the data stay, also when the deleted copy is an older
-  version.
-
 ## Older releases
 
+- [1.0.0-beta.16.2](../docs/releases/1.0.0-beta.16.2.md)
 - [1.0.0-beta.16.1](../docs/releases/1.0.0-beta.16.1.md)
 - [1.0.0-beta.16](../docs/releases/1.0.0-beta.16.md)
 - [1.0.0-beta.15](../docs/releases/1.0.0-beta.15.md)

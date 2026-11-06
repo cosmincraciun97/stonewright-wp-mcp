@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.18.1] - 2026-11-06
+
 ### Fixed
 
 - Send `MCP-Protocol-Version` with the negotiated protocol version on every
