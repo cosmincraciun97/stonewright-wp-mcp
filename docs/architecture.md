@@ -1116,6 +1116,12 @@ Profile and surface switching is transport-specific. Agents should treat
 - Each `tools/list` request reads the saved site surface plus an optional,
   expiring profile bound to `Mcp-Session-Id`. Bootstrap task-start activates
   only that session; it never rewrites the site option or another session.
+- `Core\McpSchemaWire` restores `{}` at every schema position of the listed tool
+  schemas: the adapter rebuilds them from PHP arrays, which turns `{}` into `[]`,
+  and a JSON Schema 2020-12 client refuses `items: []`. It and the pagination below
+  read the answer as arrays or as objects, because from `mcp-adapter` 0.7, which any
+  active plugin can load, the answer reaches the REST layer as a `stdClass` holding
+  schema records.
 - `Core\ToolsListPagination` pages the `tools/list` answer on both MCP routes at the
   REST boundary (`rest_post_dispatch`), by a 768 KiB byte budget, with MCP cursors
   (`nextCursor` / `params.cursor`); the vendored adapter is not forked. See
