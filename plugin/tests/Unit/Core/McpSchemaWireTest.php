@@ -190,6 +190,100 @@ final class McpSchemaWireTest extends TestCase {
 		self::assertSame( $payload, $other->get_data() );
 	}
 
+	public function test_the_response_filter_repairs_an_object_envelope(): void {
+		// From mcp-adapter 0.7 the whole JSON-RPC answer reaches the REST layer as an object.
+		$envelope = (object) [
+			'jsonrpc' => '2.0',
+			'id'      => 3,
+			'result'  => (object) [ 'tools' => [ (object) [ 'name' => 'a', 'outputSchema' => self::damaged_schema() ] ] ],
+		];
+		$response = $this->settable_response( $envelope );
+
+		McpSchemaWire::filter_response( $response, new \stdClass(), new \WP_REST_Request( 'POST', '/mcp/stonewright' ) );
+		$json = (string) json_encode( $response->get_data() );
+
+		self::assertStringContainsString( '"list":{"type":"array","items":{}}', $json );
+		self::assertStringContainsString( '"map":{"type":"object","properties":{}}', $json );
+		self::assertStringContainsString( '"name":"a"', $json );
+		self::assertStringContainsString( '"id":3', $json );
+	}
+
+	public function test_repair_reads_schema_records(): void {
+		$envelope = self::record(
+			[
+				'jsonrpc' => '2.0',
+				'id'      => 4,
+				'result'  => self::record( [ 'tools' => [ self::record( [ 'name' => 'b', 'outputSchema' => self::damaged_schema() ] ) ] ] ),
+			]
+		);
+
+		$json = (string) json_encode( McpSchemaWire::repair_response( $envelope ) );
+
+		self::assertStringContainsString( '"list":{"type":"array","items":{}}', $json );
+		self::assertStringContainsString( '"map":{"type":"object","properties":{}}', $json );
+		self::assertStringContainsString( '"name":"b"', $json );
+	}
+
+	public function test_repair_handles_a_batch_of_object_envelopes(): void {
+		$batch = [
+			(object) [ 'id' => 1, 'result' => (object) [ 'tools' => [ (object) [ 'name' => 'a', 'outputSchema' => self::damaged_schema() ] ] ] ],
+			(object) [ 'id' => 2, 'result' => (object) [ 'content' => [] ] ],
+		];
+
+		$json = (string) json_encode( McpSchemaWire::repair_response( $batch ) );
+
+		self::assertStringContainsString( '"list":{"type":"array","items":{}}', $json );
+		self::assertStringContainsString( '"content":[]', $json, 'A result without tools is data and stays as it is.' );
+	}
+
+	public function test_an_object_answer_without_tools_is_returned_as_it_is(): void {
+		$initialize = (object) [
+			'jsonrpc' => '2.0',
+			'id'      => 1,
+			'result'  => (object) [ 'protocolVersion' => '2025-11-25' ],
+		];
+
+		self::assertSame( $initialize, McpSchemaWire::repair_response( $initialize ) );
+	}
+
+	/**
+	 * An output schema after the adapter's array round trip: every {} has become [].
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function damaged_schema(): array {
+		return [
+			'type'       => 'object',
+			'properties' => [
+				'list' => [ 'type' => 'array', 'items' => [] ],
+				'map'  => [ 'type' => 'object', 'properties' => [] ],
+			],
+		];
+	}
+
+	/**
+	 * A schema record like the ones newer MCP adapters return: it serializes to a stdClass and
+	 * keeps nested records as objects until the response is encoded.
+	 *
+	 * @param array<string, mixed> $values
+	 */
+	private static function record( array $values ): \JsonSerializable {
+		return new class( $values ) implements \JsonSerializable {
+			/**
+			 * @param array<string, mixed> $values
+			 */
+			public function __construct( private array $values ) {}
+
+			public function jsonSerialize(): \stdClass {
+				$out = new \stdClass();
+				foreach ( $this->values as $key => $value ) {
+					$out->{$key} = $value;
+				}
+				return $out;
+			}
+		};
+	}
+
 	public function test_the_response_filter_is_registered(): void {
 		McpSchemaWire::register();
 
@@ -221,12 +315,11 @@ final class McpSchemaWireTest extends TestCase {
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	private function settable_response( array $data ): \WP_REST_Response {
+	private function settable_response( mixed $data ): \WP_REST_Response {
 		return new class( $data ) extends \WP_REST_Response {
 			private mixed $payload;
 
-			/** @param array<string, mixed> $data */
-			public function __construct( array $data ) {
+			public function __construct( mixed $data ) {
 				parent::__construct( $data );
 				$this->payload = $data;
 			}
