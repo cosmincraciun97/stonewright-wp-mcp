@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.19.1] - 2026-11-19
+
 ### Fixed
 
 - Connect on a `stonewright-reconnect` that brings the first site prompts after the AI
