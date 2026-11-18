@@ -337,6 +337,10 @@ and batch JSON-RPC requests:
 - A client that sends no cursor gets the first page. The `essential` surface and
   the smaller profiles fit one page, so a client that ignores `nextCursor` still
   sees them whole. Only large `full` surfaces span several pages.
+- The adapter's answer may hold arrays or objects. The bundled `mcp-adapter` 0.6
+  builds arrays; from 0.7, which another active plugin can load in its place, the
+  answer is an object holding schema records. Both are paged the same way, and
+  the tool schemas keep `{}` where a schema is empty.
 - The budget is `STONEWRIGHT_MCP_TOOLS_LIST_PAGE_BYTES` in `wp-config.php`, or the
   `stonewright_mcp_tools_list_page_bytes` filter. `0` turns pagination off, which
   restores the single-page answer and its size. `composer tokens:measure` in

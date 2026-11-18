@@ -348,6 +348,129 @@ final class ToolsListPaginationTest extends TestCase {
 		self::assertCount( count( $tools ), $page['tools'] );
 	}
 
+	public function test_an_object_envelope_is_paginated_like_an_array_one(): void {
+		$tools   = self::tools( 6 );
+		$budget  = self::encoded_size( array_slice( $tools, 0, 2 ) );
+		$request = self::request( self::tools_list_message( 7 ) );
+
+		$out  = self::with_budget( $budget, static fn() => self::dispatch( new \WP_REST_Response( self::object_envelope( $tools, 7 ) ), $request ) );
+		$data = self::wire( $out );
+		self::assertSame( 7, $data['id'] );
+		self::assertSame( [ 'tool-001', 'tool-002' ], array_column( $data['result']['tools'], 'name' ) );
+		self::assertIsString( $data['result']['nextCursor'] );
+
+		$next_request = self::request( self::tools_list_message( 8, $data['result']['nextCursor'] ) );
+		$next         = self::with_budget( $budget, static fn() => self::dispatch( new \WP_REST_Response( self::object_envelope( $tools, 8 ) ), $next_request ) );
+		self::assertSame( [ 'tool-003', 'tool-004' ], array_column( self::wire( $next )['result']['tools'], 'name' ) );
+	}
+
+	public function test_a_json_serializable_result_is_paginated_and_empty_schema_objects_stay_objects(): void {
+		$records = [];
+		foreach ( self::tools( 4 ) as $tool ) {
+			$tool['inputSchema'] = (object) [
+				'type'       => 'object',
+				'properties' => new \stdClass(),
+			];
+			$records[]           = self::record( $tool );
+		}
+		$budget   = strlen( (string) wp_json_encode( $records[0] ) ) + strlen( (string) wp_json_encode( $records[1] ) ) + 2;
+		$envelope = self::record(
+			[
+				'jsonrpc' => '2.0',
+				'id'      => 3,
+				'result'  => self::record( [ 'tools' => $records ] ),
+			]
+		)->jsonSerialize();
+		$request  = self::request( self::tools_list_message( 3 ) );
+
+		$out  = self::with_budget( $budget, static fn() => self::dispatch( new \WP_REST_Response( $envelope ), $request ) );
+		$json = (string) wp_json_encode( $out->get_data() );
+		$data = json_decode( $json, true );
+		self::assertSame( [ 'tool-001', 'tool-002' ], array_column( $data['result']['tools'], 'name' ) );
+		self::assertIsString( $data['result']['nextCursor'] );
+		self::assertStringContainsString( '"properties":{}', $json, 'An empty schema object must stay an object, not become a list.' );
+		self::assertStringNotContainsString( '"properties":[]', $json );
+	}
+
+	public function test_a_batch_of_object_envelopes_is_paginated_by_id(): void {
+		$tools   = self::tools( 6 );
+		$budget  = self::encoded_size( array_slice( $tools, 0, 3 ) );
+		$request = self::request( [ self::tools_list_message( 'a' ), self::tools_list_message( 'b' ) ] );
+		$batch   = [ self::object_envelope( $tools, 'b' ), self::object_envelope( $tools, 'a' ) ];
+
+		$data = self::wire( self::with_budget( $budget, static fn() => self::dispatch( new \WP_REST_Response( $batch ), $request ) ) );
+		self::assertSame( 'b', $data[0]['id'] );
+		self::assertSame( [ 'tool-001', 'tool-002', 'tool-003' ], array_column( $data[0]['result']['tools'], 'name' ) );
+		self::assertIsString( $data[0]['result']['nextCursor'] );
+		self::assertSame( 'a', $data[1]['id'] );
+		self::assertCount( 3, $data[1]['result']['tools'] );
+	}
+
+	public function test_a_cursor_names_the_same_tools_whether_they_arrive_as_arrays_or_objects(): void {
+		$tools   = self::tools( 6 );
+		$objects = self::object_envelope( $tools )->result->tools;
+
+		$first = ToolsListPagination::page( $objects, null, 500 );
+		self::assertIsArray( $first );
+		self::assertIsString( $first['nextCursor'] );
+		self::assertIsArray( ToolsListPagination::page( $tools, $first['nextCursor'], 500 ), 'The cursor digest covers the tool names, not how the tools are represented.' );
+	}
+
+	public function test_an_invalid_cursor_on_an_object_envelope_is_refused(): void {
+		$request = self::request( self::tools_list_message( 5, 'garbage' ) );
+
+		$data = self::wire( self::with_budget( 500, static fn() => self::dispatch( new \WP_REST_Response( self::object_envelope( self::tools( 6 ), 5 ) ), $request ) ) );
+		self::assertSame( 5, $data['id'] );
+		self::assertSame( -32602, $data['error']['code'] );
+		self::assertArrayNotHasKey( 'result', $data );
+	}
+
+	/**
+	 * The envelope newer MCP adapters hand the REST layer: objects, not arrays.
+	 *
+	 * @param list<array<string, mixed>> $tools
+	 */
+	private static function object_envelope( array $tools, mixed $id = 1 ): \stdClass {
+		$envelope          = new \stdClass();
+		$envelope->jsonrpc = '2.0';
+		$envelope->id      = $id;
+		$envelope->result  = (object) [ 'tools' => array_map( static fn( array $tool ): \stdClass => json_decode( (string) wp_json_encode( $tool ) ), $tools ) ];
+		return $envelope;
+	}
+
+	/**
+	 * A schema record like the ones newer MCP adapters return: it serializes to a stdClass and
+	 * keeps nested records as objects until the response is encoded.
+	 *
+	 * @param array<string, mixed> $values
+	 */
+	private static function record( array $values ): \JsonSerializable {
+		return new class( $values ) implements \JsonSerializable {
+			/**
+			 * @param array<string, mixed> $values
+			 */
+			public function __construct( private array $values ) {}
+
+			public function jsonSerialize(): \stdClass {
+				$out = new \stdClass();
+				foreach ( $this->values as $key => $value ) {
+					$out->{$key} = $value;
+				}
+				return $out;
+			}
+		};
+	}
+
+	/**
+	 * The response as the client reads it from the wire.
+	 *
+	 * @return array<mixed>
+	 */
+	private static function wire( mixed $response ): array {
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		return (array) json_decode( (string) wp_json_encode( $response->get_data() ), true );
+	}
+
 	/**
 	 * Runs $callback with the page budget forced through the filter.
 	 *

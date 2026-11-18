@@ -13,6 +13,21 @@ development builds were never stable releases.
 
 ### Fixed
 
+- List and call every tool when another active plugin loads a newer
+  `wordpress/mcp-adapter` (0.7 or later; Gravity Forms bundles 0.7.1, for
+  example). From 0.7 the adapter hands its JSON-RPC answer to the REST layer as
+  an object, and the `tools/list` pagination and the tool schema repair only
+  read arrays. As a result:
+  - a large `full` surface went out as one page over the companion's 1 MiB read
+    cap, so the companion registered no WordPress tools
+    (`tools_list_response_truncated`);
+  - empty schemas reached clients as `[]`. A client that compiles tool output
+    schemas as JSON Schema 2020-12, where `items: []` is not a schema, refused
+    to call `stonewright-task-start`, `stonewright-context-bootstrap` and every
+    other tool whose output schema holds a permissive list.
+
+  Both now read arrays and objects. Objects stay objects, so an empty schema
+  still encodes as `{}`, and a cursor names the same tools either way.
 - Companion: connect on a `stonewright-reconnect` that brings the first site
   prompts after the AI client connected (the site was unreachable when the
   companion started). The MCP SDK sets up its prompt handlers on the first
