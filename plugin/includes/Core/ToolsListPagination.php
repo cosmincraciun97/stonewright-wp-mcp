@@ -24,7 +24,10 @@ namespace Stonewright\WpMcp\Core;
  * - a cursor carries an offset and a digest of the tool names, so a cursor from another surface
  *   (a profile change, a plugin activated in between) is answered with JSON-RPC -32602
  *   "Invalid cursor" and the client starts again from the first page;
- * - single messages and JSON-RPC batches are both handled, matching answers to requests by id.
+ * - single messages and JSON-RPC batches are both handled, matching answers to requests by id;
+ * - an answer may hold arrays (mcp-adapter 0.6) or objects: from 0.7 the adapter hands the REST
+ *   layer a stdClass with schema records inside, and any active plugin can bring that version.
+ *   Both are paged; objects stay objects, so an empty schema still encodes as {} and not [].
  *
  * A client that never sends a cursor gets the first page only. The essential surface and the
  * smaller profiles fit one page at the default budget.
@@ -106,20 +109,19 @@ final class ToolsListPagination {
 		}
 
 		$data = $result->get_data();
-		if ( ! is_array( $data ) ) {
-			return $result;
-		}
-
-		if ( array_is_list( $data ) ) {
+		if ( is_array( $data ) && array_is_list( $data ) ) {
 			foreach ( $data as $index => $envelope ) {
-				if ( is_array( $envelope ) && array_key_exists( 'id', $envelope ) && array_key_exists( self::id_key( $envelope['id'] ), $wanted ) ) {
-					$data[ $index ] = self::rewrite_envelope( $envelope, $wanted[ self::id_key( $envelope['id'] ) ], $budget );
+				$key = self::envelope_id_key( $envelope );
+				if ( null !== $key && array_key_exists( $key, $wanted ) ) {
+					$data[ $index ] = self::rewrite_envelope( $envelope, $wanted[ $key ], $budget );
 				}
 			}
-		} elseif ( array_key_exists( 'id', $data ) && array_key_exists( self::id_key( $data['id'] ), $wanted ) ) {
-			$data = self::rewrite_envelope( $data, $wanted[ self::id_key( $data['id'] ) ], $budget );
 		} else {
-			return $result;
+			$key = self::envelope_id_key( $data );
+			if ( null === $key || ! array_key_exists( $key, $wanted ) ) {
+				return $result;
+			}
+			$data = self::rewrite_envelope( $data, $wanted[ $key ], $budget );
 		}
 
 		$result->set_data( $data );
@@ -206,13 +208,43 @@ final class ToolsListPagination {
 	private static function digest( array $tools ): string {
 		$names = [];
 		foreach ( $tools as $tool ) {
-			if ( is_array( $tool ) && isset( $tool['name'] ) && is_string( $tool['name'] ) ) {
-				$names[] = $tool['name'];
-			} else {
-				$names[] = sha1( (string) wp_json_encode( $tool ) );
-			}
+			$value   = self::unwrap( $tool );
+			$name    = null === $value ? null : self::field( $value, 'name' );
+			$names[] = is_string( $name ) ? $name : sha1( (string) wp_json_encode( $tool ) );
 		}
 		return substr( sha1( implode( "\n", $names ) ), 0, 12 );
+	}
+
+	/**
+	 * An array or a plain object as it is; any other JSON-serializable value (a schema record of a
+	 * newer MCP adapter) as what it serializes to, one level deep. Nested values are left alone, so
+	 * empty schema objects keep encoding as {}.
+	 *
+	 * @return array<mixed>|\stdClass|null Null when the value is neither.
+	 */
+	private static function unwrap( mixed $value ): array|\stdClass|null {
+		if ( $value instanceof \JsonSerializable ) {
+			$value = $value->jsonSerialize();
+		}
+		return is_array( $value ) || $value instanceof \stdClass ? $value : null;
+	}
+
+	/**
+	 * @param array<mixed>|\stdClass $value
+	 */
+	private static function field( array|\stdClass $value, string $key ): mixed {
+		return is_array( $value ) ? ( $value[ $key ] ?? null ) : ( $value->{$key} ?? null );
+	}
+
+	/**
+	 * The id key of one JSON-RPC response, or null when it carries no id.
+	 */
+	private static function envelope_id_key( mixed $envelope ): ?string {
+		$value = self::unwrap( $envelope );
+		if ( null === $value || ! ( is_array( $value ) ? array_key_exists( 'id', $value ) : property_exists( $value, 'id' ) ) ) {
+			return null;
+		}
+		return self::id_key( self::field( $value, 'id' ) );
 	}
 
 	/**
@@ -229,20 +261,22 @@ final class ToolsListPagination {
 	}
 
 	/**
-	 * @param array<string, mixed> $envelope One JSON-RPC response.
-	 * @return array<string, mixed>
+	 * @param mixed $envelope One JSON-RPC response: an array, a plain object or a schema record.
+	 * @return mixed The response with its tools cut to the page; arrays stay arrays, objects become plain objects.
 	 */
-	private static function rewrite_envelope( array $envelope, ?string $cursor, int $budget ): array {
-		$result = $envelope['result'] ?? null;
-		if ( ! is_array( $result ) || ! isset( $result['tools'] ) || ! is_array( $result['tools'] ) ) {
+	private static function rewrite_envelope( mixed $envelope, ?string $cursor, int $budget ): mixed {
+		$value  = self::unwrap( $envelope );
+		$result = null === $value ? null : self::unwrap( self::field( $value, 'result' ) );
+		$tools  = null === $result ? null : self::field( $result, 'tools' );
+		if ( null === $value || ! is_array( $tools ) ) {
 			return $envelope;
 		}
 
-		$page = self::page( $result['tools'], $cursor, $budget );
+		$page = self::page( $tools, $cursor, $budget );
 		if ( $page instanceof \WP_Error ) {
 			return [
-				'jsonrpc' => $envelope['jsonrpc'] ?? '2.0',
-				'id'      => $envelope['id'] ?? null,
+				'jsonrpc' => self::field( $value, 'jsonrpc' ) ?? '2.0',
+				'id'      => self::field( $value, 'id' ),
 				'error'   => [
 					'code'    => self::ERROR_CODE,
 					'message' => self::ERROR_MESSAGE,
@@ -250,13 +284,27 @@ final class ToolsListPagination {
 			];
 		}
 
-		$result['tools'] = $page['tools'];
-		if ( null === $page['nextCursor'] ) {
+		if ( is_array( $result ) ) {
+			$result['tools'] = $page['tools'];
 			unset( $result['nextCursor'] );
+			if ( null !== $page['nextCursor'] ) {
+				$result['nextCursor'] = $page['nextCursor'];
+			}
 		} else {
-			$result['nextCursor'] = $page['nextCursor'];
+			$result        = clone $result;
+			$result->tools = $page['tools'];
+			unset( $result->nextCursor );
+			if ( null !== $page['nextCursor'] ) {
+				$result->nextCursor = $page['nextCursor'];
+			}
 		}
-		$envelope['result'] = $result;
-		return $envelope;
+
+		if ( is_array( $value ) ) {
+			$value['result'] = $result;
+			return $value;
+		}
+		$value         = clone $value;
+		$value->result = $result;
+		return $value;
 	}
 }

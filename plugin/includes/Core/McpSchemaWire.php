@@ -13,6 +13,11 @@ use stdClass;
  * empty PHP array encodes as `[]`, which is not a schema. This filter restores `{}` at every
  * schema position of the tool schemas in the JSON-RPC response of the Stonewright MCP routes.
  * Values such as `default`, `enum` and `examples` are data and are never changed.
+ *
+ * The response may hold arrays (mcp-adapter 0.6) or objects: from 0.7 the adapter hands the REST
+ * layer a stdClass with schema records inside, and any active plugin can bring that version. Both
+ * are repaired. A client that validates with JSON Schema 2020-12 refuses `items: []`, so a tool
+ * left unrepaired cannot be called.
  */
 final class McpSchemaWire {
 
@@ -51,7 +56,7 @@ final class McpSchemaWire {
 		}
 
 		$data = $response->get_data();
-		if ( is_array( $data ) ) {
+		if ( is_array( $data ) || is_object( $data ) ) {
 			$response->set_data( self::repair_response( $data ) );
 		}
 
@@ -61,52 +66,52 @@ final class McpSchemaWire {
 	/**
 	 * Restores `{}` in the tool schemas of a JSON-RPC response or of a batch of responses.
 	 *
-	 * @param mixed $data JSON-RPC response (array) or batch (list of arrays).
-	 * @return mixed
+	 * @param mixed $data JSON-RPC response or batch: arrays, plain objects or schema records.
+	 * @return mixed The response with its tool schemas repaired; anything else as it came.
 	 */
 	public static function repair_response( mixed $data ): mixed {
-		if ( ! is_array( $data ) ) {
+		$value = $data instanceof \JsonSerializable ? $data->jsonSerialize() : $data;
+
+		if ( is_array( $value ) && array_is_list( $value ) ) {
+			foreach ( $value as $index => $message ) {
+				$value[ $index ] = self::repair_response( $message );
+			}
+			return $value;
+		}
+		if ( ! is_array( $value ) && ! $value instanceof stdClass ) {
 			return $data;
 		}
 
-		if ( array_is_list( $data ) ) {
-			foreach ( $data as $index => $message ) {
-				$data[ $index ] = self::repair_response( $message );
-			}
-			return $data;
-		}
-
-		// The adapter may answer with objects (initialize does), so read the result either way.
-		$result = $data['result'] ?? null;
-		if ( $result instanceof stdClass ) {
-			if ( ! isset( $result->tools ) ) {
-				return $data;
-			}
-			$result = (array) $result;
-		}
-		if ( ! is_array( $result ) || ! isset( $result['tools'] ) || ! is_array( $result['tools'] ) ) {
+		// The adapter may answer with objects (initialize does, and from 0.7 every answer is one),
+		// so read the envelope, the result and the tools either way.
+		$result = self::node( is_array( $value ) ? ( $value['result'] ?? null ) : ( $value->result ?? null ) );
+		if ( null === $result || ! isset( $result['tools'] ) || ! is_array( $result['tools'] ) ) {
 			return $data;
 		}
 
 		$tools = $result['tools'];
 		foreach ( $tools as $index => $tool ) {
-			if ( $tool instanceof stdClass ) {
-				$tool = (array) $tool;
-			}
-			if ( ! is_array( $tool ) ) {
+			$tool = self::node( $tool );
+			if ( null === $tool ) {
 				continue;
 			}
 			foreach ( [ 'inputSchema', 'outputSchema' ] as $key ) {
-				if ( isset( $tool[ $key ] ) && ( is_array( $tool[ $key ] ) || $tool[ $key ] instanceof stdClass ) ) {
-					$tool[ $key ] = self::repair_schema( $tool[ $key ] );
+				$schema = isset( $tool[ $key ] ) ? self::node( $tool[ $key ] ) : null;
+				if ( null !== $schema ) {
+					$tool[ $key ] = self::repair_schema( $schema );
 				}
 			}
 			$tools[ $index ] = $tool;
 		}
 		$result['tools'] = $tools;
-		$data['result']  = $result;
 
-		return $data;
+		if ( is_array( $value ) ) {
+			$value['result'] = $result;
+			return $value;
+		}
+		$value         = clone $value;
+		$value->result = $result;
+		return $value;
 	}
 
 	/**
@@ -165,9 +170,15 @@ final class McpSchemaWire {
 	}
 
 	/**
+	 * A JSON object or array as a PHP array; a schema record of a newer adapter is read through
+	 * what it serializes to. Null for anything else.
+	 *
 	 * @return array<int|string, mixed>|null
 	 */
 	private static function node( mixed $value ): ?array {
+		if ( $value instanceof \JsonSerializable ) {
+			$value = $value->jsonSerialize();
+		}
 		if ( $value instanceof stdClass ) {
 			return (array) $value;
 		}

@@ -11,6 +11,34 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.19.1] - 2026-11-19
+
+### Fixed
+
+- List and call every tool when another active plugin loads a newer
+  `wordpress/mcp-adapter` (0.7 or later; Gravity Forms bundles 0.7.1, for
+  example). From 0.7 the adapter hands its JSON-RPC answer to the REST layer as
+  an object, and the `tools/list` pagination and the tool schema repair only
+  read arrays. As a result:
+  - a large `full` surface went out as one page over the companion's 1 MiB read
+    cap, so the companion registered no WordPress tools
+    (`tools_list_response_truncated`);
+  - empty schemas reached clients as `[]`. A client that compiles tool output
+    schemas as JSON Schema 2020-12, where `items: []` is not a schema, refused
+    to call `stonewright-task-start`, `stonewright-context-bootstrap` and every
+    other tool whose output schema holds a permissive list.
+
+  Both now read arrays and objects. Objects stay objects, so an empty schema
+  still encodes as `{}`, and a cursor names the same tools either way.
+- Companion: connect on a `stonewright-reconnect` that brings the first site
+  prompts after the AI client connected (the site was unreachable when the
+  companion started). The MCP SDK sets up its prompt handlers on the first
+  registered prompt and refuses to add the `prompts` capability once a transport
+  is connected, so the reconnect answered `Cannot register capabilities after
+  connecting to transport` and the status stayed `connected: false`, although the
+  WordPress tools it had just registered worked. The companion now sets up the
+  prompt handlers before any client connects.
+
 ## [1.0.0-beta.19] - 2026-11-06
 
 ### Added
@@ -324,26 +352,9 @@ development builds were never stable releases.
   incomplete entry from an earlier version is completed the next time one of
   these abilities writes it.
 
-## [1.0.0-beta.17.1] - 2026-10-19
-
-### Added
-
-- Show the suggested server name and the MCP server URL inside the setup steps
-  of each AI client on **Stonewright → Setup** as highlighted values with a
-  small copy button next to them. The hosted apps (Claude.ai, Claude Desktop,
-  ChatGPT), Claude Code, Codex, Zed, Gemini CLI, Other MCP clients and clients
-  without published steps get them; Claude Code also gets a copyable command for
-  signing in over SSH.
-- Add a closed **Work account managed by an admin?** section to the OAuth guides
-  on **Stonewright → Setup**. It says who can add a custom MCP server on
-  organization plans, lists the admin steps with copyable values, shows a
-  message for your admin with the server name and URL next to a **Copy message
-  for your admin** button, and, where the client allows it, shows how to connect
-  from your own computer instead, for example Claude Desktop with an Application
-  Password or Claude Code.
-
 ## Older releases
 
+- [1.0.0-beta.17.1](docs/releases/1.0.0-beta.17.1.md)
 - [1.0.0-beta.17](docs/releases/1.0.0-beta.17.md)
 - [1.0.0-beta.16.2](docs/releases/1.0.0-beta.16.2.md)
 - [1.0.0-beta.16.1](docs/releases/1.0.0-beta.16.1.md)
