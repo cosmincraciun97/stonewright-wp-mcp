@@ -139,6 +139,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}, {
 		instructions: companionInstructions(profile),
 	});
+	preparePromptHandlers(server);
 
 	const commonInput = {
 		cwd: z.string().optional(),
@@ -630,6 +631,21 @@ function pauseListNotifications(server: McpServer): () => void {
 		if (ownPrompt) Object.defineProperty(mutable, 'sendPromptListChanged', ownPrompt);
 		else delete mutable.sendPromptListChanged;
 	};
+}
+
+/**
+ * Site skills become prompts, and the first of them may only arrive on a reconnect after the AI
+ * client connected (the site was unreachable at startup). The SDK sets up its prompt handlers,
+ * and the `prompts` capability, on the first registerPrompt() and refuses to add a capability
+ * once a transport is connected, which failed that reconnect. Set the handlers up before any
+ * client connects: register a placeholder prompt and remove it again.
+ */
+function preparePromptHandlers(server: McpServer): void {
+	server.registerPrompt(
+		'stonewright-prompt-setup',
+		{ description: 'Sets up the prompt handlers; removed at once.' },
+		() => ({ messages: [] }),
+	).remove();
 }
 
 async function emitPromptListChanged(server: McpServer): Promise<boolean> {

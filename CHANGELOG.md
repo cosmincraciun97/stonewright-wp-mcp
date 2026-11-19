@@ -28,6 +28,14 @@ development builds were never stable releases.
 
   Both now read arrays and objects. Objects stay objects, so an empty schema
   still encodes as `{}`, and a cursor names the same tools either way.
+- Companion: connect on a `stonewright-reconnect` that brings the first site
+  prompts after the AI client connected (the site was unreachable when the
+  companion started). The MCP SDK sets up its prompt handlers on the first
+  registered prompt and refuses to add the `prompts` capability once a transport
+  is connected, so the reconnect answered `Cannot register capabilities after
+  connecting to transport` and the status stayed `connected: false`, although the
+  WordPress tools it had just registered worked. The companion now sets up the
+  prompt handlers before any client connects.
 
 ## [1.0.0-beta.19] - 2026-11-06
 

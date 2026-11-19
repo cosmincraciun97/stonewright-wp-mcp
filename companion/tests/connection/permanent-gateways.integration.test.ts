@@ -9,6 +9,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMcpServer } from '../../src/mcp-server.js';
 import { PERMANENT_GATEWAY_TOOL_NAMES } from '../../src/connection/index.js';
 import { NEVER_DISABLE_TOOL_NAMES, proxyToolNamesForProfile } from '../../src/wordpress-mcp.js';
@@ -1014,6 +1016,47 @@ describe('permanent gateways integration', () => {
 		expect(b.structuredContent?.ok).toBe(true);
 		expect(a.structuredContent?.error).toBeNull();
 		expect(typeof a.structuredContent?.connection_generation).toBe('number');
+	});
+
+	it('a reconnect after the client connected registers the site prompts and connects', async () => {
+		// The site is unreachable at startup, so no site prompt exists when the AI client connects.
+		const site = { up: false };
+		const upstream = stonewrightMcpFetch([
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-skills-get' },
+		]);
+		const fetchImpl = ((input: string | URL | Request, init?: RequestInit) => {
+			if (!site.up) return Promise.resolve(new Response('unavailable', { status: 503 }));
+			if (String(input).includes('/wp-json/stonewright/v1/skills')) {
+				return Promise.resolve(new Response(JSON.stringify({
+					skills: [{ slug: 'site-rules', title: 'Site rules', description: 'House rules.', content: 'Follow the house rules.' }],
+				}), { headers: { 'content-type': 'application/json' } }));
+			}
+			return upstream(input, init);
+		}) as typeof fetch;
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'plugin',
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl,
+		});
+		const client = new Client({ name: 'test-client', version: '1.0.0' });
+		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+		await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+		site.up = true;
+		const result = await toolHandler(server, 'stonewright-reconnect')?.({ reason: 'site is back', force_probe: true }) as {
+			structuredContent?: { ok?: boolean; error?: string | null };
+		};
+
+		expect(result.structuredContent?.error ?? null).toBeNull();
+		expect(result.structuredContent?.ok).toBe(true);
+		const prompts = await client.listPrompts();
+		expect(prompts.prompts.map((prompt) => prompt.name)).toContain('stonewright-skill-site-rules');
+		await client.close();
 	});
 
 	it('does not invent authentication or WordPress reachability in unprobed Direct mode', async () => {
