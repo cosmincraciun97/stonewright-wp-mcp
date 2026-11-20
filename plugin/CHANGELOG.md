@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `ThemeBuilder\TemplateStore::set_conditions()` no longer deletes the
+  `elementor_pro_theme_builder_conditions` option. For a template type it did
+  not map to a location (popup, product, product-archive), it deleted the whole
+  option, so Elementor Pro found no template for any location and every Theme
+  Builder template stopped applying on the front end. The read-modify-write was
+  also unserialised, so parallel calls could drop each other's entries. Now:
+  - with Elementor Pro or ProElements loaded, the rules are stored and
+    Elementor Pro's own `Conditions_Cache::regenerate()` rebuilds the option
+    from every template's stored rules, as its editor save does; a failing
+    rebuild answers `stonewright_theme_builder_cache_rebuild_failed` and leaves
+    the option alone;
+  - the call runs under an option lock (`theme_builder_conditions`, 30 s, waits
+    up to 2 s); without the lock nothing is stored and the answer is
+    `stonewright_theme_builder_conditions_busy`;
+  - without Elementor Pro only this template's entry changes, other entries and
+    the option's autoload setting are kept, and an option value that is not a
+    list is left as it is (`stonewright_theme_builder_cache_unreadable`);
+  - `error-404` and `product` are listed under `single` and `product-archive`
+    under `archive`, as Elementor Pro does; `popup` is listed under `popup`;
+    `loop-item` is not listed, as Elementor Pro never lists it (an entry older
+    versions wrote under `loop` is removed);
+  - a type with no known location is refused before anything is written
+    (`stonewright_theme_builder_location_unknown`); clearing rules never needs
+    the location.
+
+  `set_conditions()` now returns `true`, `false` (the stored rules differ from
+  the request) or a `\WP_Error`; `SetConditions` adds `previous_conditions` to
+  the error and `ApplyTemplate` adds `template_id` and `snapshot_id`. On a
+  template it did not create, `ApplyTemplate` drops the retry hint and points
+  to `stonewright/theme-builder-set-conditions` in `next_step`: the template is
+  already saved, and running the call again would write it again (twice in
+  `append` mode). A template it created is removed, as before. A site that was
+  affected is repaired by saving any template's conditions in the Elementor
+  editor, or by `wp elementor-pro theme-builder clear-conditions`.
+
 ## [1.0.0-beta.19.1] - 2026-11-19
 
 ### Fixed

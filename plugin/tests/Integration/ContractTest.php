@@ -985,6 +985,18 @@ final class ContractTest extends TestCase {
 				'post_name'    => 'contract-pattern',
 				'meta'         => [],
 			],
+			// A header template for the theme-builder-set-conditions fixture: its type has a known location.
+			9 => (object) [
+				'ID'           => 9,
+				'post_type'    => 'elementor_library',
+				'post_status'  => 'publish',
+				'post_title'   => 'Contract Header',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-header',
+				'meta'         => [ '_elementor_template_type' => 'header' ],
+			],
 		];
 	}
 }
