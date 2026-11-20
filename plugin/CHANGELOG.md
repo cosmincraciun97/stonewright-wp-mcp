@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.19.2] - 2026-11-20
+
+### Fixed
+
+- `ThemeBuilder\TemplateStore::set_conditions()` no longer deletes the
+  `elementor_pro_theme_builder_conditions` option. For a template type it did
+  not map to a location (popup, product, product-archive), it deleted the whole
+  option, so Elementor Pro found no template for any location and every Theme
+  Builder template stopped applying on the front end. The read-modify-write was
+  also unserialised, so parallel calls could drop each other's entries. Now:
+  - with Elementor Pro or ProElements loaded, the rules are stored and
+    Elementor Pro's own `Conditions_Cache::regenerate()` rebuilds the option
+    from every template's stored rules, as its editor save does; a failing
+    rebuild answers `stonewright_theme_builder_cache_rebuild_failed` and leaves
+    the option alone;
+  - the call runs under an option lock (`theme_builder_conditions`, 30 s, waits
+    up to 2 s); without the lock nothing is stored and the answer is
+    `stonewright_theme_builder_conditions_busy`;
+  - without Elementor Pro only this template's entry changes, other entries and
+    the option's autoload setting are kept, and an option value that is not a
+    list is left as it is (`stonewright_theme_builder_cache_unreadable`);
+  - `error-404` and `product` are listed under `single` and `product-archive`
+    under `archive`, as Elementor Pro does; `popup` is listed under `popup`;
+    `loop-item` is not listed, as Elementor Pro never lists it (an entry older
+    versions wrote under `loop` is removed);
+  - a type with no known location is refused before anything is written
+    (`stonewright_theme_builder_location_unknown`); clearing rules never needs
+    the location.
+
+  `set_conditions()` now returns `true`, `false` (the stored rules differ from
+  the request) or a `\WP_Error`; `SetConditions` adds `previous_conditions` to
+  the error and `ApplyTemplate` adds `template_id` and `snapshot_id`. On a
+  template it did not create, `ApplyTemplate` drops the retry hint and points
+  to `stonewright/theme-builder-set-conditions` in `next_step`: the template is
+  already saved, and running the call again would write it again (twice in
+  `append` mode). A template it created is removed, as before. A site that was
+  affected is repaired by saving any template's conditions in the Elementor
+  editor, or by `wp elementor-pro theme-builder clear-conditions`.
+
 ## [1.0.0-beta.19.1] - 2026-11-19
 
 ### Fixed
@@ -265,47 +304,9 @@
   refused as stale. Baselines stored by an earlier version are read once and
   moved.
 
-## [1.0.0-beta.17.2] - 2026-10-22
-
-### Fixed
-
-- Let a custom-code apply change an active WPCode PHP snippet on a site that also
-  has active CSS, JavaScript, HTML, universal, or text snippets. The check before
-  the write parses the active PHP snippets together, and it took every snippet
-  for PHP: the snippet list read the code type from a post meta WPCode does not
-  write. The apply then stopped with a syntax error in a snippet it did not
-  change. The list now takes each code type from WPCode, so the `list` action of
-  `custom-code-provider` reports CSS, JavaScript, and HTML snippets as such, and
-  only snippets of WPCode's `php` type are parsed.
-- Run that check in the custom-code dry run of a WPCode snippet too. A change the
-  apply would refuse is now refused before an approval is asked for, not after
-  the grant is issued.
-- Keep the backslashes in the code of a WPCode snippet when Stonewright saves it
-  or rolls it back. The code reached WordPress unslashed, so escape sequences
-  such as `\n` and `\u{00A0}`, regular expressions, and namespaced names lost
-  their backslashes. The readback then did not match and the write was rolled
-  back, and when the previous code had backslashes, the rollback lost them too.
-- Keep the success response of a write valid when `stonewright_fields` names a
-  path inside an object, such as `change_set.change_set_id`. The projection kept
-  only the named keys of that object and dropped the ones the output schema
-  requires, so WordPress answered "invalid output" for a write it had already
-  saved, and a client that retried could apply the change twice. Every object a
-  path passes through now keeps the keys its schema requires, and a projection
-  that would still not match the output schema returns the full response.
-- Store complete Custom Post Type UI entries from `cpt-register`,
-  `taxonomy-register` and `content-model-loop-grid-flow`. An entry held only the
-  few settings the call named, and CPT UI reads most settings without checking
-  that they exist: every request logged PHP warnings (`Undefined array key …`),
-  enough to fill a site's `error_log` with gigabytes, and each missing setting
-  counted as false, so a type registered as public came back on later requests
-  hidden from wp-admin, without permalinks and without a query var. A stored
-  entry now holds every setting CPT UI reads, with the values WordPress gives
-  the type the ability registers, and keeps the settings it already had. An
-  incomplete entry from an earlier version is completed the next time one of
-  these abilities writes it.
-
 ## Older releases
 
+- [1.0.0-beta.17.2](../docs/releases/1.0.0-beta.17.2.md)
 - [1.0.0-beta.17.1](../docs/releases/1.0.0-beta.17.1.md)
 - [1.0.0-beta.17](../docs/releases/1.0.0-beta.17.md)
 - [1.0.0-beta.16.2](../docs/releases/1.0.0-beta.16.2.md)

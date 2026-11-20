@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\ThemeBuilder;
 
 use Stonewright\WpMcp\Security\RescueGuard;
+use Stonewright\WpMcp\Support\OptionLock;
 
 /**
  * Thin facade over Elementor Theme Builder storage.
@@ -43,6 +44,13 @@ final class TemplateStore {
 		'error-404',
 		'loop-item',
 	];
+
+	private static ?object $pro_cache_override = null;
+
+	/** Stands in for Elementor Pro's conditions cache (an object with regenerate()); null goes back to the runtime lookup. For tests. */
+	public static function use_pro_conditions_cache( ?object $cache ): void {
+		self::$pro_cache_override = $cache;
+	}
 
 	public static function is_allowed_type( string $type ): bool {
 		return in_array( $type, self::ALLOWED_TYPES, true );
@@ -171,11 +179,16 @@ final class TemplateStore {
 	}
 
 	/**
-	 * Cached-conditions option key used by Elementor Pro / ProElements
-	 * theme-builder. Stonewright primes this cache after direct meta writes so
-	 * front-end requests can resolve header/footer templates immediately.
+	 * Option where Elementor Pro / ProElements keeps its list of display rules, `[ location => [ template_id =>
+	 * [ 'include/general', ... ] ] ]`. Elementor Pro reads it before it scans post meta, so a template whose meta is
+	 * right but which is missing from the list does not apply on the front end. With Elementor Pro loaded it rebuilds
+	 * the list itself; without it Stonewright changes only the entry of the template it wrote.
 	 */
 	private const PRO_CONDITIONS_CACHE_OPTION = 'elementor_pro_theme_builder_conditions';
+
+	private const CONDITIONS_LOCK         = 'theme_builder_conditions';
+	private const CONDITIONS_LOCK_SECONDS = 30;
+	private const CONDITIONS_LOCK_WAIT_MS = 2000;
 
 	/**
 	 * Replace the display conditions on a Theme Builder template.
@@ -186,17 +199,22 @@ final class TemplateStore {
 	 * to the slash-delimited string format Elementor Pro / ProElements
 	 * actually persists: `['include/general', 'exclude/archive/category/12']`.
 	 *
-	 * After writing the meta we also prime ProElements' cached conditions
-	 * option. Without that cache update, a template can exist with correct
-	 * meta yet never replace the theme header/footer on the front end.
+	 * After writing the meta the list of display rules that Elementor Pro keeps in an option is refreshed. With
+	 * Elementor Pro loaded, Elementor Pro rebuilds it from the stored rules of every template (what its own editor
+	 * does); without it, only this template's entry is changed. Calls take turns on a lock, so two of them do not
+	 * drop each other's entries.
 	 *
 	 * Pass an empty array to clear all conditions.
 	 *
-	 * Returns true only when the stored rules, read back, are the rules that were asked for.
+	 * Returns true when the stored rules, read back, are the rules that were asked for and the list was refreshed;
+	 * false when the stored rules differ from the request; a WP_Error when nothing was written (the location of the
+	 * template type is unknown, or another call holds the lock) or when the rules were stored but the list could not
+	 * be refreshed.
 	 *
 	 * @param array<int, array<string, mixed>|string> $conditions
+	 * @return true|false|\WP_Error
 	 */
-	public static function set_conditions( int $template_id, array $conditions ): bool {
+	public static function set_conditions( int $template_id, array $conditions ): bool|\WP_Error {
 		$serialised = [];
 		foreach ( $conditions as $condition ) {
 			$rule = self::serialise_condition( $condition );
@@ -205,15 +223,52 @@ final class TemplateStore {
 			}
 		}
 
-		if ( [] === $serialised ) {
-			delete_post_meta( $template_id, '_elementor_conditions' );
-		} else {
-			update_post_meta( $template_id, '_elementor_conditions', $serialised );
+		$pro_cache = self::pro_conditions_cache();
+		$location  = '';
+		if ( null === $pro_cache && [] !== $serialised ) {
+			$type     = self::get_type( $template_id );
+			$resolved = self::location_for_template_type( $type );
+			if ( null === $resolved ) {
+				return new \WP_Error(
+					'stonewright_theme_builder_location_unknown',
+					sprintf(
+						/* translators: %s: Elementor template type */
+						__( 'The display rules were not stored: Elementor Pro\'s Theme Builder is not loaded and Stonewright does not know the location of a "%s" template, so it cannot update Elementor Pro\'s list of display rules safely.', 'stonewright' ),
+						$type
+					),
+					[ 'status' => 409, 'template_id' => $template_id, 'template_type' => $type ]
+				);
+			}
+			$location = $resolved;
 		}
 
-		self::prime_conditions_cache( $template_id, $serialised );
+		if ( ! self::take_conditions_lock() ) {
+			return new \WP_Error(
+				'stonewright_theme_builder_conditions_busy',
+				__( 'Another call is changing Theme Builder display rules, so these rules were not stored.', 'stonewright' ),
+				[ 'status' => 409, 'retryable' => true, 'retry_after' => 1 ]
+			);
+		}
 
-		return self::get_conditions( $template_id ) === $serialised;
+		try {
+			if ( [] === $serialised ) {
+				delete_post_meta( $template_id, '_elementor_conditions' );
+			} else {
+				update_post_meta( $template_id, '_elementor_conditions', $serialised );
+			}
+
+			$refreshed = null !== $pro_cache
+				? self::rebuild_pro_cache( $pro_cache )
+				: self::update_cached_rules( $template_id, $serialised, $location );
+		} finally {
+			OptionLock::release( self::CONDITIONS_LOCK );
+		}
+
+		if ( self::get_conditions( $template_id ) !== $serialised ) {
+			return false;
+		}
+
+		return $refreshed instanceof \WP_Error ? $refreshed : true;
 	}
 
 	/**
@@ -268,53 +323,131 @@ final class TemplateStore {
 	}
 
 	/**
-	 * ProElements reads Theme Builder display rules from a precomputed option
-	 * before it scans post meta. Directly writing `_elementor_conditions` is
-	 * therefore not enough on many installs; prime that cache immediately so
-	 * header/footer templates take effect on the next request.
+	 * Waits up to two seconds for the lock that makes calls change the list of display rules one at a time.
+	 */
+	private static function take_conditions_lock(): bool {
+		$deadline = microtime( true ) + self::CONDITIONS_LOCK_WAIT_MS / 1000;
+		do {
+			if ( OptionLock::acquire( self::CONDITIONS_LOCK, self::CONDITIONS_LOCK_SECONDS ) ) {
+				return true;
+			}
+			usleep( 50000 );
+		} while ( microtime( true ) < $deadline );
+
+		return false;
+	}
+
+	/**
+	 * Has Elementor Pro rebuild its list of display rules from the stored rules of every template.
+	 */
+	private static function rebuild_pro_cache( object $pro_cache ): ?\WP_Error {
+		try {
+			$pro_cache->regenerate();
+		} catch ( \Throwable $e ) {
+			return new \WP_Error(
+				'stonewright_theme_builder_cache_rebuild_failed',
+				sprintf(
+					/* translators: %s: error message from Elementor Pro */
+					__( 'The display rules are stored, but Elementor Pro could not rebuild its list of display rules: %s. Saving any template\'s conditions in the Elementor editor, or running wp elementor-pro theme-builder clear-conditions, rebuilds it.', 'stonewright' ),
+					rtrim( $e->getMessage(), '.' )
+				),
+				[ 'status' => 500 ]
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Changes only this template's entry in Elementor Pro's list of display rules. Used when Elementor Pro is not
+	 * loaded, so it cannot rebuild the list. Other templates' entries are kept, and a value that is not a list is
+	 * left as it is.
 	 *
 	 * @param array<int, string> $serialised
 	 */
-	private static function prime_conditions_cache( int $template_id, array $serialised ): void {
+	private static function update_cached_rules( int $template_id, array $serialised, string $location ): ?\WP_Error {
 		$cache = get_option( self::PRO_CONDITIONS_CACHE_OPTION, [] );
-		if ( ! is_array( $cache ) ) {
+		if ( false === $cache || '' === $cache || null === $cache ) {
 			$cache = [];
 		}
+		if ( ! is_array( $cache ) ) {
+			return self::cache_unreadable_error();
+		}
 
-		foreach ( $cache as $location => $entries ) {
+		$updated = $cache;
+		foreach ( $updated as $key => $entries ) {
 			if ( is_array( $entries ) && array_key_exists( $template_id, $entries ) ) {
 				unset( $entries[ $template_id ] );
-				$cache[ $location ] = $entries;
+				$updated[ $key ] = $entries;
 			}
 		}
 
-		if ( [] === $serialised ) {
-			update_option( self::PRO_CONDITIONS_CACHE_OPTION, $cache, false );
-			return;
+		if ( [] !== $serialised && '' !== $location ) {
+			if ( isset( $updated[ $location ] ) && ! is_array( $updated[ $location ] ) ) {
+				return self::cache_unreadable_error();
+			}
+			$updated[ $location ][ $template_id ] = $serialised;
 		}
 
-		$location = self::location_for_template_type( self::get_type( $template_id ) );
-		if ( '' === $location ) {
-			delete_option( self::PRO_CONDITIONS_CACHE_OPTION );
-			return;
+		// No autoload argument: Elementor Pro's own save leaves it at the default too.
+		if ( $updated !== $cache ) {
+			update_option( self::PRO_CONDITIONS_CACHE_OPTION, $updated );
 		}
 
-		if ( ! isset( $cache[ $location ] ) || ! is_array( $cache[ $location ] ) ) {
-			$cache[ $location ] = [];
-		}
-		$cache[ $location ][ $template_id ] = $serialised;
-
-		update_option( self::PRO_CONDITIONS_CACHE_OPTION, $cache, false );
+		return null;
 	}
 
-	private static function location_for_template_type( string $type ): string {
+	private static function cache_unreadable_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_theme_builder_cache_unreadable',
+			__( 'The display rules are stored, but Elementor Pro\'s list of display rules holds a value Stonewright cannot read, so it was left as it is.', 'stonewright' ),
+			[ 'status' => 500 ]
+		);
+	}
+
+	/**
+	 * Where Elementor Pro lists a template type, mirroring the `location` of its document classes. An empty string
+	 * means Elementor Pro never lists the type; null means Stonewright does not know the type.
+	 */
+	private static function location_for_template_type( string $type ): ?string {
 		return match ( $type ) {
 			'header' => 'header',
 			'footer' => 'footer',
-			'single', 'single-post', 'single-page' => 'single',
-			'archive', 'search-results', 'error-404' => 'archive',
-			'loop-item' => 'loop',
-			default => '',
+			'single', 'single-post', 'single-page', 'error-404', 'product' => 'single',
+			'archive', 'search-results', 'product-archive' => 'archive',
+			'popup' => 'popup',
+			'loop-item' => '',
+			default => null,
 		};
+	}
+
+	/**
+	 * Elementor Pro's conditions cache object (the one its own editor save calls regenerate() on), or null when
+	 * Elementor Pro's Theme Builder is not loaded or any step of the lookup is missing.
+	 */
+	private static function pro_conditions_cache(): ?object {
+		if ( null !== self::$pro_cache_override ) {
+			return self::$pro_cache_override;
+		}
+
+		$plugin_class = 'ElementorPro\\Plugin';
+		if ( ! class_exists( $plugin_class, false ) || ! is_callable( [ $plugin_class, 'instance' ] ) ) {
+			return null;
+		}
+		$plugin = $plugin_class::instance();
+		if ( ! is_object( $plugin ) || ! isset( $plugin->modules_manager ) || ! is_object( $plugin->modules_manager ) || ! method_exists( $plugin->modules_manager, 'get_modules' ) ) {
+			return null;
+		}
+		$module = $plugin->modules_manager->get_modules( 'theme-builder' );
+		if ( ! is_object( $module ) || ! method_exists( $module, 'get_conditions_manager' ) ) {
+			return null;
+		}
+		$manager = $module->get_conditions_manager();
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'get_cache' ) ) {
+			return null;
+		}
+		$cache = $manager->get_cache();
+
+		return is_object( $cache ) && method_exists( $cache, 'regenerate' ) ? $cache : null;
 	}
 }
