@@ -35,7 +35,7 @@ final class SetConditions extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Replaces the display rules on an elementor_library template. Each rule is { type: include|exclude, name: <where>, sub_name?: <which>, sub_id?: <id> }.', 'stonewright' );
+		return __( 'Replaces the display rules on an elementor_library template, popups and product templates included. Each rule is { type: include|exclude, name: <where>, sub_name?: <which>, sub_id?: <id> }.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -116,7 +116,15 @@ final class SetConditions extends AbilityKernel {
 					return $this->backup_failed_error();
 				}
 				$previous = TemplateStore::get_conditions( $id );
-				if ( ! TemplateStore::set_conditions( $id, (array) $args['conditions'] ) ) {
+				$stored = TemplateStore::set_conditions( $id, (array) $args['conditions'] );
+				if ( $stored instanceof \WP_Error ) {
+					return new \WP_Error(
+						$stored->get_error_code(),
+						$stored->get_error_message(),
+						array_merge( (array) $stored->get_error_data(), [ 'previous_conditions' => $previous ] )
+					);
+				}
+				if ( ! $stored ) {
 					return $this->error(
 						'write_failed',
 						__( 'The display conditions were not stored as requested.', 'stonewright' ),

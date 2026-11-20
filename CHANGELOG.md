@@ -11,6 +11,31 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Setting display conditions on a popup, product or product-archive template
+  (`stonewright-theme-builder-set-conditions`, and
+  `stonewright-theme-builder-apply-template` on such a template) no longer
+  breaks the other Theme Builder templates. The call removed Elementor Pro's
+  cached list of display rules for every template, so headers, footers,
+  singles, archives and popups stopped applying on the front end while their
+  rules still looked right in the Elementor editor. Two calls at the same time
+  could also drop each other's entries. Now:
+  - with Elementor Pro or ProElements active, the call stores the rules and
+    lets Elementor Pro rebuild its list from every template's stored rules, as
+    its own editor does;
+  - calls take turns, and a call that does not get its turn within two seconds
+    stores no display rules and answers
+    `stonewright_theme_builder_conditions_busy`;
+  - without Elementor Pro, only that template's entry changes, a 404 template
+    is listed under `single` (as Elementor Pro does), and a template type
+    Stonewright does not know is refused before its rules are stored
+    (`stonewright_theme_builder_location_unknown`).
+
+  A site that was affected is repaired by saving any template's conditions in
+  the Elementor editor, or by running `wp elementor-pro theme-builder
+  clear-conditions`: both rebuild the list from the stored rules.
+
 ## [1.0.0-beta.19.1] - 2026-11-19
 
 ### Fixed

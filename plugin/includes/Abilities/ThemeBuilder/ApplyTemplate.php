@@ -220,7 +220,27 @@ final class ApplyTemplate extends AbilityKernel {
 		if ( ! ElementorData::write( $template_id, $tree, [ 'lock_owner' => $lock_owner ] ) ) {
 			return ElementorData::write_error_for_ability();
 		}
-		if ( ! TemplateStore::set_conditions( $template_id, $conditions ) ) {
+		$stored = TemplateStore::set_conditions( $template_id, $conditions );
+		if ( $stored instanceof \WP_Error ) {
+			$data = array_merge( (array) $stored->get_error_data(), [ 'template_id' => $template_id, 'snapshot_id' => $snapshot_id ] );
+			if ( $created ) {
+				// execute() removes a template this call created when store() fails, so running the call again is safe.
+				/* translators: %s: why the display conditions could not be applied */
+				$message = __( 'The template was not created: its display conditions could not be applied, so the new template is removed. %s', 'stonewright' );
+			} else {
+				// The tree is saved: running this call again would write it again (twice in append mode), so only the rules are redone.
+				unset( $data['retryable'], $data['retry_after'] );
+				$data['next_step'] = [
+					'tool'        => 'stonewright/theme-builder-set-conditions',
+					'template_id' => $template_id,
+					'why'         => 'The template is saved; apply its display conditions with this tool instead of running apply-template again.',
+				];
+				/* translators: %s: why the display conditions could not be applied */
+				$message = __( 'The template was saved, but its display conditions could not be applied. %s Apply them with stonewright-theme-builder-set-conditions.', 'stonewright' );
+			}
+			return new \WP_Error( $stored->get_error_code(), sprintf( $message, $stored->get_error_message() ), $data );
+		}
+		if ( ! $stored ) {
 			return $this->error(
 				'write_failed',
 				__( 'The template was saved, but its display conditions were not stored as requested.', 'stonewright' ),
